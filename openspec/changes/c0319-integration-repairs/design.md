@@ -225,3 +225,14 @@ existing warning to the exact severity expectation; preserve every severity,
 waiver and refusal. Record the actual backend evidence/import review and reused
 registered format notes in the annex under the required contributor identity.
 No new source fact, private material or native Altium acceptance is asserted.
+
+## CM5 native9 downgrade CI diagnostic
+
+CI41611925152 native9 returned different for CM5_MINIMA_3 and its aggregate probes. First preserve the declared corpus source and conversion report, identify unexplained equivalence findings separately from actual project DRC/ERC type deltas, and retain complete native logs. A repair must address the demonstrated source of difference with an authored control and focused native9/10 validation. Existing expected types/probe outcomes, loss ledger and strict assertions remain unchanged; no vendor CAD enters core and no unknown difference becomes an acceptance waiver.
+
+CM5 cause established before native execution: the sole unexplained difference is component-missing M705, an explicitly pinless off-board purchasing symbol absent from the PCB. The API read-back preserves c0334 source BOM identities but conversion preparation did not, producing a false addition. Coordinator approved a private shared API helper reusing the existing checked preserve traversal before writing, so the typed source identity reaches the writer/census. Keep SourceProject paths/files/rules/issues/evidence unchanged, retain ambiguous-unit refusal and Altium unsupported-BOM refusal, and add no convert-to-importer dependency or import-graph exception. Native CAD output maps and original probe expectations must remain unchanged.
+
+
+### Historical release records and current continuation tasks
+
+The historical v0.4/v0.5/v0.6 release and native-acceptance claims remain unchanged. Their existing guards continue comparing current task files: append explicitly dated current tracking for newly opened tasks rather than pretending they existed at the old release cut. A numeric continuation ID may have one lowercase letter suffix; it must remain a distinct task, including its checked/open state, and an unnamed open continuation must fail. Negative guards use authored temporary task files when their purpose is independent of a real task later completing. No checker exemption, freeze/graduation change or native evidence promotion is introduced.

@@ -49,11 +49,32 @@ def library_footprint(node: Node) -> Node:
     """A footprint node with only the properties of ``LIBRARY_PROPERTIES``: a part's own properties, its
     path and KiCad's sheet fields are the instance's, not the footprint's."""
 
+    names = [child.atoms()[0].value for child in node.nodes("property") if child.atoms()]
+
     def kept(child: Node | Atom) -> bool:
         if not isinstance(child, Node) or child.name != "property":
             return True
         atoms = child.atoms()
-        return bool(atoms) and atoms[0].value.casefold() in LIBRARY_PROPERTIES
+        if not atoms:
+            return False
+        name = atoms[0].value
+        if name.casefold() in LIBRARY_PROPERTIES:
+            return True
+        if len(atoms) != 2 or atoms[1].value.isprintable():
+            return False
+        value = atoms[1].value
+        # Native LF text is representable by the existing footprint model, but
+        # deliberately outside Part.properties. Keep it native-owned (c0358).
+        if (
+            not name
+            or name != name.strip()
+            or not name.isprintable()
+            or name.casefold().startswith(("fenolite.", "ki_"))
+            or not all(line.isprintable() for line in value.split("\n"))
+            or names.count(name) != 1
+        ):
+            raise FormatError("unsupported native custom property text", locator=name)
+        return True
 
     return node.with_children(tuple(child for child in node.children if kept(child)))
 

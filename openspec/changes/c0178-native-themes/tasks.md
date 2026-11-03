@@ -57,3 +57,20 @@
 
 No user-owned project/theme comparison was supplied. Local KiCad 9.0.2 is not the maintainer review required by task 3.4.
 See `docs/evidence/altium-native-acceptance.md`, "Continuation inventory", for existing reports and exact remaining dependencies. No native, paid-agent or personal-review outcome is claimed.
+
+## Maintainer review source choice — 2026-11-03
+
+The maintainer explicitly selected “Preparar exemplos autorais do Fenolite para minha revisão”
+for this pending visual comparison. Original Fenolite-authored examples are the authorized review
+inputs. This is source selection only: prepare source-bound CAD/viewer comparisons and retain
+the complete original review checklist. The maintainer has not yet reviewed or approved those
+comparisons; the human-review task remains unchecked. Preparation and evidence requirements
+are recorded in `docs/evidence/native-viewer-maintainer-review-plan.md`.
+
+- [ ] 3.4a Prepare an external source-bound Fenolite-authored comparison packet with actual viewer export, original input hashes, criterion checklist and precise native handoff. Keep missing native captures/theme creation/F0.5 measurements explicit; source choice is not human acceptance. Proof: export dry-run/exact confirmation, fixture provenance and packet manifest. The parent human-review task stays open.
+
+  - 2026-11-03 partial preparation: source bfda2ac4 has local standalone candidate/default exports and exact native handoff;39focused controls passed. The real KiCad-written authored theme (c0178) and nativeF0.5 drawing (c0180) are missing, so this preparation and parent human-review task remain open. No UI/configuration or native outcome was invented.
+
+- [x] 3.4b Investigate official installed KiCad10 CLI/IPC headless theme persistence without GUI, user configuration changes or GPL imports. If unsupported, record version-bounded primary facts, actual CLI discovery and exact native GUI handoff; do not manufacture a KiCad-written file or tick3.4/3.4a. Proof: CLI version/help receipt, primary API/manual references and strict spec validation.
+
+  - 2026-11-03: four isolated KiCad10.0.6 CLI discovery subprocesses exited0. Official primary IPC scope confirms9/10 needs GUI; no supported headless theme-persistence path was established. No GPL import, native UI, theme file, themed viewer export or maintainer outcome is claimed. Exact GUI creation/automatic-save/capture handoff prepared externally. S-1298 facts;3.4/3.4a remain open.

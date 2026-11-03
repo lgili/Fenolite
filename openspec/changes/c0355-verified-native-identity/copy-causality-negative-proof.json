@@ -1,0 +1,231 @@
+{
+  "authored_field_order_controls": [
+    {
+      "exact_copper_svg_sha256": "fe313881122da6912840d2a268bb76d41cca0f91b992b27b6fac8d5fb2fd98e2",
+      "identity_or_geometry_mutation": false,
+      "input_sha256": "9f15c31ae2d9d5fe14b391550ec8d3c09be0f30b770ae8434fcaa06a3c55d58e",
+      "native_version": "9.0.9",
+      "only_svg_title_clock_normalized": true,
+      "pad_fields_permuted": 2,
+      "permuted_sha256": "43378782bd121192fd05736fb64b6bdc50bf5e55be551ed650affbe40a5508de",
+      "raw_svg_sha256": [
+        "de3ef0c733d062f2bc2d914efad04013d701106b422a1f22c03d726f4d43eb30",
+        "a38499ecd60838c0ad7fcd6ec90e241efe68834c3dbc6f82df1772dde7b13505"
+      ],
+      "receipt_sha256": "f6824512e4d8e4bbc90b04e29d76d7aa38fef9c9316f93705e84b694b5f9854d",
+      "refill_claimed": false,
+      "style": "circle"
+    },
+    {
+      "exact_copper_svg_sha256": "70e92fc416d379e788b8526c0c96cae86b9efd6613b4830814e73fd71ccfb8c8",
+      "identity_or_geometry_mutation": false,
+      "input_sha256": "cacd9fc7127cd4f5e7c08a3346a880ac628e9a5ec884b435009e2e9edd1725a0",
+      "native_version": "9.0.9",
+      "only_svg_title_clock_normalized": true,
+      "pad_fields_permuted": 2,
+      "permuted_sha256": "e9ecb4f623f3d402444eeba3efeb79c1a5c6b888fed8af72f9c7fb4e7597c251",
+      "raw_svg_sha256": [
+        "bbf4048790d59e4ce9b433e00abc1612d8c5bdf8b836fb14a2e44b9baa7078a9",
+        "6cdb9b63814c32b490c91c006e4f975fde548c7219da892a1167f566c4e7275e"
+      ],
+      "receipt_sha256": "ebd4301652513436a95d717bf43c7c86d7060ddb80eaa23dc9fca1e8011162f6",
+      "refill_claimed": false,
+      "style": "roundrect"
+    },
+    {
+      "exact_copper_svg_sha256": "d03dbefd2a967e60a9f360e0451552c874d4fc34b28d3ccea61fbf486929989a",
+      "identity_or_geometry_mutation": false,
+      "input_sha256": "a10f4054fe2631f8f669cbc17aafde50f191d584d67f9c2cecbfd9b782ca349d",
+      "native_version": "9.0.9",
+      "only_svg_title_clock_normalized": true,
+      "pad_fields_permuted": 2,
+      "permuted_sha256": "280d61ee71748791039451c520f2487a4a7288215c90ca00208da0458a369cbd",
+      "raw_svg_sha256": [
+        "bf4d3980db334a5c72f48ff199264ad05fdab36951ec078582694645da0606d4",
+        "a32c9a7fb77d50b8dfdfedbf18bb892ed20bbc32e7bdbec97fb87d67bcd541ae"
+      ],
+      "receipt_sha256": "1d7b92b634f49d9ea870e1bd30dd3d236b8c34c86930b1220d217c411c404156",
+      "refill_claimed": false,
+      "style": "through-hole"
+    },
+    {
+      "exact_copper_svg_sha256": "f1440e575605e51762e1fbfcf9b25913232b3ea6197e3bd4946b608dd709162f",
+      "identity_or_geometry_mutation": false,
+      "input_sha256": "9e4ed493ae4fc1d52a70352decd65a6a4d45326257af51d0ea81c7264bed7762",
+      "native_version": "9.0.9",
+      "only_svg_title_clock_normalized": true,
+      "pad_fields_permuted": 2,
+      "permuted_sha256": "7c33c882d1027584bc0fc3bae4c2d09ad43ec5313eb0aecc29e20ba3a24809e3",
+      "raw_svg_sha256": [
+        "ae288202ae7c7ed9eeb105c3859a76cdafdf44f6db84dbe2ea54d52629e1014b",
+        "ae288202ae7c7ed9eeb105c3859a76cdafdf44f6db84dbe2ea54d52629e1014b"
+      ],
+      "receipt_sha256": "2588703e98651f25151dcc8e9c15cbcb5d7b91c26c6fb80adbd532c3679ba8aa",
+      "refill_claimed": false,
+      "style": "chamfered"
+    },
+    {
+      "exact_copper_svg_sha256": "6266007573d0de4783930000e5f03c2260ae63359f60453150eafa0169088f88",
+      "exact_derived_regions": 2,
+      "exact_derived_sha256": "0bc42a2c68a8b5a08495919748aed3a8950e6f30ec0b1add82675cd16bf589db",
+      "identity_or_geometry_mutation": false,
+      "input_sha256": "74ecc11a6065854cc817ee3e29f425869b025119f5197eebecf47725df55d75c",
+      "native_version": "10.0.6",
+      "only_svg_title_clock_normalized": true,
+      "pad_fields_permuted": 2,
+      "permuted_sha256": "7d75fb99c1e56aa21a8debb8d067bee85a3665fe6706f96e71613b4b54e47930",
+      "raw_svg_sha256": [
+        "3978919a55573689051b9ab28205cb1a355d19c01c8712a56c070a695c2e5609",
+        "3978919a55573689051b9ab28205cb1a355d19c01c8712a56c070a695c2e5609"
+      ],
+      "receipt_sha256": "d8165cf72e477dc2358897df795587d78df571e00a5d7ef331563c1e5ad95735",
+      "refill_claimed": true,
+      "style": "circle"
+    },
+    {
+      "exact_copper_svg_sha256": "82fdfd0a05dc03d6e38e10c8d7df069f5f928fcc13d37ec0fd0305c51ab4869d",
+      "exact_derived_regions": 2,
+      "exact_derived_sha256": "0d5dc05bcaf4cded18c47344c049950758ad9791ed931a3857c6511ee3c96241",
+      "identity_or_geometry_mutation": false,
+      "input_sha256": "f9fd2b9056a1993511724607ce3064dfe5a08393696a3e50b81160969d9d0f14",
+      "native_version": "10.0.6",
+      "only_svg_title_clock_normalized": true,
+      "pad_fields_permuted": 2,
+      "permuted_sha256": "c524eca9839b35b42fabddfb355bbb3e5c488de330f333baf8e1c5b0fc7f5bdb",
+      "raw_svg_sha256": [
+        "c7fad99ee94a9575fc7ea92a1c8edbc583eec5e554fffc9d7b6cd6228506baf9",
+        "2dfa0ae4aade25bbbee7ac7cdd4cfdf1debefad1f0d4e8ddc77982e69437db4e"
+      ],
+      "receipt_sha256": "b31e81511ecfad4a668a0421b59afc28619ba3fda961fd26253c3ad3ff112512",
+      "refill_claimed": true,
+      "style": "roundrect"
+    },
+    {
+      "exact_copper_svg_sha256": "15b7880dafff7d9a383d04c12a2902ce436e0b4b3cf48b80cd6716405a8f638a",
+      "exact_derived_regions": 2,
+      "exact_derived_sha256": "0bc42a2c68a8b5a08495919748aed3a8950e6f30ec0b1add82675cd16bf589db",
+      "identity_or_geometry_mutation": false,
+      "input_sha256": "bb60a8f620c0775e8b0613b68eef9d0eea36d1cff5e6b76384895d937b8198e8",
+      "native_version": "10.0.6",
+      "only_svg_title_clock_normalized": true,
+      "pad_fields_permuted": 2,
+      "permuted_sha256": "ade79f947fd54a61f2b573f683b49f868bf94a715484d3e758fac5c79ba1f0ea",
+      "raw_svg_sha256": [
+        "5e3334aa3a3b3295c95f2043deb5d76e3788852faffde20f0c471d160423fac4",
+        "e557c1433ff0f7b6e1e49a85439fe5ef0016c0178f1a5935d0ba904d055187e9"
+      ],
+      "receipt_sha256": "82ac26111de3e613d83cdacc4846e1e6e6be98ca281c93dde9eaf8ea47d5ece9",
+      "refill_claimed": true,
+      "style": "through-hole"
+    },
+    {
+      "exact_copper_svg_sha256": "f0f48c491c65f449ca292e3d8bd243f56f381086d7c29e4f4457bd88281ba993",
+      "exact_derived_regions": 2,
+      "exact_derived_sha256": "c4d22fc64c3865b6eb9bf7acae2fe13ae54836d4a8323d7a5c3118d8eb8a4933",
+      "identity_or_geometry_mutation": false,
+      "input_sha256": "b01f86db3c8d857efb6e2e89c21b6261747112aae2bd985427a96519caef21ff",
+      "native_version": "10.0.6",
+      "only_svg_title_clock_normalized": true,
+      "pad_fields_permuted": 2,
+      "permuted_sha256": "7e536320105fc7baca7c778df33bf51db7d99a5e3598a58ad3f9e220c5a2ad6d",
+      "raw_svg_sha256": [
+        "7fc953ffd303a3cccb2c2442ce0a97bb710f210e9fb2840125edb1a7b1927097",
+        "bc9e1a95eca16aa3c00921243d3b737c1563e524b3e8321eaa3b6542ead02eae"
+      ],
+      "receipt_sha256": "c8e5b564e80c82965cd044757bdbfc83d3affb2890be099f5297d041d3fd2358",
+      "refill_claimed": true,
+      "style": "chamfered"
+    }
+  ],
+  "collision_audit": {
+    "NOTE": "Post-hoc audit of exploratory v1, not a pre-native production eligibility proof. All actual common IDs were disjoint from untouched IDs.",
+    "sides": {
+      "a": {
+        "collisions": 0,
+        "common_target_ids": 1554,
+        "unchanged_other_ids": 1239
+      },
+      "b": {
+        "collisions": 0,
+        "common_target_ids": 1554,
+        "unchanged_other_ids": 1310
+      }
+    }
+  },
+  "critical_scope": "Exploratory COPY only, NOT a production-qualified proof or native acceptance. Context/unknown/editable/config/collision negative coverage and owner review remain pending.",
+  "exploratory_copy_result": {
+    "DIAGNOSTIC_ONLY_NO_PRODUCTION_OR_RAW_EQUALITY_CLAIM": true,
+    "all_pair_net_order_crossings": {
+      "chamfer": 7,
+      "chamfer_ratio": 7,
+      "drill": 27,
+      "layers": 88,
+      "remove_unused_layers": 88,
+      "roundrect_rratio": 183
+    },
+    "common_identity_fields": 1554,
+    "complete_multiplicity_groups": [
+      {
+        "count": 2,
+        "key_sha256": "ea8da98d04f77525fc661d29187c9d5b345e96a873f2e7b2d602174a7dbad219",
+        "kind": "pad"
+      }
+    ],
+    "complete_regenerated_geometry_equal": false,
+    "core_commit": "40d27f47dcd0094f99e5378387b28ba09f97d04a",
+    "correspondence_sha256": "e82e2b31c2fbed9f6a23df4317b832a4c135731608ae3586b4d47351b026e00d",
+    "native_version": "10.0.6",
+    "production_runtime_admission_claimed": false,
+    "sides": {
+      "a": {
+        "closure": {
+          "aliased_ids": 16,
+          "definition_fields": 1554,
+          "definition_kinds": {
+            "pad": 428,
+            "segment": 943,
+            "via": 183
+          },
+          "distinct_ids": 1538,
+          "external_references": 0,
+          "physical_correspondence_or_runtime_admission_claimed": false
+        },
+        "derived_regions": 289,
+        "exact_derived_geometry_sha256": "b353550fba23c1be5298babbaf015cefe80e1188290c96861b51dcd7c58643da",
+        "native_board_sha256": "26a876a86527d374506cd15504ff9a4d616c0e659d9d92851adcd95ec011304e",
+        "one_native_run": true,
+        "ordinary_fill_ast_sha256": "7c9e9900963b6d31da7892fd8af33901d35b73c1d1ec846afbb013ea3d9da894",
+        "ordinary_fill_count": 35,
+        "ordinary_fills_preserved": true,
+        "original_board_sha256": "535dbe212f43a8bab12b23277e176a94ac9694177258af2981c0e7b08e4b7252",
+        "prepared_board_sha256": "8762b0f1ff84c6e9019e6bb77cda34ddecb5e782efbbea2caac0e27327a3906e"
+      },
+      "b": {
+        "closure": {
+          "aliased_ids": 0,
+          "definition_fields": 1554,
+          "definition_kinds": {
+            "pad": 428,
+            "segment": 943,
+            "via": 183
+          },
+          "distinct_ids": 1554,
+          "external_references": 0,
+          "physical_correspondence_or_runtime_admission_claimed": false
+        },
+        "derived_regions": 293,
+        "exact_derived_geometry_sha256": "1f980dffa6a0e24c33dfc5bdaba64186afa9de131af68bb8ce8f749b89037ef3",
+        "native_board_sha256": "3c8cff64b92fed7019476502904c9ad1a1aa8738fe02fc16b303f2371a9758a1",
+        "one_native_run": true,
+        "ordinary_fill_ast_sha256": "2e38e77b22c314a449e91fafed92a43826ac6aa403ae6a8acb6cf58239fbaf5d",
+        "ordinary_fill_count": 0,
+        "ordinary_fills_preserved": true,
+        "original_board_sha256": "43d3b31c9485f96852eaa03e8d7b09e6fb1de453c325e7f41a395b9954dec8f9",
+        "prepared_board_sha256": "2c02d26fc68debef484e6798ef9040fccfc64ce2801a7a8aa4f504821f6a09e4"
+      }
+    }
+  },
+  "observed_failure": "Even common IDs and object order do not make Royal derived geometry equal while normal fills remain35/0. Do not implement a passing normalizer or remove/seed normal fills.",
+  "production_runtime_added": false,
+  "role_guard": "Only root via/segment/arc and direct footprint pad own electrical identities; nested polygon arcs have no electrical ID. Every nested field remains scanned for affected references."
+}

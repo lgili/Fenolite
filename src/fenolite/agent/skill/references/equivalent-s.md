@@ -60,4 +60,15 @@ managed-frame precedence; no ambient worksheet or library search occurs.
 
 For `fenolite import`, an explicit `--kicad-version` selects emitted assets and verification; omission keeps the supported source board major. Target9 still refuses preserved KiCad10-only project settings, even with `--allow-lossy`; changing targets requires a new reviewed plan.
 
+Only when the source reader leaves native rules/clauses opaque, the entire custom-rule program stays beside the declared project as
+`native/project.kicad_dru` with `native/project.rules-context.json`. This is an immutable imported
+context: the closed receipt binds the complete actual lowered model, source inputs and target.
+Fully modelled rule programs retain their existing editable DSL conversion and do not activate this capsule.
+The native-only preservation mechanism remains `INFERRED`; it grants no DRC-clean claim.
+Only the tool-version metadata value is neutral for package-version changes; CAD fields, schema,
+IDs and every rule remain bound. Any model edit requires a new reviewed native-rule import;
+unsupported native selector profiles refuse. Do not delete or edit the receipt to hide a finding.
+The exact DRU bytes/order/comments are retained, but custom-rule semantic coverage remains
+explicitly unjudged by level6. The two inputs also invalidate an already staged plan if changed.
+
 Read next: `checks`, `files`.

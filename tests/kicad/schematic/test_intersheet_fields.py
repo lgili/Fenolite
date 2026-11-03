@@ -190,9 +190,12 @@ def test_typed_reference_pose_preserves_the_complete_native_graph() -> None:
         if node.tag.endswith("}text") and "".join(node.itertext()).startswith("NATIVE_FIELD[")
     ]
     assert len(moved_texts) == len(rendered)
-    for before_text, after_text in zip(rendered, moved_texts, strict=True):
-        assert Decimal(after_text.attrib["x"]) - Decimal(before_text.attrib["x"]) == 5
-        assert Decimal(after_text.attrib["y"]) - Decimal(before_text.attrib["y"]) == 7
+    root_svg = "svg/" + name.removesuffix(".kicad_sch") + ".svg"
+    fields = _intersheet.field_poses(result.outputs, "NATIVE_FIELD[")
+    assert fields and {key[0] for key in fields} == {root_svg}
+    expected = _intersheet.shift_field_poses(fields, {root_svg: (Decimal(5), Decimal(7))})
+    assert _intersheet.field_poses(shifted.outputs, "NATIVE_FIELD[") == expected
+    assert _erc.netlist(cli, name, moved_output.files) == before
 
 
 def test_path_presentation_matches_all_native_repeated_reference_texts(tmp_path, record_property) -> None:

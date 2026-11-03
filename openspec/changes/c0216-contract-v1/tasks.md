@@ -78,3 +78,9 @@ All original57 names and the separately approved native-project method remain
 kept; no rename/drop or CLIv1 activation was requested. Root validation remains
 separate from the human decisions. The surface's '*' row is global arguments,
 not an additional command; visible counts exclude it.
+
+- [x] 1.5b Make surface metadata for zero-or-more positional arguments independent of argparse's interpreter-specific internal required flag. Preserve actual parsing, required options and one-or-more positional requirements; do not regenerate/relax approved snapshots. Proof: authored controls and complete surface tests on Python3.11 and the current interpreter, plus existing registry snapshot match.
+
+CI41611925152 Python3.11 job125835695056 exposed two required-added false positives (blocks target/family targets). Direct Python3.11 parsing accepts the omitted zero-or-more arguments despite action.required=True. Other interpreter jobs are separate evidence; no blanket compatibility success is inferred.
+
+Task1.5b proof: authored forced-internal-flag RED reproduced the drift (1failed/2passed). After metadata-only correction the complete55 surface tests pass on Python3.11.13 and Python3.13.7, including the unchanged approved registry snapshot; required options and plus-arity positionals remain required. Focused pyright0, Ruff/format pass. No parser, public name/type/default, snapshot or CLI contract version changed.

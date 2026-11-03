@@ -133,3 +133,7 @@
 
 - **Fonts.** The browser draws a named font only when the machine has it. Without Times New Roman, texts fall back to a serif font and are a little wider.
 - **Shapes that are Fenolite's.** A power port, a port, an entry or a title block may not match Altium to the pixel. The notes of every schematic scene say which drawings are Fenolite's.
+
+## Authored comparison preparation, 2026-11-03
+
+The maintainer selected Fenolite-authored inputs for the pending comparison, without approving any rendering. Preparation is external and source-bound: no CAD UI or configuration change, no fabricated native image/version, no human-review completion. Native Designer24.5.2.23, an actual KiCad-written authored theme and DraftsmanF0.5 observations remain separately measured where applicable. See docs/evidence/native-viewer-maintainer-review-plan.md for the required criteria.

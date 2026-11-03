@@ -10,7 +10,7 @@ they are on disk, and ``fenolite sync --to-source`` copies a drawing edited in K
 ``schematic.toml``. Build it with ``fenolite build examples/drawn/design.py --out build/drawn --confirm``.
 """
 
-from fenolite.dsl import Design, Module, Net, Part, connect, mm
+from fenolite.dsl import Design, Module, Net, Part, connect, mm, no_connect
 
 design = Design("drawn")
 design.board(mm(50), mm(30))
@@ -24,9 +24,10 @@ child.add(r2, r3)
 design.add(u1, r1, child)
 
 connect(Net("SDA"), u1[17], r1[1])
-connect(Net("VCC"), u1[9], r1[2], r3[2])
+connect(Net("VCC"), u1[9], r1[2])
 connect(Net("IN"), u1[3], r2[1])
 connect(Net("FB"), r2[2], r3[1])
-connect(Net("GND"), u1[10])
+connect(Net("GND"), u1[10], r3[2])
+no_connect(u1[11], u1[12])
 
 design.load_schematic("schematic.toml")

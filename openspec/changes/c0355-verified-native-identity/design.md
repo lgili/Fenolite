@@ -139,3 +139,16 @@ than selecting a candidate. Actual native9/10 board loads and native10 save pres
 values where supported. A fresh Royal import must prove all428 physical pads' exact annotation
 sequences, while its unresolved L7 result remains visible. Identity/order implementation still
 needs its own0.2 review and independent controls after this preservation iteration.
+
+## Numeric-netcode diagnostic addendum (no production normalization)
+
+After the common-ID COPY remained unequal, coordinator approved a separate authored structural/native investigation. Numeric declaration and reference roles must be recognized by structural occurrence, never interned Atom identity. Explicit NO_NET0 remains0. Numeric code bijection must use complete physical electrical partitions, not name spelling (Royal raw source slash names and generated stored escapes differ). Names/classes/rules are never renamed. Missing/duplicate/conflicting declaration, unresolved reference, ambiguous partition or affected unknown/outside/JSON reference refuses. Coordinates/enums/pad numbers can only be exempted through explicit known nonreference structural roles with authored proof; do not globally exempt equal integers. Start with complete authored code/reference controls and native baseline, table-order-only and renumber-only cases. Return measured results to coordinator BEFORE a Royal COPY transformation. Original35/0ordinary caches, editable state and opaque content stay intact. No normalizer, equality waiver or production qualification is authorized.
+
+
+### Bounded numeric-role inventory (test-only)
+
+The coordinator-approved inventory is not an eligibility certificate. Full structural paths, closed field shapes/types and independent format/native facts are required per descriptor. Numeric heads in the layer table use a separate declared namespace; unknown object fields are never admitted by a familiar child name. Every project key is inventoried, including zero/false, with literal-key/array-index distinctions. Unknown reference/configuration paths block any future renumbering.
+
+The S-1299 measured silkscreen cache descriptor applies only to direct gr_text on F/B.SilkS with an explicit font face and one cache whose text/angle match its owner, and only ordered polygon→pts→xy pairs with at least three vertices per polygon. Vertices remain exact rational values in their original order: there is no ring repair, sort or geometry mutation. This is not a copper-cache exemption or proof of typography. Direct footprint zone_connect admits only unique wire integers0..3; the authored SMD control makes no general through-hole behavior claim. These descriptors and all reference helpers live exclusively under tests. Production comparison and acceptance are unchanged.
+
+The separate S-1299 erc.pin_map descriptor is exactly12×12 wire integer cells0..2 under the documented project ERC key. It is a pin-TYPE conflict matrix, not a board numeric-netcode map. Enum3, malformed arrays, bool/string/null/fraction cells and all unclassified sibling keys remain blockers. The native witness links this key to the passive/passive pair only; it does not qualify every matrix relationship.

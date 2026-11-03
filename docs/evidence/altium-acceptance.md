@@ -144,3 +144,9 @@ Their prior observations are retained in the register. The
 states the independent criterion or missing kit proof for the other 115 rows
 used by write cells and acceptance/kit families. This changes no capability;
 all nine write kinds still fail the complete graduation rule.
+
+## Fresh native handoff preparation, 2026-11-03
+
+Source `b5f6c84a`, Fenolite `0.7.0.dev0`, prepared a new immutable acceptance-v03-v2 packet with the existing prepare-only runner. Both reviewed build plans confirmed successfully; all twelve written-scope checks passed. Preparation/probe focus:10passed. The packet binds47 prepared files plus a separate handoff/expectation/manifest layer: four components,8pins, exact3net membership, six copper layers and all8 exact rule kinds. Embedded drawing frames are included; no standalone SchDot artifact is claimed.
+
+All43 non-reply prepared files equal the historical v1 packet. Four command replies differ only in elapsed time, locations, plan and receipt identifiers. The new source binding does not reuse the old packet's version or execution claims. Actual native version and run ID remain null; `acceptance_complete` is false. Native compilation/ERC/DRC, save/reopen, current register/graduation conditions and exact-source CI remain gates. No result or evidence promotion follows from this preparation.

@@ -57,6 +57,25 @@ def test_declared_arguments_and_hidden_boundary():
     assert "--fields" in data["commands"]["*"]["options"] and "--fields" not in options
 
 
+@pytest.mark.parametrize("internal_required", (False, True))
+def test_zero_or_more_positional_uses_actual_arity_not_internal_required(internal_required):
+    def options(parser):
+        action = parser.add_argument("targets", nargs="*")
+        # Python3.11 reports True here although parsing accepts no targets.
+        action.required = internal_required
+        parser.add_argument("--must", required=True, nargs="*")
+        assert parser.parse_args(["path", "--must"]).targets == []
+
+    options_by_name = minimal(options).to_json()["commands"]["demo"]["options"]
+    assert options_by_name["targets"]["required"] is False
+    assert options_by_name["--must"]["required"] is True
+
+
+def test_one_or_more_positional_still_reports_required():
+    options = minimal(lambda parser: parser.add_argument("targets", nargs="+")).to_json()
+    assert options["commands"]["demo"]["options"]["targets"]["required"] is True
+
+
 def test_experimental_selector_does_not_exempt_stable_choices():
     def options(parser):
         parser.add_argument("--target", choices=("kicad", "altium"), default="kicad")

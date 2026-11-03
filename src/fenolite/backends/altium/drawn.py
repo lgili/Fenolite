@@ -691,11 +691,120 @@ def lower_drawn(
                 unique_id(instance.path) if instance.keys else None,
             )
         )
-    written = _global_local_names(written, issues)
+    repeated_files = frozenset(files[instance.path] for instance in found if counts[instance.sheet] > 1)
+    bindings = _canonical_local_bindings(written, design, repeated_files)
+    written = _global_local_names(written, issues, bindings=bindings)
     return ProjectSheets("modules" if len(written) > 1 else "flat", tuple(written))
 
 
-def _global_local_names(sheets: list[SheetFile], issues: list[Issue]) -> list[SheetFile]:
+def _canonical_local_bindings(
+    sheets: Sequence[SheetFile],
+    design: Design,
+    repeated_files: frozenset[str],
+) -> dict[tuple[str, str], str]:
+    """Prove complete physical bindings before choosing a repeated local label's visible name.
+
+    An isolated native sheet may project a cross-sheet global net. A local candidate must match
+    the entire canonical group. Ambiguity keeps the existing scope-preserving fallback path.
+    """
+    if not repeated_files:
+        return {}
+    components = [component for component in design.circuit.components if not component.board_only]
+    references = [component.ref for component in components]
+    if len(set(references)) != len(references):
+        return {}
+    refs = {component.id: component.ref for component in components}
+    code_pins = {(component.ref, pin.number) for component in components for pin in component.pins}
+    code_groups: list[tuple[str, frozenset[tuple[str, str]]]] = []
+    for net in design.circuit.nets:
+        if any(pin.component_id not in refs for pin in net.members):
+            return {}
+        group = frozenset((refs[pin.component_id], pin.pin) for pin in net.members)
+        if len(group) != len(net.members) or not group <= code_pins:
+            return {}
+        if group:
+            code_groups.append((net.name, group))
+    assigned = Counter(pin for _, group in code_groups for pin in group)
+    if any(count != 1 for count in assigned.values()):
+        return {}
+    code_groups.extend(("", frozenset({pin})) for pin in code_pins - assigned.keys())
+    name_counts = Counter(net.name.casefold() for net in design.circuit.nets)
+    records = [[dict(fields) for fields in schdoc.schdoc_records(sheet.plan)] for sheet in sheets]
+    native_names = {
+        record.get("TEXT", record.get("NAME", "")).casefold()
+        for sheet_records in records
+        for record in sheet_records
+        if record.get("RECORD") in {"17", "18", "25"}
+    }
+    holders: dict[str, set[int]] = {}
+    for index, sheet_records in enumerate(records):
+        for record in sheet_records:
+            if record.get("RECORD") == "25":
+                holders.setdefault(record.get("TEXT", ""), set()).add(index)
+    shared = {name for name, indices in holders.items() if len(indices) > 1}
+    candidates: dict[tuple[str, str], str] = {}
+    for sheet in sheets:
+        if sheet.file not in repeated_files or sheet.plan.drawn_records is None:
+            continue
+        try:
+            resolved, actual = _read_native({sheet.file: schdoc.write_schdoc(sheet.plan)})
+        except (FenoliteError, ValueError, OSError):
+            continue
+        expected = planned_coverage(ProjectSheets("flat", (sheet,)))
+        if actual != expected or len({(ref, unit) for ref, unit, _ in actual.units}) != len(actual.units):
+            continue
+        physical = {(ref, pin) for ref, _, numbers in actual.units for pin in numbers}
+        if not physical <= code_pins:
+            continue
+        native_refs = {value: resolved.refs[key] for key, value in resolved.component_ids.items()}
+        groups = [
+            (net, frozenset((native_refs[pin.component], pin.designator) for pin in net.pins))
+            for net in resolved.netlist.nets
+        ]
+        memberships = Counter(pin for _, group in groups for pin in group)
+        if any(count != 1 for count in memberships.values()) or not memberships.keys() <= physical:
+            continue
+        partition = {group for _, group in groups}
+        partition.update(frozenset({pin}) for pin in physical - memberships.keys())
+        projected = [group & physical for _, group in code_groups if group & physical]
+        if len(projected) != len(set(projected)) or partition != set(projected):
+            continue
+        labels = {
+            dict(record).get("TEXT", "")
+            for record in sheet.plan.drawn_records
+            if dict(record).get("RECORD") == "25"
+        }
+        for label in labels & shared:
+            matching = [
+                group
+                for net, group in groups
+                if label.casefold() in {value.casefold() for value in (net.name, *net.aliases)}
+            ]
+            if len(matching) != 1:
+                continue
+            canonical = [name for name, group in code_groups if group == matching[0]]
+            if len(canonical) != 1:
+                continue
+            name = canonical[0]
+            if (
+                not name
+                or name_counts[name.casefold()] != 1
+                or name.casefold() in native_names
+                or text_problem(name, form="ascii") is not None
+                or re.search(r"[{}\[\]/]", name)
+            ):
+                continue
+            candidates[(sheet.file, label)] = name
+    counts = Counter(name.casefold() for name in candidates.values())
+    return {key: name for key, name in candidates.items() if counts[name.casefold()] == 1}
+
+
+def _global_local_names(
+    sheets: list[SheetFile],
+    issues: list[Issue],
+    *,
+    bindings: Mapping[tuple[str, str], str] = MappingProxyType({}),
+) -> list[SheetFile]:
     """Preserve local partitions under source-verified Automatic/Global, without guessing another mode."""
     if len(sheets) <= 1:
         return sheets
@@ -710,6 +819,7 @@ def _global_local_names(sheets: list[SheetFile], issues: list[Issue]) -> list[Sh
         for record in sheet
         if record.get("RECORD") in {"17", "18", "25"}
     }
+    taken.update(value.casefold() for value in bindings.values())
     occurrences: dict[str, set[int]] = {}
     for index, sheet_records in enumerate(records):
         for record in sheet_records:
@@ -732,7 +842,7 @@ def _global_local_names(sheets: list[SheetFile], issues: list[Issue]) -> list[Sh
         prefix = f"__local_{unique_id(sheet.file)}_"
         while any((prefix + name).casefold() in taken for name in names):
             prefix += "_"
-        replacements = {name: prefix + name for name in names}
+        replacements = {name: bindings.get((sheet.file, name), prefix + name) for name in names}
         taken.update(value.casefold() for value in replacements.values())
         for name, replacement in replacements.items():
             issues.append(

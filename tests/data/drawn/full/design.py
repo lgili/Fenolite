@@ -6,7 +6,7 @@ power symbol, a wire of four points, a bus with an alias and two bus entries, a 
 flag, local, global and hierarchical labels, a sheet reference with a pin, two opaque items and a title
 block."""
 
-from fenolite.dsl import Design, Module, Net, Part, connect, mm
+from fenolite.dsl import Design, Module, Net, Part, connect, mm, no_connect
 
 design = Design("drawn_full")
 design.board(mm(40), mm(30))
@@ -15,11 +15,14 @@ r1 = Part("R1", "Mini:Mini_R", footprint="Mini:Mini_R_0603", value="4k7")
 sub = Module("sub")
 r2 = Part("R2", "Mini:Mini_R", footprint="Mini:Mini_R_0603", value="1k")
 sub.add(r2)
-design.add(u1, r1, sub)
+r3 = Part("R3", "Mini:Mini_R", footprint="Mini:Mini_R_0603", value="10k")
+r4 = Part("R4", "Mini:Mini_R", footprint="Mini:Mini_R_0603", value="10k")
+design.add(u1, r1, sub, r3, r4)
 connect(Net("SDA"), u1[17], r1[2])
 connect(Net("VCC"), u1[9], r1[1])
-connect(Net("GND"), u1[10], r2[2])
+connect(Net("GND"), u1[10], r2[2], r3[2], r4[2])
 connect(Net("IN"), u1[1], r2[1])
-connect(Net("B0"), u1[18])
-connect(Net("B1"), u1[19])
+connect(Net("B0"), u1[18], r3[1])
+connect(Net("B1"), u1[19], r4[1])
+no_connect(u1[11], u1[12])
 design.load_schematic("schematic.toml")

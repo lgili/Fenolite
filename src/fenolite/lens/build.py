@@ -2122,6 +2122,9 @@ def build_design(
             issues.append(differs)
             return _refused(built, issues, libraries, prepared)
         target_design = lower_for_schematic(target_design, generated)
+    from fenolite.lens.native_rule_context import before_write
+
+    declared_native_rules = before_write(target_design, name, target)
     texts = write_triad(
         target_design,
         name=name,
@@ -2139,7 +2142,13 @@ def build_design(
         project_data = pro.read_project_text(texts[pro_name])
         project_data["meta"]["filename"] = pro_name
         texts[pro_name] = pro.write_project_text(project_data)
-    if existing.rules is not None:
+    if declared_native_rules is not None:
+        if existing.rules is not None and existing.rules.encode("utf-8") != declared_native_rules:
+            raise FormatError(
+                "existing custom rules differ from the declared native rule input", file=dru_name
+            )
+        texts[dru_name] = declared_native_rules.decode("utf-8")
+    elif existing.rules is not None:
         texts[dru_name] = preserve.merge_rules(
             texts[dru_name],
             existing.rules,
@@ -2247,6 +2256,9 @@ def build_design(
         files["sym-lib-table"] = write_lib_table(
             LibTable("symbol", tuple(symbol_rows)), target=target
         ).encode("utf-8")
+    from fenolite.lens.native_rule_context import after_write
+
+    after_write(files[pcb_name], files[pro_name], name, target)
     if write_base:
         codes = prepared.codes if prepared is not None and prepared.codes is not None else None
         files[edits_mod.BASE_FILE] = edits_mod.write_base(
@@ -2287,6 +2299,10 @@ def build_design(
         pro.EVIDENCE,
         lowering.EVIDENCE,
     ]
+    if declared_native_rules is not None:
+        from fenolite.backends.kicad.native_rule_profile import EVIDENCE as NATIVE_RULE_CONTEXT_EVIDENCE
+
+        evidence_items.append(NATIVE_RULE_CONTEXT_EVIDENCE)
     if authored_ids:
         evidence_items.append(mod.AUTHORING_EVIDENCE)
     if device_of:

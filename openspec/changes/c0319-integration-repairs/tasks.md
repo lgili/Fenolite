@@ -373,3 +373,25 @@ The published-checkpoints index now distinguishes functional contextual plan
 binding from the historical interim refusal and retains the source-bound VME
 1700-versus-1800 failure. No new remote-head, all-corpus, model1, native GUI or
 successful exact-head CI claim closes task 2.3 or a feature gate.
+
+- [x] 2.5 Declare the authored native project sidecar used by examples/import_python in the committed-data manifest. Preserve every policy check, data byte and corpus licence boundary. Proof: the complete focused corpus manifest component passes; exact-head CI remains task2.3.
+
+CI41611925152 on40d27f47: macOS unit job125835695455 completed with one missing data-manifest row,21967 passed and4225 skipped. The missing path is the authored native project sidecar, not third-party CAD. Other jobs remain independent; no successful complete CI is claimed.
+
+Task2.5 proof: examples/import_python/native/project.kicad_pro is byte-identical to the already declared authored tests/data/import_python/two_sheet/two_sheet.kicad_pro. Complete focused tests/corpus/test_manifest.py:60 passed. No fixture bytes, licence policy, test assertion or comparison changed. Final exact-head CI remains open.
+
+- [x] 2.6 Reconcile accumulated Unreleased example/identity status paragraphs after integrating native checkpoints, keeping only the current example outcome and retaining all historical failures in their evidence records. Proof: no stale duplicate example paragraph; git diff --check.
+
+Task2.6 proof passed: exactly one current drawn-example paragraph remains and git diff --check reports no whitespace errors. Historical incomplete attempts stay in the native evidence records; no gate is changed by this documentation reconciliation.
+
+- [x] 2.7 Diagnose CI native9 CM5_MINIMA_3 downgrade failure using the declared public corpus, distinguish conversion unexplained differences from project DRC/ERC type changes, then fix the demonstrated cause. Preserve strict existing demo/probe expectations and all losses, no new waiver or baseline update; prove focused native9/10 and source/input/output hashes.
+
+Task2.7 proof: source M705 is explicitly pinless in_bom=yes/on_board=no and absent from PCB. The old conversion preparation omitted it while public read-back preserved it, causing the sole false L1 component-missing finding before native project checks. Authored writer-input controls fail2before; after the private API preparation repair104focused tests pass (10BOM/context/unsafe-unit/Altium-refusal controls plus conversion/import-graph neighbors), source pyright0, and native9.0.9/10.0.6 each pass test_demo_project[CM5_MINIMA_3]+test_probe (2passed28.91s/41.68s). All72converted CAD files remain BYTE-IDENTICAL to before, all source hashes remain exact, and no loss/probe/type baseline changes. Receipt cm5-bom-source-proof.json. Full test_probe_results/full validation remain root-owned exact-head CI, not a local full-census claim.
+
+
+- [x] 2.8 Reproduce fast-batch9 release-record failures, retain historical release/native/freeze claims while naming newly opened current acceptance tasks in dated tracking, and replace the v0.4 negative's now-completed task with an independent authored open-task fixture. Do not weaken parser/checker or task coverage. Proof: complete focused v0.4/v0.5/v0.6 release-record tests and private residue gate; exact-head CI remains2.3.
+
+
+Task2.8 proof: exact18351e40 reproduction gives3fail/106pass: v0.4's hardcoded completed4.2 negative, and c0092 new5.3 unnamed in v0.5/v0.6. Three additional authored parser reds demonstrate letter-suffixed open/checked IDs were omitted. The guard now retains distinct lowercase continuation IDs and still refuses an unnamed open continuation; v0.4's negative reads an independent temporary authored tasks.md while retaining both existing failure assertions. Dated2026-11-03 tracking names c0092.5.3, c0178.3.4a and c0180.2.4a; no historical acceptance text/result, freeze, runtime or source CAD changes. Complete focused release-record files:112passed3.35s, Ruff/format/diff clean; private staged gate0hits. Exact-head full validation remains2.3/root-owned. Receipt release-ledger-proof.json.
+
+- [x] 2.9 Repair the two stale drawn-example guards exposed by the complete b5f6c84a fast gate: assert the intentionally added IN label and make the missing-symbol mutation actually append R9 after the source's GND connection changed. Preserve refusal/no-output and repeated-build byte checks; prove the missing-symbol finding identifies R9 without changing a producer or comparator. Proof: original two failures reproduced (1.54s); complete drawn module7passed (1.98s), then drawn plus all three release-ledger modules119passed (4.17s). The negative now reuses the existing GND object, produces exactly one R9 missing-symbol finding and writes no output; the positive explicitly checks IN plus the exact eight-label count and unchanged rebuild bytes. Ruff/format/strict OpenSpec pass; final whole fast/exact CI remain pending.

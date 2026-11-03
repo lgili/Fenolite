@@ -68,10 +68,12 @@ def test_drawn_example_built(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) ->
         "file": "schematic.toml",
         "wires": 4,
         "junctions": 1,
-        "labels": 7,
+        "labels": 8,
         "buses": 0,
         "opaque": 0,
     }  # type: ignore[index]
+    # The corrected authored example labels the existing input wire explicitly (c0276/6.4).
+    assert any(label.atoms()[0].value == "IN" for label in root.nodes("label"))
     record = json.loads((out / ".fenolite" / "build.json").read_text(encoding="utf-8"))
     assert record["schematic"] == {"source": "drawn", "file": "schematic.toml"}
     before = {p: (out / p).read_bytes() for p in files}
@@ -116,13 +118,15 @@ def test_coverage_error_writes_nothing(monkeypatch: pytest.MonkeyPatch, tmp_path
     text = script.read_text(encoding="utf-8")
     extra = (
         'r9 = Part("R9", "Mini:Mini_R", footprint="Mini:Mini_R_0603", value="1k")\n'
-        'design.add(r9)\nconnect(Net("GND"), u1[10], r9[1])'
+        'design.add(r9)\nconnect(u1.connections["10"], r9[1])'
     )
-    script.write_text(text.replace('connect(Net("GND"), u1[10])', extra), "utf-8")
+    # Append the intended defect: matching an obsolete GND line silently stopped adding R9.
+    script.write_text(text + "\n" + extra + "\n", "utf-8")
     out = tmp_path / "B"
-    code, env, _ = run(monkeypatch, str(script), "--out", str(out), "--confirm")
-    assert code == 5 and not out.exists()
-    assert "drawn.symbol-missing" in [i["code"] for i in env["issues"]]  # type: ignore[union-attr,index]
+    code, env, error = run(monkeypatch, str(script), "--out", str(out), "--confirm")
+    assert code == 5 and not out.exists(), (code, env, error)
+    missing = [i for i in env["issues"] if i["code"] == "drawn.symbol-missing"]  # type: ignore[union-attr,index]
+    assert len(missing) == 1 and "R9" in missing[0]["where"] + missing[0]["message"]
 
 
 # --- generated sheets inside a drawing (c0269's block sheets) ---------------------------------------

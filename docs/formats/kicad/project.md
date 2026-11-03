@@ -356,3 +356,8 @@ sidecar are checked unchanged. Proof: `tests/kicad/importer/test_project_templat
 ### Exact stored names in class patterns (c0352)
 
 **ORACLE-VERIFIED(kicad-cli)** (S-1288, authored native controls): KiCad9.0.9 and10.0.6 both enforce a named clearance class for an exact literal source net `/12Vext` and its generated PCB spelling `{slash}12Vext`, when the project pattern uses the corresponding exact stored spelling. Both arms preserve the measured track UUID pair and independent DRU canary. Fenolite reuses `pcb.stored_net_name` for writer-owned class patterns and project application, retaining native-read spellings rather than guessing slash substitutions. Native-name collisions refuse before dictionary overwrite; arbitrary user patterns and existing unsafe/overmatch refusals are unchanged. Proof: `tests/kicad/project/test_pro_native_names.py`; this is not a claim that arbitrary regex semantics match every native case.
+
+
+### ERC matrix key linkage, scoped numeric-role witness (S-1299)
+
+`KICAD-VERIFIED`: the official Eeschema9 manual describes the pin-type conflict map with Ignore/Warning/Error choices (https://docs.kicad.org/9.0/en/eeschema/eeschema.html). `ORACLE-VERIFIED(KiCad9.0.9/10.0.6)`: original four-passive-terminal controls keep their complete labelled graph while changing only erc.pin_map: uniform0 yields no pin conflicts,1 yields three warnings,2 yields three errors. The12×12 JSON wire-integer0..2 descriptor is TEST-ONLY. The raw3 control also produces errors; no meaning is assigned because this can be invalid-value fallback, and3 remains refused. All other pin-pair meanings and unknown ERC keys remain unproved. Receipt: `openspec/changes/c0355-verified-native-identity/erc-numeric-role-proof.json`.

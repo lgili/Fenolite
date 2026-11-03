@@ -127,11 +127,6 @@ def test_kicad_loads_the_drawn_sheets(name: str) -> None:
         "hier_label_mismatch", "multiple_net_names", "unconnected_wire_endpoint", "global_label_dangling",
         "bus_definition_conflict", "similar_labels",
     }  # fmt: skip
-    # a label on a net of one pin (B0, B1 of the full fixture) is the drawing's own choice, not a defect;
-    # 9.0.9 also calls those two labels dangling, while its netlist names their nets by them (measured on
-    # 2026-10-29: the net of U1 pin 18 is /B0 on 9.0.9 and 10.0.6)
-    if name == "full" and _probes.major() == 9:
-        connectivity.discard("label_dangling")
     assert not set(found) & connectivity, found
 
 

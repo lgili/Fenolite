@@ -599,3 +599,30 @@ requested offline device flow. Reusing that example avoids duplicate payloads un
 restore with connections/subprocesses blocked, native build-byte equality with direct authored records,
 and missing-pin refusal. The all-zero release commit is a fixture marker, all records remain UNVERIFIED,
 and its original licence declarations are not upstream legal text or a production licence approval.
+
+## OpenAir author-source refresh, approved before candidate mutation
+
+The external library's current OpenAir1.0.1 names KiCad-demo97acc80c, whose
+board/schematic project has an observed incompatible647pin/155group source
+partition. Preserve that failure as evidence. A separately fetched public author
+commit89aacf5013fc0ffe4b988a2e3c5a227bce3c4983 under PCB/openair-max provides
+five coherent CAD files with observed native739pin/173group partitions. Prepare
+an isolated candidate using these five verified CAD files plus its active
+author-authored One-Air-Max.kicad_dru and explicit target10. The public README
+explicitly declares the DRU active; pin its exact author bytes and hash as a
+sixth input. The earlier five-input run is preserved as historical partial
+project evidence, not promoted as a complete source project proof.
+The board licence text is byte-identical to the existing approved OpenAir
+licence; preserve it and its normalized digest. No new licence approval is
+inferred for models: all233 references remain portable nominal paths, with
+vendor STEP/official-library payloads excluded and3D external/not-included/
+not-judged. BAS16J model authorship/licence is not established by the board
+licence. Any new library revision must truthfully name the author's URL/commit,
+preserve modification notices, include a portable reproducible recipe and pass
+all nine complete strict operators without waivers before replacement/audit.
+No authoritative item, tag, release, branch or workflow publication is changed
+by the external candidate proof.
+
+## Bounded Tiny external pilot, 2026-11-03
+
+The approved pilot follows the existing external OpenAir preparation with one Tiny item only. Source core18351 is immutable/clean; a separate documentation checkout tracks this task. Fresh payload1.0.2 must bind the actual target10 recipe and proof; a historical target9 equality report cannot replace current bytes. The library wrapper retains the original raw import member verbatim and owns its separately recorded fidelity proof. Replay verifies readonly after import, preserving raw provenance, and must agree with exact output/payload hashes. No digest-only or invented-skip repair is allowed; actual no-copper/no-schematic reasons elsewhere are measured history, not reasons to copy. Royal remains excluded.

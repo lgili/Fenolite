@@ -2,14 +2,14 @@
   "builds": {
     "examples/catalog/design.py": {
       ".fenolite/board.json": "45314c7ab8ffa5854bede3145049a6dbb38711820e40b3052a076a13e3535944",
-      ".fenolite/build.json": "7f86b52f3bddd2f87b4ccaf4fe61a1bd91e71e121616614d6563d7758e12c435",
+      ".fenolite/build.json": "881141e847ab616b1f04cd6b6268de26092dd998691675c8a03a2aedca10f802",
       ".fenolite/circuit.json": "900983f4099d88f919ccd34dcacf1263a90b71c892a911eb2ee1392036be8621",
       ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
       ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
       ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
       "catalog.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
       "catalog.kicad_pcb": "30c1b953e650c185036f7f434172067e2b2b381901fa59a4befa7dd9cb396232",
-      "catalog.kicad_pro": "d36879710a024bcf35361e30af8834cc780ad3b9b6bf490592efe2bc76340af9",
+      "catalog.kicad_pro": "b2ac416a5247cd14420f81a96130814618c2a5ddda120bdd60818041a836492e",
       "catalog.kicad_sch": "01c2ba7b1c2fa7198e23eba6c0d1f24ce887c9c1769fcb2ce8f00a212a4469dd",
       "fp-lib-table": "2a361e9168bc7f7bf01661e5637a963867108d75c697a128d37b1def14b3a62e",
       "lib/Fenolite.kicad_sym": "24031f757c2657cdf9d45e4aacdfc75772e56c7af6628192178539434d9a8e60",

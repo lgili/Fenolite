@@ -40,3 +40,7 @@
 
 - **Rule scopes.** A board whose mask rules use queries outside `read.scope` gets the `All` rule for those
   pads; the note counts them so the reviewer knows.
+
+## Authored comparison preparation, 2026-11-03
+
+The maintainer selected Fenolite-authored inputs for the pending comparison, without approving any rendering. Preparation is external and source-bound: no CAD UI or configuration change, no fabricated native image/version, no human-review completion. Native Designer24.5.2.23, an actual KiCad-written authored theme and DraftsmanF0.5 observations remain separately measured where applicable. See docs/evidence/native-viewer-maintainer-review-plan.md for the required criteria.

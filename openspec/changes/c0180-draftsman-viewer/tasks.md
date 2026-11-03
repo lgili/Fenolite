@@ -56,3 +56,16 @@ Pending Altium observations may use the actual available Designer 24.5.2.23,
 by the maintainer's explicit2026-11-03 approval recorded in c0166. Historical
 26.5 observations remain unchanged; this version permission is not a personal
 project review, a missing implementation or a passing native outcome.
+
+## Maintainer review source choice — 2026-11-03
+
+The maintainer explicitly selected “Preparar exemplos autorais do Fenolite para minha revisão”
+for this pending visual comparison. Original Fenolite-authored examples are the authorized review
+inputs. This is source selection only: prepare source-bound CAD/viewer comparisons and retain
+the complete original review checklist. The maintainer has not yet reviewed or approved those
+comparisons; the human-review task remains unchecked. Preparation and evidence requirements
+are recorded in `docs/evidence/native-viewer-maintainer-review-plan.md`.
+
+- [ ] 2.4a Prepare an external source-bound Fenolite-authored comparison packet with actual viewer export, original input hashes, criterion checklist and precise native handoff. Keep missing native captures/theme creation/F0.5 measurements explicit; source choice is not human acceptance. Proof: export dry-run/exact confirmation, fixture provenance and packet manifest. The parent human-review task stays open.
+
+  - 2026-11-03 partial preparation: source bfda2ac4 has local standalone candidate/default exports and exact native handoff;39focused controls passed. The real KiCad-written authored theme (c0178) and nativeF0.5 drawing (c0180) are missing, so this preparation and parent human-review task remain open. No UI/configuration or native outcome was invented.

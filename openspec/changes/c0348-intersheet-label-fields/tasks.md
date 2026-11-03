@@ -17,7 +17,11 @@
 
 - [x] 2.5 Preserve authored9/10 regression controls: active visible references without a native field pose refuse; an explicit authored pose renders exact text/position; disabled project settings need no invented pose. Reuse existing native9/10 SVG controls; do not alter the project-template full helper to conceal a refused input.
 
+- [x] 2.6 Diagnose exact-head CI native9 SVG pose failure with saved authored inputs/outputs and native9/10 controls. Match stable sheet/field identity when enumerating SVGs, preserve complete native graph/pin assertions and exact5mm/7mm translation plus unchanged fields; no tolerance or writer workaround. Prove the specific cause before a focused test/runtime change.
+
 ## 3. Required final gates
+
+- [x] 3.2 Read exported UTF-8 HTML explicitly in the actual CLI caller tests so Windows locale decoding does not prevent the existing instance/cache/refusal assertions. Proof: `uv run pytest tests/unit/view/test_intersheet_callers.py -q` — 10 passed; final Windows CI remains required by3.1.
 
 - [ ] 3.1 Run focused lint/format/types/residue and coordinate final model0 inventory/75 plans plus root-owned fast and exact-head native CI. Proof: exact source-bound logs; archive only after every task passes.
 
@@ -37,3 +41,5 @@ Public2.4 native9/10 owner replay now passes with c0351 carrier and c0353 direct
 Adjacent closed expectation after root fast-batch4: target10 legacy writer materializes an explicit hidden reference field at the authored label anchor (rotation0, exact justify); extraction must preserve it. The every-kind characterization now asserts that exact appended field and all other label fields, while target9 retains None. No producer or native pose is normalized away. Focused before/after and prior authored native hide/pose controls are recorded in evidence.md.
 
 Focused2.5 proof: `pytest tests/unit/view/test_kicad_intersheet.py -q`29passed; actualnative9.0.9 and10.0.6 `pytest tests/kicad/schematic/test_intersheet_fields.py -q -k "native_effective_reference_matrix and (on or stored-hide)"` each3passed/16deselected (includes the matching punctuation case). Existing native SVG text assertions and immutable input hashes retained. Runtime/helper unchanged; root fast/exact-head CI3.1 remain pending.
+
+Focused2.6 proof:8authored exact-correspondence unit controls pass; native9.0.9 and10.0.6 each pass the targeted graph/pose test (8.20s/4.76s), preserving all original first-five input byte maps/arguments. Original/styled/moved complete native graphs and pin sets agree. CI's wrong6.5196mm comes from zipping two identical effective texts in different SVG paint order; exact complete same-sheet field Counters preserve5mm/7mm text+pivot translation and multiplicity without tolerance. Unknown selected transforms still refuse. Receipt ci-svg-correspondence-proof.json includes all captured input/output hashes. Exact-head CI3.1 remains pending.

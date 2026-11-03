@@ -82,3 +82,11 @@
 
 - **The `kicad` palette is only like KiCad.** Users who want KiCad exactly pass their theme. The notes say which palette was used.
 - **Stroke text is Fenolite's font, not KiCad's.** Widths differ slightly, so a long field may end a little earlier or later than in KiCad.
+
+## Authored comparison preparation, 2026-11-03
+
+The maintainer selected Fenolite-authored inputs for the pending comparison, without approving any rendering. Preparation is external and source-bound: no CAD UI or configuration change, no fabricated native image/version, no human-review completion. Native Designer24.5.2.23, an actual KiCad-written authored theme and DraftsmanF0.5 observations remain separately measured where applicable. See docs/evidence/native-viewer-maintainer-review-plan.md for the required criteria.
+
+### Official headless persistence investigation
+
+Use CLI/IPC as process boundaries only; importing pcbnew/GPL in a preparer script is not permitted. Discovery must be bounded to installed KiCad10.0.6 and official9/10 IPC capabilities. An unexecuted SWIG save signature, a manually authored JSON file or a future KiCad11 feature is not a measured native save. If GUI is required, keep the original-theme preparation open and hand off exact creation steps without interacting with the running CAD.

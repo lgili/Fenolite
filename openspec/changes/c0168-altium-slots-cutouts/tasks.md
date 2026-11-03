@@ -75,3 +75,10 @@ Do not combine different versions/input digests into one fictional kit run.
 All existing acceptance criteria, facts-before-code rules and final CI remain.
 The kit form keeps its existing AD major.minor dialect: use AD 24.5; keep full
 build 24.5.2.23 in the separate native observation report, not a new form key.
+
+2026-11-03 actual24 update to5.2 (S-1297): current S3 passes real Planning/2D/3D plus complete native
+NC3slots/1round/no milled hit; S4 passes one selected Region/Kind Board Cutout with the rounded L.
+All three native inputs remain hash-exact after inspection. Current24 S1/S2/S5/S6/S7/S8 were not
+completed in this operator window; historical26.5 results remain separate. Keep5.2 unchecked,
+H-A-SLOT-KIT INFERRED and CUTOUT_REGIONS false. Actual receipts and focused verification metadata
+must pass; a click/Invoke return alone never counts as completed acceptance.

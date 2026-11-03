@@ -82,7 +82,21 @@
 - [ ] 4.4 In the library: `replay` and `proof` jobs in `check.yml`, `bench.yml`, `gallery.yml` with Pages; Fenolite's optional scheduled job `library-bench`. Proof: the library's workflows green on their first runs; `uv run pytest tests/unit/test_ci_workflow.py -q`.
   Open 2026-10-30: the workflows belong to the fenolite-library repository (`check.yml` jobs replay/proof: `fenolite library replay <item>`, `fenolite verify-source ... --json > reply.json` then `fenolite library audit . --item <item> --proof reply.json`; `bench.yml`; `gallery.yml` with Pages). Fenolite's optional `library-bench` job waits for the first library release (nothing to download yet).
 - [ ] 4.5 First boards (research section 4.6): the KiCad demos with a usable licence (not the non-commercial one), each converted, replayed and proved, with accepted differences recorded and reviewed. Proof: the library's `check.yml` green on the pull request that adds them.
+- [x] 4.5a Prepare an external OpenAir1.0.2 candidate from the author's immutable
+ 89aacf5013fc0ffe4b988a2e3c5a227bce3c4983 six-input project (five CAD documents plus its active author DRU), not the incoherent
+ KiCad-demo97acc source. Verify manifests/licence bytes, reviewed import plan
+ and confirmation, then strict native10 full1–8/S with no accepted differences.
+ Preserve the old failed source/647pin155group receipt and all969 authoritative
+ payloads. Keep all233 portable3D references name-only: no vendor STEP/official
+ library file or inferred model licence. Record external/not-included/not-judged
+ 3D scope. Only after proof prepare portable1.0.2 provenance/license/audit/review
+ packet; root separately owns integration/publication.
+
   Open 2026-10-30: library repository work. The four KiCad demos of branch `first-boards` pass `library audit` except that their `fidelity.proof` records S skipped without `fidelity.proof.skipped` (rerun `verify-source --record` with this Fenolite) and the README lacks three statements.
+
+- [x] 4.5b Prepare the approved external Tiny1.0.2 pilot from clean core18351e40568f55b4e4e3bb88a64a6e3a9f08c5b4 and immutable upstream97acc: all four CAD files, nominal tables, unchanged approved licence; no active DRU/worksheet/model payload omitted silently. Use explicit target10, actual reviewed import/record plans and readonly replay proof; no accepted differences or fabricated skip reasons. Preserve raw import verbatim, full payload/metadata delta and unrelated failures; keep authoritative library and publication gates unchanged. Proof: actual full1–8/S, replay equality, scoped proof/version audit, private scan and original-input/authoritative hashes. Stop on a real discrepancy.
+
+  - 2026-11-03: external Tiny1.0.2 pilot completed on unchanged/clean18351. Fresh import dry0/confirm0; actual `verify-source --target 10` record dry0/confirm0, all nine levels equal with0differences/exclusions/accepts and one exact route-unjudged/GND/zones notice retained. Actual build target kicad-10; L6generated_major9 is the preserved native project schema, not the build target. Scoped proof/version audit0, actual replay0/equal with144payload files, final149file private scan0/no exclusions or waivers. Old154→new144payload:140changed/14removed/4added; full map retained externally. Authoritative library/input hashes unchanged; external frame changed only Tiny, unrelated17findings/eightitems remain. Intermediate selector9 result, audit-base usage error and harness field assertion are preserved and not presented as target10 acceptance. No authority/publication/CI/human approval follows;4.5/4.4 remain open.
 
 ## 5. Closing
 
@@ -128,3 +142,5 @@ Integration gate 2026-10-31: the complete `make check-fast` on the reconciled in
 2026-10-31: task 6.2 passed (9 tests). The index-cache assertion compares native path components; assertions of zero requests, no cache writes, expected digest and byte size remain unchanged.
 
 Integration proof 2026-11-01: the complete quick gate of corrected source `9d1b8667` finished with exit 0 (17725 passed, 49 skipped; 1740.11 s). All five touched changes validated strictly without warnings. Exact-head CI remains required; interrupted earlier gates are not counted.
+
+  - 2026-11-03: external author-source1.0.2 item packet prepared with the actual reviewed full-proof recording (dry0/confirm0), all nine levels equal,0differences/exclusions/accepted entries,27notices retained. Actual library replay: exit0/equal=true,262payload files identical. Scoped audit with live proof and c62 version base passed; candidate267files private scan0/no exclusions or waivers. All1059authoritative tracked files remain unchanged. Whole archived-library audit still fails with19 pre-existing findings on nine other boards; no whole-library/publication/CI success or authoritative promotion is claimed. Source/proof/limitations: `openair-author-item-review-proof.json`; 4.5 and4.4 remain open.

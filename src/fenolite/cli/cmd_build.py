@@ -1333,6 +1333,7 @@ def _built(
     design = run.design
     native_project_text = None
     native_project_resources = ()
+    native_rule_binding = None
     native_project_request = design._kicad_project_input  # pyright: ignore[reportPrivateUsage] - DSL request state
     if native_project_request is not None:
         if args.target != "kicad":
@@ -1349,9 +1350,11 @@ def _built(
         )
         native_project_text = declared_project.text
         native_project_resources = declared_project.resources
+        native_rule_binding = declared_project.rules
         if source_inputs is not None:
             source_inputs.append(declared_project.path)
             source_inputs.extend(item.path for item in declared_project.resources)
+            source_inputs.extend(declared_project.rule_inputs)
     if design.symbol_context_source is not None and (args.target != "kicad" or args.schematic == "skip"):
         raise FormatError(
             "contextual native symbols require KiCad schematic output",
@@ -1667,56 +1670,59 @@ def _built(
             )
         else:
             model = changed
-    built = build_design(
-        prepared.design if prepared is not None and prepared.design is not None else model,
-        prepared.placements if prepared is not None else requested,
-        name=design.name,
-        copper=design.copper,
-        resolver=resolver,
-        target=ctx.kicad_target,
-        allow_lossy=ctx.allow_lossy,
-        vendor=cast(Literal["all", "project"], args.vendor),
-        record=record,
-        prepared=prepared,
-        copper_intents=intents,
-        protected_copper=frozenset(copper_base.owned) if copper_base is not None else frozenset(),
-        meanders=meander_intents,
-        generated_copper=generated_records,
-        role_copper=role_record,
-        role_planner=role_planner(role_record, script_path, out_dir),
-        fields=field_requests,
-        pad_zones=pad_zone_requests,
-        authored_footprints=authored_footprints,
-        authored_symbols=authored_symbols,
-        source_sha256=source_sha,
-        source_file=edits_file or PLACEMENTS_FILE,
-        drawing_sheet=frame_sheet,
-        schematic=schematic,
-        symbol_placements=symbol_placements,
-        schematic_groups={found.path: found.groups for found in block_schematics(design) if found.groups},
-        schematic_layout=cast(Literal["readable", "grid"], args.schematic_layout or SCHEMATIC_LAYOUTS[0]),
-        lock_stackup=stackup_locked(design),
-        lock_via_protection=via_protection_locked(design),
-        planes=plane_nets,
-        teardrops=teardrop_rules(design),
-        models=model_refs(design),
-        overrides=footprint_overrides(design),
-        pad_edits=pad_edits(design),
-        lock_outline=outline_locked(design),
-        heights=heights(design),
-        unused=unused_marks(design),
-        two_terminal=two_terminal(design),
-        write_base=True,
-        devices=devices,
-        device_check=check_device,
-        layout_record=plan.record() if plan is not None else None,
-        drawn=drawn_value,
-        drawn_file=drawn_name or "schematic.toml",
-        context_symbols=drawn_contexts,
-        project_template=native_project_text,
-        project_resources=native_project_resources,
-        preserve_project_minimums=design._kicad_project_preserve_minimums,  # pyright: ignore[reportPrivateUsage] - DSL request ownership
-    )
+    from fenolite.lens.native_rule_context import build_scope
+
+    with build_scope(script_path, design.name, ctx.kicad_target, native_rule_binding):
+        built = build_design(
+            prepared.design if prepared is not None and prepared.design is not None else model,
+            prepared.placements if prepared is not None else requested,
+            name=design.name,
+            copper=design.copper,
+            resolver=resolver,
+            target=ctx.kicad_target,
+            allow_lossy=ctx.allow_lossy,
+            vendor=cast(Literal["all", "project"], args.vendor),
+            record=record,
+            prepared=prepared,
+            copper_intents=intents,
+            protected_copper=frozenset(copper_base.owned) if copper_base is not None else frozenset(),
+            meanders=meander_intents,
+            generated_copper=generated_records,
+            role_copper=role_record,
+            role_planner=role_planner(role_record, script_path, out_dir),
+            fields=field_requests,
+            pad_zones=pad_zone_requests,
+            authored_footprints=authored_footprints,
+            authored_symbols=authored_symbols,
+            source_sha256=source_sha,
+            source_file=edits_file or PLACEMENTS_FILE,
+            drawing_sheet=frame_sheet,
+            schematic=schematic,
+            symbol_placements=symbol_placements,
+            schematic_groups={found.path: found.groups for found in block_schematics(design) if found.groups},
+            schematic_layout=cast(Literal["readable", "grid"], args.schematic_layout or SCHEMATIC_LAYOUTS[0]),
+            lock_stackup=stackup_locked(design),
+            lock_via_protection=via_protection_locked(design),
+            planes=plane_nets,
+            teardrops=teardrop_rules(design),
+            models=model_refs(design),
+            overrides=footprint_overrides(design),
+            pad_edits=pad_edits(design),
+            lock_outline=outline_locked(design),
+            heights=heights(design),
+            unused=unused_marks(design),
+            two_terminal=two_terminal(design),
+            write_base=True,
+            devices=devices,
+            device_check=check_device,
+            layout_record=plan.record() if plan is not None else None,
+            drawn=drawn_value,
+            drawn_file=drawn_name or "schematic.toml",
+            context_symbols=drawn_contexts,
+            project_template=native_project_text,
+            project_resources=native_project_resources,
+            preserve_project_minimums=design._kicad_project_preserve_minimums,  # pyright: ignore[reportPrivateUsage] - DSL request ownership
+        )
     if plan is not None:
         layout_issues = [
             *layout_issues,

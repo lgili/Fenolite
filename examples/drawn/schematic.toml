@@ -36,6 +36,18 @@ pts = [[118.11, 69.85], [118.11, 64.77]]
 [[sheet.junction]]
 at = [118.11, 69.85]
 
+[[sheet.no_connect]]
+at = [88.9, 95.25]
+
+[[sheet.no_connect]]
+at = [88.9, 97.79]
+
+[[sheet.label]]
+kind = "local"
+text = "IN"
+at = [76.2, 74.93]
+rotation = 0
+
 [[sheet.label]]
 kind = "global"
 text = "VCC"
@@ -108,7 +120,7 @@ rotation = 90
 
 [[sheet.label]]
 kind = "global"
-text = "VCC"
+text = "GND"
 at = [127, 80.01]
 rotation = 270
 shape = "input"

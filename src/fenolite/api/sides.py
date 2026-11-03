@@ -208,6 +208,13 @@ def _with_project_curve(
     return replace(design, board=replace(design.board, max_curve_error=value)), inputs
 
 
+def _with_source_bom(design: Design, root: Path) -> Design:
+    """Reuse the checked purchasing-identity traversal without replacing a source's rules/context."""
+    from fenolite.importer.bom_only import preserve
+
+    return preserve(design, root)
+
+
 def read_path(path: Path) -> ReadSide:
     """One side: a built design, a KiCad project resolved to its board, or any file a backend reads."""
     if path.is_dir() and any((path / name).is_file() for name in BUILT_FILES):
@@ -229,9 +236,7 @@ def read_path(path: Path) -> ReadSide:
     kind = path.suffix.lower().lstrip(".")
     design, inputs = read.content, ()
     if kind == "kicad_pcb":
-        from fenolite.importer.bom_only import preserve
-
-        design = preserve(design, path.with_suffix(".kicad_sch"))
+        design = _with_source_bom(design, path.with_suffix(".kicad_sch"))
     if backend.name == "kicad" and path.suffix.lower() == ".kicad_pcb":
         design, inputs = _with_project_curve(design, path, explicit)
     return ReadSide(

@@ -3149,6 +3149,12 @@ corpus_id = ""
 notes = "footprint the same build copied from the authored mini library (c0275)"
 
 [[file]]
+path = "examples/import_python/native/project.kicad_pro"
+origin = "authored"
+corpus_id = ""
+notes = "Native project sidecar of the CC0 Fenolite-authored import example (c0351); retained from tests/data/import_python/two_sheet by the importer."
+
+[[file]]
 path = "examples/import_python/design.py"
 origin = "authored"
 corpus_id = ""

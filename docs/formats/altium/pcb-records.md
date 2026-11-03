@@ -231,3 +231,10 @@ These are choices of the writer, not format facts:
 The `roundrect` pad `1` of the mini 0603 resistor, 0.9 × 0.95 mm at (−0.8, 0) mm with ratio 0.25, gives
 subrecord 5 of 114 bytes with layer 1, x −314961, y 0, every size 354331 × 374016, hole 0, shapes 1,
 rotation 0.0, plated 0, and subrecord 6 of 596 bytes with alternate shape 9 and percentage 50.
+
+
+### Authored slot-kit application observations
+
+| Fact | Source | Evidence | Hypothesis |
+|---|---|---|---|
+| On actual24.5.2.23 the authored S3 milled slot and rounded cut-out appear as openings in Board Planning,2D and actual3D; native NC contains only its three drilled NPTH slots and round NPTH hole, no milled/cut-out hit. Clicking the merged L gives one Region with Kind Board Cutout and the authored rounded extremities. Current24 clearance DRC and full release gate remain pending. | S-1297 | ALTIUM-VERIFIED(kit) (24.5.2.23;2026-11-03; authored S3/S4 only) | H-A-SLOT-KIT |

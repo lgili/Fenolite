@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from fenolite.backends.kicad import parity_inputs
-from fenolite.backends.kicad.dru import read_rules
+from fenolite.backends.kicad.dru import RuleItem, parse_rules, read_rules
 from fenolite.backends.kicad.pcb import read_board
 from fenolite.backends.kicad.pro import apply_project, project_minimums, read_project
 from fenolite.backends.kicad.sexpr import parse
@@ -120,6 +120,8 @@ class Source:
     hierarchy: Mapping[str, SchematicSheet] = field(default_factory=lambda: {})
     sheet_origins: Mapping[str, tuple[str, str]] = field(default_factory=lambda: {})
     """Reference to native sheet file/element identity across an in-memory backend conversion."""
+    native_rules_text: str | None = None
+    """Full original DRU only when native rule items lie outside the typed reader (c0359)."""
     project_text: str | None = None
     """Checked native project bytes decoded as UTF-8 for explicit import emission; not canonical data."""
     project_resources: Mapping[str, str] = field(default_factory=lambda: {})
@@ -204,13 +206,18 @@ def read_kicad(path: Path, *, upgrade: Upgrader | None = None) -> Source:
         design = apply_project(design, found, issues=issues)
         minimums = project_minimums(found.data, issues=issues)
     rules: tuple[Rule, ...] = ()
+    native_rules_text = None
     dru = folder / f"{stem}.kicad_dru"
     if dru.is_file():
         raw = dru.read_bytes()
         paths.append(dru)
         inputs.append(InputFile(dru.name, _sha(raw), "kicad_dru", None))
-        ruleset = read_rules(raw.decode("utf-8"), file=dru.name, issues=issues)
+        native_rules_text = raw.decode("utf-8")
+        ruleset = read_rules(native_rules_text, file=dru.name, issues=issues)
         rules = ruleset.rules
+        # Fully modelled rule programs keep their existing editable DSL conversion.
+        if sum(isinstance(item, RuleItem) for item in parse_rules(native_rules_text).items) == len(rules):
+            native_rules_text = None
     sheets = 0
     hierarchy: dict[str, SchematicSheet] = {}
     root = folder / f"{stem}.kicad_sch"
@@ -242,6 +249,7 @@ def read_kicad(path: Path, *, upgrade: Upgrader | None = None) -> Source:
             folder=folder,
             hierarchy=hierarchy,
             project_text=project_text,
+            native_rules_text=native_rules_text,
             project_resources=project_resources,
         )
     )

@@ -24,6 +24,18 @@ unit = 1
 at = [127, 63.5]
 rotation = 0
 
+[[sheet.symbol]]
+part = "R3"
+unit = 1
+at = [139.7, 88.9]
+rotation = 0
+
+[[sheet.symbol]]
+part = "R4"
+unit = 1
+at = [152.4, 88.9]
+rotation = 0
+
 [[sheet.power]]
 symbol = "Mini:Mini_GND"
 net = "GND"
@@ -61,6 +73,9 @@ at = [120.65, 69.85]
 
 [[sheet.no_connect]]
 at = [88.9, 95.25]
+
+[[sheet.no_connect]]
+at = [88.9, 97.79]
 
 [[sheet.label]]
 kind = "local"
@@ -124,6 +139,36 @@ kicad = "(text \"Drawn by hand for Fenolite\" (exclude_from_sim no) (at 50.8 30.
 
 [[sheet.opaque]]
 kicad = "(rectangle (start 45.72 25.4) (end 152.4 106.68) (stroke (width 0) (type default)) (fill (type none)) (uuid \"5d0a3c2b-7e4f-4b1a-8c9d-2e3f4a5b6c7d\"))"
+
+[[sheet.label]]
+kind = "local"
+text = "IN"
+at = [82.55, 69.85]
+rotation = 0
+
+[[sheet.label]]
+kind = "local"
+text = "B0"
+at = [139.7, 85.09]
+rotation = 90
+
+[[sheet.label]]
+kind = "local"
+text = "B1"
+at = [152.4, 85.09]
+rotation = 90
+
+[[sheet.power]]
+symbol = "Mini:Mini_GND"
+net = "GND"
+at = [139.7, 92.71]
+rotation = 0
+
+[[sheet.power]]
+symbol = "Mini:Mini_GND"
+net = "GND"
+at = [152.4, 92.71]
+rotation = 0
 
 [[sheet]]
 key = "sub"

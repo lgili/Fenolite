@@ -124,3 +124,35 @@ This completes only c0276 task6.3's independent clean acceptance control. It
 does not retroactively pass original6.2's source findings, claim GUI authorship
 or all Altium versions/metadata, or promote H-A-DRAWN-WRITE from INFERRED. The
 overall gate, required exact-head CI and maintainer reviews stay open.
+## Original example correction on actual24 (2026-11-03)
+
+[The separate current-example receipt](altium-drawn-example-native.json) binds source963f9cc0,
+authored correctiona0e8e5ed and actual Altium24.5.2.23/PID8436. The original current source reproduces
+all38pins/33groups with equal connectivity, but IN is named NetR2_1 and the compiler retains3errors/
+2warnings. Historical22 observations and the independent40pin6.3 control above are unchanged.
+
+The authored correction terminates the existing R2/R3 input chain at GND instead of VCC, giving a
+real second ground terminal; explicitly marks only unused U1-11/U1-12; and labels the existing parent
+IN wire. All four components and38pins remain. Binary and ASCII both export the complete33groups,
+all declared names and Info1 only, with no global ERC setting or native writer change.
+Four new-copy documents were saved as Advanced Schematic binary, closed/reopened and read back;
+all four are actual CFB files and every root2/child0 marker position/flag/symbol is exact. The saved
+binary project also recompiles/exports all38pins/33groups/names exactly with Info1 only.
+
+The first saved-ASCII operator stopped after compilation at its own I/O32 sharing error in
+FenoliteStage Append(stage.txt); that incomplete attempt and all failed transport/collection
+records remain preserved. The user consciously stopped that owned SDK. An independent Windows
+I/O control reproduced sharing error32, then passed1000 existence-only marker checks while a
+producer held its exclusive marker and verified a closed export hash, without touching Altium.
+A fresh ASCII-saved-v2 attempt uses unique immutable phase events and polls only final-marker
+existence. Complete exports at10:28:59Z retain every38pins/33groups/all names and Info1 only;
+the partition SHA matches both corrected forms and saved binary. No successful native case was
+repeated and no active stage or final-marker content was read. This repairs the operator without
+claiming that the original automation error was a CAD connectivity defect.
+
+All45 reviewed original outputs and30 save-source copies retain their hashes at collection. The
+three deterministic drawn byte rows are independently source-bound: original complete plans equal
+the established table, and only circuit/board/PCB/root/child outputs change with the intended source
+correction. Library/project/rule/manufacturing bytes and all unrelated rows remain fixed.
+Task6.4 is complete. Wider6.2 acceptance, H-A-DRAWN-WRITE and exact-head CI remain open. S-1295 is separate
+from S-1293; no version26.5, full fixture cohort, GUI authorship or evidence promotion is claimed.

@@ -10,6 +10,7 @@
   from untouched skip templates while comparing every unrelated project field.
   Proof: source-bound per-file receipts and the complete affected focused modules.
 ## 2. Native and integration gates
+- [x] 2.3 Reconcile the older finished-board and catalog CI guards with the already implemented emitted-sheet identity caches. First prove that only `/schematic/top_level_sheets` and `/sheets` change, with the original catalog project and paired manifest hashes recovered exactly by restoring those two old values. Preserve every other byte pin, all copper and repeated-build identity checks; assert emitted root/child identities explicitly before allowing the project delta. Proof: actual10.0.6 finished-board identity4passed (68.26s); actual9.0.9 identity2passed/2target10skips (36.53s); catalog plus binder and exact SVG correspondence18passed (3.09s); `tools/catalog/golden.py --check`, Ruff and strict OpenSpec pass. Complete catalog maps and recovered historical digests: `docs/evidence/project-sheet-identity-catalog-refresh.json`. Final combined fast/exact CI2.2 remain pending.
 - [x] 2.1 Root real GUI-save then verify actual post-GUI identity/partition and strict levels; capture only five allowed source files and source-bound hashes/evidence after success.
 - [ ] 2.2 Focused tests, types/lint, private residue and strict validation; root serialized fast and exact-head CI remain required before archive.
 

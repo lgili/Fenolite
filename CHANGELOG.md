@@ -6,9 +6,68 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Exclude pytest current-directory aliases from native floor evidence uploads; preserve all real owner reports and strict duplicate-proof rejection.
+
+- Declare the real KiCad requirement of the BOM-only KiCad-to-Altium refusal integration test, so unit-only CI does not fail before reaching its writer check.
+
+- Fix the native-rule tool-version test on Windows by matching path components; retain the metadata-change assertion and require PCB, project and DRU hashes.
+
+- Preserve the completed failed fast-gate receipt and the exact five-case repair replay, keeping the next whole-source and native validation gates open (c0319).
+
+- Restore the drawn-example negative coverage test after the GND correction and assert its new IN label explicitly, retaining no-write and rebuild identity checks (c0319).
+- Bound the test-only ERC conflict-matrix numeric descriptor to documented0..2 values with native9/10 key-linkage and malformed/unknown negatives; Royal renumbering remains blocked (c0355).
+
+- Add an incomplete, closed test-only numeric-role ledger with authored NO_NET, silkscreen-cache and footprint-connection guards; unknown project/Plot fields continue to block Royal renumbering (c0355).
+
+- Record the imported ordinary-zone fill-state loss and a gated carrier proposal (c0360). An original native10 filled/empty control converges exactly; no Royal cache mutation, runtime preservation or causal claim is added.
+
+- Keep historical release records current with newly opened acceptance tasks and letter-suffixed continuation IDs; make the open-task negative independent of later task completion (c0319).
+
+- Isolate repeated-sheet caller tests in temporary source copies, retaining the original fixture bytes and keeping generated resolver locks out of tests/data (c0276).
+- Complete a source-bound external Tiny1.0.2 pilot with actual target10 full proof, replay and scoped audit; preserve all notices, original library bytes and the remaining seventeen unrelated findings.
+
+- Document the measured KiCad10 CLI/official IPC limit for headless theme creation and the exact native-theme handoff; retain the missing real theme and human-review gates.
+
+- Prepare source-bound authored comparison inputs and standalone viewer exports for the five pending native visual reviews, with missing CAD/theme/F0.5 observations explicitly separated from human acceptance.
+
+- Record the maintainer's choice of authored inputs for five pending native/viewer reviews, retaining the human comparisons and all acceptance gates as pending (c0177–c0186).
+
+- Record the exact OpenAir author-source replay with all nine supported comparisons equal, preserving routing notices and explicitly unjudged native-rule/settings scope; external library promotion and CI remain pending (c0359).
+- Prepare a fresh authored Altium24 acceptance_v03 handoff with source-bound inputs and expected native checks, retaining the real native and graduation gates (c0092).
+
+- Record the exact CI failure causes and scoped repair proofs without treating the failed run or pending native jobs as a successful release gate (c0319).
+
+- Reconcile finished-board and catalog byte guards with the emitted-sheet identity repair, asserting exact root/child caches and retaining every unrelated project value and file digest (c0344).
+- Preserve BOM-only purchasing identities in API conversion preparation before writing, keeping source rules and inputs intact and preventing false added-component findings during KiCad retarget verification (c0319).
+
+- Decode exported viewer HTML as UTF-8 in the CLI caller tests, preserving their instance, cache and refusal checks on Windows (c0348).
+- Keep exact native intersheet-field pose and graph checks independent of SVG paint order, preserving duplicate occurrences, styles and rotation pivots without relaxing position tolerances (c0348).
+
+- Record the maintainer's completed review of the authored Altium/KiCad library viewer pages, units and measurement controls (c0179).
+
+- Keep the CLI surface inventory consistent on Python3.11 for zero-or-more positional arguments, preserving required flags and actual parser behavior (c0216).
+
+- Declare the authored import example's native project sidecar in the test-data manifest, fixing the corpus policy check found by CI (c0319).
+
 - Record the maintainer's approval of the five Altium acceptance criteria; retain the unmeasured acceptance-tree and graduation gates explicitly (c0092).
+- Prepared an external OpenAir1.0.2 author-source item/review packet with strict recorded full proof, passing replay and scoped licence/version audit; kept the authoritative library and historical failures intact, with all unjudged/3D limitations explicit.
+
+- Preserve complete declared native custom-rule inputs only within a verified immutable imported model/context, refusing unsupported predicates and edits before staging (c0359).
+
+- Preserve multiline native custom footprint properties through import without weakening the printable-only Part.properties contract (c0358).
+
+- Prepare an isolated author-source OpenAir refresh with strict full native proof and name-only external3D references, retaining the failed older source evidence (c0279).
 
 - Record the maintainer’s explicit decision not to execute the paid agent benchmark, leaving all run tables and measured results empty (c0081).
+- Preserve Royal’s original cache state in a raw-byte declaration-order diagnostic: reversing only nonzero net declarations leaves complete native geometry unchanged; renumbering and production normalization remain unqualified (c0355).
+
+- Add original two-network numeric-netcode/table-order controls with strict labelled physical partitions, NO_NET and unknown-reference guards; Royal transformation and any production normalization remain gated (c0355).
+
+- Keep Royal’s genuine geometry failure after an exploratory common-ID/order COPY experiment with every ordinary fill retained; no production normalization or waiver is added. Extend authored field-order/reference controls to chamfered/through-hole pads and distinguish nested polygon arcs from root track identities (c0355).
+
+- Add independent authored native duplicate-identity and reference-closure controls for c0355. Structural occurrence paths catch references even when equal parsed atoms are interned; Royal admission and production normalization remain gated.
+
+- **Bounded native identity investigation** (c0355): record coordinator constraints and authored KiCad9/10 pad-field-order observations without adding an identity normalizer. Royal’s428stored pad annotations are preserved; its genuine derived-cache failures and unproved duplicate/reference guards remain explicit.
 
 - Preserve conservative pin-choice and circuit-input evidence without spurious metadata warnings; keep primary failed/no-write diagnostics while checking every attempted write (c0219).
 - Record the maintainer-approved Altium24.5.2.23 scope for pending native validations, preserving historical26.5 reports and every acceptance gate (c0166).
@@ -18,6 +77,15 @@ All notable changes to Fenolite are documented here. The format follows
 - Keep historical complete byte pins exact while explicitly asserting the intentional schema1.0 metadata marker; no native or other canonical bytes are excluded (c0218).
 
 - Retain the original footprint-projection canonical digest pins through schema1 activation by pinning only the authorized metadata marker back to0. Independent controls preserve every native byte and reject hidden content changes; no fixture or golden was regenerated (c0218).
+- Correct the authored drawn example's input pull-down return to GND, explicitly mark only unused U1-11/U1-12 and label the existing IN wire. Both native24 source forms retain all 38 pins with clean compiler logs; native writer/ERC policy is unchanged. Both native saved/reopened forms also retain the complete partition and names. Historical operator I/O32 is independently reproduced and repaired with immutable events; wider acceptance/CI remain pending (c0276).
+- Prefer canonical code-net names for repeated Altium local labels only after complete native physical-group binding and casefold collision checks; ambiguous cases retain the reported scope-preserving fallback. Complete-project comparison and default example bytes stay unchanged; native Altium acceptance remains pending (c0276).
+
+- Preserve the FULL fixture's remaining power ports when styling its first port in the Altium font-loss control; the complete repaired circuit and existing strict/explicit-loss assertions stay intact (c0276).
+
+- Give the original FULL drawn fixture real B0/B1 pull-down loads, retaining all36 old pins and measuring40pins/five components; only unused U1-11/U1-12 are marked and IN labels the existing wire. Native record and KiCad9/10 checks pass without the old dangling-label exception; native Altium acceptance remains pending (c0276).
+
+- Record actual Altium24.5.2.23 S3 slot/cut-out openings in2D/3D and exact NC drill absence, plus S4 one native Board Cutout region for the merged L. Current24 DRC and the writer gate remain pending (c0168).
+
 - **Exact imported physical pad annotations** (c0355): preserve existing native pinfunction/pintype children and their absence per physical pad in explicit imported definitions. Conflicting duplicate pad numbers retain their own metadata; changed identities and ambiguous annotated sources refuse. Source/output top/bottom controls retain metadata, and malformed annotations refuse before planning. Generic library extraction and default writers remain unchanged. Native identity/order normalization remains an unimplemented proposal with strict annotation and ambiguity preconditions; derived-cache differences remain visible.
 - **Measured hash pin names** (c0357): preserve `#` in native open/no-connect pin net names after exact authored KiCad9/10 export proofs. Other unmeasured characters remain unsupported; strict native class-membership comparison is unchanged.
 
@@ -44,7 +112,7 @@ All notable changes to Fenolite are documented here. The format follows
 - c0353: resolve ordinary source-symbol inheritance with the existing canonical resolver before exact pin binding, preserving parent pins/units, child properties and the original contextual-inheritance refusal; combined imports follow the locked formatter order.
 - Preserve explicit authored9/10 controls for active inter-sheet references without a field pose; keep the refusal and disabled behavior unchanged (c0348).
 
-- **Native identity causality review** (c0355 proposal): document exact Royal controls showing pad/via/track UUID and item-order effects on derived copper. Runtime matching, annotation preservation and any private normalization remain subject to explicit review; no acceptance or writer behavior changes.
+- **Native identity causality review** (c0355 proposal): document exact Royal controls showing pad/via/track UUID and item-order effects on derived copper. Runtime matching and private normalization remain proposals; the separate import-only annotation preservation is implemented. Royal derived-cache findings remain open.
 
 
 

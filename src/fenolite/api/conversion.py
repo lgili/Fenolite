@@ -21,7 +21,7 @@ from typing import Any
 
 import fenolite.convert as convert_package
 from fenolite.api.equivalence import EquivalenceResult, equivalent
-from fenolite.api.sides import read_schematic
+from fenolite.api.sides import _with_source_bom, read_schematic  # pyright: ignore[reportPrivateUsage]
 from fenolite.backends import registry
 from fenolite.backends.base import BoardFrame
 from fenolite.checks.equivalence import Profile, load_profiles
@@ -241,6 +241,9 @@ def convert(
     ``fenolite.convert.convert_project``; its errors are raised unchanged. Without ``verify`` the result
     holds no comparison, one ``convert.no-verify`` warning, and the evidence ``UNVERIFIED``."""
     prepared = convert_package.read_source(Path(source))
+    # Reuse private API source preparation before the writer; retain the original rule/input context.
+    if prepared.backend == "kicad" and (root := root_schematic(prepared)) is not None:
+        prepared = replace(prepared, design=_with_source_bom(prepared.design, root))
     if to == "altium" and prepared.backend == "kicad" and (root := root_schematic(prepared)) is not None:
         prepared = replace(prepared, schematic=read_schematic(root).design)
     conversion = convert_project(

@@ -5,9 +5,12 @@
 from __future__ import annotations
 
 import json
+import re
 import uuid
 import xml.etree.ElementTree as ET
+from collections import Counter
 from collections.abc import Mapping, Sequence
+from decimal import Decimal
 
 
 def identity(text: str) -> str:
@@ -77,3 +80,49 @@ def field_text(svg: bytes) -> tuple[str, ...]:
     start = texts.index("AUTH_SHARED") + 1
     end = next(index for index in range(start, len(texts)) if texts[index].startswith("AUTH_"))
     return tuple(texts[start:end])
+
+
+def field_poses(outputs: Mapping[str, bytes], prefix: str) -> Counter:
+    """Complete exact same-sheet field multiset; paint order cannot identify duplicate native text.
+
+    Keep every text attribute and ancestor style/rotation, including duplicate multiplicity. Unknown
+    transforms refuse instead of silently comparing coordinates in incompatible frames.
+    """
+    result = Counter()
+
+    def walk(node, filename, context=(), rotations=()):
+        if not any(
+            child.tag.endswith("}text") and "".join(child.itertext()).startswith(prefix)
+            for child in node.iter()
+        ):
+            return
+        attrs = dict(node.attrib)
+        transform = attrs.pop("transform", None)
+        if transform is not None:
+            number = r"([+-]?\d+(?:\.\d+)?)"
+            matched = re.fullmatch(rf"rotate\(\s*{number}\s+{number}\s+{number}\s*\)", transform)
+            if matched is None:
+                raise ValueError("unproved native field transform")
+            rotations = (*rotations, tuple(Decimal(value) for value in matched.groups()))
+        local = node.tag.rsplit("}", 1)[-1]
+        text = "".join(node.itertext())
+        if local == "text" and text.startswith(prefix):
+            x, y = Decimal(attrs.pop("x")), Decimal(attrs.pop("y"))
+            result[(filename, text, x, y, tuple(sorted(attrs.items())), context, rotations)] += 1
+        for child in node:
+            walk(child, filename, (*context, (local, tuple(sorted(attrs.items())))), rotations)
+
+    for filename, data in outputs.items():
+        if filename.endswith(".svg"):
+            walk(ET.fromstring(data), filename)
+    return result
+
+
+def shift_field_poses(poses: Counter, shifts: Mapping[str, tuple[Decimal, Decimal]]) -> Counter:
+    """Exact expected translation of every selected field and its rotation pivots; other sheets stay."""
+    result = Counter()
+    for (filename, text, x, y, attrs, context, rotations), count in poses.items():
+        dx, dy = shifts.get(filename, (Decimal(0), Decimal(0)))
+        shifted = tuple((angle, cx + dx, cy + dy) for angle, cx, cy in rotations)
+        result[(filename, text, x + dx, y + dy, attrs, context, shifted)] += count
+    return result

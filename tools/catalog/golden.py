@@ -11,8 +11,10 @@
 ``--seed 1`` and a fixed ``--timestamp``, but ``.fenolite/meta.json``, which names the version of
 Fenolite, and the files a later change added (``LATER``, with their entries in ``.fenolite/build.json``).
 The file was first written from the Python catalog before the move to data files, so every later catalog
-must give the same bytes; it changes only together with a version change in
-``src/fenolite/catalog/data/VERSIONS.toml``.
+must give the same bytes; catalog content changes require a version change in
+``src/fenolite/catalog/data/VERSIONS.toml``. The c0344 project identity-cache repair changes only the
+project and paired build-record hashes, independently of catalog content; the exact old hashes and
+complete file maps are retained in ``docs/evidence/project-sheet-identity-catalog-refresh.json``.
 """
 
 from __future__ import annotations

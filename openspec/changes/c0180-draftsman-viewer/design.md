@@ -88,3 +88,7 @@
 ## Risks / Trade-offs
 
 - **Two repositories, one tool generation.** Format versions 21 and 22 are covered, and a later Altium may move members. The reader skips what it does not find and counts it in the notes.
+
+## Authored comparison preparation, 2026-11-03
+
+The maintainer selected Fenolite-authored inputs for the pending comparison, without approving any rendering. Preparation is external and source-bound: no CAD UI or configuration change, no fabricated native image/version, no human-review completion. Native Designer24.5.2.23, an actual KiCad-written authored theme and DraftsmanF0.5 observations remain separately measured where applicable. See docs/evidence/native-viewer-maintainer-review-plan.md for the required criteria.

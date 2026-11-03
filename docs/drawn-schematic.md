@@ -25,6 +25,8 @@ design.load_schematic("schematic.toml")  # the sheets come from the file, the ne
 `examples/drawn/` is a complete example: a root sheet with a bent wire, a junction, local and global labels
 and a power symbol, and the sheet of the module `child` joined through a hierarchical label and a sheet
 pin.
+R2/R3 form the input pull-down to GND; the existing parent wire is explicitly named IN.
+Only the two unused input pins U1-11/U1-12 carry intentional no-connect marks.
 
 A KiCad project imported with `import --to python` carries this file and the source's embedded symbol
 definitions. Its actual drawing is built and checked before staging, including hidden power-pin

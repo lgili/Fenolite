@@ -89,7 +89,7 @@ def exported(base, source, *, name="view.html", doc=None):
         cwd=base,
     )
     assert confirmed.exit_code == 0, confirmed.error
-    payload = embedded((base / name).read_text())
+    payload = embedded((base / name).read_text(encoding="utf-8"))
     assert payload is not None
     return payload, confirmed
 

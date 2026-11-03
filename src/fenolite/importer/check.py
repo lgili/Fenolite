@@ -17,7 +17,7 @@ from dataclasses import dataclass
 
 from fenolite.checks.equivalence import compare_designs, load_profiles, max_level
 from fenolite.checks.equivalence.model import EXACT, Difference, Tolerances
-from fenolite.core.errors import Issue
+from fenolite.core.errors import FormatError, Issue
 from fenolite.importer.codes import issue
 from fenolite.importer.coverage import Unexpressed, explained
 from fenolite.model.design import Design
@@ -127,3 +127,10 @@ def self_check(source: Design, built: Design, unexpressed: Sequence[Unexpressed]
 
 
 __all__ = ["PROFILE", "SelfCheck", "self_check"]
+
+
+def exact_native_rule_context(source: Design, built: Design) -> None:
+    """A restricted native-rule import never certifies a changed first-output physical context."""
+    report = compare_designs(source, built, level=7, tolerances=EXACT, frame="absolute")
+    if not report.equivalent or report.excluded:
+        raise FormatError("source-to-emitted native rule physical context differs")

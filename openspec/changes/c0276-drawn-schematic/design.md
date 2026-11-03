@@ -602,3 +602,76 @@ This is an authored source-intent control, not a writer workaround or a claim
 that the unchanged original examples compile without findings. The coordinator
 approves this narrow characterization before authoring the control; no model,
 schema or public DSL change is needed.
+## Authored original-example ERC correction (2026-11-03)
+
+The coordinator approved a focused correction to the original drawn example after actual historical
+native findings, with a new current24.5.2.23 reproduction before source edits. This is an authored
+circuit/drawing repair, not a compiler setting change or reuse of the independent6.3 control.
+The example's R2/R3 input chain terminates at GND instead of VCC: R3-2 moves intentionally from VCC
+to GND, making a legitimate pull-down and giving the MCU ground net a second physical terminal.
+Add code/drawing intentional no-connects ONLY to the truly disconnected U1-11/U1-12 inputs.
+Put an explicit local IN label on the existing parent wire, preserving its geometry and hierarchy.
+Retain four components, all38pins and33groups; compare the new complete memberships against the
+changed code, never against a filtered pin universe. No NoERC is added to a connected pin/net;
+no project/global ERC policy changes. Preserve historical original observations and all other fixtures.
+Native binary/ASCII compile, all messages/names/pins, exact reviewed hashes and new-copy save/reopen
+must pass before this authored correction can satisfy6.2. Existing independent6.3 negative remains
+separate. If a new failure appears, retain it visibly and make one focused repair/proof iteration.
+
+## Complete original FULL fixture circuit (2026-11-03)
+
+Coordinator review approved an authored repair, separate from the40pin independent clean bus control.
+First retain current24 baseline binary/ASCII findings and full pin/name exports on immutable inputs.
+The original FULL fixture has36pins/three components: B0=U1-18 and B1=U1-19 are singletons, and
+U1-12 is unused. Add R3/R4 as10k pull-downs: B0 joins R3-1, B1 joins R4-1, and both pin2 join GND.
+All36 old physical pins stay, and the new complete universe is40pins/five components, with32groups.
+Put R3/R4 on the root at(139.7,88.9)/(152.4,88.9)mm, local B0/B1 at their pin1 endpoints, and
+GND powers at their pin2 endpoints. Keep every existing drawn item kind, field pose, wire, bus/alias,
+entry, sheet reference, title and opaque graphic. Keep the existing unused11 marker and explicitly
+declare no-connect11/12 in code; add ONLY the missing drawn12 marker at(88.9,97.79)mm. No marker
+may touch a connected bus/other terminal. Add local IN on its existing parent wire at(82.55,69.85)mm.
+The writer, project net scope and global ERC policy are unchanged. Prove exact code/drawn memberships,
+all old pins plus four new resistor pins, native records/marker locations, both actual native forms,
+all compiler messages/names, new-copy native save/reopen and strict deliberate broken-bus negative.
+Do not refresh a byte table unless an inventoried row actually depends on this authored fixture.
+After actual KiCad9/10 controls prove the newly loaded nets have no dangling labels, remove the obsolete full9 label_dangling exception; no new connectivity waiver is permitted. No historical22 finding or independent6.3 result becomes a retroactive FULL pass.
+
+## Canonical names in isolated repeated local sheets (2026-11-03 proposal)
+
+The existing Altium Automatic/Global lowering intentionally writes duplicate local label FB as
+__local_<sheet-id>_FB and emits altium.not-lowered info to prevent shorts across two cloned repeated
+instances. This preserves all8pins/five groups, but native names differ from code-owned FB0/FB1.
+The coordinator approved proposing a conservative preference for canonical net names ONLY when a
+complete physical label group has a unique exact bijection to one circuit net, and every casefolded
+candidate is unique against all native local/global/power/port names and peer groups. Every old pin
+and local partition must survive; no first-match choice, mode/ERC change or result renaming is allowed.
+Ambiguous, partial, duplicate or colliding candidates must refuse or retain the existing explicit
+fallback/diagnostic. Keep the existing visible-label text-change info even on canonical preference.
+A focused design of the group-binding carrier and RED controls is required before this runtime step;
+negative cases cover incomplete pin coverage, unmatched groups, duplicate casefold candidates,
+global/power collisions, an ordinary non-repeated sheet and the original local-isolation boundary.
+
+The ephemeral binding carrier is the existing final Design plus the exact files belonging to
+repeated source-sheet instances. For each such file, serialize the unqualified SheetPlan in memory
+and resolve it in isolation through the existing strict native reader. Require exact planned/native
+unit, physical pin and pin-map coverage, unique references, and a complete partition of those pins.
+Bind a shared local label only through its unique resolved group and full physical (reference,pin)
+membership to one unique canonical net; empty or nonrepresentable/bus-shaped names keep the explicit
+fallback. Reserve candidates together using casefold collisions against all native names, including
+power/global labels. No carrier is persisted; ordinary sheets and default generated bytes retain the
+old path. The final complete-project native readback and comparator remain unchanged. Coordinator
+approved this focused direction on 2026-11-03; RED must show preserved eight-pin partition before
+asserting the incorrect names, and negative controls retain explicit fallback rather than pick-first.
+
+
+The isolated-sheet partition proof includes every native physical pin and explicit singleton coverage.
+A shared global group such as GND can cross sheets: its per-sheet projection may validate the carrier,
+but a candidate local-label group must equal the *entire* canonical code net, never merely that net's
+intersection with the current sheet. This distinguishes a harmless projected global group from an
+unsafe partial local-name match. The proposed helper `_canonical_local_bindings(sheets, design,
+repeated_files)` returns only proved `(file, original_local_text) -> canonical_text` bindings; absence
+retains the existing explicit scope-preserving name and notice. The authored RED suite captures the
+actual prequalification plans/final circuit, proves eight covered pins/five complete groups before
+checking FB0/FB1, and supplies missing/unmatched/ambiguous membership, casefold duplicate, automatic
+global/power collision, duplicate physical reference and nonrepeated-file controls. No runtime
+implementation has been applied at this RED checkpoint.

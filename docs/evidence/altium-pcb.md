@@ -1188,3 +1188,18 @@ Do not combine different versions/input digests into one fictional kit run.
 All existing acceptance criteria, facts-before-code rules and final CI remain.
 The kit form keeps its existing AD major.minor dialect: use AD 24.5; keep full
 build 24.5.2.23 in the separate native observation report, not a new form key.
+
+### 2026-11-03, actual `AD24.5.2.23`, Part S
+
+Source S-1297: [current native report](altium-part-s-slots-2026-11-03.md) and
+[measured recap](altium-slots-24-native.json). Only S3/S4 are current24 passes; historical26.5
+observations are unchanged. All three native input hashes remain exact. No global settings changed.
+
+| Case | Measured observation | Result |
+|---|---|---|
+| S3 | Planning/2D/actual3D openings plus native NC3drilled slots/1round NPTH, no milled/cut-out hit | as expected |
+| S4 | One selected L Region, Kind Board Cutout, authored rounded extremities | as expected |
+| S5 | Current24 clearance DRC not run | pending |
+
+S1/S2/S5/S6/S7/S8 current24 outcomes remain open; CUTOUT_REGIONS stays false and H-A-SLOT-KIT
+stays INFERRED pending the required remaining acceptance.

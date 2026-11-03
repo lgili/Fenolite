@@ -1,0 +1,373 @@
+{
+  "authored_source_sha256": {
+    "tests/_intersheet.py": "1d2d621fbbd3a40dec3727200612eae2b1f06d3a8005c67fe6b15bb5359f6f9f",
+    "tests/kicad/schematic/test_intersheet_fields.py": "f542888843660e2bd7f60591498e9444bef44220975e34baa322f87f4b3c0c2f",
+    "tests/unit/backends/kicad/test_intersheet_svg_correspondence.py": "68347c6867a25c985f8a00f3061b96caf81be7bd731f8630c942c6397aa407bb"
+  },
+  "base_core_sha": "08876faba881b5e8a32ecea2c45d91003234898e",
+  "capture_driver_sha256": "2228e91d909a2870913a635fc9f60add57daa67eb6d9e041c503a0c983292bda",
+  "change_scope": "Test-only exact correspondence; no production writer, API, model or tolerance change",
+  "ci_failure": {
+    "after_x": "20.0908",
+    "before_x": "13.5712",
+    "expected_delta_mm": [
+      "5",
+      "7"
+    ],
+    "job": 125835695117,
+    "run": 41611925152,
+    "wrong_zip_delta": "6.5196"
+  },
+  "native": {
+    "10": {
+      "all_original_first_five_input_maps_and_argv_unchanged": true,
+      "calls": [
+        {
+          "args": [
+            "version"
+          ],
+          "input_sha256": {},
+          "outcome": "exit",
+          "output_sha256": {},
+          "returncode": 0
+        },
+        {
+          "args": [
+            "sch",
+            "export",
+            "netlist",
+            "--format",
+            "kicadsexpr",
+            "-o",
+            "out.net",
+            "drawn_full.kicad_sch"
+          ],
+          "input_sha256": {
+            "drawn_full.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
+            "drawn_full.kicad_pcb": "de8bfa116a534290131747f519cb9c3a566c8c7628b9ce69bfe91bb89a1c7251",
+            "drawn_full.kicad_pro": "90861a722dff709fde65692edc30848bba47e8b9c7e86deeab7885d83abcd5b9",
+            "drawn_full.kicad_sch": "376e15c139f907f3cfcad469a5ac4ce6c8c996f7a42a5719f548b52a946acfdd",
+            "fp-lib-table": "4f062e901cb3495d31f831532c4ba5978d07b5a1423e870db006f919ab92d001",
+            "sym-lib-table": "4243a97bd65fef4990efef9abdcfebadfd6679e97a9f64515074bed7b4605ff9"
+          },
+          "outcome": "exit",
+          "output_sha256": {
+            "drawn_full.kicad_prl": "9178f459ce647f038f7ee9437b0ede60c0e5f0baa5dfe1b4ef7504fddaed24fb",
+            "out.net": "843080867241680483edff2b33749d27080e833671e75efe0f8fa40692b583da"
+          },
+          "returncode": 0
+        },
+        {
+          "args": [
+            "sch",
+            "export",
+            "netlist",
+            "--format",
+            "kicadsexpr",
+            "-o",
+            "out.net",
+            "drawn_full.kicad_sch"
+          ],
+          "input_sha256": {
+            "drawn_full.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
+            "drawn_full.kicad_pcb": "de8bfa116a534290131747f519cb9c3a566c8c7628b9ce69bfe91bb89a1c7251",
+            "drawn_full.kicad_pro": "90861a722dff709fde65692edc30848bba47e8b9c7e86deeab7885d83abcd5b9",
+            "drawn_full.kicad_sch": "bb7274d2cd4a80ddaddb0e9b9e49631b0fb163bf216a7d250a165d58c56f38fd",
+            "fp-lib-table": "4f062e901cb3495d31f831532c4ba5978d07b5a1423e870db006f919ab92d001",
+            "sym-lib-table": "4243a97bd65fef4990efef9abdcfebadfd6679e97a9f64515074bed7b4605ff9"
+          },
+          "outcome": "exit",
+          "output_sha256": {
+            "drawn_full.kicad_prl": "9178f459ce647f038f7ee9437b0ede60c0e5f0baa5dfe1b4ef7504fddaed24fb",
+            "out.net": "8006fc12c7b92912e4bd484d3ab00c1c95b13033a550d4d90f597aec656ecffb"
+          },
+          "returncode": 0
+        },
+        {
+          "args": [
+            "sch",
+            "export",
+            "svg",
+            "-o",
+            "svg",
+            "drawn_full.kicad_sch"
+          ],
+          "input_sha256": {
+            ".fenolite/board.json": "0fdbb918e2985ef7ec316e7ea1e9e474235c77932a34db84faf190eef97730e7",
+            ".fenolite/build.json": "47d70d1f14c458b4309b046ca8331d4efbb0e528a09e3df90bf35f472e3445de",
+            ".fenolite/circuit.json": "f40f8bfa17f62270ce3bf1add072ea221f19f108bc766b0d648d531a4be3327d",
+            ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+            ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+            ".fenolite/meta.json": "d1cf7128af11b2e777a8a0b533949dc8ad0d1f4ec45e9de07671da3144f8c0cf",
+            ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+            "drawn_full.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
+            "drawn_full.kicad_pcb": "de8bfa116a534290131747f519cb9c3a566c8c7628b9ce69bfe91bb89a1c7251",
+            "drawn_full.kicad_pro": "81b7c6cfb84c4f9a650f8bb36c03af492161eb592b9139983f3fefdebffda8d8",
+            "drawn_full.kicad_sch": "bb7274d2cd4a80ddaddb0e9b9e49631b0fb163bf216a7d250a165d58c56f38fd",
+            "fp-lib-table": "4f062e901cb3495d31f831532c4ba5978d07b5a1423e870db006f919ab92d001",
+            "lib/Mini.kicad_sym": "615d84923f161f5d2a333a7df384851b5c4f81de74a5853ca293c95b95531fa8",
+            "lib/Mini.pretty/Mini_QFP-32_7x7mm_P0.8mm.kicad_mod": "796c8dbd4386d3371970294120fe4a56e0766bb1731454ef9dbd89725cd61cf1",
+            "lib/Mini.pretty/Mini_R_0603.kicad_mod": "8a69fd538ee10ea412e2b5cc1c3d63f4834a12c5d1ad45443697d3f3eb65a5b5",
+            "sheets/sub.kicad_sch": "3702ce88ee1a6e80d5aeb100d5a0904e886b59a73bb135f60656de039677a53a",
+            "sym-lib-table": "4243a97bd65fef4990efef9abdcfebadfd6679e97a9f64515074bed7b4605ff9"
+          },
+          "outcome": "exit",
+          "output_sha256": {
+            "drawn_full.kicad_prl": "9178f459ce647f038f7ee9437b0ede60c0e5f0baa5dfe1b4ef7504fddaed24fb",
+            "svg/drawn_full-sub.svg": "cb76d593f0d7f072f0f88335c7c58e0738b7873683df15d3b5c1627e638a7ac9",
+            "svg/drawn_full.svg": "b8caba1665affc97ab6bc0bca176591cde8e6c32d9955c0978307a47a0b2d68e"
+          },
+          "returncode": 0
+        },
+        {
+          "args": [
+            "sch",
+            "export",
+            "svg",
+            "-o",
+            "svg",
+            "drawn_full.kicad_sch"
+          ],
+          "input_sha256": {
+            ".fenolite/board.json": "0fdbb918e2985ef7ec316e7ea1e9e474235c77932a34db84faf190eef97730e7",
+            ".fenolite/build.json": "356c5246d7e981d6310cf02b1057b908b3993e48a8f78d353a4cdcb6c438ecb5",
+            ".fenolite/circuit.json": "f40f8bfa17f62270ce3bf1add072ea221f19f108bc766b0d648d531a4be3327d",
+            ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+            ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+            ".fenolite/meta.json": "d1cf7128af11b2e777a8a0b533949dc8ad0d1f4ec45e9de07671da3144f8c0cf",
+            ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+            "drawn_full.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
+            "drawn_full.kicad_pcb": "de8bfa116a534290131747f519cb9c3a566c8c7628b9ce69bfe91bb89a1c7251",
+            "drawn_full.kicad_pro": "81b7c6cfb84c4f9a650f8bb36c03af492161eb592b9139983f3fefdebffda8d8",
+            "drawn_full.kicad_sch": "8814db14ad9b8dff4e47719fdf6e2ff52a4df99b494dccc2db91df548a51b218",
+            "fp-lib-table": "4f062e901cb3495d31f831532c4ba5978d07b5a1423e870db006f919ab92d001",
+            "lib/Mini.kicad_sym": "615d84923f161f5d2a333a7df384851b5c4f81de74a5853ca293c95b95531fa8",
+            "lib/Mini.pretty/Mini_QFP-32_7x7mm_P0.8mm.kicad_mod": "796c8dbd4386d3371970294120fe4a56e0766bb1731454ef9dbd89725cd61cf1",
+            "lib/Mini.pretty/Mini_R_0603.kicad_mod": "8a69fd538ee10ea412e2b5cc1c3d63f4834a12c5d1ad45443697d3f3eb65a5b5",
+            "sheets/sub.kicad_sch": "3702ce88ee1a6e80d5aeb100d5a0904e886b59a73bb135f60656de039677a53a",
+            "sym-lib-table": "4243a97bd65fef4990efef9abdcfebadfd6679e97a9f64515074bed7b4605ff9"
+          },
+          "outcome": "exit",
+          "output_sha256": {
+            "drawn_full.kicad_prl": "9178f459ce647f038f7ee9437b0ede60c0e5f0baa5dfe1b4ef7504fddaed24fb",
+            "svg/drawn_full-sub.svg": "cb76d593f0d7f072f0f88335c7c58e0738b7873683df15d3b5c1627e638a7ac9",
+            "svg/drawn_full.svg": "e27ad35fd7e0bc0bb9e07f393ba2bfc28f9847f2dbedd7bdaf981940e0a66f2d"
+          },
+          "returncode": 0
+        },
+        {
+          "args": [
+            "sch",
+            "export",
+            "netlist",
+            "--format",
+            "kicadsexpr",
+            "-o",
+            "out.net",
+            "drawn_full.kicad_sch"
+          ],
+          "input_sha256": {
+            "drawn_full.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
+            "drawn_full.kicad_pcb": "de8bfa116a534290131747f519cb9c3a566c8c7628b9ce69bfe91bb89a1c7251",
+            "drawn_full.kicad_pro": "90861a722dff709fde65692edc30848bba47e8b9c7e86deeab7885d83abcd5b9",
+            "drawn_full.kicad_sch": "8814db14ad9b8dff4e47719fdf6e2ff52a4df99b494dccc2db91df548a51b218",
+            "fp-lib-table": "4f062e901cb3495d31f831532c4ba5978d07b5a1423e870db006f919ab92d001",
+            "sym-lib-table": "4243a97bd65fef4990efef9abdcfebadfd6679e97a9f64515074bed7b4605ff9"
+          },
+          "outcome": "exit",
+          "output_sha256": {
+            "drawn_full.kicad_prl": "9178f459ce647f038f7ee9437b0ede60c0e5f0baa5dfe1b4ef7504fddaed24fb",
+            "out.net": "1c4b08df3ec90a73ceca4c9d025e28102cf511b290a07efcd74b9c72782f9059"
+          },
+          "returncode": 0
+        }
+      ],
+      "complete_field_counter_after_sha256": "2b18144cae473f7302016adc059773802287c4f6129c7ab34fe5f2d1efda905b",
+      "complete_field_counter_before_sha256": "8fb915f3a9595b65345e638760c130f9af800eaaf117861640ebd34b9e6aa2a5",
+      "complete_native_graphs_equal_original_styled_moved": true,
+      "exact_translation_mm": [
+        "5",
+        "7"
+      ],
+      "field_occurrences": 2,
+      "focused_result": "1 passed in4.76s",
+      "native_graph_groups": 32,
+      "native_graph_pins": 36,
+      "native_graph_sha256": "01519970667d566722cf47d2e9ae4810d9d395e7ce286f00162d100a8d20c167",
+      "version": "10.0.6"
+    },
+    "9": {
+      "all_original_first_five_input_maps_and_argv_unchanged": true,
+      "calls": [
+        {
+          "args": [
+            "version"
+          ],
+          "input_sha256": {},
+          "outcome": "exit",
+          "output_sha256": {},
+          "returncode": 0
+        },
+        {
+          "args": [
+            "sch",
+            "export",
+            "netlist",
+            "--format",
+            "kicadsexpr",
+            "-o",
+            "out.net",
+            "drawn_full.kicad_sch"
+          ],
+          "input_sha256": {
+            "drawn_full.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
+            "drawn_full.kicad_pcb": "d8d2f64d40d12ed19a52cbcd9bccf1f184856176893d2063dbc64d8a72bfe042",
+            "drawn_full.kicad_pro": "81fdac2fdd92fcbd778156d7ed04b6f72292e79f47f00e0cad3c5076c1f97892",
+            "drawn_full.kicad_sch": "2f28ed76a8dfd59c8ff5bd4b5759a2d7b52bc4d27616ecd4677d86c81086f3f8",
+            "fp-lib-table": "e4c69c740f1d92eda60fb1e81aa65b1606b492a1e691af1fdb0f2cf540eee2bc",
+            "sym-lib-table": "3d046811d8a722aff296f987928108858c0cd29eeb2a7aff7932f33631292f2c"
+          },
+          "outcome": "exit",
+          "output_sha256": {
+            "out.net": "0231f21af0a3b6f28152498b87263205686d00e000fc63ed48bae4cd597f2bec"
+          },
+          "returncode": 0
+        },
+        {
+          "args": [
+            "sch",
+            "export",
+            "netlist",
+            "--format",
+            "kicadsexpr",
+            "-o",
+            "out.net",
+            "drawn_full.kicad_sch"
+          ],
+          "input_sha256": {
+            "drawn_full.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
+            "drawn_full.kicad_pcb": "d8d2f64d40d12ed19a52cbcd9bccf1f184856176893d2063dbc64d8a72bfe042",
+            "drawn_full.kicad_pro": "81fdac2fdd92fcbd778156d7ed04b6f72292e79f47f00e0cad3c5076c1f97892",
+            "drawn_full.kicad_sch": "5408475f4668b62cb2c4806ecd28df686abba0955169f0315e0c4fc1ae540526",
+            "fp-lib-table": "e4c69c740f1d92eda60fb1e81aa65b1606b492a1e691af1fdb0f2cf540eee2bc",
+            "sym-lib-table": "3d046811d8a722aff296f987928108858c0cd29eeb2a7aff7932f33631292f2c"
+          },
+          "outcome": "exit",
+          "output_sha256": {
+            "out.net": "1d97b1670f9dcdd7aedff3446d71706df5c60e2115e7e670c23b0fad3ae2fa48"
+          },
+          "returncode": 0
+        },
+        {
+          "args": [
+            "sch",
+            "export",
+            "svg",
+            "-o",
+            "svg",
+            "drawn_full.kicad_sch"
+          ],
+          "input_sha256": {
+            ".fenolite/board.json": "5f1e7059206f6d87e3720591c34b193f8573bf25851d985261be50e0e42e9d0a",
+            ".fenolite/build.json": "ad8931e88abba041536f8e21312a399f00d27a3fc9729ad4df5354ad78b9428d",
+            ".fenolite/circuit.json": "f40f8bfa17f62270ce3bf1add072ea221f19f108bc766b0d648d531a4be3327d",
+            ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+            ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+            ".fenolite/meta.json": "d1cf7128af11b2e777a8a0b533949dc8ad0d1f4ec45e9de07671da3144f8c0cf",
+            ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+            "drawn_full.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
+            "drawn_full.kicad_pcb": "d8d2f64d40d12ed19a52cbcd9bccf1f184856176893d2063dbc64d8a72bfe042",
+            "drawn_full.kicad_pro": "81b7c6cfb84c4f9a650f8bb36c03af492161eb592b9139983f3fefdebffda8d8",
+            "drawn_full.kicad_sch": "5408475f4668b62cb2c4806ecd28df686abba0955169f0315e0c4fc1ae540526",
+            "fp-lib-table": "e4c69c740f1d92eda60fb1e81aa65b1606b492a1e691af1fdb0f2cf540eee2bc",
+            "lib/Mini.kicad_sym": "bd3d608a4e3f8b4eae2095f11e2f43d6aa4ba60b72b839e92d5863dc47e3697b",
+            "lib/Mini.pretty/Mini_QFP-32_7x7mm_P0.8mm.kicad_mod": "796c8dbd4386d3371970294120fe4a56e0766bb1731454ef9dbd89725cd61cf1",
+            "lib/Mini.pretty/Mini_R_0603.kicad_mod": "8a69fd538ee10ea412e2b5cc1c3d63f4834a12c5d1ad45443697d3f3eb65a5b5",
+            "sheets/sub.kicad_sch": "30f9a6caa7523799e144a5b2fe820eeb1c2fd34e07c1988b6191d1e7eb32ef64",
+            "sym-lib-table": "3d046811d8a722aff296f987928108858c0cd29eeb2a7aff7932f33631292f2c"
+          },
+          "outcome": "exit",
+          "output_sha256": {
+            "svg/drawn_full-sub.svg": "b2f115662847006f982acd4b2fd481d6e8f0b8c03d64c6da45e068c22dc5bb96",
+            "svg/drawn_full.svg": "6712482462d43ea7e24caa247ceb1c09ad6303e76ca0a36fb8c159a99f3c86c3"
+          },
+          "returncode": 0
+        },
+        {
+          "args": [
+            "sch",
+            "export",
+            "svg",
+            "-o",
+            "svg",
+            "drawn_full.kicad_sch"
+          ],
+          "input_sha256": {
+            ".fenolite/board.json": "5f1e7059206f6d87e3720591c34b193f8573bf25851d985261be50e0e42e9d0a",
+            ".fenolite/build.json": "4c9a0b55da045e8b3b314e270050b151cf203d7a698135e681a2b7ee12bac168",
+            ".fenolite/circuit.json": "f40f8bfa17f62270ce3bf1add072ea221f19f108bc766b0d648d531a4be3327d",
+            ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+            ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+            ".fenolite/meta.json": "d1cf7128af11b2e777a8a0b533949dc8ad0d1f4ec45e9de07671da3144f8c0cf",
+            ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+            "drawn_full.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
+            "drawn_full.kicad_pcb": "d8d2f64d40d12ed19a52cbcd9bccf1f184856176893d2063dbc64d8a72bfe042",
+            "drawn_full.kicad_pro": "81b7c6cfb84c4f9a650f8bb36c03af492161eb592b9139983f3fefdebffda8d8",
+            "drawn_full.kicad_sch": "be7118320bce7ffcec05e78e2eacd7d56db223ccbfe9241b9e55d5799bcf9ccf",
+            "fp-lib-table": "e4c69c740f1d92eda60fb1e81aa65b1606b492a1e691af1fdb0f2cf540eee2bc",
+            "lib/Mini.kicad_sym": "bd3d608a4e3f8b4eae2095f11e2f43d6aa4ba60b72b839e92d5863dc47e3697b",
+            "lib/Mini.pretty/Mini_QFP-32_7x7mm_P0.8mm.kicad_mod": "796c8dbd4386d3371970294120fe4a56e0766bb1731454ef9dbd89725cd61cf1",
+            "lib/Mini.pretty/Mini_R_0603.kicad_mod": "8a69fd538ee10ea412e2b5cc1c3d63f4834a12c5d1ad45443697d3f3eb65a5b5",
+            "sheets/sub.kicad_sch": "30f9a6caa7523799e144a5b2fe820eeb1c2fd34e07c1988b6191d1e7eb32ef64",
+            "sym-lib-table": "3d046811d8a722aff296f987928108858c0cd29eeb2a7aff7932f33631292f2c"
+          },
+          "outcome": "exit",
+          "output_sha256": {
+            "svg/drawn_full-sub.svg": "7459e061b80a5a7eca0a14314a7ef10a8fc05d823427c0bc7205259bbe320f44",
+            "svg/drawn_full.svg": "313104093a7a135afa8fbd1d1ae6e56632ea94fd674502a8d07549fc93b50c7b"
+          },
+          "returncode": 0
+        },
+        {
+          "args": [
+            "sch",
+            "export",
+            "netlist",
+            "--format",
+            "kicadsexpr",
+            "-o",
+            "out.net",
+            "drawn_full.kicad_sch"
+          ],
+          "input_sha256": {
+            "drawn_full.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
+            "drawn_full.kicad_pcb": "d8d2f64d40d12ed19a52cbcd9bccf1f184856176893d2063dbc64d8a72bfe042",
+            "drawn_full.kicad_pro": "81fdac2fdd92fcbd778156d7ed04b6f72292e79f47f00e0cad3c5076c1f97892",
+            "drawn_full.kicad_sch": "be7118320bce7ffcec05e78e2eacd7d56db223ccbfe9241b9e55d5799bcf9ccf",
+            "fp-lib-table": "e4c69c740f1d92eda60fb1e81aa65b1606b492a1e691af1fdb0f2cf540eee2bc",
+            "sym-lib-table": "3d046811d8a722aff296f987928108858c0cd29eeb2a7aff7932f33631292f2c"
+          },
+          "outcome": "exit",
+          "output_sha256": {
+            "out.net": "3af8986ee2f2bfa3b9f4d82b1ab6cccd6414b05ea6b52eea062aba11f4d7a9c4"
+          },
+          "returncode": 0
+        }
+      ],
+      "complete_field_counter_after_sha256": "2b18144cae473f7302016adc059773802287c4f6129c7ab34fe5f2d1efda905b",
+      "complete_field_counter_before_sha256": "8fb915f3a9595b65345e638760c130f9af800eaaf117861640ebd34b9e6aa2a5",
+      "complete_native_graphs_equal_original_styled_moved": true,
+      "exact_translation_mm": [
+        "5",
+        "7"
+      ],
+      "field_occurrences": 2,
+      "focused_result": "1 passed in8.20s",
+      "native_graph_groups": 32,
+      "native_graph_pins": 36,
+      "native_graph_sha256": "01519970667d566722cf47d2e9ae4810d9d395e7ce286f00162d100a8d20c167",
+      "version": "9.0.9"
+    }
+  },
+  "unit_guards": "8 passed in0.30s; order reversal positive; exact position/font/rotation/sheet/multiplicity negatives; unchanged children and unknown selected-transform refusal"
+}

@@ -194,3 +194,7 @@ writing a field. Unit29pass. Existing native9.0.9/10.0.6 SVG matrix subset
 on/stored-hide/punctuation each3pass16deselected, with input hashes unchanged.
 No template helper, writer, viewer runtime, model or format interpretation was
 changed by this focused regression addition.
+
+## CI exact SVG occurrence correspondence
+
+KiCad9 CI run41611925152/job125835695117 exposed a test-only mismatch: two root fields share the identical effective text NATIVE_FIELD[]. Flat XML paint-order zip can pair before x13.5712 with after x20.0908, giving6.5196mm, while the complete matching field positions each move exactly5mm/7mm. Actual native9/10 original authored captures retain every input/output hash and demonstrate unchanged original/styled/moved electrical graphs and pins. The test now compares the complete same-sheet multiset of effective field text, exact x/y, all text attributes, ancestor styles and rotation pivots; the expected vector is exactly5mm/7mm, with multiplicities retained. Other sheets remain unchanged, missing/extra/wrong-sheet fields fail, and unknown selected transforms refuse. No writer, autoplace, native CAD bytes or tolerance changed. The8authored controls include paint-order reversal and independent position/font/rotation/sheet/multiplicity negatives. See ci-svg-correspondence-proof.json; required exact-head CI remains pending.

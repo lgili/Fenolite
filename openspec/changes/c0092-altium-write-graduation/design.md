@@ -122,3 +122,19 @@ Do not combine different versions/input digests into one fictional kit run.
 All existing acceptance criteria, facts-before-code rules and final CI remain.
 The kit form keeps its existing AD major.minor dialect: use AD 24.5; keep full
 build 24.5.2.23 in the separate native observation report, not a new form key.
+
+
+## Fresh native acceptance packet, before execution
+
+Task5.3a prepares the actual authored acceptance_v03 tree on a selected immutable
+current core commit. Keep each older prepared/native run as separate evidence.
+Use the existing prepare-only runner with reviewed plans, no supplied Altium
+version or kit-run-id, and no native process launched. A separate handoff names
+the approved target24.5.2.23 as a target, never as a measured run. Inventory every
+input/output hash, own-readback pins/net partitions and expected native scope.
+Document DRC/ERC findings honestly: self/readback checks and planned expectations
+are not a native clean verdict. Native open/save/reopen/compile/DRC/ERC, actual
+version, reports and source-bound result recording remain with the native agent.
+The four graduation conditions are cumulative and unchanged; accepted criterion5
+and exact-source CI stay open until their actual proofs pass. No historical kit
+on other samples is substituted for this acceptance tree.

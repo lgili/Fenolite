@@ -258,7 +258,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: drawn-floor-kicad-10
-          path: /tmp/**/drawn-floor.json
+          path: |
+            /tmp/**/drawn-floor.json
+            !/tmp/**/*current/**
           if-no-files-found: error
 
   kicad-9:
@@ -302,7 +304,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: drawn-floor-kicad-9
-          path: /tmp/**/drawn-floor.json
+          path: |
+            /tmp/**/drawn-floor.json
+            !/tmp/**/*current/**
           if-no-files-found: error
 
   drawn-floor-bridge:

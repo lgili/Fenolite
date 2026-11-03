@@ -341,6 +341,40 @@
   This passes only the independent6.3 control: original6.2 findings and H-A-DRAWN-WRITE INFERRED
   remain, as do exact-head9.2 CI and the other literal gates.
 
+- [x] 6.4 Reproduce the current original example's actual native24 findings, then implement the approved authored correction: R3-2 terminates the input chain at GND, intentional no-connects only on unused U1-11/U1-12, and local IN label on the existing root wire. Preserve all38pins/four components/33groups and native writer behavior, with independent full membership/name checks, both forms, actual native save/reopen, immutable original inputs and focused authored regressions. Never change global ERC settings or reuse6.3 as a retroactive original pass. Exact-head CI and other original fixture findings remain separate.
+  Preserve complete old/new deterministic plans before updating only the three drawn example byte rows. The intentional source circuit change moves R3-2 from VCC to GND, so its PCB/board/circuit bytes legitimately change alongside root/child schematics; all library/project/rule/manufacturing hashes and every unrelated example row stay fixed. Do not refresh an unmeasured file or weaken the complete-file assertion.
+  2026-11-03 partial proof: original current963 actual24.5.2.23 reproduces38pins/33groups, IN naming and3Error/2Warning. Authored regression3fails before and3passes after. Corrected binary/ASCII both retain every38pins/33groups with names exact and Info1 only. Four native binary documents saved/closed/reopened retain exact marker positions/flags; saved binary full recompile/export also passes. Saved ASCII export remains incomplete on operator I/O32 at stage.txt append, with no CAD-failure or completed-export claim. Before retry, consciously stop the paused owned SDK and prove an immutable-event/final-marker I/O protocol; do not poll an actively appended file. Receipt and sourceS-1295 are separate from6.3. Focused neighbors78pass; actual KiCad9/10 example oracle/load2passes each. All45original/30save-source hashes remain unchanged at collection. The three source-driven byte rows pass with complete old/new maps retained. Keep6.4/6.2 and exact-head CI OPEN.
+
+- [ ] 6.5 Repair the original FULL authored circuit after source-bound current24 baseline capture. Add real R3/R4 10k pull-down terminals to B0/B1 and GND, keeping all36 old pins and explicitly measuring the complete40pin/five-component universe; retain32groups. Keep existing11 NC, declare only actually unused11/12, add the missing12 drawn marker, and label IN on its existing wire. Preserve all drawn item kinds and exact buses/entries/hierarchy/poses. Start with authored RED regression, then focused code/drawn/native-record proofs and actual binary/ASCII compile/export/save/reopen. No connected NoERC, global ERC/scope change, pin filtering, comparator renaming or broad byte refresh. Record every native message/name and keep historical failures/independent6.3 separate.
+  Coordinator design review approved2026-11-03; current24 baseline and implementation proofs remain pending. No source fixture was edited before this task/design.
+
+- [ ] 6.6 Propose and prove canonical code-net preference for repeated local labels ONLY under a complete physical group↔circuit-net bijection and casefold-unique native identity. Preserve existing explicit fallback/refusal and label-text-change info for ambiguity/collisions, plus all8pins/five groups and local isolation. Establish RED positive FB0/FB1 and negatives for missing/unmatched/ambiguous groups, duplicate names, global/power collision and ordinary-sheet behavior before runtime. Never change the native comparator, measured results, net scope or ERC policy. Actual native both forms/save-reopen and inventoried byte effects are separate required proofs.
+  Coordinator approved the narrow proposal direction2026-11-03; binding-carrier design and RED controls must be reviewed before runtime. Current __local_<id>_FB behavior remains explicit and unchanged.
+
+  2026-11-03 local6.5 checkpoint: authored RED1failed0.88s before source edits; after repair3focused pass1.97s, including all40native records/all physical refs+pins and exact code memberships in both forms. Focused neighbors89pass10.55s. Actual KiCad9.0.9 and10.0.6 FULL export/load2cases each pass2.77s/3.07s; obsolete9 label_dangling exception removed, with no replacement waiver. Complete old binary/ASCII reviewed plans(15files each, source6de40c69) were preserved before edit. Actual Altium24 baseline/final compile/export/save/reopen and wider6.2/CI remain pending; task6.5 stays unchecked.
+
+
+  2026-11-03 follow-up6.5: the style-loss control previously replaced the whole FULL power-port
+  collection while styling its first port. Preserve every remaining authored power port so the new
+  R3/R4 pull-down returns stay connected. Keep the strict refusal and explicit-loss acceptance
+  assertions unchanged; this is test setup repair, with no writer or loss-policy change.
+  Proof: `PYTHONPATH=src uv run pytest tests/unit/backends/altium/test_drawn_fonts.py -q`.
+
+
+  2026-11-03 local6.6 implementation: reviewed RED first proves all8 covered pins/five groups and
+  fails only the two qualified FB names in both forms. The ephemeral complete-group carrier then
+  passes16 focused cases, including partial cross-sheet canonical membership, all ambiguity/name
+  controls, three complete native fallback partitions and ordinary-sheet byte equality. The native
+  comparator/ERC policy are unchanged; text rewrites retain their explicit informational notice.
+  Native KiCad9.0.9 and10.0.6 repeated fixture export/load each pass2 cases. Exact parentcd69b353
+  drawn module versus new lowering yields75 complete deterministic plans/1011 files with zero
+  differences; both full maps are retained externally. The historical byte guard currently passes74
+  and fails2 Altium PCB rows identically with the parent and new lowering; no golden is refreshed.
+  Actual Altium24 both forms/save-reopen, coordinated check-fast and exact-current-head CI remain
+  pending. Task6.6 remains unchecked.
+
+- [x] 6.7 Isolate the repeated-name caller tests in temporary source copies with the authored Mini library tables. Prove the original fixture file map stays unchanged and no generated design.lock enters tests/data; preserve every physical/name/fallback assertion. Proof: `uv run pytest tests/unit/backends/altium/test_drawn_repeat_names.py tests/unit/backends/altium/test_drawn_fonts.py tests/unit/test_build_bytes.py tests/corpus/test_manifest.py -q` —176 passed (19.36s), including all76 complete default byte guards; every repeat-test teardown compares the original fixture's complete file map. The previously generated untracked resolver lock is preserved externally, never committed; the source tree gains no lock or cache. Ruff/format and strict OpenSpec pass. Full fast/exact CI and native24 remain separate pending gates.
+
 ## 7. Evidence
 
 - [ ] 7.1 KiCad CI job: compare the resolver with `kicad-cli sch export netlist` on the authored drawn
@@ -460,3 +494,5 @@ finish on9.0.9 (92passed/38version skips,87equal/5explicitfloorrefusals) and
 counts, naming differences, findings and raw receipt/log digests. The source
 checkout remains clean and unchanged. Task7.2 stays unchecked pending the
 required exact-current-source CI; naming differences are not silently accepted.
+
+  2026-11-03 completion of6.4: the user consciously stopped the paused owned SDK. Independent Windows I/O control reproduced sharing error32 and passed1000 existence-only marker checks with closed-export hash exact, without touching CAD. Fresh ASCII-saved-v2 uses immutable unique events and zero active-stage reads. Actual Altium24.5.2.23 exports all38pins/33groups/all declared names exactly with Info1 only, identical partitionSHA to both corrected source forms and saved binary. No successful case was repeated; historical I/O32 remains recorded. Task6.4 native scope is complete; wider6.2, other original fixtures, H-A-DRAWN-WRITE and exact-head CI remain OPEN. Proof: focused original acceptance and verification metadata tests.

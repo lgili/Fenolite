@@ -29,7 +29,7 @@ from fenolite.backends.kicad.symbol_contexts import check_paths
 from fenolite.cli.api import Command, Context, PlannedWrite, Result, depends_on
 from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
-from fenolite.core.errors import FenoliteError, Issue
+from fenolite.core.errors import FenoliteError, FormatError, Issue
 from fenolite.core.evidence import Evidence
 from fenolite.importer import EVIDENCE
 from fenolite.importer.adopt import Adopted, adopt
@@ -146,7 +146,7 @@ def _altium(path: Path, args: argparse.Namespace, ctx: Context) -> tuple[Source,
     )
     source = dataclasses.replace(
         read, name=origin.path.stem, backend="altium", inputs=inputs, paths=tuple(files), folder=origin.root,
-        sheets=0,
+        sheets=0, native_rules_text=None,  # conversion-generated rules are not original KiCad input
     )  # fmt: skip
     source = dataclasses.replace(
         source,
@@ -179,12 +179,15 @@ def _build(emission: Emission, name: str, major: int, ctx: Context) -> tuple[lis
             target = root / relative
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(data)
-        reply = run(
-            "build", "design.py", "--out", "built", "--confirm", "--kicad-version", str(major),
-            "--copper-check", "warn", "--schematic",
-            "write" if "schematic.toml" in emission.files else "skip",
-            cwd=root, timestamp=ctx.timestamp,
-        )  # fmt: skip
+        from fenolite.lens.native_rule_context import import_owner
+
+        with import_owner(root / "design.py"):
+            reply = run(
+                "build", "design.py", "--out", "built", "--confirm", "--kicad-version", str(major),
+                "--copper-check", "warn", "--schematic",
+                "write" if "schematic.toml" in emission.files else "skip",
+                cwd=root, timestamp=ctx.timestamp,
+            )  # fmt: skip
         if reply.exit_code != 0:
             message = (reply.error or {}).get("message", "the build failed")
             found = [i for i in (reply.envelope or {}).get("issues", []) if i.get("severity") == "error"]
@@ -199,6 +202,16 @@ def _build(emission: Emission, name: str, major: int, ctx: Context) -> tuple[lis
 
         native = preserve(read_board(board).design, board.with_suffix(".kicad_sch"))
         return [], native, board.read_text(encoding="utf-8")
+
+
+def _native_rule_context(original: str, emitted: str, rules: str) -> int:
+    """Orchestrate backend attributes and the independent exact model comparison across layers."""
+    from fenolite.backends.kicad.native_rule_profile import context_models
+    from fenolite.importer.check import exact_native_rule_context
+
+    source, built, count = context_models(original, emitted, rules)
+    exact_native_rule_context(source, built)
+    return count
 
 
 def _run(args: argparse.Namespace, ctx: Context) -> Result:
@@ -280,10 +293,63 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     equivalence: dict[str, object] | None = None
     adopted: Adopted | None = None
     if args.no_verify:
+        if source.native_rules_text is not None:
+            raise FormatError("native custom rules require the verified two-build import baseline")
         issues.append(issue("import.unverified", "--no-verify: the emitted code was not built and compared"))
     else:
-        build_issues, built, built_text = _build(emission, name, target, ctx)
-        issues += build_issues
+        if source.native_rules_text is not None:
+            if source.project_text is None:
+                raise FormatError("native custom rules require their declared native project")
+            from fenolite.lens.native_rule_context import CERTIFICATE, capture_import, certificate
+
+            build_issues, built, built_text = [], None, ""
+            captured = None
+            try:
+                with capture_import(name, target) as captured:
+                    build_issues, built, built_text = _build(emission, name, target, ctx)
+            except FormatError:
+                # No baseline is issued: retain the primary failed-build diagnostic.
+                if built is not None or not build_issues:
+                    raise
+            issues += build_issues
+            if (
+                built is not None
+                and captured is not None
+                and captured.design is not None
+                and captured.emitted_pcb is not None
+                and captured.emitted_project is not None
+            ):
+                _native_rule_context(source.board_text, built_text, source.native_rules_text)
+                bound = dict(emission.files)
+                raw_rules = source.native_rules_text.encode("utf-8")
+                # Leading-private aliases cannot collide with emitted user identifiers,
+                # which the printer strips of surrounding underscores.
+                bound["design.py"] += (
+                    b"\nfrom pathlib import Path as _fenolite_native_rules_path\n"
+                    b"for _fenolite_native_rules_input in (\n"
+                    b'    "native/project.kicad_dru", "native/project.rules-context.json",\n'
+                    b"):\n"
+                    b"    if not (_fenolite_native_rules_path(__file__).parent / "
+                    b"_fenolite_native_rules_input).is_file():\n"
+                    b'        raise ValueError("required native rule input is missing: " + '
+                    b"_fenolite_native_rules_input)\n"
+                )
+                bound["native/project.kicad_dru"] = raw_rules
+                bound[f"native/{CERTIFICATE}"] = certificate(
+                    bound["native/project.kicad_pro"],
+                    raw_rules,
+                    captured.design,
+                    target,
+                    [{"path": row.file, "sha256": row.sha256, "kind": row.format} for row in source.inputs],
+                    emitted_pcb=captured.emitted_pcb,
+                    emitted_project=captured.emitted_project,
+                )
+                emission = dataclasses.replace(emission, files=bound)
+                build_issues, built, built_text = _build(emission, name, target, ctx)
+                issues += build_issues
+        else:
+            build_issues, built, built_text = _build(emission, name, target, ctx)
+            issues += build_issues
         if built is not None:
             checked = self_check(source.design, built, emission.unexpressed)
             issues += checked.issues
@@ -344,6 +410,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             EVIDENCE.level,
             hypotheses=(
                 *EVIDENCE.hypotheses,
+                *(("H-K-DRU-IMMUTABLE-CONTEXT",) if source.native_rules_text is not None else ()),
                 *(("H-A-IMPORT-CODE",) if source.backend == "altium" else ()),
                 *(("H-K-IMPORT-UPGRADE",) if source.upgrades else ()),
                 *(("H-K-IMPORT-ADOPT",) if adopted is not None else ()),

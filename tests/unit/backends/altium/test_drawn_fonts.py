@@ -50,7 +50,9 @@ def _styled(case: str) -> tuple[DrawnSchematic, str]:
     elif case == "power-font":
         power = root.powers[0]
         field = DrawnField("Value", Point(power.at.x, power.at.y + 2_540_000), font=font)
-        root = dataclasses.replace(root, powers=(dataclasses.replace(power, fields=(field,)),))
+        root = dataclasses.replace(
+            root, powers=(dataclasses.replace(power, fields=(field,)), *root.powers[1:])
+        )
         where = "root.power[0].fields.Value.font"
     elif case in {"pin-font", "pin-justify", "sheet-pose", "sheet-font", "sheet-property"}:
         ref = root.sheet_refs[0]

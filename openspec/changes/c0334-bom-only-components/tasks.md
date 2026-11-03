@@ -43,3 +43,5 @@ The approved scope and exact rollout conditions are recorded in design.md.
 This approves implementation, not its completion or any evidence promotion.
 
 Focused implementation proof is recorded in evidence.md. Task 2.4 has all eight affected public owner rows and native BOM checked, but remains open for the complete current-source literal census. Task 3.1 owns the remaining complete final-0/freeze inventory and 75-plan proof; task 3.2 owns combined fast and exact-head CI. Focused canonical/schema/legacy-byte controls for 1.2 passed; they are not claimed as the final release freeze.
+
+CI follow-up2026-11-03: the KiCad-to-Altium BOM-only refusal integration case prepares a native source schematic outside the own-netlist grammar, so it requires the real optional kicad-cli. Mark that single integration test needs_kicad; keep its exact LossyWriteError and no-partial-result assertions, execute it in native CI, and retain all other BOM-source unit controls in check-fast. Focused actual10.0.6 module proof:10passed in3.00s, including the unchanged refusal/no-partial-result case; combined CI remains open.

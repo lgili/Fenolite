@@ -19,6 +19,19 @@ transcribe. This page holds the form of the file only; sources are listed in `do
 | `meta` holds `filename`, `name` and `version` | S-0813 | INFERRED | H-K-THEME |
 | Which theme an installation has selected is not stated by these sources; the user names the theme | S-0813, S-0814 | UNKNOWN | H-K-THEME |
 
+## Native creation and automation scope
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| In KiCad9/10, the IPC interface needs a running GUI; the official documentation places headless IPC support in11. This does not establish a headless theme writer for installed10.0.6 | S-1298 | INFERRED | H-K-THEME |
+| In the native Colors preferences, New Theme creates a named theme using the previous selection as its initial palette; a swatch is edited by double- or middle-click, and preferences are saved automatically when the dialog closes | S-1298 | INFERRED | H-K-THEME |
+| KICAD_CONFIG_HOME selects a configuration base with version subdirectories; isolation must be set on a separately launched owned process, not by modifying the active user's configuration | S-1298 | INFERRED | H-K-THEME |
+
+Actual10.0.6 CLI discovery exposes theme selection for SVG export, but no create/save command.
+No native theme was written in this investigation. A handcrafted JSON seed, a binding signature or
+a future-version capability cannot be labelled a KiCad-written theme. The GUI creation/native
+comparison and the maintainer's review remain pending; no builtin palette is transcribed.
+
 ## Fenolite's reading
 
 - Each known key replaces one slot of the `kicad` palette; a key the file leaves out keeps the palette's

@@ -275,3 +275,96 @@ combined documentation/manifest/tuning/format sequence passes **100 cases**
 (2.32 s); it verifies the fixture overlay and final test isolation change
 after the complete fast run. Final whole-tree Ruff and format checks pass.
 Production sources and byte baselines remain unchanged.
+
+
+## 2026-11-03 immutable local fast checkpoint
+
+`40d27f47dcd0094f99e5378387b28ba09f97d04a` passed `make check-fast PYTEST_MAX_WORKERS=4` with
+21,753 tests passed,52 skipped, zero failures/errors and exit0. Lint, generated
+checks, formatting, source types and the configured private residue scan passed.
+The detached checkout stayed clean and its HEAD did not change. Total elapsed
+seconds:3627.976; pytest3193.24seconds.
+
+- Log SHA-256:`c7c3d59303b301ff48891d7b6f43bc7e57559a32ce05253cd3ae2df1403bb8f8`.
+- Driver SHA-256:`a541f4ea3e94744d0478cb34f435cadf1b6549f7b390a156c3b312b3caf89f49`.
+
+This validates that source only, not the later native/example/rule-context
+changes. CI41611925152 on that same source independently found a missing authored
+data-manifest entry and interpreter-specific optional-positional metadata drift.
+Their focused corrections are30b621d1 and2759df7b. Mac, Linux and required native
+jobs remain separately recorded; neither this local pass nor focused corrections
+close the final exact-source CI gate. Task2.2 remains open for the final combined
+candidate and task2.3 remains open for successful required CI.
+
+## 2026-11-03 CI repair assembly after the passing local checkpoint
+
+Run41611925152 remains a failed run on40d27f47, never a passing final gate.
+Its native10 job was still running when this repair assembly was recorded.
+The completed jobs exposed these distinct causes:
+
+- Unit Linux/macOS/Windows: the authored import project sidecar was undeclared
+  in the data manifest;30b621d1 fixes the declaration,60 manifest tests pass.
+- Python3.11/3.12 inventory: argparse marks zero-or-more positionals differently
+  although parsing accepts omission;2759df7b derives the inventory from actual
+  nargs semantics, preserving required flags.55 focused cases pass separately
+  on3.11.13,3.12.11 and3.13.7; no public command/default changes.
+- Windows caller tests: exported HTML is UTF-8, while locale-default reading
+  used CP1252. c1da1f6d explicitly decodes UTF-8;10 caller tests pass locally.
+  Actual instance/cache/refusal assertions remain intact; Windows CI is required.
+- Native9 field pose: identical SVG texts can change paint order. f2ccf733
+  compares the exact multiset of sheet/text/pose/style/rotation occurrences,
+  preserving duplicates and the exact5/7mm displacement. Eight negative/positive
+  controls and the original native9/10 pose test pass; writer bytes are unchanged.
+- Native9 finished-board/catalog expectations: c0344 intentionally binds project
+  identity caches to emitted sheets. f5ea49fb asserts exact root/child identities
+  and every unrelated project value. Finished-board identity passes on10.0.6
+  (4 cases) and9.0.9 (2 cases,2 target10 skips); catalog/binder/SVG controls pass
+  (18 cases). Restoring only the two old project cache values recovers both
+  historical catalog project/build-manifest hashes exactly; all other pins stay.
+- Native9 CM5 downgrade and dependent probes: source preparation omitted a
+  pinless purchasing component that read-back retained.54ca4204 prepares that
+  identity before writing; native9/10 demo and aggregate probes pass with the
+  original expectations. All72 converted CAD files remain byte-identical.
+
+The later191eb7f2 rule-context assembly passes140 focused capsule/profile/import,
+conversion and architecture cases. Whole-source Ruff, formatting, source Pyright
+and both generated-guide/graduation checks pass. These are scoped proofs, not a
+new full local fast pass, complete native census or successful exact-head CI.
+The selected-head private history audit and final required jobs remain separate.
+No spec is archived or merged to dev by this record.
+
+## Completed second immutable local gate and focused repairs
+
+The clean detached b5f6c84ade0cd74690874143bc1de96605279522 snapshot completed
+`make check-fast PYTEST_MAX_WORKERS=2`:5failed,21879passed,52skipped;
+pytest3482.83seconds, total3684.743seconds, make exit2. Its HEAD stayed fixed
+and checkout stayed clean. This is a completed failed run, never a passing gate.
+Log SHA-256:5d37d3fe1dbf8cc186c8b8e2ff2318da90a43ee65768a035681aebf2cab872d7.
+Driver SHA-256:3107c128840a676d3528004c0df196eb759a25ff48a6ad5676ec1de003f822eb.
+
+All five original failure identities were reproduced before their repairs:
+
+- v0.5/v0.6 record-consistency guards need the newly explicit c0092/5.3 native
+  acceptance task named; dated current tracking preserves the historical cut.
+- The v0.4 unnamed-task negative depended on c0081/4.2 remaining open, although
+  the maintainer explicitly chose not to run that optional paid benchmark.
+  An authored temporary task control now preserves that negative independently.
+- The drawn example now has its deliberate eighth label, IN. The guard asserts
+  the exact count and presence, retaining repeat-build byte identity.
+- The missing-symbol negative matched an obsolete GND line and added no R9.
+  It now appends the missing part, reuses the actual GND object, requires the
+  R9-specific finding and retains exit5 with no output directory.
+
+8ce96e08 and d0fd1eb2 carry these repairs. The complete four-module focused
+replay passes119tests (4.17seconds). Three additional authored RED controls
+also caught missing letter-suffixed task IDs; the strengthened record parsers
+now require those pending IDs to be named. No producer or native comparator
+changed to make these guards pass.
+
+Later local assembly includes the separately reviewed complete-group repeated
+Altium-label binding, authored FULL fixture correction, unchanged original
+repeat fixture maps, and bounded test-only numeric-role controls. Its default
+byte/font/repeat/manifest group passes176tests; numeric/reference/format-fact
+guards pass84tests. The actual library licence-copy comparison also passes
+against unchanged c62d7b8. These scoped results do not replace the next complete
+local gate, exact-head CI, missing native cases or maintainer visual reviews.

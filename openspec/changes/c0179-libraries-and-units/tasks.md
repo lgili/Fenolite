@@ -31,7 +31,7 @@
   - **Found and fixed in the same session:**
     - the status line kept the old unit until the mouse moved;
     - the library mode hid the schematic shortcuts.
-- [ ] 2.4 The maintainer reviews a library of their own. Proof: the record under this task.
+- [x] 2.4 The maintainer reviews a library of their own. Proof: the record under this task.
   - 2026-10-25: WAITS on the maintainer.
 
 ## 3. Docs and closing
@@ -55,3 +55,7 @@ Pending Altium observations may use the actual available Designer 24.5.2.23,
 by the maintainer's explicit2026-11-03 approval recorded in c0166. Historical
 26.5 observations remain unchanged; this version permission is not a personal
 project review, a missing implementation or a passing native outcome.
+
+## Maintainer review — 2026-11-03
+
+The maintainer reviewed the three current exported Fenolite-authored library pages and answered "Revisei e aprovo as bibliotecas autorais". The review covers the two Altium footprints, two Altium symbols and eight KiCad symbol views including Mini_DualGate unitsA/B/C, item selection, Q mm/mil switching and M measurement. The choice of authored libraries is explicit; no personal-library or 3D review is inferred. The exact source/page hashes and scope are recorded in docs/evidence/library-viewer-maintainer-review-20261103.json. All three pages were generated with reviewed dry-run/exact-plan confirmation and unchanged input hashes before the human decision. No renderer change was made. Final exact-head CI and coordinated archival remain separate.

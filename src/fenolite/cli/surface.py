@@ -601,7 +601,8 @@ def _options(parser: argparse.ArgumentParser, *, omit: frozenset[str] = frozense
                 "aliases": keys,
                 "type": value_type,
                 "default": _value(action.default),
-                "required": bool(action.required),
+                # Python3.11 marks '*' positionals required internally, but accepts zero values.
+                "required": bool(action.required) and (bool(action.option_strings) or action.nargs != "*"),
                 "nargs": action.nargs,
                 "choices": None
                 if action.choices is None

@@ -1048,3 +1048,16 @@ Source: S-1286; hashes and scope in `docs/evidence/custom-footprint-field-poses.
   These are observed cache metadata, not equality of the original caches.
   Closed qualification refuses unknown or malformed metadata and zero-area
   rings; ordinary zone priorities and pure equivalence are unchanged.
+
+### Unique pad-field order, bounded authored observation (c0355)
+
+**ORACLE-VERIFIED(kicad-cli)** (S-0020): moving the single named net child among existing known pad fields on original circular/rounded-rectangular CC0 controls leaves exact F.Cu SVG geometry unchanged on9.0.9/10.0.6; raw outputs are retained and only the non-rendered title clock is normalized. On10.0.6 the same pair also yields identical complete native regenerated teardrop regions after one refill/save per side. No native9 refill claim is made. This does not establish arbitrary child-order freedom, duplicate-field or unknown-field behavior, duplicate-ID/signature exchangeability, or a runtime acceptance rule. Proof: tests/kicad/board/test_native_pad_field_order.py.
+
+The bounded c0355 observation additionally covers original through-hole and chamfered controls with the net child explicitly crossing known drill/layer/remove-unused/rounded-corner/chamfer fields. All8 native9/10shape cases keep exact copper SVG geometry; all four native10shape cases retain identical complete derived geometry after one refill/save per side. This does not prove arbitrary unknown-child commutation. Nested polygon `arc` nodes are geometry, not root electrical track identities; role scope is structural.
+
+
+### Scoped numeric-role witnesses (S-1299)
+
+`ORACLE-VERIFIED(KiCad10.0.6)`: an original authored board with two labelled routed networks preserves complete terminal membership after table order or known netcode changes; unnumbered NPTH/SMD pads remain physical NO_NET objects. This test-only observation does not qualify a third-party board for renumbering.
+
+`ORACLE-VERIFIED(KiCad10.0.6)`: a direct footprint `zone_connect` wire integer0/1/2 produces distinct ordinary-fill results in the original SMD control;3 matches2 in that control only. No through-hole behavior is inferred. An original silkscreen `gr_text` with an explicit face acquires `render_cache` text matching the owner, followed by its rotation and ordered `polygon/pts/xy` coordinate pairs. Changing only owner rotation0→90 changes that scalar accordingly. Translating the owner5mm/7mm translates all14 ordered cache polygons exactly, with no vertex/ring normalization. The test-only descriptor is limited to F/B.SilkS and refuses unknown members/malformed or ambiguous ownership. No glyph geometry is committed, no cache is seeded, and no copper-cache exception is implied. Receipt: `openspec/changes/c0355-verified-native-identity/numeric-role-ledger-proof.json`.

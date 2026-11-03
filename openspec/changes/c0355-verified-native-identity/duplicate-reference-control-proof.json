@@ -1,0 +1,92 @@
+{
+  "native_cases": [
+    {
+      "case": "identical-signature-order",
+      "exact_derived_regions": 3,
+      "exact_derived_sha256": "95e6a0a350c7349aa8f54d5a8a2956d53408347d32f7587bd2f110094a29a852",
+      "input_sha256": [
+        "429f11209b6874a9af3ed9a3e1034c141d0cf17af9b4fd68a9e73b5542b9aa2a",
+        "a85413cf7c7bea194052eaa12600a0fe199178002a16738041388b8d984856d6"
+      ],
+      "native_version": "10.0.6",
+      "physical_multisets_equal": true,
+      "physical_pads": 3,
+      "receipt_sha256": "6b515c118c90a76a02cf189494ef610315b976abc5937c99f6f27c519e64ae8a",
+      "reference_closure": [
+        {
+          "aliased_ids": 0,
+          "definition_fields": 4,
+          "definition_kinds": {
+            "pad": 3,
+            "segment": 1
+          },
+          "distinct_ids": 4,
+          "external_references": 0,
+          "physical_correspondence_or_runtime_admission_claimed": false
+        },
+        {
+          "aliased_ids": 0,
+          "definition_fields": 4,
+          "definition_kinds": {
+            "pad": 3,
+            "segment": 1
+          },
+          "distinct_ids": 4,
+          "external_references": 0,
+          "physical_correspondence_or_runtime_admission_claimed": false
+        }
+      ],
+      "runtime_exception_or_royal_admission_claimed": false,
+      "saved_sha256": [
+        "ea51036fe530f46633dc7375bc34fc2a3fac4f386d218fa3cbfe9f5c743eac95",
+        "ea51036fe530f46633dc7375bc34fc2a3fac4f386d218fa3cbfe9f5c743eac95"
+      ]
+    },
+    {
+      "case": "aliased-id-distinct-roles",
+      "exact_derived_regions": 2,
+      "exact_derived_sha256": "0bc42a2c68a8b5a08495919748aed3a8950e6f30ec0b1add82675cd16bf589db",
+      "input_sha256": [
+        "811833150447636185914861a65fbf20ca762b6487968fcc61e412d58deeadd3",
+        "74ecc11a6065854cc817ee3e29f425869b025119f5197eebecf47725df55d75c"
+      ],
+      "native_version": "10.0.6",
+      "physical_multisets_equal": true,
+      "physical_pads": 2,
+      "receipt_sha256": "6045e105ea3196e1466b9a9b6bdbc14a5bcab86075c76025b2065aae4fdc4498",
+      "reference_closure": [
+        {
+          "aliased_ids": 1,
+          "definition_fields": 3,
+          "definition_kinds": {
+            "pad": 2,
+            "segment": 1
+          },
+          "distinct_ids": 2,
+          "external_references": 0,
+          "physical_correspondence_or_runtime_admission_claimed": false
+        },
+        {
+          "aliased_ids": 0,
+          "definition_fields": 3,
+          "definition_kinds": {
+            "pad": 2,
+            "segment": 1
+          },
+          "distinct_ids": 3,
+          "external_references": 0,
+          "physical_correspondence_or_runtime_admission_claimed": false
+        }
+      ],
+      "runtime_exception_or_royal_admission_claimed": false,
+      "saved_sha256": [
+        "f849dc7f510476baad4f51137f1f92be0788721d49c801c3974334648cf400ad",
+        "27536009350923a169b574c4c22d142b30b10e128fc2341a53b4f67823f260e3"
+      ]
+    }
+  ],
+  "occurrence_guard": "Parser interns identical Atom objects; definition exemptions use structural occurrence paths, never id(atom).",
+  "production_or_royal_acceptance_claimed": false,
+  "scope": "Original authored circle-pad controls only; complete Royal matching/common-ID convergence and unknown/editable/config negatives remain pending. No production identity code is implemented.",
+  "unit_reference_negatives_passed": 6
+}

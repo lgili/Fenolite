@@ -185,7 +185,8 @@ def test_ci_keeps_both_failed_artifacts_and_requires_the_complete_bridge() -> No
     assert "--uses rt0 --uses sch --uses libs" in workflow
     for major in (9, 10):
         assert f"name: drawn-floor-kicad-{major}" in workflow
-    assert workflow.count("path: /tmp/**/drawn-floor.json") == 2
+    collection = "path: |\n            /tmp/**/drawn-floor.json\n            !/tmp/**/*current/**"
+    assert workflow.count(collection) == 2
     command = 'tools/verify_drawn_floor.py --reports /tmp/drawn-floor-evidence --commit "$GITHUB_SHA"'
     assert command in workflow
     assert 'test "$NATIVE_NINE_RESULT" = success' in workflow

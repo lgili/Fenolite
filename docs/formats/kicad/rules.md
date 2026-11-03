@@ -345,3 +345,14 @@ minimums `min_<kind>_<class>` and govern on their layers.
 
 The dedicated topology conversion oracle on both KiCad majors remains owed; the conversion itself
 makes no KICAD-VERIFIED claim. See [Signal topologies](../../topologies.md).
+
+## Immutable imported native-rule context (c0359)
+
+S-1296 documents item properties Type/Layer/Net, pad fabrication marks and isPlated examples.
+Fenolite's bounded preservation profile recognizes these generic comparisons and Boolean
+combinations, plus physical constraints with numeric limits. It evaluates no rule expression.
+Unknown predicates/clauses refuse; original versus emitted native item attributes and exact
+geometry must agree independently before the complete generated-model baseline is bound.
+The original DRU bytes, comments and native priority remain intact. This preservation policy
+is INFERRED software behavior; it does not widen L6's judged custom-rule coverage. Native
+loading/canary observations are recorded separately, with actual tool versions.

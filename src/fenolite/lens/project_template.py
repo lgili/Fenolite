@@ -12,6 +12,7 @@ from pathlib import Path
 from fenolite.backends.kicad.pro_template import ProjectResource, read_project_resources
 from fenolite.backends.kicad.pro_template import validate_project_template as validate_project_template
 from fenolite.core.errors import FormatError
+from fenolite.lens.native_rule_context import CERTIFICATE, Binding, read_binding
 
 
 @dataclass(frozen=True, slots=True)
@@ -20,6 +21,8 @@ class ProjectTemplate:
     text: str
     sha256: str
     resources: tuple[ProjectResource, ...] = ()
+    rules: Binding | None = None
+    rule_inputs: tuple[Path, ...] = ()
 
 
 def read_project_template(
@@ -57,4 +60,10 @@ def read_project_template(
     except UnicodeDecodeError as error:
         raise FormatError("declared native project is not UTF-8", file=named) from error
     resources = read_project_resources(path, text, managed_frame=managed_frame)
-    return ProjectTemplate(path, text, actual, resources)
+    binding = read_binding(path, raw)
+    rule_inputs = tuple(
+        given
+        for given in (path.with_suffix(".kicad_dru"), path.with_name(CERTIFICATE))
+        if given.is_file() or given.is_symlink()
+    )
+    return ProjectTemplate(path, text, actual, resources, binding, rule_inputs)

@@ -130,7 +130,7 @@ PROTOCOL_NAMES = ("_meta",)
 """Names with a leading underscore that are not private Python names: ``_meta`` is the field of the Model
 Context Protocol where the MCP server puts the exit code (c0195)."""
 RUN = re.compile(r"https://github\.com/[\w.-]+/[\w.-]+/actions/runs/\d+")
-TASK = re.compile(r"^- \[( |x)\] (\d+\.\d+|[A-Z]\d+)\b", re.MULTILINE)
+TASK = re.compile(r"^- \[( |x)\] (\d+\.\d+[a-z]?|[A-Z]\d+)\b", re.MULTILINE)
 
 
 def section(text: str, title: str) -> str:
@@ -654,3 +654,16 @@ def test_roadmap_names_the_release() -> None:
     assert f"roadmap: the release change {RELEASE_CHANGE} is not named" in roadmap_problems(
         text.replace(RELEASE_CHANGE, "c9999")
     )
+
+
+def test_task_parser_keeps_suffixed_continuation_ids(tmp_path, monkeypatch) -> None:
+    """An authored continuation must not disappear merely because it has a letter suffix."""
+    fixture = tmp_path / "tasks.md"
+    fixture.write_text("- [ ] 3.4a Native comparison\n- [x] 3.4b Measured proof\n", encoding="utf-8")
+    monkeypatch.setitem(globals(), "tasks_file", lambda change: fixture)
+    assert tasks("c9999") == {"3.4a": False, "3.4b": True}
+
+    hidden = {**rows(record())[0], "change": "c9999", "open": "—"}
+    problems = row_problems(record(), hidden, jobs(WORKFLOW.read_text(encoding="utf-8")))
+    assert "c9999: task 3.4a is open and not named" in problems
+    assert "c9999: task 3.4b is open and not named" not in problems

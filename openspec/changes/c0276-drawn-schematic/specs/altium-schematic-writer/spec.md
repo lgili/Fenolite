@@ -8,6 +8,12 @@ The drawn writer SHALL retain Automatic mode 0. Only when Automatic selects Glob
 - **WHEN** the writer emits and reads back the native files
 - **THEN** the qualified local labels remain separate, every name change is reported, and the partition equals code
 
+#### Scenario: Complete canonical names for repeated local groups
+- **GIVEN** repeated sheet instances whose isolated native records have exact planned unit/pin/map coverage and whose complete pin partition bijectively matches the corresponding canonical circuit groups
+- **WHEN** a shared local label belongs to one entire canonical net with a unique casefold native name, free of all other global, power and local identifiers including orphan identifiers
+- **THEN** the writer prefers that canonical name, reports the visible label text change, and retains the unchanged final complete-project native comparison
+- **AND** partial groups, ambiguous matches, duplicate references or names and reserved-name collisions retain the explicit scope-preserving fallback without selecting the first candidate; ordinary sheets retain their existing byte path
+
 ### Requirement: Drawn sheets in Altium
 `fenolite.backends.altium.drawn.lower_drawn` SHALL write one sheet per drawn sheet instance: wires and buses as polylines, junctions, local labels as net labels, hierarchical labels as ports, references as sheet symbols with sheet entries, power symbols and global labels as power ports of their text, bus entries and no-connect directives. A repeated sheet MUST be written once per instance with `drawn.altium-repeat-flattened` (info).
 
@@ -47,3 +53,11 @@ Before returning bytes, the Altium builder SHALL match the intended documents, c
 - **GIVEN** the native producer drops a drawn unit whose pins are all unconnected
 - **WHEN** the drawing is built
 - **THEN** the build reports `build.schematic-netlist-differs` and stages no file
+
+### Requirement: Original FULL fixture has real bus loads
+The authored FULL acceptance fixture SHALL connect B0 and B1 to real resistor terminals, retaining every old physical pin. The complete new universe SHALL be40pins/five components. NoERC MUST mark only actually unused U1-11/U1-12, and all code-assigned nets MUST remain covered without pin filtering or native-result renaming.
+
+#### Scenario: Original full circuit has two pull-down loads
+- **GIVEN** the original36pin fixture has singleton B0/B1 and an unmarked unused U1-12
+- **WHEN** the authored fixture is corrected with R3/R4 and matching drawing intent
+- **THEN** B0 joins U1-18/R3-1, B1 joins U1-19/R4-1, R3-2/R4-2 join GND, all36 old pins remain and the native complete40pin universe is measured in both forms before acceptance

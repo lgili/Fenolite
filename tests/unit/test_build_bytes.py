@@ -21,6 +21,12 @@ The native drawn Altium writer moves only drawn@altium and import_python@altium:
 schematic, their new native child sheets and removal of the generated-layout cache. Both examples
 retain their exact Altium PCB and library digests (c0276 task 6.1).
 
+c0276 task6.4 corrects only the authored drawn example: R3-2 returns to GND, the unused inputs are
+explicit and IN labels its existing wire. Complete original plans matched this table before the change;
+only drawn@9, drawn@10 and drawn@altium were remeasured. Their circuit/board/PCB and root/child schematic
+bytes intentionally change with that source circuit. All library/project/rule/manufacturing hashes and
+every unrelated row remain fixed. This is no native-writer change or assertion relaxation.
+
 c0344 binds native project sheet identity caches to the emitted drawings. A complete clean
 75-plan/1172-file comparison changes only41 KiCad project files and their41 build manifests;
 all other1090 files and ten strict refusals remain identical. The41 recorded project digests

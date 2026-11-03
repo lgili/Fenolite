@@ -115,3 +115,7 @@ when display is active, and unchanged disabled behavior. No runtime, original
 helper, default writer, or native guard changes are requested. The coordinator
 authorized these focused regression controls after reviewing the actual
 FEN-3004 locator VCC; this is distinct from a power-symbol guard.
+
+## CI pose correspondence diagnostic
+
+Native9 CI reported x20.0908 minus13.5712 instead of5mm in the authored typed-field translation proof. Before changing a writer or test, capture complete authored inputs, native graphs/pins and each SVG with basename/text/pose on both9.0.9 and10.0.6. Flat output-dictionary/XML enumeration is not a field identity; if order is the cause, compare only stable same-sheet/same-effective-field keys and explicitly distinguish moved root fields from unchanged child fields. Duplicate or missing correspondence must fail, exact5mm/7mm assertions remain, and all native graph/pin assertions stay. No tolerance increase, placement normalization or result waiver is authorized.
