@@ -3302,6 +3302,17 @@ class _Writer:
         kinds = {layer.name: layer.kind for layer in board.layers}
         edges = [g for g in board.graphics if kinds.get(g.layer, layer_kind(g.layer)) == "edge"]
         if edges:
+            # Explicit physical root edges retain their ownership (c0349). Reconstruct the whole
+            # logical outline, including footprint edges; proximity alone never removes a graphic.
+            from fenolite.backends.kicad.outline import edge_outline
+
+            physical = dataclasses.replace(self.design, board=dataclasses.replace(board, outline=None))
+            reconstructed = edge_outline(physical)
+            if reconstructed is not None and all(g.kind in ("line", "arc") and not g.filled for g in edges):
+                expected = sorted(edge_text(e.start, e.end, e.mid) for e in outline_edges(outline))
+                actual = sorted(edge_text(e.start, e.end, e.mid) for e in outline_edges(reconstructed))
+                if actual == expected:
+                    return [], []  # graphics() emits every explicit root; footprints retain their edges
             self.error(
                 "kicad.board.outline-conflict",
                 f"the board has an outline and {len(edges)} graphic(s) on an edge layer; remove one of them",

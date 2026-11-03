@@ -233,4 +233,13 @@ Nothing is connected, so `fenolite check` reports `kicad.erc.pin-not-connected` 
 
 See `library-items` for licensed items from fenolite-library.
 
+
+## Footprints that close a board outline
+
+`design.line()` and `design.arc()` accept `layer="Edge.Cuts"` for explicit physical root edges.
+Together with footprint edges they must reconstruct the complete logical `board()` outline exactly;
+inconsistent or ambiguous reconstruction refuses with `kicad.board.outline-conflict`. The writer keeps
+those explicit root edges and footprint geometry, without synthetic duplicates. A nearby edge alone
+does not establish ownership; never erase a distinct root line through endpoint clustering.
+
 Read next: `parts`, `library-items`, `placement`.

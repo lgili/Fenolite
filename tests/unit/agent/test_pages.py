@@ -1017,3 +1017,17 @@ def test_drawn_custom_sheet_properties_are_taught_without_text_override() -> Non
     assert "properties.<name>" in text and "required `text` and `at`" in text
     assert "Sheetname/Sheetfile remain code-owned" in text
     assert "never add an electrical connection" in text
+
+
+def test_footprints_teaches_explicit_root_edge_ownership() -> None:
+    page = guide.page("footprints")
+    for words in (
+        "design.line()",
+        "design.arc()",
+        'layer="Edge.Cuts"',
+        "complete logical",
+        "kicad.board.outline-conflict",
+        "without synthetic duplicates",
+        "nearby edge alone",
+    ):
+        assert words in page.text

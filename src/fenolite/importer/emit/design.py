@@ -22,7 +22,7 @@ from fenolite.backends.kicad import slots as slotlib
 from fenolite.backends.kicad import symbol_contexts
 from fenolite.backends.kicad.layers import created_layers
 from fenolite.backends.kicad.lowering import MINIMUM_KEYS
-from fenolite.backends.kicad.outline import edge_outline
+from fenolite.backends.kicad.outline import edge_outline, edge_text, edge_texts, graphic_text
 from fenolite.backends.kicad.pcb import OUTLINE_WIDTH
 from fenolite.backends.kicad.pro import project_minimums, template
 from fenolite.backends.kicad.sexpr import Atom, AtomKind, Node
@@ -259,6 +259,36 @@ def _outline(design: Design) -> Outline | None:
     assert board is not None
     bare = dataclasses.replace(design, board=dataclasses.replace(board, footprints=()))
     return edge_outline(bare) or edge_outline(design)
+
+
+def _physical_edges(design: Design) -> bool:
+    """Whether chaining made an outline edge differ from its physical owner (c0349).
+
+    Exact source ownership remains explicit in Board.graphics instead of guessing which nearly
+    coincident footprint graphic covers a generated edge. Existing exact representations keep bytes.
+    """
+    from collections import Counter
+
+    from fenolite.backends.kicad.frame import footprint_edges
+
+    board = design.board
+    assert board is not None
+    outline = _outline(design)
+    if outline is None:
+        return False
+    roots = [g for g in board.graphics if _kinds(board).get(g.layer) == "edge"]
+    if not roots or any(g.kind not in ("line", "arc") or g.width <= 0 or g.filled for g in roots):
+        return False
+    native = [value for g in roots if (value := graphic_text(g)) is not None]
+    for item in footprint_edges(board, ("Edge.Cuts",)):
+        points = item.points
+        if item.kind == "line" and len(points) == 2:
+            native.append(edge_text(points[0], points[1]))
+        elif item.kind == "arc" and len(points) == 3:
+            native.append(edge_text(points[0], points[2], points[1]))
+        elif item.kind == "polygon":
+            native.extend(edge_text(p, points[(k + 1) % len(points)]) for k, p in enumerate(points))
+    return bool(Counter(edge_texts(outline)) - Counter(native))
 
 
 def _outline_width(board: Board) -> int | None:
@@ -985,6 +1015,8 @@ def _drawings(
     members: dict[str, Expr] | None = None,
     net_vars: Mapping[str, str] | None = None,
     numbers: Mapping[int, str] | None = None,
+    *,
+    physical_edges: bool = False,
 ) -> list[list[str]]:
     from fenolite.dsl.items import BOARD_LAYER_KINDS
 
@@ -1004,9 +1036,9 @@ def _drawings(
 
     for graphic in sorted(board.graphics, key=gkey):
         kind = kinds.get(graphic.layer, "")
-        if kind == "edge":
+        if kind == "edge" and not physical_edges:
             continue
-        if kind not in (*DRAWING_KINDS, "copper"):
+        if kind not in (*DRAWING_KINDS, "copper", "edge"):
             ledger.add("drawing-layer", f"{graphic.kind} on {graphic.layer}")
             continue
         # a copper graphic takes its net (change c0277); a slot design.line() cannot say leaves it out
@@ -1581,7 +1613,9 @@ def emit(source: Source, options: Options) -> Emission:
                 field_lines.append(statement(call))
     zone_lines = _zones(board, names, net_vars, layers, ledger, grouped, writer)
     area_lines = _areas(board, layers, ledger, grouped)
-    drawing_lines = _drawings(board, ledger, grouped, net_vars, numbers)
+    drawing_lines = _drawings(
+        board, ledger, grouped, net_vars, numbers, physical_edges=_physical_edges(design)
+    )
     binary: dict[str, bytes] = {}
     drawing_lines += _images(board, ledger, binary, grouped)
     verbatim_lines = _verbatim(board, numbers, tables.built, grouped, ledger)

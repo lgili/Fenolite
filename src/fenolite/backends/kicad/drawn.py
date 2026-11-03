@@ -1552,7 +1552,7 @@ def _resolve_extracted(found: Extracted, *, name: str = "") -> DrawnNetlist:
     connections, pins = _connection_names(found)
     return resolve(
         connections, pins, design_name=name, _bus_member_keys=_bus_member_keys,
-        _local_scalar_aliases=True, _bus_port_scalar_aliases=False,
+        _local_scalar_aliases=True, _bus_port_scalar_aliases=False, _native_root_ports=True,
     )  # fmt: skip
 
 

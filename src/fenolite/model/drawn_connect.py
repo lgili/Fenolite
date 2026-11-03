@@ -369,6 +369,7 @@ def resolve(
     _bus_member_keys: _BusMemberMapper | None = None,
     _local_scalar_aliases: bool = False,
     _bus_port_scalar_aliases: bool = True,
+    _native_root_ports: bool = False,
 ) -> DrawnNetlist:
     """The nets of ``drawn``. ``pins`` gives, per drawn symbol and power symbol (``PinKey``), the pins of its
     unit in the sheet frame; a power symbol without an entry connects at its own position. ``design_name``
@@ -603,6 +604,8 @@ def resolve(
             )
     for index, labels in sorted(hier_labels.items()):
         if index == 0 or found[index].ref is None:
+            if _native_root_ports and index == 0:
+                continue
             for text in sorted(labels):
                 out.append(
                     issue(

@@ -120,7 +120,7 @@ def test_refused_drawing_calls() -> None:
     calls: tuple[tuple[Callable[[], None], str], ...] = (
         # a text may be on a copper layer of the board (change c0277), not on one the board lacks
         (lambda: d.text("t1", "CU", (mm(1), mm(1)), layer="In1.Cu"), "In1.Cu"),
-        (lambda: d.line("l1", origin, right, layer="Edge.Cuts", width=mm(0.1)), "Edge.Cuts"),
+        (lambda: d.rect("l1", origin, (mm(1), mm(1)), layer="Edge.Cuts", width=mm(0.1)), "Edge.Cuts"),
         (lambda: d.line("rev", origin, right, layer="F.Fab", width=mm(0.1)), "rev"),
         (lambda: d.arc("a1", origin, (mm(1), mm(1)), (mm(2), mm(2)), layer="F.Fab", width=mm(0.1)), "points"),
         (

@@ -1914,7 +1914,8 @@ class Design(Container):
         net: Net | None = None,
     ) -> None:
         """A line from ``start`` to ``end``. A graphic may be on a copper layer of the board and take a
-        ``net`` there (change c0277)."""
+        ``net`` there (change c0277). On Edge.Cuts it declares an explicit physical root edge;
+        all root and footprint edges must reconstruct board()'s complete logical outline (c0349)."""
         found = itemlib.line(
             self._drawing("line", key),
             start,
@@ -1985,7 +1986,8 @@ class Design(Container):
         width: object,
         net: Net | None = None,
     ) -> None:
-        """An arc from ``start`` through ``mid`` to ``end``."""
+        """An arc from ``start`` through ``mid`` to ``end``; Edge.Cuts declares an explicit
+        physical root edge subject to complete logical outline reconstruction (c0349)."""
         found = itemlib.arc(
             self._drawing("arc", key),
             start,

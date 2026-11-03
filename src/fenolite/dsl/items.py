@@ -399,7 +399,7 @@ def line(
         key,
         "line",
         (a, b),
-        drawing_layer(layer, what, copper, user),
+        drawing_layer(layer, what, (*copper, "Edge.Cuts"), user),
         _width(width, what, stroked=True),
         False,
     )
@@ -473,7 +473,7 @@ def arc(
         key,
         "arc",
         (a, m, b),
-        drawing_layer(layer, what, copper, user),
+        drawing_layer(layer, what, (*copper, "Edge.Cuts"), user),
         _width(width, what, stroked=True),
         False,
     )

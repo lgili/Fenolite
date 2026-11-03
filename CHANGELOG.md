@@ -6,6 +6,10 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- **Native root hierarchical ports** (c0350): preserve standalone KiCad root
+  labels without inventing a parent, retaining exact pins, groups and names.
+  Generic resolution and unmatched child-port errors keep their strict policy.
+
 - **Derived blank-title intent** (c0339): keep explicit blank metadata in the
   authored import example and record the exact removal of empty native blocks
   from its independent rebuild byte guards.
@@ -16,6 +20,10 @@ All notable changes to Fenolite are documented here. The format follows
 
 - **Source BOM API boundary** (c0334): enforce the exact function-local source
   purchasing traversal without permitting general API-to-importer imports.
+- **Explicit physical outline edges** (c0349): imported endpoint joins retain
+  exact root and footprint geometry through explicit Edge.Cuts lines/arcs.
+  The writer requires complete agreement with the logical outline and emits
+  no synthetic copies; proximity alone never establishes ownership.
 
 - **Exact cyclic text orientation** (c0346): level7 compares text and footprint
   field rotations using the existing angular metric, so-90deg/270deg and full

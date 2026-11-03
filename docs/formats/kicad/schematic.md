@@ -222,3 +222,11 @@ unrepresented forms refuse. This describes implemented validation, not a new
 native claim for unmeasured flags. A strict all-nine authored internal proof
 and its planted loss controls do not establish native glyph-raster equality
 or the complete public VME resolver result.
+
+## Root hierarchical ports (c0350)
+
+`KICAD-VERIFIED` (S-1289): authored root hierarchical labels remain native
+same-sheet connections even without a parent sheet reference. Native9.0.9 and
+10.0.6 retain all40pins and exact groups/names before/after lowering, with
+same-named child labels isolated. This does not excuse unmatched ports on
+actual child references. Generic/Altium resolver policy is unchanged.

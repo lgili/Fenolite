@@ -695,8 +695,11 @@ Everything below is a Fenolite choice built on the facts above; `pcb.WRITE_EVIDE
   property) `"kicad-out:<owner id>:<part>"`.
 - **Outline.** A non-empty `Board.outline` becomes one `gr_line` per edge of the outer ring and of each
   cutout, closing every ring, on `Edge.Cuts` with `(stroke (width 0.1) (type solid))` (the skeleton's
-  stroke), parts `outline:<ring>:<k>`. A board with an outline and a graphic on an `edge` layer gives
-  `kicad.board.outline-conflict`.
+  stroke), parts `outline:<ring>:<k>`. With explicit root lines/arcs on an `edge` layer (c0349),
+  the writer reconstructs the complete logical outline from root and footprint edges using the existing
+  endpoint-chaining contract. Exact agreement of complete edge-text multisets emits the explicit root
+  graphics without synthetic outline edges; failed, ambiguous or inconsistent reconstruction gives
+  `kicad.board.outline-conflict`. This is a Fenolite representation decision, not a KiCad format claim.
 - **Projections.** Before a read item is written, each opaque child that stands for a model field is
   compared with the model value. Reference and Value rewrite only the value atom of their property.
   A modelled child kept opaque for its spelling (`12.000000`, a written zero angle, an unquoted name) is
@@ -854,7 +857,7 @@ passed in the `kicad-9` and `kicad-10` jobs of CI run 37772583226 (2026-10-08).
 | `kicad.board.obsolete-dropped` | info | target 10: nodes of an `until_major = 9` row removed or converted (one per row id, with the count) |
 | `kicad.board.opaque-net-ref` | error | a `net` node in opaque content matches no form, or names a number absent from the source table |
 | `kicad.board.projection-read-only` | error | a projected value other than Reference, Value or a spelling-only field differs from its fragment |
-| `kicad.board.outline-conflict` | error | a non-empty outline and edge graphics on one board |
+| `kicad.board.outline-conflict` | error | explicit physical edges do not reconstruct the complete logical outline |
 | `kicad.board.flip-unsupported` | error | `place_footprint` on the bottom meets a head of `FLIP_UNSUPPORTED` |
 
 Errors raise `LossyWriteError` (`FEN-7001`); `droppable` is true only when every error is a too-new

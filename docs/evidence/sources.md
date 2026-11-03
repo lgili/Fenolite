@@ -557,3 +557,5 @@ proposals and `docs/formats/` pages cite ids from this table. Ids are `S-NNNN`, 
 
 | S-1207 | Native KiCad CLI9.0.9 and10.0.6, authored circular-pad/DXF-contour controls, 2026-11-02 | Fenolite-authored CC0 controls; process-bound observations only | c0340 project max_error missing/0.005mm yields identical complete DXF ENTITIES;0.01mm differs; native10 derived copper matches the same sensitive controls | 2026-11-02 |
 | S-1208 | Native KiCad CLI10.0.6 isolated refill controls, authored boards and manifested public Complex Hierarchy diagnosis, 2026-11-02 | Authored CC0 controls and public source facts only; raw third-party material remains external/library | c0340 common-tool teardrop geometry configuration, visible original/generated cache deltas, exact outline/fill measurements, no original-cache equality claim | 2026-11-02 |
+
+| S-1289 | Native KiCad CLI9.0.9/10.0.6 netlist exports; `tests/kicad/schematic/test_drawn_root_hlabels.py` | Fenolite-authored Mini controls; process-bound black-box facts only | c0350 root hierarchical ports retain complete40-pin same-sheet partitions and names before/after lowering; no invented parent | 2026-11-02 |
