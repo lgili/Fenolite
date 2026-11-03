@@ -79,5 +79,11 @@ obligations = ["notices", "changes marked", "same licence"]
 # PROVENANCE.json. CC-BY-SA-4.0: the file LICENSE.CC-BY-SA-4.0 of the KiCad repository, as the library's
 # first four boards carry it (measured 2026-10-30).
 [texts]
-"CC0-1.0" = ["0dd25be0803b1e2764b0323560013cdd5ad9ca92ba4780bd7db0cbe6ce821dd8"] # S-1097, full legal code
-"CC-BY-SA-4.0" = ["17a696cf6cf01b8d795151556dfd51cc121c1b678a33d509d6548658c1008391"]
+# Three preserved KiCad texts approved by CODEOWNER @lgili on 2026-11-02.
+# Exact upstream bytes, hashes and separate approval quotes: docs/licence-text-codeowner-review-20261102.json.
+"CC-BY-SA-4.0" = ["17a696cf6cf01b8d795151556dfd51cc121c1b678a33d509d6548658c1008391", "ccdefbf85316f7d282d272f7be48c2624f6892f46fce7c8b5287fc9256861f7d"]
+"Apache-2.0" = ["95cef6332b35354c12f9d666ab9ff47002e6f7ef937924896882b2e0cdb7a0d6"]
+"CERN-OHL-P-2.0" = ["63f8502ea2967423467f3762efffaaba56c81997f3fe9696e17cc4e5fb3fa31e"]
+
+# Existing authored CC0 text already accepted in the core registry (S-1097).
+"CC0-1.0" = ["0dd25be0803b1e2764b0323560013cdd5ad9ca92ba4780bd7db0cbe6ce821dd8"]

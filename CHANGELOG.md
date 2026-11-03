@@ -6,6 +6,10 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- **Reviewed licence registry** (c0333): synchronize the three explicitly
+  approved original licence-text digests with the library, preserving all
+  earlier approved digests and every other licence restriction.
+
 - **Supplier lookup scope** (c0267): defer remaining JLC work at the
   maintainer's request; keep its evidence and completion gates open.
 
