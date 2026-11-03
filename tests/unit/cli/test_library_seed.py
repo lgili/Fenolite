@@ -4,7 +4,9 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
+import re
 import shutil
 import subprocess
 from dataclasses import replace
@@ -16,9 +18,19 @@ from _checkcli import run
 import fenolite.library.audit as audit_module
 import fenolite.library.seed as seed_module
 from fenolite.backends.librepcb.reader import CC0_SHA256 as PRODUCTION_CC0_SHA256
-from fenolite.catalog.records import DeviceRecord, Origin, Review, parse_record, record_digest, record_text
+from fenolite.catalog.records import (
+    DeviceRecord,
+    Origin,
+    PackageRecord,
+    PinsRecord,
+    Review,
+    parse_record,
+    record_digest,
+    record_text,
+)
 from fenolite.library.audit import audit
 from fenolite.library.licences import normalised_digest, shipped
+from fenolite.library.provenance import provenance_problems
 
 DEMO = Path(__file__).resolve().parents[3] / "tests/data/librepcb/demo"
 COMMIT = "1" * 40
@@ -61,6 +73,105 @@ def arguments() -> tuple[str, ...]:
         "--into",
         "output",
         *STAMP,
+    )
+
+
+def legacy_surface_package(root: Path, scalar: str = "0.0") -> Path:
+    """Transform only our authored fixture into the separately observed old representation."""
+    path = next((root / "pkg").glob("*/package.lp"))
+    changed, count = re.subn(
+        r"\(pad [0-9a-f-]+ \(package_pad ([0-9a-f-]+)\)",
+        lambda match: f"(pad {match[1]} (drill {scalar})",
+        path.read_text(),
+    )
+    assert count == 2
+    path.write_text(changed)
+    return path
+
+
+@pytest.mark.parametrize("prefix", ["Z", "invalid prefix"])
+def test_declared_prefix_is_preserved_or_explicitly_refused(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, prefix: str
+) -> None:
+    root = source(tmp_path)
+    path = next((root / "cmp").glob("*/component.lp"))
+    path.write_text(
+        path.read_text().replace('(name "Demo Passive")', f'(name "Demo Passive") (prefix "{prefix}")')
+    )
+    code, env, error, _ = run(monkeypatch, tmp_path, *arguments(), "--dry-run")
+    assert code == 0, error
+    if prefix == "invalid prefix":
+        assert [r["kind"] for r in env["result"]["items"]] == ["footprint"]
+        assert len([r for r in env["issues"] if r["code"] == "library.seed-skipped"]) == 2
+        return
+    code, env, error, _ = run(
+        monkeypatch, tmp_path, *arguments(), "--confirm", "--plan", env["result"]["plan_id"]
+    )
+    assert code == 0, error
+    records = [parse_record(p.read_text()) for p in (tmp_path / "output").rglob("record.toml")]
+    assert next(r for r in records if isinstance(r, DeviceRecord)).device.ref_prefix == prefix
+    assert next(r for r in records if isinstance(r, PinsRecord)).symbol.reference == prefix
+
+
+def test_legacy_zero_drill_and_direct_uuid_keep_exact_surface_mapping(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    root = source(tmp_path)
+    legacy_surface_package(root)
+    component = next((root / "cmp").glob("*/component.lp"))
+    component.write_text(
+        component.read_text().replace(
+            '(name "Demo Passive")', '(name "Demo Passive") (name (locale "xy_XY") "Localized")'
+        )
+    )
+    code, env, error, _ = run(monkeypatch, tmp_path, *arguments(), "--dry-run")
+    assert code == 0, error
+    assert not [row for row in env["issues"] if row["code"] == "library.seed-skipped"]
+    code, env, error, _ = run(
+        monkeypatch, tmp_path, *arguments(), "--confirm", "--plan", env["result"]["plan_id"]
+    )
+    assert code == 0, error
+    records = [parse_record(p.read_text()) for p in (tmp_path / "output").rglob("record.toml")]
+    package = next(r for r in records if isinstance(r, PackageRecord))
+    assert package.kind == "smd"
+    assert [(p.number, p.at.x, p.at.y, p.size.w, p.size.h, p.drill) for p in package.pads] == [
+        ("1", -1_300_000, 0, 1_000_000, 1_400_000, None),
+        ("2", 1_300_000, 0, 1_000_000, 1_400_000, None),
+    ]
+    assert next(r for r in records if isinstance(r, DeviceRecord)).device.pad_map == (("1", "1"), ("2", "2"))
+    assert all(r.header.evidence == "UNVERIFIED" for r in records)
+
+
+@pytest.mark.parametrize("scalar", ["0.3", "-0.1", "nan", "0.0000001", "bad", ""])
+def test_nonzero_or_malformed_scalar_drill_does_not_fabricate_surface_pads(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, scalar: str
+) -> None:
+    legacy_surface_package(source(tmp_path), scalar)
+    code, env, error, _ = run(monkeypatch, tmp_path, *arguments(), "--dry-run")
+    assert code == 0, error
+    assert [r["kind"] for r in env["result"]["items"]] == ["symbol"]
+    assert len([r for r in env["issues"] if r["code"] == "library.seed-skipped"]) == 2
+
+
+@pytest.mark.parametrize("bad", ["hole", "reference"])
+def test_legacy_surface_pad_rejects_ambiguous_hole_or_unknown_uuid(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, bad: str
+) -> None:
+    path = legacy_surface_package(source(tmp_path))
+    text = path.read_text()
+    if bad == "hole":
+        text = text.replace("(drill 0.0)", "(drill 0.0) (hole (diameter 0.4))", 1)
+    else:
+        text = text.replace(
+            "(pad 26600000-0000-4000-8000-000000000021 (drill",
+            "(pad 26600000-0000-4000-8000-000000000099 (drill",
+        )
+    path.write_text(text)
+    code, env, error, _ = run(monkeypatch, tmp_path, *arguments(), "--dry-run")
+    assert code == 0, error
+    assert [r["kind"] for r in env["result"]["items"]] == ["symbol"]
+    assert any(
+        "ambiguous" in r["message"] if bad == "hole" else "unmapped" in r["message"] for r in env["issues"]
     )
 
 
@@ -296,3 +407,83 @@ def test_seed_action_and_board_path_form(monkeypatch: pytest.MonkeyPatch, tmp_pa
     assert code == 2 and "--from-librepcb" in error["message"]
     code, env, error, _ = run(monkeypatch, tmp_path, "library", "./seed", "--out", "x.pretty", "--dry-run")
     assert code == 3 and "requires --from-librepcb" not in error["message"]
+
+
+@pytest.mark.parametrize("second", ["2", "Pin_1"])
+def test_numeric_function_names_are_reversible_and_collisions_refuse(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, second: str
+) -> None:
+    root = source(tmp_path)
+    path = next((root / "cmp").glob("*/component.lp"))
+    path.write_text(
+        path.read_text().replace('(name "A")', '(name "1")').replace('(name "B")', f'(name "{second}")')
+    )
+    code, env, error, _ = run(monkeypatch, tmp_path, *arguments(), "--dry-run")
+    assert code == 0, error
+    if second == "Pin_1":
+        assert not any(r["kind"] == "device" for r in env["result"]["items"])
+        assert any("normalization collision" in r["message"] for r in env["issues"])
+        assert not any(r["code"] == "library.seed-function-normalized" for r in env["issues"])
+        return
+    warning = next(r for r in env["issues"] if r["code"] == "library.seed-function-normalized")
+    assert warning["severity"] == "warning"
+    changes = json.loads(warning["message"].split(": ", 1)[1])
+    assert [(r["original"], r["normalized"]) for r in changes] == [("1", "Pin_1"), ("2", "Pin_2")]
+    assert all(r["component_sha256"] == hashlib.sha256(path.read_bytes()).hexdigest() for r in changes)
+    code, repeated, error, _ = run(monkeypatch, tmp_path, *arguments(), "--dry-run")
+    assert code == 0, error
+    assert repeated["result"]["plan"] == env["result"]["plan"]
+    code, written, error, _ = run(
+        monkeypatch, tmp_path, *arguments(), "--confirm", "--plan", env["result"]["plan_id"]
+    )
+    assert code == 0, error
+    files = list((tmp_path / "output").rglob("record.toml"))
+    records = [parse_record(p.read_text()) for p in files]
+    symbol = next(r for r in records if isinstance(r, PinsRecord))
+    device = next(r for r in records if isinstance(r, DeviceRecord))
+    assert [(p.number, p.name) for p in symbol.pins] == [("1", "1"), ("2", "2")]
+    assert [(p.function, p.pin_pads) for p in device.device.pins] == [
+        ("Pin_1", (("1", "1"),)),
+        ("Pin_2", (("2", "2"),)),
+    ]
+    device_file = next(p for p in files if p.parent.parent.parent.parent.name == "devices")
+    provenance = json.loads((device_file.parent / "PROVENANCE.json").read_text())
+    assert provenance_problems(provenance) == []
+    assert warning["message"] in provenance["modification_notice"]
+    assert warning["message"] in (device_file.parent / "NOTICE").read_text()
+    assert [r["signal"] for r in changes] == [
+        "26600000-0000-4000-8000-000000000031",
+        "26600000-0000-4000-8000-000000000032",
+    ]
+
+
+@pytest.mark.parametrize("angle", ["-90", "450", "45", "-90.0001"])
+def test_only_exact_cardinal_pin_angles_are_normalized(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, angle: str
+) -> None:
+    root = source(tmp_path)
+    path = next((root / "sym").glob("*/symbol.lp"))
+    path.write_text(path.read_text().replace("(rotation 180)", f"(rotation {angle})"))
+    code, env, error, _ = run(monkeypatch, tmp_path, *arguments(), "--dry-run")
+    assert code == 0, error
+    if angle in {"45", "-90.0001"}:
+        assert [r["kind"] for r in env["result"]["items"]] == ["footprint"]
+        assert any("noncardinal" in r["message"] for r in env["issues"])
+        return
+    warning = next(r for r in env["issues"] if r["code"] == "library.seed-angle-normalized")
+    changes = json.loads(warning["message"].split(": ", 1)[1])
+    expected = 270_000_000 if angle == "-90" else 90_000_000
+    assert changes[0]["normalized_microdegrees"] == expected
+    assert changes[0]["symbol_sha256"] == hashlib.sha256(path.read_bytes()).hexdigest()
+    code, env, error, _ = run(
+        monkeypatch, tmp_path, *arguments(), "--confirm", "--plan", env["result"]["plan_id"]
+    )
+    assert code == 0, error
+    pins_path = next(p for p in (tmp_path / "output").rglob("record.toml") if "symbols" in p.parts)
+    record = parse_record(pins_path.read_text())
+    assert isinstance(record, PinsRecord) and record.symbol is not None
+    assert record.symbol.placements[1].rotation == expected
+    assert (
+        warning["message"]
+        in json.loads((pins_path.parent / "PROVENANCE.json").read_text())["modification_notice"]
+    )

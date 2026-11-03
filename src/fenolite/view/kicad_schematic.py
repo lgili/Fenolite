@@ -20,11 +20,12 @@ import math
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass
+from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from fenolite.backends.kicad import _drawn_font
 from fenolite.backends.kicad.schlayout import turned
-from fenolite.backends.kicad.sexpr import Atom, Node, parse
+from fenolite.backends.kicad.sexpr import Atom, AtomKind, Node, parse
 from fenolite.core.errors import FormatError
 from fenolite.model.drawn import DrawnFont
 from fenolite.view.themes import colour_note
@@ -141,6 +142,9 @@ class _Builder:
         self.objects: list[dict[str, Any]] = []
         self.comps: list[dict[str, Any]] = []
         self.current = -1
+        self.fonts = [
+            {"name": "stroke", "size": 0, "em": TEXT, "bold": False, "italic": False, "underline": False}
+        ]
         self.box = [0, 0, 0, 0]
         self.notes: list[str] = []
 
@@ -209,6 +213,16 @@ class _Builder:
             return
         if effects is not None:
             effects.require_rendering()
+        font = effects.font if effects is not None else None
+        bold = bool(font is not None and font.bold)
+        italic = bool(font is not None and font.italic)
+        thickness = max(size // (5 if bold else 8), 1)
+        variant = {**self.fonts[0], "bold": bold, "italic": italic}
+        if variant not in self.fonts:
+            self.fonts.append(variant)
+        font_index = self.fonts.index(variant)
+        if effects is not None and effects.font is not None and effects.font.thickness:
+            thickness = _font_um(effects.font.thickness)
         axis_width = effects.width if effects is not None else size
         lines = s.split("\n")
         width = int(axis_width * 0.95 * max(len(line) for line in lines))
@@ -216,21 +230,29 @@ class _Builder:
         x0 = {"left": 0, "center": -width // 2, "right": -width}[h]
         y0 = {"bottom": -height, "center": -height // 2, "top": 0}[v]
         c, sn = [(1, 0), (0, 1), (-1, 0), (0, -1)][rot % 4]
-        corners = [(x0, y0), (x0 + width, y0), (x0, y0 + height), (x0 + width, y0 + height)]
+        pad = max((thickness - max(size // 8, 1)) // 2, -(max(min(width, height) - 1, 0) // 2))
+        corners = [
+            (x0 - pad, y0 - pad),
+            (x0 + width + pad, y0 - pad),
+            (x0 - pad, y0 + height + pad),
+            (x0 + width + pad, y0 + height + pad),
+        ]
+        if italic:
+            corners = [((dx * 5 - dy) // 5, dy) for dx, dy in corners]
         pts = [(at[0] + dx * c + dy * sn, at[1] - dx * sn + dy * c) for dx, dy in corners]
         prim: dict[str, Any] = {
             "k": "t",
             "x": at[0],
             "y": at[1],
             "s": s,
-            "font": 0,
+            "font": font_index,
             "c": color,
             "rot": rot % 4,
             "h": h,
             "v": v,
             "sz": size,
             "gw": round(axis_width * GLYPH),
-            "th": max(size // 8, 1),
+            "th": thickness,
         }
         if role:
             prim["role"] = role
@@ -266,17 +288,16 @@ class _Effects:
     file: str
 
     def require_rendering(self) -> None:
-        """The present stroke renderer/masks cannot faithfully represent these visible effects."""
+        """Refuse visible effects outside the authored stroke renderer's supported subset."""
         unsupported: list[str] = []
-        if self.font is not None:
-            for name, value in (
-                ("thickness", self.font.thickness),
-                ("bold", self.font.bold),
-                ("italic", self.font.italic),
-                ("face", self.font.face),
-            ):
-                if value is not None:
-                    unsupported.append(name)
+        if self.font is not None and self.font.face is not None:
+            unsupported.append("face")
+        if self.font is not None and self.font.thickness and self.font.thickness < 1_000:
+            raise FormatError(
+                "sub-micrometre explicit thickness is not representable on the scene grid",
+                file=self.file,
+                locator=self.where,
+            )
         if "mirror" in self.justify.split():
             unsupported.append("mirror")
         if unsupported:
@@ -305,6 +326,49 @@ def _effects(node: Node, *, file: str = "") -> _Effects:
     v = "top" if "top" in words else "bottom" if "bottom" in words else "center"
     hidden = _flag(node, "hide") or _flag(node.find("effects"), "hide")
     return _Effects(height, width, h, v, hidden, font, justify, where, file)
+
+
+def _free_text_effects(item: Node, *, file: str = "") -> tuple[_Effects, str | None]:
+    """View-only colour adapter for opaque free text; never modify its original native node.
+
+    S-1205: native CLI10 free-text SVG uses RGB and ignores alpha, except the all-zero sentinel.
+    Typed drawn font readers remain closed; level8 masks remain BW geometric ink, not RGB equality.
+    """
+    effects = item.nodes("effects")
+    if len(effects) != 1:
+        return _effects(item, file=file), None
+    fonts = effects[0].nodes("font")
+    if len(fonts) != 1:
+        return _effects(item, file=file), None
+    original_font = fonts[0]
+    colors = original_font.nodes("color")
+    if not colors:
+        return _effects(item, file=file), None
+    where = f"text[{_text(item)}].effects.font.color"
+    try:
+        if len(colors) != 1 or len(colors[0].children) != 4:
+            raise ValueError("font colour requires exactly one four-channel color")
+        atoms = colors[0].atoms()
+        if len(atoms) != 4 or any(atom.kind != AtomKind.NUMBER for atom in atoms):
+            raise ValueError("font colour channels must be numbers")
+        values = tuple(Decimal(atom.text) for atom in atoms)
+        if any(not value.is_finite() for value in values):
+            raise ValueError("font colour channels must be finite")
+        if any(value < 0 or value > 255 or value != value.to_integral_value() for value in values[:3]):
+            raise ValueError("font colour RGB channels must be integers in 0..255")
+        if not 0 <= values[3] <= 1:
+            raise ValueError("font colour alpha must be in 0..1")
+    except (ValueError, InvalidOperation) as error:
+        raise FormatError(str(error), file=file, locator=where) from error
+    font = original_font.with_children(
+        tuple(child for child in original_font.children if child is not colors[0])
+    )
+    effect = effects[0].with_children(
+        tuple(font if child is original_font else child for child in effects[0].children)
+    )
+    adapted = item.with_children(tuple(effect if child is effects[0] else child for child in item.children))
+    color = None if not any(values) else "#" + "".join(f"{int(value):02x}" for value in values[:3])
+    return _effects(adapted, file=file), color
 
 
 def _stroke(node: Node, role_color: str, default: int = LINE) -> tuple[str, int, int]:
@@ -426,7 +490,9 @@ def _graphic(b: _Builder, node: Node, place: _Place, role: str, lib: bool) -> bo
     elif name == "text":
         at = node.find("at")
         values = _nums(at)
-        effects = _effects(node, file=b.file)
+        effects, text_color = (
+            (_effects(node, file=b.file), None) if lib else _free_text_effects(node, file=b.file)
+        )
         if effects.hidden:
             return True
         point = p((values[0], values[1])) if len(values) >= 2 else (0, 0)
@@ -437,7 +503,7 @@ def _graphic(b: _Builder, node: Node, place: _Place, role: str, lib: bool) -> bo
             point,
             _text(node).replace("\\n", "\n"),
             effects.height,
-            base if lib else b.color("note"),
+            text_color or (base if lib else b.color("note")),
             rot=rot,
             h=effects.h,
             v=effects.v,
@@ -1038,9 +1104,7 @@ def build_kicad_schematic_scene(
             "text": "stroke",
             "workspace": roles.get("background"),
         },
-        "fonts": [
-            {"name": "stroke", "size": 0, "em": TEXT, "bold": False, "italic": False, "underline": False}
-        ],
+        "fonts": b.fonts,
         "prims": b.prims,
         "objects": b.objects,
         "comps": b.comps,
@@ -1364,9 +1428,7 @@ def symbol_scene(
             "text": "stroke",
             "workspace": roles.get("background"),
         },
-        "fonts": [
-            {"name": "stroke", "size": 0, "em": TEXT, "bold": False, "italic": False, "underline": False}
-        ],
+        "fonts": b.fonts,
         "prims": b.prims,
         "objects": b.objects,
         "comps": b.comps,

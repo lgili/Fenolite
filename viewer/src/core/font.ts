@@ -53,13 +53,13 @@ export function glyph(ch) {
   glyphCache.set(ch, out); return out;
 }
 // A text in board millimetres (Y down): [layer, x, y, h, w, stroke, rot, hj, vj, mirrored, text, comp].
-export function textPolylines(t) {
+export function textPolylines(t, italic = false) {
   const H = t[3], u = H / 6, ux = (t[4] > 0 ? t[4] : H * 2 / 3) / 4, th = t[6] * Math.PI / 180, c = Math.cos(th), s = Math.sin(th);
   const n = [...t[10]].length, TW = (n - 1) * 6 * ux + 4 * ux;
   const ox = t[7] === "left" ? 0 : t[7] === "right" ? -TW : -TW / 2, oy = t[8] === "bottom" ? 0 : t[8] === "top" ? -6 * u : -3 * u;
   const mir = t[9] ? -1 : 1, out = [];
   [...t[10]].forEach((ch, i) => { for (const pl of glyph(ch)) out.push(pl.map(([gx, gy]) => {
-    const lx = (ox + (gx + 6 * i) * ux) * mir, ly = -(oy + gy * u);
+    const ly = -(oy + gy * u), lx = (ox + (gx + 6 * i) * ux) * mir - (italic ? ly / 5 : 0);
     return [t[1] + lx * c + ly * s, t[2] - lx * s + ly * c]; })); });
   return out;
 }

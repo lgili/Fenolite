@@ -410,3 +410,20 @@ def test_failed_model_export_can_retry_without_hiding_source_changes(oracle: Ora
     assert "model-retry-control" not in oracle.cache
     signature, _, svg = _model_sample(oracle, "retry-control", font)
     assert signature and svg.is_file()
+
+
+@pytest.mark.parametrize(
+    "variant,font",
+    (
+        ("stroke-thickness", DrawnFont(thickness=300_000)),
+        ("stroke-bold", DrawnFont(bold=True)),
+        ("stroke-italic", DrawnFont(italic=True)),
+        ("stroke-combined", DrawnFont(thickness=100_000, bold=True, italic=True)),
+    ),
+)
+def test_actual_authored_stroke_style_lowering_changes_native_output(
+    variant: str, font: DrawnFont, oracle: Oracle
+) -> None:
+    baseline = _model_sample(oracle, "stroke-baseline", DrawnFont(Size(1_270_000, 1_270_000)))[0]
+    changed = _model_sample(oracle, variant, font)[0]
+    assert changed != baseline

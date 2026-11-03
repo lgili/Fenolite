@@ -97,13 +97,18 @@ KiCad drawn read/write preserves these fonts on fields, labels, sheet pins and
 sheet-name/file poses. Native extraction compares effective defaults proved by
 the target observations; it does not turn canonical false/zero into invented
 native tokens. The current schematic scene supports both size axes and text
-justification. A visible explicit nonzero thickness, bold, italic, face or text
-mirror cannot be represented faithfully by its stroke renderer/masks and refuses
-with `FEN-3004` (`unsupported schematic rendering`) before a mask can pass.
-Hidden field styles retain their native data without being drawn. This is not
-permission to accept a fidelity loss: a full proof stays unavailable until its
-renderer supports the requested style. Native-writing/S proofs can be reported
-separately with their actual level selection.
+justification. The authored stroke renderer supports explicit thickness, bold
+weight and italic shear (c0337). Explicit thickness wins over automatic bold
+weight; effective false/zero retains the default scene. Positive sub-µm thickness,
+named faces and text mirror refuse with `FEN-3004` before a mask can pass.
+Hidden field styles retain native data without visible ink. Style-sensitive
+masks remain authored glyph-box envelopes, not a claim that Fenolite glyphs
+match native KiCad raster shapes. Native-writing/S proofs remain separately
+scoped to their actual level selection. Opaque free text also retains its
+validated native RGB in the view; typed font colour stays unsupported. The
+all-zero colour sentinel keeps the palette default. Native10 free-text export
+ignores alpha in the recorded authored controls; original RGBA stays preserved.
+Level8 uses BW geometric masks and does not judge RGB equality.
 
 The exact model can hold positive sub-µm sizes; the current native/render boundary
 refuses them explicitly. It never substitutes 1.27 mm after µm rounding, and a

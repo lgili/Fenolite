@@ -57,6 +57,33 @@ def _text(path: Path, root: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
+def default_name(node: Node) -> str:
+    """Read only the unlocalized name; reject ambiguous/malformed alternatives."""
+    default: str | None = None
+    locales: set[str] = set()
+    for name in node.children("name"):
+        locale = name.child("locale")
+        if locale is None:
+            if len(name.values) != 1 or len(name.atoms) != 1:
+                raise Invalid("name: expected one default atom")
+            if default is not None:
+                raise Invalid("duplicate default name")
+            default = name.atoms[0]
+        else:
+            if (
+                len(name.values) != 2
+                or len(name.atoms) != 1
+                or len(locale.values) != 1
+                or len(locale.atoms) != 1
+                or not locale.atoms[0]
+            ):
+                raise Invalid("malformed localized name")
+            if locale.atoms[0] in locales:
+                raise Invalid("duplicate name locale")
+            locales.add(locale.atoms[0])
+    return default or ""
+
+
 def read_library(root: Path) -> Library:
     """Read four element kinds only. Unsupported or malformed elements become explicit skips."""
     root_version = _text(root / ".librepcb-lib", root).strip()
@@ -76,7 +103,7 @@ def read_library(root: Path) -> Library:
                 node = parse(_text(path, root))
                 if node.head != f"librepcb_{kind}" or node.atoms != (element_id,):
                     raise Invalid("root type/UUID does not match element directory")
-                name = node.text("name")
+                name = default_name(node)
                 if not name:
                     raise Invalid("element has no default name")
                 elements.append(Element(kind, element_id, name, node, path))

@@ -8,6 +8,8 @@ skips its element and dependants. No upstream program or third-party parser runs
 
 from __future__ import annotations
 
+import hashlib
+import json
 import re
 import subprocess
 from dataclasses import dataclass
@@ -17,6 +19,7 @@ from typing import cast
 from fenolite.backends.librepcb import Element, Library, read_library
 from fenolite.backends.librepcb.reader import CC0_SHA256, UUID
 from fenolite.backends.librepcb.sexpr import Invalid, Node, parse, quantity
+from fenolite.catalog.devices import FUNCTION, REF_PREFIX
 from fenolite.catalog.records import (
     DeviceRecord,
     GraphicEntry,
@@ -153,7 +156,7 @@ def _package(element: Element, footprint: Node, header: Header) -> PackageRecord
     package_pads = {key: p.text("name") for key, p in _indexed(element.node.children("pad")).items()}
     pads: list[PadEntry] = []
     for pad in footprint.children("pad"):
-        _supported(pad, {"package_pad", "side", "shape", "position", "rotation", "size", "hole"})
+        _supported(pad, {"package_pad", "side", "shape", "position", "rotation", "size", "hole", "drill"})
         shape = pad.text("shape")
         if shape not in {"rect", "round"}:
             raise Invalid(f"custom or unsupported pad shape {shape!r}")
@@ -164,13 +167,19 @@ def _package(element: Element, footprint: Node, header: Header) -> PackageRecord
         if len(holes) > 1:
             raise Invalid("multiple pad holes")
         drill = None
+        legacy_drill = pad.child("drill")
+        if legacy_drill is not None:
+            if holes:
+                raise Invalid("ambiguous scalar drill and pad hole")
+            if quantity(pad.text("drill")) != 0:
+                raise Invalid("unsupported nonzero legacy scalar drill")
         if holes:
             _supported(holes[0], {"diameter", "vertex"})
             vertices = holes[0].children("vertex")
             if len(vertices) > 1 or (vertices and _point(vertices[0]) != Point(0, 0)):
                 raise Invalid("slot or offset pad hole")
             drill = quantity(holes[0].text("diameter"))
-        pad_ref = pad.text("package_pad")
+        pad_ref = pad.text("package_pad", _uuid(pad))
         if pad_ref not in package_pads:
             raise Invalid(f"unmapped package pad {pad_ref!r}")
         pads.append(
@@ -194,6 +203,41 @@ def _package(element: Element, footprint: Node, header: Header) -> PackageRecord
         pads=tuple(pads),
         graphics=cast(tuple[GraphicEntry, ...], _graphics(footprint)),
     )
+
+
+def _prefix(component: Element) -> str:
+    prefix = component.node.text("prefix", "U")
+    if not REF_PREFIX.fullmatch(prefix):
+        raise Invalid("component reference prefix is not representable")
+    return prefix
+
+
+def _pin_rotation(pin: Node) -> int:
+    angle = quantity(pin.text("rotation", "0"), angle=True)
+    if angle % 90_000_000:
+        raise Invalid("noncardinal symbol pin rotation")
+    return angle % 360_000_000
+
+
+def _angle_changes(component: Element, library: Library) -> list[dict[str, str | int]]:
+    symbols = {e.uuid: e for e in library.of_kind("symbol")}
+    changes: list[dict[str, str | int]] = []
+    for gate in component.node.children("variant")[0].children("gate"):
+        symbol = symbols[gate.text("symbol")]
+        for pin in symbol.node.children("pin"):
+            original = quantity(pin.text("rotation", "0"), angle=True)
+            normalized = _pin_rotation(pin)
+            if original != normalized:
+                changes.append(
+                    {
+                        "symbol": symbol.uuid,
+                        "symbol_sha256": hashlib.sha256(symbol.file.read_bytes()).hexdigest(),
+                        "pin": _uuid(pin),
+                        "original_microdegrees": original,
+                        "normalized_microdegrees": normalized,
+                    }
+                )
+    return sorted(changes, key=lambda row: (str(row["symbol"]), str(row["pin"])))
 
 
 def _component(
@@ -249,7 +293,7 @@ def _component(
                 PinPlacement(
                     number,
                     _point(pin),
-                    quantity(pin.text("rotation", "0"), angle=True),
+                    _pin_rotation(pin),
                     quantity(pin.text("length")),
                 )
             )
@@ -261,8 +305,39 @@ def _component(
     return PinsRecord(
         header,
         tuple(pins),
-        SymbolDrawing("U", units=tuple(units), placements=tuple(placements), graphics=tuple(graphics)),
+        SymbolDrawing(
+            _prefix(element),
+            units=tuple(units),
+            placements=tuple(placements),
+            graphics=tuple(graphics),
+        ),
     ), {key: tuple(values) for key, values in mapped.items()}
+
+
+def _function_names(component: Element) -> tuple[dict[str, str], list[dict[str, str]]]:
+    names: dict[str, str] = {}
+    changes: list[dict[str, str]] = []
+    used: set[str] = set()
+    for signal in sorted(component.node.children("signal"), key=_uuid):
+        original = signal.text("name")
+        name = f"Pin_{original}" if re.fullmatch(r"[0-9]+", original) else original
+        if not FUNCTION.fullmatch(name):
+            raise Invalid("component function name is not representable")
+        if name in used:
+            raise Invalid(f"component function normalization collision: {name!r}")
+        used.add(name)
+        names[_uuid(signal)] = name
+        if name != original:
+            changes.append(
+                {
+                    "component": component.uuid,
+                    "component_sha256": hashlib.sha256(component.file.read_bytes()).hexdigest(),
+                    "signal": _uuid(signal),
+                    "original": original,
+                    "normalized": name,
+                }
+            )
+    return names, changes
 
 
 def _device(
@@ -275,7 +350,7 @@ def _device(
     header: Header,
 ) -> DeviceRecord:
     pads = {key: p.text("name") for key, p in _indexed(package.node.children("pad")).items()}
-    names = {_uuid(s): s.text("name") for s in component.node.children("signal")}
+    names, _ = _function_names(component)
     functions: dict[str, list[tuple[str, str]]] = {}
     covered: set[str] = set()
     for pad in element.node.children("pad"):
@@ -297,7 +372,7 @@ def _device(
         summary=header.summary,
         symbol=pins.header.id,
         footprint=footprint.header.id,
-        ref_prefix="U",
+        ref_prefix=_prefix(component),
         evidence="UNVERIFIED",
         sources=header.sources,
         pins=tuple(DevicePin(name, tuple(values)) for name, values in sorted(functions.items())),
@@ -398,6 +473,16 @@ def convert(
             parse_record(record_text(record))
             items.append(SeedItem("symbol", record, element.uuid))
             components[element.uuid] = element, record, mapping
+            angle_changes = _angle_changes(element, library)
+            if angle_changes:
+                issues.append(
+                    issue(
+                        "library.seed-angle-normalized",
+                        "Cardinal pin angles normalized: "
+                        + json.dumps(angle_changes, sort_keys=True, separators=(",", ":")),
+                        where=element.uuid,
+                    )
+                )
         except (Invalid, FormatError, ValueError) as exc:
             skipped(element, exc)
     for element in library.of_kind("device"):
@@ -422,6 +507,16 @@ def convert(
                 Depend("footprint", footprint.header.id, "1.0.0"),
             )
             items.append(SeedItem("device", record, element.uuid, depends))
+            _, changes = _function_names(component)
+            if changes:
+                issues.append(
+                    issue(
+                        "library.seed-function-normalized",
+                        "Internal function names normalized: "
+                        + json.dumps(changes, ensure_ascii=True, sort_keys=True, separators=(",", ":")),
+                        where=element.uuid,
+                    )
+                )
         except (Invalid, FormatError, ValueError) as exc:
             skipped(element, exc)
     inputs = (root / ".librepcb-lib", root / "library.lp", licence_path)

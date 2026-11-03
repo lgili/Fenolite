@@ -6,7 +6,36 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- **Nested device review** (c0341): resolve sibling symbol and footprint
+  records for a directly selected nested library device with a valid matching
+  item manifest. Preserve bounded discovery, exact-content approval and stale
+  dependency checks; invalid or unrelated manifests do not expand discovery.
+
 - **Same-sheet power aliases** (c0336): KiCad drawn connectivity joins a global power declaration to the identical local scalar name in that sheet. Authored native controls retain every pin and isolate other names and sheets; generic/Altium defaults and power-output behavior remain unchanged. Exact-head 9/10 CI remains required.
+- **Explicit seed artwork curation plan** (c0338): document a reproducible external
+  four-item CC0 resistor draft with two pin lengths changed by32um, preserving
+  electrical mappings and physical footprints. Original failures remain visible;
+  curated review retains four100mil preference warnings without waivers or
+  inferred human acceptance.
+
+- **Conservative LibrePCB seed compatibility** (c0335): preserve the default
+  name beside unique localized alternatives, accept exact zero scalar drills,
+  bind legacy pad UUIDs only to declared package pads, and preserve valid
+  declared reference prefixes. Ambiguous names,
+  malformed/nonzero drills and unknown pad references remain refused; seeded
+  records stay UNVERIFIED and require human review. Numeric internal device
+  functions receive reversible Pin_ identifiers with a localized warning and
+  source-bound provenance map; collisions refuse without changing visible pin
+  names, numbers, geometry or electrical mappings. Exact signed cardinal pin
+  rotations are canonicalized modulo360 with source-bound warnings; near-cardinal
+  and noncardinal inputs are refused without rounding.
+- **Authored schematic font styles** (c0337, in progress): render preserved
+  thickness, bold weight and italic shear in Fenolite’s own stroke font and
+  style-sensitive glyph-box masks. Preserve all22 default scenes and existing
+  comparison thresholds; keep named-face, mirror and sub-µm refusals. Preserve
+  validated opaque free-text RGB and original RGBA nodes without expanding
+  typed fonts; level8 remains a BW geometric comparison. Actual
+  KiCad10.0.6 authored lowering controls pass; exact-head CI remains required.
 
 - **Certified final neck cut** (c0332, in progress): replace the final Altium
   neck-removal difference with exact signed face selection and one shared

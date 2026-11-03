@@ -5423,3 +5423,13 @@ see = "library"
 meaning = "The conservative LibrePCB seed converter skipped unsupported or invalid geometry and its dependants."
 fix = "Read the named element and reason; author and review the unsupported records separately without raising their evidence."
 see = "library"
+
+["library.seed-function-normalized"]
+meaning = "Numeric internal function names received reversible Pin_ identifiers; visible symbol names and electrical mappings are unchanged."
+fix = "Review the warning's signal UUID/original/normalized map and matching provenance modification_notice; collisions are refused and geometry findings remain separate."
+see = "library"
+
+["library.seed-angle-normalized"]
+meaning = "An exact cardinal symbol pin angle was canonicalized modulo360 without changing orientation."
+fix = "Review the original/normalized integer angle and source UUID/hash in the warning and provenance notice; noncardinal input is refused without rounding."
+see = "library"

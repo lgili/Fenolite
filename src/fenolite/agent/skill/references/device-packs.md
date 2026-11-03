@@ -36,4 +36,13 @@ the element and its dependants. Names may report `library.seed-renamed`. Confirm
 with `--allow-lossy`. CC0 is not proof of electrical correctness or the upstream contributor's rights.
 The inferred parser has authored tests only; a live-library oracle and external review remain needed.
 
+`library.seed-function-normalized` warns when ASCII numeric internal device functions become
+`Pin_` identifiers. Review its signal UUID/original/normalized map and the matching dated
+PROVENANCE modification_notice; symbol pin names/numbers and pin-to-pad mappings stay unchanged.
+Collisions (including an existing `Pin_1`) refuse the device; geometry findings still require review.
+
+`library.seed-angle-normalized` warns when an exact cardinal pin angle is canonicalized modulo360.
+Review the source UUID/hash and original/normalized microdegrees in the warning and provenance notice;
+-90deg becomes270deg with identical orientation. Noncardinal/near-cardinal input is refused, not rounded.
+
 Read next: `library-items`, `library-review`, `parts`.

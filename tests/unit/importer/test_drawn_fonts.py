@@ -202,9 +202,7 @@ def test_root_filename_spelling_keeps_full_font_proof_equal(tmp_path: Path) -> N
         DrawnFont(thickness=100_000),
     ),
 )
-def test_native_style_is_preserved_but_unavailable_renderer_cannot_pass(
-    font: DrawnFont, tmp_path: Path
-) -> None:
+def test_native_style_preservation_and_actual_renderer_boundary(font: DrawnFont, tmp_path: Path) -> None:
     original = _drawn_fonts.styled_hierarchy(tmp_path / "original", font=font)
     before = snapshot(original)
     output = _confirmed(original, tmp_path)
@@ -217,7 +215,14 @@ def test_native_style_is_preserved_but_unavailable_renderer_cannot_pass(
     assert all(row["status"] == "equal" for row in native.result["levels"])
     assert tuple(row["level"] for row in native.result["levels"]) == (*range(1, 8), "S")
     full = api.run("verify-source", *args, cwd=tmp_path, seed=0)
-    assert full.exit_code == 3 and full.error and full.error["code"] == "FEN-3004", full.error
-    assert "unsupported schematic rendering" in full.error["message"]
-    assert not full.result.get("equivalent") and not full.result.get("accepted")
+    if font.face is not None:
+        assert full.exit_code == 3 and full.error and full.error["code"] == "FEN-3004", full.error
+        assert "unsupported schematic rendering" in full.error["message"]
+        assert not full.result.get("equivalent") and not full.result.get("accepted")
+    else:
+        assert full.exit_code == 0, (full.error, full.result.get("differences"))
+        assert full.result["equivalent"] is True
+        assert full.result["differences"] == full.result["accepted"] == []
+        assert all(row["status"] == "equal" for row in full.result["levels"])
+        assert tuple(row["level"] for row in full.result["levels"]) == (*range(1, 8), "S", 8)
     assert snapshot(original) == before

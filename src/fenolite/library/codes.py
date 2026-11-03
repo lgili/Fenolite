@@ -68,6 +68,8 @@ ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "library.item-conflict": "error",
         "library.overrides-item": "info",
         "library.seed-renamed": "info",
+        "library.seed-function-normalized": "warning",
+        "library.seed-angle-normalized": "warning",
         "library.seed-skipped": "warning",
         "library.item-modified": "error",
         "library.licence-denied": "error",

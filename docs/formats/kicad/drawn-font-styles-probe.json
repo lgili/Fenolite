@@ -1,0 +1,167 @@
+{
+  "cases": {
+    "bold": {
+      "box_mm": [
+        71.2008,
+        39.0542,
+        88.6781,
+        40.3242
+      ],
+      "color_exit": 0,
+      "color_signature_sha256": "03f37a631d0099bb09951415f88220da4dd2d6454c901e6291ea5f23c59ca00f",
+      "color_svg_sha256": "a7bf73586ce8cdb941e2eb379d083aa454a92e62ce6e9086ed361b178ca13a0c",
+      "signature_sha256": "55d0b0bd6d8ff68b80cb1fb8e10de8a651a2c628bb416492280b2872f49d2429",
+      "source_sha256": {
+        "drawn_full.kicad_sch": "9d8f7254bc9ff7089ca6e84f569bbf9c1e185fa793966255d84ca9288df9587c",
+        "sheets/sub.kicad_sch": "3702ce88ee1a6e80d5aeb100d5a0904e886b59a73bb135f60656de039677a53a"
+      }
+    },
+    "italic": {
+      "box_mm": [
+        71.1932,
+        39.0595,
+        88.7537,
+        40.3295
+      ],
+      "color_exit": 0,
+      "color_signature_sha256": "3daf0c12bec30da30c94a07e8c8a9a0e44f0099125411a46a5d778f69b651d5b",
+      "color_svg_sha256": "a69b3093b81ee4f613755b63d84d24dade957864359378c922153a9e7f3e1ff7",
+      "signature_sha256": "982866d3ac9d994cdd4a97199806f4b4a7897af252cb4ca161bb36dae3ab4ec8",
+      "source_sha256": {
+        "drawn_full.kicad_sch": "dcec59043abea3fc79be98800e27eadc4ad7b8750f2ccbb95563539718446b03",
+        "sheets/sub.kicad_sch": "3702ce88ee1a6e80d5aeb100d5a0904e886b59a73bb135f60656de039677a53a"
+      }
+    },
+    "normal": {
+      "box_mm": [
+        71.2008,
+        39.0595,
+        88.6781,
+        40.3295
+      ],
+      "color_exit": 0,
+      "color_signature_sha256": "faa63bb8e5fcaf770185720e51ec1619bd5d118b7b1195dc1ccd2d6383d60cae",
+      "color_svg_sha256": "2c9b6b1890fd6817f1501ff6128e3a98caa9ac8867186be6be6edb1c9818f6e2",
+      "signature_sha256": "333740375251902e65841632f4ab2b83a02149d5d43fc764c7b22c17cafda47e",
+      "source_sha256": {
+        "drawn_full.kicad_sch": "3d3ddcaa4f0a02a58e57d666c18d1ff249206af9f0a78331301c1f721de5b326",
+        "sheets/sub.kicad_sch": "3702ce88ee1a6e80d5aeb100d5a0904e886b59a73bb135f60656de039677a53a"
+      }
+    },
+    "red": {
+      "box_mm": [
+        71.2008,
+        39.0595,
+        88.6781,
+        40.3295
+      ],
+      "color_exit": 0,
+      "color_signature_sha256": "a82ba5a5fb54044d4d5bd8e37bed4390a401fbace0e3b4c41b72f06fc1816f3f",
+      "color_svg_sha256": "d20690ddb42f90456e57bf56dec00b42f559b556639344d1bb2d0ee617159f74",
+      "signature_sha256": "333740375251902e65841632f4ab2b83a02149d5d43fc764c7b22c17cafda47e",
+      "source_sha256": {
+        "drawn_full.kicad_sch": "bbadad6f99499a0c17eba245ce5bedf8a9fc5e8327a634c8f75753b65fe9aed7",
+        "sheets/sub.kicad_sch": "3702ce88ee1a6e80d5aeb100d5a0904e886b59a73bb135f60656de039677a53a"
+      }
+    },
+    "thickness": {
+      "box_mm": [
+        71.2008,
+        39.0519,
+        88.6781,
+        40.3219
+      ],
+      "color_exit": 0,
+      "color_signature_sha256": "82e25e17e2459c8f9dc00ccba9048e7a6bba37aa59b848a6e5e02fe59990a42f",
+      "color_svg_sha256": "1b348e8ce675f221eeed279d802ed3b0afb40f3862603b16c84be677ee8cd80b",
+      "signature_sha256": "993ce7486743efd643e94661123c5e8f522624c366ac56efb058fda45c0d228d",
+      "source_sha256": {
+        "drawn_full.kicad_sch": "4abd06729b4436b51eaf67aefb6db21a7ee6cbff4a3c78d5e644ec7c45ea21c1",
+        "sheets/sub.kicad_sch": "3702ce88ee1a6e80d5aeb100d5a0904e886b59a73bb135f60656de039677a53a"
+      }
+    }
+  },
+  "colour_addendum": {
+    "cases": {
+      "default": {
+        "box_mm": [
+          71.2008,
+          39.0595,
+          88.6781,
+          40.3295
+        ],
+        "color_exit": 0,
+        "color_signature_sha256": "faa63bb8e5fcaf770185720e51ec1619bd5d118b7b1195dc1ccd2d6383d60cae",
+        "color_svg_sha256": "16e0e36d096f956de9cb172c46af68199f26a879d97bc228b9e6c86bdb8dff1a",
+        "signature_sha256": "333740375251902e65841632f4ab2b83a02149d5d43fc764c7b22c17cafda47e",
+        "source_sha256": {
+          "drawn_full.kicad_sch": "04b1987d099585ebee946a23ce69aaa22f4de9518725a92d082c59f6ce813354",
+          "sheets/sub.kicad_sch": "3702ce88ee1a6e80d5aeb100d5a0904e886b59a73bb135f60656de039677a53a"
+        }
+      },
+      "gray": {
+        "box_mm": [
+          71.2008,
+          39.0595,
+          88.6781,
+          40.3295
+        ],
+        "color_exit": 0,
+        "color_signature_sha256": "125e4b1eb281d3a29e2c3c3aa831bdbe7b5c1af16efb98cfe8b3ba0d1691c493",
+        "color_svg_sha256": "027b09e427c1e9977d7c10dba38704bfcb6694c1a9dcd873de42fbddb371219f",
+        "signature_sha256": "333740375251902e65841632f4ab2b83a02149d5d43fc764c7b22c17cafda47e",
+        "source_sha256": {
+          "drawn_full.kicad_sch": "3c67f6c45b47a04be7a6b048aeb5c7f56fe87a711214aed167f79708e1015219",
+          "sheets/sub.kicad_sch": "3702ce88ee1a6e80d5aeb100d5a0904e886b59a73bb135f60656de039677a53a"
+        }
+      },
+      "half": {
+        "box_mm": [
+          71.2008,
+          39.0595,
+          88.6781,
+          40.3295
+        ],
+        "color_exit": 0,
+        "color_signature_sha256": "a82ba5a5fb54044d4d5bd8e37bed4390a401fbace0e3b4c41b72f06fc1816f3f",
+        "color_svg_sha256": "c06abea1579d9aa3cf1eddb6b5a13af5e597d8f063392204a6bb988a99f80d51",
+        "signature_sha256": "333740375251902e65841632f4ab2b83a02149d5d43fc764c7b22c17cafda47e",
+        "source_sha256": {
+          "drawn_full.kicad_sch": "708f9e759b8e979e44de94939fd0212e8636cc45a85b1f452feb8c5c7dc2462d",
+          "sheets/sub.kicad_sch": "3702ce88ee1a6e80d5aeb100d5a0904e886b59a73bb135f60656de039677a53a"
+        }
+      },
+      "transparent": {
+        "box_mm": [
+          71.2008,
+          39.0595,
+          88.6781,
+          40.3295
+        ],
+        "color_exit": 0,
+        "color_signature_sha256": "a82ba5a5fb54044d4d5bd8e37bed4390a401fbace0e3b4c41b72f06fc1816f3f",
+        "color_svg_sha256": "6385c7f990acf475d1653bcbbbb161aec69010ea623acb99a72f1ac318000aaf",
+        "signature_sha256": "333740375251902e65841632f4ab2b83a02149d5d43fc764c7b22c17cafda47e",
+        "source_sha256": {
+          "drawn_full.kicad_sch": "8efc7329ae7faa64a066b5b91da54311bb40e3fa22216f5ee04d8df7364c9f3e",
+          "sheets/sub.kicad_sch": "3702ce88ee1a6e80d5aeb100d5a0904e886b59a73bb135f60656de039677a53a"
+        }
+      }
+    },
+    "observed_all_zero_equals_default": true,
+    "observed_alpha_0_half_1_equal": true,
+    "observed_gray": "#808080",
+    "receipt_sha256": "0896d487dbf715a13b230fc22c10bc6d8270670a012e7d1701c8206319a7db1d",
+    "version": "10.0.6"
+  },
+  "observations": {
+    "bold_1_27_stroke_mm": "0.2540",
+    "default_stroke_mm": "0.1524",
+    "explicit_0_3_stroke_mm": "0.3000",
+    "normal_color": "#0000C2",
+    "requested_red_color": "#C20000"
+  },
+  "receipt_sha256": "dd6aa3bfb38a1a50e961af8aa97cd0cfae3a02f8c83b6f0e61a1c3961812ed65",
+  "schema": "fenolite.authored-native-font-probe.v0",
+  "version": "10.0.6"
+}

@@ -216,6 +216,14 @@ def run(args: argparse.Namespace, ctx: Context) -> Result:
             f"{date}: converted from {args.library} at {args.commit} by Fenolite "
             f"{fenolite.__version__}; format change only; UNVERIFIED"
         )
+        normalization = [
+            row.message
+            for row in made.issues
+            if row.code in {"library.seed-function-normalized", "library.seed-angle-normalized"}
+            and row.where == seeded.element
+        ]
+        if normalization:
+            notice += "; " + "; ".join(normalization)
         provenance = {
             "schema": "fenolite.provenance.v0",
             "kind": item.kind,

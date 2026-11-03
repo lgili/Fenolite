@@ -44,3 +44,34 @@ fixtures. The seed command carries the full local licence text into the external
 Fenolite repository keeps only authored fixtures. Positive unit tests inject the hash of an original
 licence placeholder, and an explicit negative test proves the unchanged production gate rejects that
 placeholder. S-1097 records the public full-text hash; no copy of that legal text is vendored.
+
+## Bounded legacy metadata and surface pads
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| A default unlocalized `name` can coexist with `name` entries qualified by a nested `locale`. Only the unique unlocalized value supplies the record name; malformed or duplicate defaults/locales are refused. | S-1200; selection/validation policy is an independent interpretation | INFERRED | H-G-LIBREPCB-SEED |
+| A footprint pad can carry scalar `drill` equal to zero. This bounded reader interprets only exact zero as no drill; nonzero, sub-nm or ambiguous scalar/hole forms remain refused. | S-1201; bounded surface-pad interpretation | INFERRED | H-G-LIBREPCB-SEED |
+| A component reference `prefix` is preserved in both symbol and device when it matches the existing catalog prefix contract. Missing means U; malformed or ambiguous values refuse. | S-1200; bounded propagation policy | INFERRED | H-G-LIBREPCB-SEED |
+| The observed 0.1 footprint pad UUID matches a package-declared pad UUID without a `package_pad` child. Absent an explicit child, only a declared matching UUID may bind; unknown references refuse. | S-1201; relationship interpretation | INFERRED | H-G-LIBREPCB-SEED |
+
+These data observations do not establish general LibrePCB compatibility or a
+reviewed component. Source coordinates, UUIDs and complete payloads stay outside
+core. Unit controls use only Fenolite-authored data and the production CC0 gate
+is unchanged.
+
+Internal device function identifiers have a separate bounded conversion policy:
+ASCII digit-only signal names become `Pin_<original>`, while symbol pin names,
+numbers and signal-to-pin/pad associations stay unchanged. An existing legal
+name collision refuses the whole device. Other invalid names remain unsupported.
+`library.seed-function-normalized` warns with the ordered component UUID/hash,
+signal UUID and original/normalized names; the same reversible map is preserved
+in dated provenance modification_notice and NOTICE. This policy is INFERRED,
+not a claim that upstream uses the normalized names. Geometry remains exact;
+for example an upstream 2 mm pin length still triggers the off-10mil check.
+
+Exact cardinal symbol pin angles are canonicalized modulo360 integer degrees
+without rounding; signed/full-turn input retains its orientation. Noncardinal
+and near-cardinal angles refuse the component and its devices. This bounded
+INFERRED policy emits library.seed-angle-normalized with source symbol UUID/hash,
+pin UUID and original/normalized microdegrees; the existing provenance notice
+preserves the map. Public source data stays outside core (S-1200).

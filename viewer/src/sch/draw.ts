@@ -44,7 +44,7 @@ export function drawStrokeText(p, alpha) {   // KiCad's way: texts as strokes, i
   let wMax = 0; ctx.beginPath();
   lines.forEach((ln, i) => { const off = (first + i) * step, x = p.x + Math.sin(a) * off, y = p.y + Math.cos(a) * off;
     const t = ["", x, y, p.sz, p.gw, p.th, deg, p.h, p.v, false, ln, -1];
-    for (const pl of textPolylines(t)) { ctx.moveTo(pl[0][0], pl[0][1]); for (let k = 1; k < pl.length; k++) ctx.lineTo(pl[k][0], pl[k][1]); if (pl.length === 1) ctx.lineTo(pl[0][0] + 1e-4, pl[0][1]); }
+    for (const pl of textPolylines(t, !!S.fonts[p.font]?.italic)) { ctx.moveTo(pl[0][0], pl[0][1]); for (let k = 1; k < pl.length; k++) ctx.lineTo(pl[k][0], pl[k][1]); if (pl.length === 1) ctx.lineTo(pl[0][0] + 1e-4, pl[0][1]); }
     const wl = [...ln].length * adv - 2 * p.gw / 4; wMax = Math.max(wMax, wl);
     if (p.ol && p.ol.length && n === 1) { const x0 = p.h === "left" ? 0 : p.h === "right" ? -wl : -wl / 2, top = p.v === "top" ? 0 : p.v === "bottom" ? -p.sz : -p.sz / 2;
       const ly = top - p.sz * 0.2, c = Math.cos(a), s2 = Math.sin(a), P = lx => [x + lx * c + ly * s2, y - lx * s2 + ly * c];

@@ -32,6 +32,7 @@ from fenolite.core.errors import FormatError, Issue
 from fenolite.core.evidence import Evidence, Level, parse_level, strength
 from fenolite.core.quantities import LengthRange
 from fenolite.geometry.errors import GeometryError
+from fenolite.library import items as library_items
 from fenolite.library import review, rules
 from fenolite.library.device_items import source_ids
 from fenolite.model import canonical
@@ -377,6 +378,23 @@ def _resolve(items: list[Item], support: list[Item]) -> None:
                     )
 
 
+def _support_root(item: Item) -> Path:
+    """Recognize an enclosing item tree without unbounded ancestor discovery."""
+    local = item.path.parent
+    if local.name in {"devices", "packages", "pins", "parts"}:
+        return local.parent
+    try:
+        manifest = library_items.read_item(local.joinpath("item.json").read_bytes())
+    except (library_items.ItemError, OSError):
+        return local
+    if manifest.kind != "device" or manifest.id != item.id or item.path.name not in manifest.files:
+        return local
+    for parent in tuple(local.parents)[:4]:
+        if parent.name == "devices":
+            return parent.parent
+    return local
+
+
 def load(targets: list[str], ctx: Context) -> tuple[list[Item], list[Path]]:
     paths = [Path(t) if Path(t).is_absolute() else ctx.cwd / t for t in targets]
     files = _files(paths)
@@ -396,11 +414,7 @@ def load(targets: list[str], ctx: Context) -> tuple[list[Item], list[Path]]:
     for item in items:
         if isinstance(item.record, records.DeviceRecord):
             # A directly named device may refer to sibling pins and packages in the same tree.
-            root = (
-                item.path.parent.parent
-                if item.path.parent.name in {"devices", "packages", "pins", "parts"}
-                else item.path.parent
-            )
+            root = _support_root(item)
             for path in sorted(root.rglob("*.toml")):
                 if path in files:
                     continue

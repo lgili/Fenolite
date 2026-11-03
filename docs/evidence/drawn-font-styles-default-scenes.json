@@ -1,0 +1,99 @@
+{
+  "baseline_commit": "e26589420db604771f0a884b962a0546a2283e43",
+  "bytes": 420455,
+  "candidate_worktree": "codex/cac-drawn-font-styles",
+  "count": 22,
+  "driver_sha256": "2857b01a0f208815e43ba3afeb494dde21f16a52687c20cfc0207d8ff37aac8f",
+  "equal": true,
+  "rows": {
+    "bus@10:drawn_bus.kicad_sch": {
+      "bytes": 29267,
+      "sha256": "ddd335a6360a8627725af686ab96b34820817a712a49dd58186a96b06cbdbc09"
+    },
+    "bus@10:sheets/child.kicad_sch": {
+      "bytes": 15627,
+      "sha256": "c5b27bc12612ac07d947388445cb8fa38b69148daa19d3462ece1c77993be0b6"
+    },
+    "bus@9:drawn_bus.kicad_sch": {
+      "bytes": 29268,
+      "sha256": "77b5d0d155f4a4c95e4f2cf2f34eb4575d5ba4ac59fc264028d1fb3d3886dcd1"
+    },
+    "bus@9:sheets/child.kicad_sch": {
+      "bytes": 15627,
+      "sha256": "c5b27bc12612ac07d947388445cb8fa38b69148daa19d3462ece1c77993be0b6"
+    },
+    "example@10:drawn.kicad_sch": {
+      "bytes": 29971,
+      "sha256": "507ece4e0e9612a671f4683c0018bb0253db02b4d8d20077a38b7ccff96efe2d"
+    },
+    "example@10:sheets/child.kicad_sch": {
+      "bytes": 10418,
+      "sha256": "84c85b68ba8761af9e69c6c0312f07d4f2c0e4cc40db0e942db3dddff2aedee8"
+    },
+    "example@9:drawn.kicad_sch": {
+      "bytes": 29972,
+      "sha256": "cea84b0679b162e1b17eadf3dda470ddc240d786121e67f072fb311642d1ad22"
+    },
+    "example@9:sheets/child.kicad_sch": {
+      "bytes": 10418,
+      "sha256": "84c85b68ba8761af9e69c6c0312f07d4f2c0e4cc40db0e942db3dddff2aedee8"
+    },
+    "flat@10:drawn_flat.kicad_sch": {
+      "bytes": 28109,
+      "sha256": "b0c44ad3685709604ae1e31af6022fa13b8ba57eb6d89322dfbe426149aa6cd1"
+    },
+    "flat@9:drawn_flat.kicad_sch": {
+      "bytes": 28110,
+      "sha256": "c581f3c6910f08a45804ea239d764e27561497891150a722548192d89cf9644a"
+    },
+    "full@10:drawn_full.kicad_sch": {
+      "bytes": 32522,
+      "sha256": "d596bbf041c48287e32ab3cebab9f4c721b2c2cd08ebee7442caef38865c5428"
+    },
+    "full@10:sheets/sub.kicad_sch": {
+      "bytes": 8847,
+      "sha256": "a625ce8581677545b3f21bd920dc53075935953b9981da2e0f4abc9963be6fe3"
+    },
+    "full@9:drawn_full.kicad_sch": {
+      "bytes": 32523,
+      "sha256": "fd7b4d7dc75369ce89bae2959ea1e8dc2b8fa7db8b82b432db20679cf08cd11a"
+    },
+    "full@9:sheets/sub.kicad_sch": {
+      "bytes": 8847,
+      "sha256": "a625ce8581677545b3f21bd920dc53075935953b9981da2e0f4abc9963be6fe3"
+    },
+    "hier@10:drawn_hier.kicad_sch": {
+      "bytes": 27091,
+      "sha256": "f84903a213fbf65c8ed4e0ebe71aac4979bfcb07cb54e1289cfde4b27ef2c90f"
+    },
+    "hier@10:sheets/child.kicad_sch": {
+      "bytes": 10418,
+      "sha256": "84c85b68ba8761af9e69c6c0312f07d4f2c0e4cc40db0e942db3dddff2aedee8"
+    },
+    "hier@9:drawn_hier.kicad_sch": {
+      "bytes": 27092,
+      "sha256": "4343d1da10b84b8d37bf04294aec44a406cf9230b49547a527d12d61173d6faf"
+    },
+    "hier@9:sheets/child.kicad_sch": {
+      "bytes": 10418,
+      "sha256": "84c85b68ba8761af9e69c6c0312f07d4f2c0e4cc40db0e942db3dddff2aedee8"
+    },
+    "repeat@10:drawn_repeat.kicad_sch": {
+      "bytes": 7549,
+      "sha256": "a64d9f1fcaec371c41461ad56443324edcf8fa3c227d110a2b6fe6417735022d"
+    },
+    "repeat@10:sheets/channel.kicad_sch": {
+      "bytes": 10406,
+      "sha256": "db24a45a578cef6c54822f7283df25f1253fc8997ee1042371d772e4b4fe433a"
+    },
+    "repeat@9:drawn_repeat.kicad_sch": {
+      "bytes": 7549,
+      "sha256": "a64d9f1fcaec371c41461ad56443324edcf8fa3c227d110a2b6fe6417735022d"
+    },
+    "repeat@9:sheets/channel.kicad_sch": {
+      "bytes": 10406,
+      "sha256": "db24a45a578cef6c54822f7283df25f1253fc8997ee1042371d772e4b4fe433a"
+    }
+  },
+  "schema": "fenolite.default-scene-compatibility.v0"
+}

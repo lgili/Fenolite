@@ -198,3 +198,32 @@ def test_planted_writer_losses_fail_after_a_passing_all_level_control(
         assert len(drawn) == 1 and (drawn[0]["kind"], drawn[0]["field"]) == ("item-missing", "junction")
         assert drawn[0]["a"] and not drawn[0]["b"]
     assert snapshot(original) == before
+
+
+@pytest.mark.parametrize("target", (9, 10))
+def test_opaque_free_text_color_survives_strict_full_roundtrip(target: int, tmp_path: Path) -> None:
+    from fenolite.lens.drawn import read_drawn
+
+    original = _drawn_fonts.styled_hierarchy(tmp_path / "original", target=target)
+    path = original / "drawn_full.kicad_sch"
+    root = parse(path.read_text())
+    text = root.nodes("text")[0]
+    effects = text.find("effects")
+    assert effects is not None
+    font = effects.find("font")
+    assert font is not None
+    colored_font = font.with_children((*font.children, parse("(color 194 0 0 0.5)")))
+    colored_effects = effects.with_children(
+        tuple(colored_font if child is font else child for child in effects.children)
+    )
+    colored = text.with_children(
+        tuple(colored_effects if child is effects else child for child in text.children)
+    )
+    root = root.with_children(tuple(colored if child is text else child for child in root.children))
+    path.write_text(dumps(root))
+    before = snapshot(original)
+    output = tmp_path / "roundtrip"
+    complete(roundtrip(original, output))
+    drawing = read_drawn((output / "code/schematic.toml").read_text())
+    assert any(parse(opaque.kicad) == colored for sheet in drawing.sheets for opaque in sheet.opaques)
+    assert snapshot(original) == before

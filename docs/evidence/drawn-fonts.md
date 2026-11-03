@@ -134,3 +134,32 @@ root-identity finding for that source, without accepting child-sheet or
 visible Footprint differences. ECC83 and Coldfire retain their measured
 presentation/style blockers. The completed fast gate before reconciling the
 older witness reports two failures; the Mac Altium byte discrepancy remains.
+
+## c0337 authored stroke styles, 2026-11-02
+
+The earlier c0326 refusal above is a historical checkpoint. c0337 now implements
+explicit thickness, bold weight and italic shear in the existing authored font,
+scene envelopes and glyph-box masks. A fresh baseline from immutable e2658942
+compares all22 complete maps byte-for-byte (420455 compact-JSON bytes); this is
+a new capture, not a reassertion of the differently serialized historical map.
+The driver and individual map hashes are recorded in
+`drawn-font-styles-default-scenes.json`. Comparison pitch/tolerance remains
+127000nm/1000ppm, including its existing one-pixel allowance. Small visible
+weight changes can therefore have different exact boxes without exceeding that
+allowance; levelS still compares the preserved effective attributes.
+
+Authored stroke, precedence, rotation, narrow-axis and refusal controls pass.
+Actual DrawnFont lowering for thickness/bold/italic/combined styles loads and
+changes output under CLI10.0.6 with original inputs unchanged (four cases).
+This does not claim native glyph equality, GUI save, public-board acceptance,
+H-K promotion or required CI completion. S-1204/1205 and the aggregate native
+probe record document the actual source and output observations.
+
+The separately reviewed free-text colour adapter validates exactly four native
+channels, integer RGB0..255 and alpha0..1, retaining original nodes in the opaque
+slot. Two authored target9/10 strict all-nine controls preserve the complete
+node, unchanged source and empty accepted/differences. Typed drawn font colour
+continues to refuse. Actual coloured10.0.6 SVG establishes effective red/gray,
+zero sentinel and alpha behaviour in the recorded controls. Level8 remains BW
+geometric ink and makes no RGB equality claim. No colour evidence promotion or
+source-byte/threshold concession follows.

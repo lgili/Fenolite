@@ -136,7 +136,17 @@ def _arc_points(start: Point, mid: Point, end: Point, tol: int) -> list[Point]:
 
 
 def _quarter_text_box(
-    x: int, y: int, height: int, width: int, rotation: object, h: str, v: str, chars: int
+    x: int,
+    y: int,
+    height: int,
+    width: int,
+    rotation: object,
+    h: str,
+    v: str,
+    chars: int,
+    *,
+    pad: int = 0,
+    italic: bool = False,
 ) -> Polygon:
     """The box of a text's glyphs: ``chars`` glyphs of ``width`` by ``height`` at ``(x, y)`` (nm), turned by
     ``rotation`` degrees (an exact decimal read as a fraction, not a float) about its anchor."""
@@ -144,7 +154,15 @@ def _quarter_text_box(
     x0 = {"left": 0, "right": -total}.get(h, -total // 2)
     y0 = {"top": 0, "bottom": -height}.get(v, -height // 2)
     udeg = int(Fraction(str(rotation)) * 1_000_000) if rotation else 0
-    corners = (Point(x0, y0), Point(x0 + total, y0), Point(x0 + total, y0 + height), Point(x0, y0 + height))
+    pad = max(pad, -(max(min(total, height) - 1, 0) // 2))
+    corners: tuple[Point, ...] = (
+        Point(x0 - pad, y0 - pad),
+        Point(x0 + total + pad, y0 - pad),
+        Point(x0 + total + pad, y0 + height + pad),
+        Point(x0 - pad, y0 + height + pad),
+    )
+    if italic:
+        corners = tuple(Point((c.x * 5 - c.y) // 5, c.y) for c in corners)
     turned = [rotate_point(Point(c.x, -c.y), udeg) for c in corners]  # counter-clockwise on a Y-down page
     return Polygon((tuple(Point(x + c.x, y - c.y) for c in turned),))
 
@@ -210,6 +228,9 @@ def sheet_shapes(scene: Mapping[str, Any], pitch_nm: int) -> dict[str, list[Shap
             rotation = 90 * int(prim.get("rot") or 0)
             value = str(prim.get("s", ""))
             longest = max((len(line) for line in value.split("\n")), default=0)
+            fonts = scene.get("fonts", [])
+            index = int(prim.get("font", 0))
+            italic = bool(fonts[index].get("italic")) if 0 <= index < len(fonts) else False
             shapes.append(
                 _quarter_text_box(
                     int(prim["x"]) * UM,
@@ -220,6 +241,8 @@ def sheet_shapes(scene: Mapping[str, Any], pitch_nm: int) -> dict[str, list[Shap
                     str(prim.get("h", "center")),
                     str(prim.get("v", "center")),
                     longest,
+                    italic=italic,
+                    pad=(int(prim.get("th", max(size // UM // 8, 1))) - max(size // UM // 8, 1)) * UM // 2,
                 )
             )
     return {SHEET_LAYER: shapes} if shapes else {}

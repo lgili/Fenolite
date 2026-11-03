@@ -477,7 +477,7 @@ function glyph(ch) {
     return out;
 }
 // A text in board millimetres (Y down): [layer, x, y, h, w, stroke, rot, hj, vj, mirrored, text, comp].
-function textPolylines(t) {
+function textPolylines(t, italic = false) {
     const H = t[3], u = H / 6, ux = (t[4] > 0 ? t[4] : H * 2 / 3) / 4, th = t[6] * Math.PI / 180, c = Math.cos(th), s = Math.sin(th);
     const n = [...t[10]].length, TW = (n - 1) * 6 * ux + 4 * ux;
     const ox = t[7] === "left" ? 0 : t[7] === "right" ? -TW : -TW / 2, oy = t[8] === "bottom" ? 0 : t[8] === "top" ? -6 * u : -3 * u;
@@ -485,7 +485,7 @@ function textPolylines(t) {
     [...t[10]].forEach((ch, i) => {
         for (const pl of glyph(ch))
             out.push(pl.map(([gx, gy]) => {
-                const lx = (ox + (gx + 6 * i) * ux) * mir, ly = -(oy + gy * u);
+                const ly = -(oy + gy * u), lx = (ox + (gx + 6 * i) * ux) * mir - (italic ? ly / 5 : 0);
                 return [t[1] + lx * c + ly * s, t[2] - lx * s + ly * c];
             }));
     });
@@ -5257,7 +5257,7 @@ function drawStrokeText(p, alpha) {
     lines.forEach((ln, i) => {
         const off = (first + i) * step, x = p.x + Math.sin(a) * off, y = p.y + Math.cos(a) * off;
         const t = ["", x, y, p.sz, p.gw, p.th, deg, p.h, p.v, false, ln, -1];
-        for (const pl of textPolylines(t)) {
+        for (const pl of textPolylines(t, !!S.fonts[p.font]?.italic)) {
             ctx.moveTo(pl[0][0], pl[0][1]);
             for (let k = 1; k < pl.length; k++)
                 ctx.lineTo(pl[k][0], pl[k][1]);

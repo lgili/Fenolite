@@ -2,6 +2,7 @@
 # Copyright (c) 2026 Fenolite contributors
 """A human can accept exact content; acceptance never invalidates its own review (c0262)."""
 
+import json
 import shutil
 from pathlib import Path
 
@@ -38,6 +39,78 @@ def accept(monkeypatch, tmp_path, path, sha):
         "2026-11-02T00:00:00Z",
         "--confirm",
     )
+
+
+@pytest.fixture(params=["repository", "vendored"])
+def nested_tree(tmp_path, request):
+    root = tmp_path / "nested"
+    selected = {}
+    for kind, folder, source, ident in (
+        ("symbol", "symbols", "pins", "RuleChipPins"),
+        ("footprint", "footprints", "packages", "RuleChip"),
+        ("device", "devices", "devices", "RuleChipDevice"),
+    ):
+        category = Path("cc0") if request.param == "repository" else Path()
+        target = root / folder / category / "Rules" / ident / "record.toml"
+        target.parent.mkdir(parents=True)
+        shutil.copyfile(ROOT / f"tests/data/library_rules/good/{source}/chip.toml", target)
+        manifest = {
+            "schema": "fenolite.library-item.v0",
+            "kind": kind,
+            "id": f"Rules:{ident}",
+            "version": "1.0.0",
+            "title": ident,
+            "summary": "Authored nested review control",
+            "spdx": "CC0-1.0",
+            "tags": [],
+            "files": ["record.toml"],
+            "depends": [],
+            "executes": False,
+        }
+        target.with_name("item.json").write_text(json.dumps(manifest))
+        selected[kind] = target
+    return selected
+
+
+def test_nested_device_review_and_dependency_staleness(monkeypatch, tmp_path, nested_tree):
+    path = nested_tree["device"]
+    code, reply, _, _ = check(monkeypatch, tmp_path, path)
+    assert code == 0, reply
+    assert len(reply["result"]["items"]) == 1
+    sha = reply["result"]["items"][0]["sheet"]["sha256"]
+    assert accept(monkeypatch, tmp_path, path, sha)[0] == 0
+    assert check(monkeypatch, tmp_path, path)[1]["result"]["items"][0]["review"]["state"] == "accepted"
+    dependency = nested_tree["symbol"]
+    dependency.write_text(dependency.read_text().replace('name = "P1"', 'name = "EDITED"'))
+    code, reply, _, _ = check(monkeypatch, tmp_path, path)
+    assert code == 5
+    assert "library.review-stale" in {finding["code"] for finding in reply["issues"]}
+
+
+@pytest.mark.parametrize("manifest", [None, "invalid", "mismatch", "unlisted", "too_deep"])
+def test_nested_device_does_not_trust_unbound_manifest(monkeypatch, tmp_path, nested_tree, manifest):
+    path = nested_tree["device"]
+    metadata = path.with_name("item.json")
+    if manifest is None:
+        metadata.unlink()
+    elif manifest == "invalid":
+        metadata.write_text("{")
+    elif manifest == "too_deep":
+        deeper = path.parent / "extra" / "deeper" / "deeper_again" / "record.toml"
+        deeper.parent.mkdir(parents=True)
+        shutil.move(path, deeper)
+        shutil.move(metadata, deeper.with_name("item.json"))
+        path = deeper
+    else:
+        value = json.loads(metadata.read_text())
+        if manifest == "mismatch":
+            value["id"] = "Rules:OtherDevice"
+        else:
+            value["files"] = ["other.toml"]
+        metadata.write_text(json.dumps(value))
+    code, reply, _, _ = check(monkeypatch, tmp_path, path)
+    assert code == 5
+    assert any("unresolved symbol" in finding["message"] for finding in reply["issues"])
 
 
 @pytest.mark.parametrize(

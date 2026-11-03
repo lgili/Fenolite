@@ -26,6 +26,39 @@ def test_reader_relationships() -> None:
     assert "Authored for Fenolite" in (DEMO / "LICENSE.txt").read_text()
 
 
+def test_default_name_is_not_replaced_by_localized_alternatives(tmp_path: Path) -> None:
+    root = tmp_path / "library"
+    shutil.copytree(DEMO, root)
+    path = next((root / "cmp").glob("*/component.lp"))
+    path.write_text(
+        path.read_text().replace(
+            '(name "Demo Passive")',
+            '(name (locale "de_DE") "Andere")\n (name "Demo Passive")\n (name (locale "fr_FR") "Autre")',
+        )
+    )
+    found = read_library(root)
+    assert not found.skipped and found.of_kind("component")[0].name == "Demo Passive"
+
+
+@pytest.mark.parametrize(
+    "names",
+    [
+        '(name "A") (name "B")',
+        '(name "A") (name (locale "de_DE") "B") (name (locale "de_DE") "C")',
+        '(name (locale "de_DE") "B")',
+        '(name "A") (name (locale "de_DE" "extra") "B")',
+        '(name "A") (name (locale "de_DE") (unknown "x") "B")',
+    ],
+)
+def test_ambiguous_or_malformed_names_refuse_the_element(tmp_path: Path, names: str) -> None:
+    root = tmp_path / "library"
+    shutil.copytree(DEMO, root)
+    path = next((root / "cmp").glob("*/component.lp"))
+    path.write_text(path.read_text().replace('(name "Demo Passive")', names))
+    found = read_library(root)
+    assert not found.of_kind("component") and len(found.skipped) == 1
+
+
 def test_authored_licence_placeholder_registered() -> None:
     manifest = tomllib.loads((DEMO.parents[1] / "MANIFEST.toml").read_text())
     row = next(row for row in manifest["file"] if row["path"] == "tests/data/librepcb/demo/LICENSE.txt")
