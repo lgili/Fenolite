@@ -34,7 +34,7 @@ def test_the_example_lists_its_picks(monkeypatch: pytest.MonkeyPatch) -> None:
     code, env, err, _ = run(monkeypatch, ROOT, "pick", "examples/picks")
     assert code == 0, err
     assert {pick["state"] for pick in env["result"]["picks"]} == {"ok"} and "plan" not in env["result"]
-    assert env["evidence"]["level"] == "UNKNOWN"  # the illustrative project family is labelled UNKNOWN
+    assert env["evidence"]["level"] == "UNVERIFIED"  # item UNKNOWN is not unknown-file detection
 
 
 def test_a_stale_pick_is_listed(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -258,3 +258,15 @@ def test_legacy_supplier_with_an_unrelated_lookup_keeps_propose(
         "--dry-run",
     )
     assert code == 0 and len(envelope["result"]["proposed"]) == 1, error
+
+
+def test_unknown_item_is_preserved_in_a_known_file_reply(monkeypatch: pytest.MonkeyPatch) -> None:
+    before = (EXAMPLE / "design.lock").read_bytes()
+    code, env, err, _ = run(monkeypatch, ROOT, "pick", "examples/picks")
+    assert code == 0, err
+    assert env["evidence"]["level"] == "UNVERIFIED"
+    unknown = {row["row"] for row in env["result"]["picks"] if row["evidence"] == "UNKNOWN"}
+    assert unknown
+    markers = {i["where"] for i in env["issues"] if i["code"] == "pick.row-unverified"}
+    assert unknown <= markers
+    assert (EXAMPLE / "design.lock").read_bytes() == before

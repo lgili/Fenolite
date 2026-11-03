@@ -46,7 +46,7 @@
 ## ADDED Requirements
 
 ### Requirement: Evidence of every reply
-Every reply SHALL follow two rules: an `evidence.level` other than `UNVERIFIED` and `UNKNOWN` MUST name at least one hypothesis in `evidence.hypotheses`, and an `UNVERIFIED` level MUST come from a command of `fenolite.cli.api.NO_CLAIM` (the commands whose replies state nothing about a design or a file) or from a reply that names an experimental feature in its issues; an `UNKNOWN` level MUST come only from the detection of a file that no backend knows. `fenolite capabilities` MUST mark each command's entry with `claims` (`false` for the commands of `NO_CLAIM`). With `FENOLITE_CONTRACT_CHECK=1` a reply that breaks a rule MUST end in `FEN-1001`; without it the reply MUST be written with one more issue `cli.evidence-unsound` (warning) that names the rule. The consistency suite MUST run every command's example with `FENOLITE_CONTRACT_CHECK=1`.
+Every reply SHALL follow two rules: an `evidence.level` other than `UNVERIFIED` and `UNKNOWN` MUST name at least one hypothesis in `evidence.hypotheses`, and an `UNVERIFIED` level MUST come from a command of `fenolite.cli.api.NO_CLAIM` (the commands whose replies state nothing about a design or a file) or from a reply that names an experimental feature in its issues, or from a supported incomplete report whose closed command-specific structured state/count and corresponding existing issue both substantiate the limitation; an `UNKNOWN` level MUST come only from the detection of a file that no backend knows. `fenolite capabilities` MUST mark each command's entry with `claims` (`false` for the commands of `NO_CLAIM`). With `FENOLITE_CONTRACT_CHECK=1` a reply that breaks a rule MUST end in `FEN-1001`; without it the reply MUST be written with one more issue `cli.evidence-unsound` (warning) that names the rule. The consistency suite MUST run every command's example with `FENOLITE_CONTRACT_CHECK=1`.
 
 #### Scenario: Every example follows the rules
 - **WHEN** `uv run pytest tests/consistency` runs every command's example with `FENOLITE_CONTRACT_CHECK=1`
@@ -60,3 +60,34 @@ Every reply SHALL follow two rules: an `evidence.level` other than `UNVERIFIED` 
 #### Scenario: A no-claim command may be UNVERIFIED
 - **WHEN** `uv run fenolite explain FEN-2001 --json` runs with `FENOLITE_CONTRACT_CHECK=1`
 - **THEN** the exit code is 0 and `evidence.level` is `UNVERIFIED`
+
+#### Scenario: Incomplete state and issue are both required
+- **GIVEN** an UNVERIFIED incomplete analysis or routing report with its actual positive missing/open count and corresponding existing issue
+- **WHEN** the strict reply guard runs
+- **THEN** its lower label and incomplete result are retained unchanged
+- **AND** marker-only, state-only, generic-boolean, completed-state and arbitrary-command controls fail with FEN-1001
+
+#### Scenario: Hidden mutation fixture is bounded
+- **WHEN** strict mutation-protocol tests run hidden `_echo` with no design/file claim
+- **THEN** that exact existing hidden fixture is exempt separately from the public NO_CLAIM list
+- **AND** an arbitrary private command or visible command called `_echo` is not exempt
+
+#### Scenario: Unsound replay writes nothing
+- **GIVEN** staged bytes whose metadata is altered to an unsupported evidence claim
+- **WHEN** confirm replays the plan in strict mode
+- **THEN** FEN-1001 is returned before any target or backup is written
+
+## MODIFIED Requirements
+
+### Requirement: Brief capabilities
+`fenolite capabilities --brief` SHALL provide a bounded discovery reply while preserving the default and full command views. The current result MUST retain `fenolite_version`, `commands`, `targets`, `tools`, `routers`, `guide`, `starters`, `suppliers`, `sends_data_offsite`, `contract` and `deprecated`.
+- Every non-hidden command MUST remain sorted by name and have exactly `name`, `summary`, `mutates` and `claims`.
+- The brief `summary` MAY be a reviewed curated discovery line for catalog, check, diff, library, parity and ready; other commands use their full help line. The full `Command.help`, default discovery and `--command` summary MUST NOT be changed by this compaction.
+- Check's curated summary MUST retain that writing a DRC exclusion is optional; mutability and claims booleans MUST remain unchanged.
+- Targets, tools, routers, guide, starters, suppliers and version/deprecation metadata MUST retain their current semantics and values; no tool may run under `--no-tools`.
+- The actual complete brief result JSON with `--no-tools` MUST remain under 300 bytes per listed command plus 2 000 bytes. No field may be omitted or subtracted from this assertion, and no size budget is increased.
+
+#### Scenario: Claims metadata fits the original budget
+- **WHEN** the actual current `capabilities --brief --no-tools --json` reply is serialized
+- **THEN** all 57 visible commands and required fields remain, its result is 18 961 bytes on the captured source, below the unchanged 19 100-byte cap
+- **AND** separate command views retain their original full help summaries

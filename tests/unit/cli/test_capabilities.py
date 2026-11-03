@@ -28,8 +28,13 @@ def _capabilities(capsys: pytest.CaptureFixture[str], *extra: str) -> dict[str, 
 def test_lists_itself_and_hidden_commands(capsys: pytest.CaptureFixture[str]) -> None:
     result = _capabilities(capsys, "--no-tools")
     commands = {c["name"]: c for c in result["commands"]}  # type: ignore[union-attr]
-    assert commands["capabilities"] == {"name": "capabilities", "mutates": False,
-                                        "schema": "fenolite.capabilities.v0", "hidden": False}  # fmt: skip
+    assert commands["capabilities"] == {
+        "name": "capabilities",
+        "mutates": False,
+        "schema": "fenolite.capabilities.v0",
+        "hidden": False,
+        "claims": False,
+    }
     assert commands["_echo"]["hidden"] is True and commands["_echo"]["mutates"] is True
     assert result["sends_data_offsite"] is False
     assert {router["name"] for router in result["routers"]} == {

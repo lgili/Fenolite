@@ -152,3 +152,20 @@ All 130 rows, full hashes and all three comparisons are in the JSON. The table l
 | kicad-demo-9-0-9-1-sch-006 | 37c9b424b5dc | 20250114 | refused / lower | 76/76 | 0 | 0.395842 |
 | kicad-demo-9-0-9-1-sch-015 | 970f9d58e9f3 | 20250114 | equal | 2/2 | 0 | 0.44096 |
 | kicad-demo-9-0-9-1-sch-016 | a7fb63d6ee42 | 20250114 | equal | 100/100 | 11 | 1.763479 |
+
+
+## Complete native census, 2026-11-03
+
+The [source-bound observations](drawn-native-census-20261103.json) record all130
+manifest rows on clean source b50fd0f05a8d37125048d54fbf4754e3cd2b2e9c. Native9.0.9
+completes92 tests with38 version-incompatible skips:87 connectivity-equal rows
+and5 explicit read-floor refusals. Native10.0.6 completes114 tests with16
+version-incompatible skips:113 connectivity-equal rows and1 explicit read-floor
+refusal. Both commands exit0; neither changes its source checkout.
+
+Every recorded original/lowered/native graph comparison remains complete. Naming
+outcomes and refusal/version scopes are separate; equality of connectivity does
+not claim that all names agree. The JSON retains each context's counts, name
+differences and original/lowered findings, plus complete raw receipt/log hashes.
+No CAD is retained in this report. This historical local proof does not replace
+the required exact-current-head CI jobs or promote a global hypothesis.

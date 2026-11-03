@@ -3393,8 +3393,8 @@ fix = "Restore the row, or re-pick with fenolite pick PATH --update COMPONENT an
 see = "pick"
 
 ["pick.row-unverified"]
-meaning = "An UNVERIFIED row (a proposal not reviewed yet) would have ranked first and was left out: such a row is picked only when the query names it with row=."
-fix = "Read the datasheet, move the record out of devices/proposed/ and raise its evidence label; or name it with row=."
+meaning = "An UNVERIFIED row would have ranked first and was left out, a selected row retains UNKNOWN/UNVERIFIED item evidence, or a newly proposed row remains UNVERIFIED. The message names its actual row or proposal id; the reply does not verify that item."
+fix = "Read and review the supporting data before changing the item's evidence. An UNVERIFIED row is picked only when row= names it; proposals stay under devices/proposed/ and never update the lock."
 see = "pick"
 
 ["pick.stale"]
@@ -5453,3 +5453,8 @@ see = "check"
 meaning = "This command or option has a declared replacement and remains available through contract 1.x."
 fix = "Use the replacement named in the warning. Deprecation alone does not change the command's exit code or writes."
 see = "Stability"
+
+["cli.evidence-unsound"]
+meaning = "A command returned evidence metadata that violates the reply contract: a supported level names no hypothesis, a complete unverified claim has no eligible no-claim or experimental context, or UNKNOWN is used outside unknown-file detection. Incomplete reports require their specific state and limitation receipt. The production reply is preserved."
+fix = "Keep the command line and reply and report the metadata fault. In tests FENOLITE_CONTRACT_CHECK=1 turns it into FEN-1001 before plans or files are written; it does not replace a primary diagnostic-only error."
+see = "Evidence of replies"

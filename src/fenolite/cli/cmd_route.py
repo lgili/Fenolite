@@ -371,7 +371,11 @@ def _plan_evidence(evidence: Evidence, *, oracle: str, complete: bool) -> Eviden
         return dataclasses.replace(evidence, oracle=oracle)
     if not complete:
         return dataclasses.replace(evidence, level=Level.UNVERIFIED, oracle=oracle)
-    return Evidence(Level.INFERRED, oracle, tuple(sorted({*evidence.hypotheses, *PLAN_EVIDENCE.hypotheses})))
+    return Evidence(
+        Level.INFERRED,
+        oracle=oracle,
+        hypotheses=tuple(sorted({*evidence.hypotheses, *PLAN_EVIDENCE.hypotheses})),
+    )
 
 
 def _run(args: argparse.Namespace, ctx: Context) -> Result:

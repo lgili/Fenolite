@@ -24,6 +24,27 @@ from typing import Any, cast
 from fenolite.cli.output import Evidence, InputRef, Issue, OutputMode
 from fenolite.core.progress import NULL_PROGRESS, Progress
 
+NO_CLAIM = frozenset(
+    {
+        "capabilities",
+        "catalog",
+        "doctor",
+        "edit",
+        "mcp",
+        "explain",
+        "fetch",
+        "guide",
+        "init",
+        "manifest",
+        "restore",
+        "skill",
+    }
+)
+"""Commands eligible for UNVERIFIED replies; supported higher labels are retained.
+
+Private mutation-protocol fixtures are handled separately by the dispatcher; no public name is inferred.
+"""
+
 CONTRACT_VERSION = "v0"
 """The active CLI wire contract; the 1.0 release changes this to ``v1``."""
 

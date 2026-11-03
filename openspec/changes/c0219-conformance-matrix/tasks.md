@@ -93,3 +93,51 @@
   placement outside its table and a prohibited hypothesis ID in guide prose were caught and fixed;
   original failures remain in external logs. Guide budgets/style guards were not weakened.
   Whole task 2.2 and root check-fast/CI remain open until their full exact-candidate selection passes.
+
+- [x] 2.2c Reconcile combined-source guards after actual view-context and route-scope integration: retain the exact mock keyword context, explicit named route hypothesis, and mechanical-only plain route expectation. Keep original low-evidence/source-immutability and native-gate assertions. Proof: full affected view/gate/route/hypothesis components,52 passed (2026-11-03).
+- [x] 0.5 Parent approved B's formal amendment before runtime: closed incomplete-state-plus-issue
+  receipts and exact hidden `_echo` fixture exemption, with planted negatives; public NO_CLAIM
+  remains the original ten and edit/mcp require the maintainer's separate pending decision.
+- [x] 2.1a Implement/prove strict/production evidence framework before staging and replay, original
+  public NO_CLAIM, exact hidden fixture exemption and closed incomplete receipts. Do not claim full
+  strict examples green while real edit/mcp decision is missing.
+
+## B current-source focused proof (public decision still pending)
+
+- Framework: 55 authored controls pass, including exact hidden fixture bounds, no stage/target writes
+  on unsound computation or replay, strict and ordinary modes, UNKNOWN detection, named experimental
+  modes, and state-plus-issue receipts with planted false/missing/completed controls.
+- Current pick bounded fix: an actual selected UNKNOWN item remains UNKNOWN in its row while its
+  known-file reply lowers to UNVERIFIED and names the actual row. A fresh lock is unchanged. Combined
+  pick/framework 69 passed; schema-checked capability/explanation/framework/pick selection 139 passed.
+- A real missing-thickness analysis exposed a stale receipt assumption: current distance summaries
+  do not publish a missing counter. The bounded receipt now requires the existing positive pair count,
+  actual null creepage pair, explicit absent thickness/source inputs and matching missing-thickness
+  issue. Marker/state-only, completed measurement, supplied thickness and zero-count negatives reject;
+  57 framework/actual-thickness controls pass. No report producer or physical result was altered.
+- Strict JSON example census: 112 pass and exactly four fail, edit/mcp under each v0/v1 wire case.
+  Their public NO_CLAIM decision is still pending; no green full-example/CI/closure claim is made.
+- Brief compaction was reviewed before runtime: actual complete result is 18,961 bytes under the
+  unchanged literal 19,100 bound at 57 commands. Every key/claim/count remains; full help/command-view
+  controls pass. Only six curated brief-only summaries change. No budget subtraction or increase.
+
+- B final checkpoint: 57 framework/actual-thickness controls pass, 139 capability/explanation/
+  framework/pick tests pass, corrected agent guide 103 pass; Pyright reports zero errors/warnings.
+  Ruff, strict OpenSpec and schema/guide/surface generation checks pass. Private staged residue:
+  zero hits across twenty files. No full-example or CI green claim: the four known edit/mcp strict
+  failures remain real and await the actual maintainer decision. Root must not integrate this
+  checkpoint as a passing final release gate before resolving them and rerunning exact-head checks.
+
+## Maintainer decision, 2026-11-03
+
+The coordinator received and relayed the maintainer's actual approval of
+NO_CLAIM for edit and mcp. Add precisely these two names to the prior ten;
+publish remains a claiming producer with its actual snapshot hypothesis.
+The earlier failed edit/mcp strict receipts remain historical failures.
+
+- [x] B.6 Apply the actual edit/mcp decision, test exact public list and
+  capabilities claims, preserve higher-evidence/hypothesis guards, and rerun
+  the complete strict JSON envelope census without exclusions. Root combined
+  fast and exact-head CI remain separate.
+
+Approved B.6 actual complete evidence/capabilities/CLI-consistency selection:792passed,41explicit mutating skips in120.97s; no edit/mcp deselection, all strict JSON envelope cases now pass. The skips are pre-existing confirmation-protocol cases exercised in their focused command tests, not edit/mcp exemptions. Earlier112pass/4fail receipt remains historical. Source CLIv0 and all higher-label/hypothesis negatives retained.

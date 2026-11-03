@@ -7,18 +7,64 @@ from __future__ import annotations
 import dataclasses
 import hashlib
 import json
+import os
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Literal, TextIO
 
-from fenolite.cli.errors import ErrorInfo
+from fenolite.cli._evidence_limits import incomplete_reply
+from fenolite.cli.errors import CliError, ErrorInfo
 from fenolite.core.errors import ISSUE_CODE, Issue, Severity
 from fenolite.core.evidence import Evidence, Level
 
 OutputMode = Literal["json", "text"]
 EvidenceLevel = Level
+
+# A successful UNVERIFIED format operation must explicitly identify a registered experimental mode.
+# A generic suffix/boolean is insufficient: these are the existing Altium writer feature markers.
+EXPERIMENTAL_ISSUE_COMMANDS = {"altium.experimental": frozenset({"build", "convert", "panel"})}
+
+
+def evidence_issues(
+    command: str,
+    evidence: Evidence,
+    issues: tuple[Issue, ...],
+    *,
+    no_claim: bool,
+    unknown_detection: bool = False,
+    result: Mapping[str, Any] | None = None,
+) -> tuple[Issue, ...]:
+    """Validate returned/replayed metadata before staging, retaining production replies with a warning."""
+    problem = ""
+    if evidence.level not in (Level.UNVERIFIED, Level.UNKNOWN) and not evidence.hypotheses:
+        problem = f"{evidence.label()} evidence names no hypothesis"
+    elif evidence.level is Level.UNVERIFIED and not no_claim:
+        if not any(
+            command in EXPERIMENTAL_ISSUE_COMMANDS.get(issue.code, ()) for issue in issues
+        ) and not incomplete_reply(command, result or {}, issues):
+            problem = "UNVERIFIED evidence has no no-claim, named experimental or supported incomplete scope"
+    elif evidence.level is Level.UNKNOWN and not unknown_detection:
+        problem = "UNKNOWN evidence is reserved for detection of an unknown file"
+    if not problem:
+        return issues
+    message = f"{command}: {problem}"
+    if os.environ.get("FENOLITE_CONTRACT_CHECK") == "1":
+        raise CliError("FEN-1001", message, where=command)
+    kept = tuple(issue for issue in issues if issue.code != "cli.evidence-unsound")
+    return (
+        *kept,
+        Issue(
+            "cli.evidence-unsound",
+            "warning",
+            message,
+            where=command,
+            hint="report the command line and evidence; this is a metadata contract fault",
+        ),
+    )
+
+
 SCHEMA_ID = re.compile(r"^fenolite\.[a-z_][a-z0-9_-]*\.v0$")
 
 

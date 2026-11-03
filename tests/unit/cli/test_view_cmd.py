@@ -694,8 +694,8 @@ def test_view_keeps_scene_hypothesis_without_promoting_source(
 ) -> None:
     original = cmd_view.scene_of
 
-    def scene_of(path, kicad=None):
-        scene = original(path, kicad)
+    def scene_of(path, kicad=None, *, intersheet_context=None):
+        scene = original(path, kicad, intersheet_context=intersheet_context)
         scene["meta"]["evidence"] = source_level
         return scene
 

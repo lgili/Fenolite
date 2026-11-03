@@ -452,3 +452,11 @@
   pass; the tests gave 16 954 passed, 50 skipped and one failure (`test_package.py::test_modules`, the module
   list lacked `drawn.py` in order), fixed and passed after; lint, format, pyright and residue re-run clean.
   Open: CI runs with the batch.
+
+Native7.2 local observation, 2026-11-03: complete clean-sourceb50fd0f0 runs
+finish on9.0.9 (92passed/38version skips,87equal/5explicitfloorrefusals) and
+10.0.6 (114passed/16version skips,113equal/1explicitfloorrefusal), bothexit0.
+`docs/evidence/drawn-native-census-20261103.json` preserves per-row/context
+counts, naming differences, findings and raw receipt/log digests. The source
+checkout remains clean and unchanged. Task7.2 stays unchecked pending the
+required exact-current-source CI; naming differences are not silently accepted.

@@ -24,10 +24,12 @@ from fenolite.cli._picks import picking, query_parts
 from fenolite.cli._script import DesignScriptError, run_design_script
 from fenolite.cli.api import Command, Context, PlannedWrite, Result, depends_on
 from fenolite.cli.errors import CliError
+from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence, Level
 from fenolite.core.partquery import PartQuery
 from fenolite.dsl import DslError
 from fenolite.pick import EVIDENCE
+from fenolite.pick.codes import issue
 from fenolite.pick.grammar.schema import read_family
 from fenolite.pick.match import match, rank_key
 from fenolite.pick.propose import (
@@ -107,14 +109,28 @@ def _relative(path: Path, ctx: Context) -> str:
         return full.as_posix()
 
 
+def _row_level(row: Row) -> Level:
+    try:
+        level = Level(row.evidence)
+    except ValueError:
+        return Level.UNVERIFIED
+    return Level.UNVERIFIED if level is Level.UNKNOWN else level
+
+
 def _evidence(rows: list[Row]) -> Evidence:
-    found = [EVIDENCE]
-    for row in rows:
-        try:
-            found.append(Evidence(Level(row.evidence)))
-        except ValueError:
-            found.append(Evidence(Level.UNVERIFIED))
-    return Evidence.combine(*found)
+    return Evidence.combine(EVIDENCE, *(Evidence(_row_level(row)) for row in rows))
+
+
+def _row_issues(rows: list[Row]) -> tuple[Issue, ...]:
+    uncertain = {(row.row, row.evidence) for row in rows if _row_level(row) is Level.UNVERIFIED}
+    return tuple(
+        issue(
+            "pick.row-unverified",
+            f"{name}: selected row retains {label} evidence; this reply does not verify that item",
+            where=name,
+        )
+        for name, label in sorted(uncertain)
+    )
 
 
 def _row_json(query: PartQuery, row: Row) -> dict[str, object]:
@@ -162,6 +178,7 @@ def _candidates(args: argparse.Namespace, design: Any, script: Path) -> Result:
             "excluded": [excluded[key] for key in sorted(excluded)],
         },
         evidence=_evidence(shown),
+        issues=_row_issues(shown),
     )
 
 
@@ -260,7 +277,15 @@ def _propose(args: argparse.Namespace, ctx: Context, script: Path) -> Result:
             ],
             "skipped": skipped,
         },
-        evidence=Evidence(Level.UNVERIFIED),
+        evidence=Evidence(Level.UNVERIFIED, hypotheses=EVIDENCE.hypotheses) if found else EVIDENCE,
+        issues=tuple(
+            issue(
+                "pick.row-unverified",
+                f"{item.device.id}: proposed row remains UNVERIFIED and needs review",
+                where=item.device.id,
+            )
+            for item in found
+        ),
         writes=writes,
         depends=depends,
     )
@@ -312,7 +337,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     ]
     body: dict[str, object] = {**summary, "updates": updates}
     reading = not update
-    listed = with_lock(Result(result=body, evidence=_evidence(rows)), lock)
+    listed = with_lock(Result(result=body, evidence=_evidence(rows), issues=_row_issues(rows)), lock)
     if reading:
         listed = Result(result=listed.result, issues=listed.issues, evidence=listed.evidence)
     depends = depends_on(ctx.cwd, script, *(f for f in (path,) if f.is_file()))

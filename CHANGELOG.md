@@ -6,6 +6,10 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- c0276: record complete source-bound KiCad9/10 drawn censuses, with naming findings, read-floor refusals and version skips preserved separately from connectivity.
+
+- c0219: retain explicit route materialization hypotheses and context-aware view evidence controls in combined validation.
+
 - **Imported native rule semantics** (c0352, in progress): preserve the actual Default netclass in emitted canonical code and rebuilt native projects. Imported digest-bound project declarations set the new optional `preserve_minimums=True` ownership flag so native hard floors remain independent of actual custom DRU overrides; default False retains authored DSL behavior. Native KiCad9/10 controls and traced representation census bound these claims. Path-based level6 now names exact supported native floor/class/membership coverage and source hashes; canonical Design comparisons remain unchanged. Imported provenance records accept their existing typed fidelity proof in the closed schema. Existing derived-cache receipts now have closed typed structure and narrow finite canonical-wire unjudged leaves; actual native record/schema/source-binding controls pass without changing cache acceptance. Exact electrical binding permits parallel physical copies only with identical complete terminal-to-net signatures, retaining every physical footprint and refusing conflict/decomposition. Explicit native null class fields remain represented unset and named unjudged, with no invented fallback.
 - Prove declared native worksheet scopes through actual KiCad9/10 SVG exports and complete public Interf replay without accepted differences (c0354).
 
@@ -45,6 +49,9 @@ All notable changes to Fenolite are documented here. The format follows
   benches in KiCad, reproduce every reusable layout byte-for-byte and confirm one
   unchanged five-block golden plan. Native10.0.6 DRC, connectivity and schematic
   parity have zero findings; illustrative-device evidence remains INFERRED.
+- Apply the maintainer-reviewed no-claim classification for edit and mcp while preserving strict guards for actual evidence claims (c0219).
+
+- c0219: check new and replayed reply evidence before staging/writing, preserve production replies with one metadata warning, and require closed state-plus-issue receipts for honest incomplete results. The public no-claim list remains unchanged pending maintainer decisions.
 
 - c0219: describe complete routing write plans with a tested mechanical provenance scope, retain actual external-router hypotheses, and preserve incomplete/unknown lowering without assigning DSN claims to the direct router. Electrical validation remains a separate check.
 

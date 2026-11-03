@@ -12,6 +12,7 @@ import shutil
 import subprocess
 from collections.abc import Mapping, Sequence
 from functools import cache
+from types import MappingProxyType
 from typing import Any, cast
 
 from fenolite import __version__
@@ -137,11 +138,30 @@ def _experimental(features: Sequence[tuple[Mapping[str, object], Evidence]]) -> 
 def _entry(command: Command) -> dict[str, Any]:
     """The entry of ``command`` in ``result.commands`` of the default view."""
     return (
-        {"name": command.name, "mutates": command.mutates, "schema": command.schema, "hidden": command.hidden}
+        {
+            "name": command.name,
+            "mutates": command.mutates,
+            "schema": command.schema,
+            "hidden": command.hidden,
+            "claims": command.name not in cli_api.NO_CLAIM,
+        }
         | ({"example_tools": list(command.example_tools)} if command.example_tools else {})
         | ({"paged": command.paged, "default_limit": command.default_limit} if command.paged else {})
         | {key: list(values) for key, values in command.discovery}
     )
+
+
+_BRIEF_SUMMARIES: Mapping[str, str] = MappingProxyType(
+    {
+        "catalog": "Inspect catalog/devices, export a browser, or import device templates.",
+        "check": "Check KiCad/Altium projects; optionally write a KiCad DRC exclusion.",
+        "diff": "Compare designs/libraries, gate changes or merge KiCad boards.",
+        "library": "Inspect, compare, generate and propose symbols, footprints and package models.",
+        "parity": "Compare project board, schematic, symbol pins and footprint pads.",
+        "ready": "Assess KiCad fabrication readiness: connections, rules, power and parts.",
+    }
+)
+"""Reviewed brief-only discovery text; full help and command views remain unchanged."""
 
 
 def _brief(commands: Mapping[str, Command], *, no_tools: bool) -> dict[str, Any]:
@@ -162,7 +182,12 @@ def _brief(commands: Mapping[str, Command], *, no_tools: bool) -> dict[str, Any]
     return {
         "fenolite_version": __version__,
         "commands": [
-            {"name": c.name, "summary": c.help or "", "mutates": c.mutates}
+            {
+                "name": c.name,
+                "summary": _BRIEF_SUMMARIES.get(c.name, c.help or ""),
+                "mutates": c.mutates,
+                "claims": c.name not in cli_api.NO_CLAIM,
+            }
             for c in sorted(commands.values(), key=lambda c: c.name)
             if not c.hidden
         ],
@@ -243,6 +268,8 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             ),
         }
     )
+    for entry in entries:
+        entry.setdefault("claims", True)  # supplemental library verbs make record/format claims
     commands = sorted(entries, key=lambda e: str(e["name"]))
     from fenolite.cli.main import MUTATION_FLAGS, global_flags
 

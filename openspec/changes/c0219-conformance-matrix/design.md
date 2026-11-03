@@ -130,3 +130,51 @@ verdict. No DSN constants are imported into cmd_route. Default DirectRouter evid
 hypotheses, so its successful reply names the plan hypothesis only. Actual external DSN hypotheses
 are retained only from the external outcome, never assigned to an unrelated algorithm. This is not
 a connectivity/clearance assertion and the guide continues to require check after routing.
+
+## Current-source reply guard amendment B (review approved before runtime)
+
+In addition to original NO_CLAIM and named registered experimental replies, honest UNVERIFIED
+incomplete reports are allowed only by a closed, command-specific conjunction of actual structured
+state/counts and the corresponding existing issue. Marker alone, state alone, a generic boolean,
+completed data and arbitrary commands cannot opt out. Route uses actual open connections,
+not-attempted nets or exhausted budget together with their matching issue; no open state means a
+closed/DRC-pass claim. Original lower evidence/results are preserved, not promoted.
+
+The public NO_CLAIM list remains exactly capabilities/catalog/doctor/explain/guide/skill/init/fetch/
+manifest/restore. edit/mcp await the maintainer and publish retains its actual snapshot hypothesis.
+A separate exemption is allowed solely for hidden `_echo`, the existing mutation-protocol fixture;
+other private names and a visible command named `_echo` are not exempt. This is an internal approved
+protocol-test choice and does not record a human decision about public API/model surfaces.
+
+The guard runs on both newly computed and replayed metadata before staging or committing writes.
+Exception-only and empty error diagnostic outcomes make no claim and retain their primary error.
+UNKNOWN is limited to actual unknown-file detection. Production retains results with exactly one
+metadata warning; strict test mode fails with FEN-1001 and zero writes/staged plans.
+
+### Known pick file, uncertain item (bounded fix approved)
+
+An item's UNKNOWN source evidence is not unknown-file detection. Preserve each pick/candidate's
+original UNKNOWN/UNVERIFIED row verbatim, lower only the enclosing known-file reply to UNVERIFIED,
+and emit the existing pick.row-unverified INFO keyed to the actual selected/proposed row. The
+closed pick receipt requires that row and matching issue. No new no-claim membership, hypothesis,
+item evidence upgrade or producer-wide fallback is allowed. Empty proposal sets keep the picker
+mechanism's existing supported evidence rather than inventing an uncertain item.
+
+### Bounded brief summaries (explicit review approved)
+
+The actual required claims metadata adds exactly 922 bytes to the 57-command brief result
+(18,992 -> 19,914), exceeding the existing normative 19,100-byte cap. Keep the literal
+300-bytes/command + 2,000 bound, all keys, claims and counts. Six curated brief-only summaries
+(catalog/check/diff/library/parity/ready), reviewed explicitly, save 953 bytes: actual expected
+18,961. Full command.help/default discovery/--command summaries remain untouched. This explicitly
+amends the old summary-equals-help requirement only for the brief view; no subtraction budget or
+increased cap is used. Check's short text retains its optional DRC-exclusion write.
+
+## Actual maintainer decision after current-output review
+
+On2026-11-03 the coordinator relayed actual user approval to classify edit and
+mcp as NO_CLAIM. This supersedes only their previously pending disposition.
+It does not authorize publish, arbitrary private names, hidden future commands
+or claiming higher evidence without actual hypothesis IDs. Keep the exact
+hidden _echo protocol exemption separate and retain all incomplete-receipt
+negatives. The complete census must pass without edit/mcp deselection.

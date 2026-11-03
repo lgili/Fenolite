@@ -58,6 +58,29 @@ exceptions; ordinary removals, narrowed choices, changed defaults/types and new 
 `receipt` is `{written: [{path, sha256}], backup: [path], id, undo, plan}` when the command wrote files
 (see "Receipt identity"); `plan` is the id that `--confirm --plan` named, else `null`.
 
+## Evidence of replies
+
+Supported levels (`INFERRED` or stronger) name at least one supporting hypothesis. `UNVERIFIED`
+requires one of the original no-claim commands (capabilities, catalog, doctor, explain, guide, skill,
+init, fetch, manifest, restore), a named registered experimental feature, or a closed command-specific
+incomplete receipt: actual structured state/counts and its corresponding existing issue must agree.
+A marker alone, state alone, generic boolean, completed data or unrelated command cannot opt out.
+Unknown/open/unattempted reports remain lower evidence; they never become a closed/DRC-pass claim.
+A known pick file preserves each uncertain item's UNKNOWN/UNVERIFIED value and reports the enclosing
+reply as UNVERIFIED with the matching actual-row issue; item uncertainty is not unknown-file detection.
+Wholly skipped checks retain only their exact supported skipped-stage receipt. `UNKNOWN` is reserved
+for actual detection of an unknown file. Hidden `_echo` alone is a separate protocol-test fixture
+exception; neither arbitrary private commands nor a visible command of that name are exempt.
+
+`capabilities` command entries include `claims`: false identifies no-claim eligibility, preserving
+stronger supported metadata where present. edit/mcp remain outside the public list pending their
+actual maintainer decision; publish retains its snapshot hypothesis.
+
+Returned and replayed metadata is checked before staging or committing writes. Production retains
+an unsound result with exactly one `cli.evidence-unsound` warning. Under `FENOLITE_CONTRACT_CHECK=1`,
+strict tests fail with `FEN-1001` and no staged plan or written target/backup. Empty error-only
+outcomes preserve their primary diagnostic; successful claiming replies have no general exemption.
+
 ## Errors — `schemas/fenolite.error.v0.json`
 
 Whenever the exit code is not 0, stderr carries exactly one error object
@@ -996,6 +1019,8 @@ shows the level that `docs/hypotheses.md` holds for each. A label is never stron
 names (`tests/unit/test_evidence_register.py`). An operation listed in `experimental` may change its
 output, its options or its issue codes in any release; an operation labelled `UNVERIFIED` is always
 listed there, and every write kind of `result.experimental` has a row whose `write` is experimental.
+`result.matrix` also includes `versions`, mapping each implemented operation to format/tool/level/source scopes. Empty lists make no version-specific claim; existing test or native-kit source records provide traceability, not a fresh run. Generic labels cannot exceed their weakest declared scopes. Published `conformance.json` and `conformance.md` retain the same declarations; releases attach the JSON/checksum.
+
 Listing the matrix runs no external tool, so it is the same with `--no-tools`. Every label comes from
 a declaration in the code (`fenolite.backends.matrix`), and a backend module that declares nothing
 fails the test suite.
@@ -1132,7 +1157,7 @@ after the readers' own issues and before the `model.*` findings. An error issue 
 - **`--gate drc`** judges the copper the command adds or removes with `kicad-cli` DRC and writes the board without the tracks and vias that bring new findings ([DRC gate](#drc-gate)); the verdict and the counts are those of the kept board.
 - **Resumed.** The copper of each router process that finished is kept in the state folder until the board is written. The same call made again on the same board reuses it and does not route those nets again: the reply then holds one `route.resumed` info and `result.resumed` (`runs`, `nets`), and `tracks` and `vias` count the reused copper too. Without a record `result.resumed` is `null`. See `docs/routing.md`, "The job record". The recorded copper is merged after the plane fan-out, as the router of the earlier call saw the board. A dry run that the budget cut keeps the record, so the same dry run made again goes on with the nets that were not attempted.
 
-`result` contains `board`, `router`, `tool_version`, `selected`, `routed`, `unrouted`, `open`, `connections`, `tracks`, `vias`, `ripped`, `rip_kept`, `fills_stale`, `budget`, `runs`, `not_attempted`, `resumed`, `plane_layers`, `plane_fanout`, `pairs`, `escape`, `gate` ([DRC gate](#drc-gate)) and up to 20 sanitised `log` lines. `pairs` lists `{name, positive, negative, width, gap, routed}` for the pairs given to the router (`routed`: both nets are in `routed`), and `escape` lists `{ref, kind, pitch, nets}` for the escape requests given to it; `selected` names every net given to the router, pair nets included. `open` holds one object per net of `unrouted`, sorted by name: `net`, `islands` and `connections`, each connection with `a` and `b` (`kind`: `pad`, `track`, `arc` or `via`; `where`; `position`; `layers`) and `length` in nanometres; `--limit` and `--cursor` page it. `connections` holds `before` and `after`, the open connections of the selected nets before the router and after the merge. `rip_kept` holds `locked` and `script`, the items of the ripped nets that `--rip` kept. `fills_stale` is true when the board has fills and the command added copper. `budget` holds `seconds` (the budget the step ran with: `--timeout`, else the router's default; `null` for a router without one), `spent` (the seconds the router took, rounded to 0.1; 0.0 for a router without a budget) and `exhausted` (whether the budget ended before every run was done). `runs` holds one object per process the router started, in order: `tier`, `nets` (a count), `seconds` (rounded to 0.1) and `outcome` (`done`, `failed`, or `cut` for the run the budget stopped). `not_attempted` lists the nets of the runs that were never started; they are in `unrouted` too. `spent` and the `seconds` of a run are wall-clock times and differ from one run to the next. `resumed` is `null`, or holds `runs` and `nets`: the router runs of an earlier call whose copper was reused, and the nets they routed. Evidence is `UNVERIFIED` (`KICAD-VERIFIED` after `--gate drc` left no new finding); run `check` after routing and refill zones before checking. The exit code is 5 for `route.bad-item`, `route.tool-failed` or `route.incomplete`, and 0 otherwise.
+`result` contains `board`, `router`, `tool_version`, `selected`, `routed`, `unrouted`, `open`, `connections`, `tracks`, `vias`, `ripped`, `rip_kept`, `fills_stale`, `budget`, `runs`, `not_attempted`, `resumed`, `plane_layers`, `plane_fanout`, `pairs`, `escape`, `gate` ([DRC gate](#drc-gate)) and up to 20 sanitised `log` lines. `pairs` lists `{name, positive, negative, width, gap, routed}` for the pairs given to the router (`routed`: both nets are in `routed`), and `escape` lists `{ref, kind, pitch, nets}` for the escape requests given to it; `selected` names every net given to the router, pair nets included. `open` holds one object per net of `unrouted`, sorted by name: `net`, `islands` and `connections`, each connection with `a` and `b` (`kind`: `pad`, `track`, `arc` or `via`; `where`; `position`; `layers`) and `length` in nanometres; `--limit` and `--cursor` page it. `connections` holds `before` and `after`, the open connections of the selected nets before the router and after the merge. `rip_kept` holds `locked` and `script`, the items of the ripped nets that `--rip` kept. `fills_stale` is true when the board has fills and the command added copper. `budget` holds `seconds` (the budget the step ran with: `--timeout`, else the router's default; `null` for a router without one), `spent` (the seconds the router took, rounded to 0.1; 0.0 for a router without a budget) and `exhausted` (whether the budget ended before every run was done). `runs` holds one object per process the router started, in order: `tier`, `nets` (a count), `seconds` (rounded to 0.1) and `outcome` (`done`, `failed`, or `cut` for the run the budget stopped). `not_attempted` lists the nets of the runs that were never started; they are in `unrouted` too. `spent` and the `seconds` of a run are wall-clock times and differ from one run to the next. `resumed` is `null`, or holds `runs` and `nets`: the router runs of an earlier call whose copper was reused, and the nets they routed. Evidence for a complete guarded route plan is `INFERRED` in its byte-materialization/provenance scope, not electrical correctness. Actual router hypotheses are retained only from that outcome; DirectRouter receives no DSN claim. Incomplete/error/unattempted results remain `UNVERIFIED`, UNKNOWN remains UNKNOWN, and actual DRC-gate evidence is independent; run `check` after routing and refill zones before checking. The exit code is 5 for `route.bad-item`, `route.tool-failed` or `route.incomplete`, and 0 otherwise.
 
 | code | severity | when |
 |---|---|---|

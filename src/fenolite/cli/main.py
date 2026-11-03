@@ -23,7 +23,7 @@ from typing import Any, NoReturn, TextIO, cast
 from fenolite import __version__
 from fenolite.cli import deprecation, plans
 from fenolite.cli import progress as progress_records
-from fenolite.cli.api import Command, Context, PlannedWrite, Result, discover
+from fenolite.cli.api import NO_CLAIM, Command, Context, PlannedWrite, Result, discover
 from fenolite.cli.errors import CliError, ErrorInfo, from_exception
 from fenolite.cli.exitcodes import ExitCode
 from fenolite.cli.output import (
@@ -35,6 +35,7 @@ from fenolite.cli.output import (
     OutputMode,
     Receipt,
     WrittenFile,
+    evidence_issues,
     make_receipt,
     page,
     parse_fields,
@@ -589,6 +590,29 @@ def _perform(command: Command, args: argparse.Namespace, ctx: Context, started: 
             outcome = command.run(args, ctx)
             if outcome.writes and not command.mutates:
                 raise RuntimeError(f"command {command.name!r} returned writes but is not declared mutating")
+        # Exception-only and empty diagnostic failures make no design claim. Successful command
+        # results (including empty ones) and every write are checked before plans or files exist.
+        diagnostic_only = (
+            not outcome.result and not outcome.writes and any(i.severity == "error" for i in outcome.issues)
+        )
+        if not diagnostic_only:
+            unknown = (
+                command.name == "inspect"
+                and outcome.input is not None
+                and outcome.input.kind == "unknown"
+                and outcome.input.format_version is None
+            )
+            outcome = dataclasses.replace(
+                outcome,
+                issues=evidence_issues(
+                    command.name,
+                    outcome.evidence,
+                    outcome.issues,
+                    no_claim=(command.name in NO_CLAIM or command.name == "_echo" and command.hidden),
+                    unknown_detection=unknown,
+                    result=outcome.result,
+                ),
+            )
     except Exception as exc:  # library errors keep their code; any other exception is a bug (FEN-1001)
         failed = Result() if isinstance(exc, CliError) else _refusal(exc)
         return _failed(command, exc, started, _with_deprecations(failed, ctx))

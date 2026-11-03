@@ -11979,6 +11979,12 @@
         "warning"
       ]
     },
+    "cli.evidence-unsound": {
+      "experimental": false,
+      "severities": [
+        "warning"
+      ]
+    },
     "composition.budget-exhausted": {
       "experimental": false,
       "severities": [

@@ -181,4 +181,15 @@ and `conformance.md`; releases attach the JSON and checksum.
 A native kit reply lists only hypotheses whose actual verdict passed. Failed and synthetic runs
 retain their lower kit-stability evidence; a displayed scene also retains the lowest source level.
 
+## Reply metadata
+
+```fenolite-cmd
+fenolite explain cli.evidence-unsound --json
+```
+
+Supported evidence lists its hypotheses. Lower evidence requires an eligible no-claim command,
+a named experimental feature, or an actual incomplete report with its matching issue. A marker
+alone cannot excuse a complete claim. Unknown detection stays distinct. Unsound ordinary replies
+retain their result with one metadata warning; strict tests reject it before plans or writes.
+
 Read next: `files`, `rules`, `checks`.

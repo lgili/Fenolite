@@ -37,6 +37,12 @@ EXAMPLE_TOOLS = frozenset({"kicad-cli"})
 """The external tools a command may name in ``example_tools``; the suites hold a fake for each."""
 
 
+@pytest.fixture(autouse=True)
+def strict_evidence_contract(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Every consistency example checks evidence before any plan or output write."""
+    monkeypatch.setenv("FENOLITE_CONTRACT_CHECK", "1")
+
+
 def unknown_tools(command: Command) -> list[str]:
     return sorted(set(command.example_tools) - EXAMPLE_TOOLS)
 

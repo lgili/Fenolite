@@ -72,8 +72,11 @@ def test_brief_view(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     commands = {entry["name"]: entry for entry in result["commands"]}
     public = sorted(name for name, command in discover().items() if not command.hidden)
     assert list(commands) == public and "_echo" not in commands
-    assert all(list(entry) == ["name", "summary", "mutates"] for entry in result["commands"])
-    assert all(entry["summary"] == discover()[name].help for name, entry in commands.items())
+    assert all(list(entry) == ["name", "summary", "mutates", "claims"] for entry in result["commands"])
+    assert all(
+        entry["summary"] == cmd_capabilities._BRIEF_SUMMARIES.get(name, discover()[name].help)
+        for name, entry in commands.items()
+    )
     assert commands["build"]["summary"] and commands["build"]["mutates"] is True
     assert commands["inspect"]["mutates"] is False
     assert result["targets"] == {"build": ["altium", "kicad"], "kicad": [9, 10], "default": 10}
@@ -197,3 +200,23 @@ def test_command_view_unknown_command(monkeypatch: pytest.MonkeyPatch, tmp_path:
     assert code == 2 and envelope["ok"] is False and error["code"] == "FEN-2001"
     named = error["hint"].split(": ", 1)[1].split(", ")
     assert named[0] == "route" and len(named) == 3 and "_echo" not in named
+
+
+def test_curated_brief_summary_preserves_full_command_help(monkeypatch, tmp_path: Path) -> None:
+    before = {name: command.help for name, command in discover().items()}
+    brief = _result(monkeypatch, tmp_path, "--brief", "--no-tools")
+    rows = {row["name"]: row for row in brief["commands"]}
+    assert set(cmd_capabilities._BRIEF_SUMMARIES) == {
+        "catalog",
+        "check",
+        "diff",
+        "library",
+        "parity",
+        "ready",
+    }
+    for name, summary in cmd_capabilities._BRIEF_SUMMARIES.items():
+        assert rows[name]["summary"] == summary and summary != before[name]
+        full = _result(monkeypatch, tmp_path, "--command", name, "--no-tools")
+        assert full["command"]["summary"] == before[name]
+    assert {name: command.help for name, command in discover().items()} == before
+    assert "optionally write a KiCad DRC exclusion" in rows["check"]["summary"]

@@ -115,7 +115,8 @@ def test_a_clean_gated_route(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) ->
     assert result["routed"] == ["ROUTE_ME"] and result["tracks"] == 1 and len(result["plan"]) == 1
     assert result["gate"]["dropped"] == [] and env["evidence"]["level"] == "KICAD-VERIFIED"
     plain = run(monkeypatch, tmp_path, "route", board.name, "--router", "direct", "--dry-run")[1]
-    assert plain["result"]["gate"] is None and plain["evidence"]["level"] == "UNVERIFIED"
+    assert plain["result"]["gate"] is None and plain["evidence"]["level"] == "INFERRED"
+    assert plain["evidence"]["hypotheses"] == ["H-G-ROUTE-PLAN"]
 
 
 def _tidy_board(tmp_path: Path) -> Path:
