@@ -6,6 +6,8 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Archive MCP editing and image replies after c0195, using successful exact-source MCP/unit CI and the documented real-render result inferred from the complete KiCad10 report; preserve the authorized geometry exclusion and failed workflow history (c0196).
+
 - Archive the completed MCP server specification using its exact-source successful MCP and unit CI jobs, preserving the already authorized geometry exclusion, failed workflow history and optional client-session policy (c0195).
 
 - Restore the agreed CAC working-branch exclusion of 27 known geometry failures, visibly deferred with source digests; retain full release/PR selection, runtime behavior and the open geometry spec (c0319).

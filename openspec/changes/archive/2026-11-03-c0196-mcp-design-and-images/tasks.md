@@ -55,3 +55,31 @@
   - 2026-10-26: two entries under Added of `[Unreleased]`.
 - [x] 3.3 `make check-fast`. Proof: `make check-fast`.
   - 2026-10-26: exit 0, 14 079 passed, 35 skipped; lint, format, types and the residue scan clean.
+
+
+## Scoped CI verification and archival — 2026-11-03
+
+c0195 was actually archived first, creating the living MCP server contract.
+Its optional personal-client task remains optional and does not block this
+change. The maintainer clarified that problematic geometry was already
+outside the closure CI batch before the run; apply that existing scope.
+
+In run 41708879698 on exact source
+985f59a1d01a612b2eac0219243199896c24075a, official-client MCP job 126171394030
+and all five unit jobs completed successfully. This covers the SDK image
+content and edit-tool unit proofs. The real-render result is inferred from
+the completed KiCad10 job's exhaustive report, not a printed nominal PASSED
+line: its command collected all tests/kicad and tests/corpus; this ordinary
+single-test module has no skip/xfail condition or collection exclusion;
+required-resource mode includes KiCad. The configured -ra report accounts
+for all 27 failures, 168 skips and 3 xfails, reaches 100 percent, and includes
+neither this module nor an interruption or collection error. The remaining
+3992 results passed. Source, test, collector and workflow hashes are bound
+to the unchanged tested bytes in the external scoped receipt.
+
+The whole KiCad10 job and complete workflow still FAILED in the separately
+excluded c0332 geometry; no job-wide success, geometry acceptance or release
+acceptance is claimed here. Existing focused/fast proofs are reused, with
+no suite, CAD or CI rerun. All post-source changes in this archival tree are
+reviewed OpenSpec/CHANGELOG documentation; runtime, tests, tools and
+configuration remain byte-identical to the tested source.
