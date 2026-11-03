@@ -84,3 +84,28 @@ row 49); question 3 is decided in task 1.2.
    later command would write the folder back without them. Decided by the maintainer on 2026-10-27: as recommended.
 3. Which items does the review rename or drop? For the maintainer, from the list of task 1.1: it has no
    recommended answer and stays open until task 1.2.
+
+## Actual current-source preparation, before activation
+
+The candidate is based on cbd1e085 (actual typed d5ae37b0 plus reviewed c0217 descriptors), not the
+historical bf6532a4/695 snapshots. Clean model0/CLI0 source was captured mechanically before any
+migration code:174 dataclasses,1247 fields,40 fixed extension keys and76 version0 schema files
+(including ten model0 layers). Human KEEP/RENAME/DROP review is still pending. Capturing original
+bytes is not human approval and must not mark task1.2 complete.
+
+Preserve all current entities, defaults, validators and opaque data; in particular BOM-only restrictions,
+max_curve_error, font presence and DrawnLabel.intersheet_refs. Patch version plumbing/canonical loading
+only. The migration Step adds four internal helper fields separately from the model0 domain inventory.
+The implementation is a reviewable model1 candidate; CLI remainsv0 and package0.7.0.dev0. Final
+integration/publication and archival require actual review and root exact-head gates.
+
+Model-review tooling must default every decision to PENDING with no historical hardcoded date or
+reviewer. KEEP-all may be recorded only explicitly with a real reviewer/date; no invocation of that
+mode is authorized by the implementation agent. Retain the independent pending source0 preview and
+compare every actual field/type/default against it before accepting a later candidate.
+
+Actual2026-11-03 maintainer review approves KEEP of the source-bound original
+174/1247/40 inventory. model0-approved.json records each reviewed shape and
+source report hash. No type/default/identifier change is authorized. The
+previously prepared Step helper remains separate migration machinery; do not
+pretend its addition changed or was present in the original reviewed inventory.

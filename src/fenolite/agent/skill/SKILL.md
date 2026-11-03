@@ -142,9 +142,10 @@ argument. Practice pages explain engineering judgement; example numbers are not 
 - `footprints`: Footprint and Symbol from dimensions or pin tables, library records, items from fenolite-library, and what a person must check against the datasheet.
 - `library-items`: Review licensed items, offline pins, device migrations and block package tests, indexing and upgrades.
 - `library-review`: Check library records, compare revisions and prepare deterministic sheets for a person's review.
+- `model-versions`: Read and migrate canonical model folders.
 - `parts`: Symbols, footprints, pin maps, exact values, device imports, interfaces and blocks.
 - `placement`: place() by coordinates or by reference, staged parts and the grid strategy, moving parts on the board, copying a block by its pads, pads and text fields.
-- `recovery`: One tested recipe per exit code from 2 to 7 and for shorted copper, the table of every error code, and reading the guide itself.
+- `recovery`: Tested recipes for exit codes 2–7 and shorted copper, error codes and reading the guide.
 - `routing`: Routers, guarded plans, copper, zones and fill.
 - `rules`: Net classes against minimums, rules with selectors, the stack-up, whose numbers apply, and analyze for current, clearance and creepage.
 - `signal-topologies`: Ordered pad trees, explicit timing and loss inputs, protocol budgets and rule precedence.

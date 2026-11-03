@@ -85,7 +85,9 @@ def test_library_schema_is_a_target() -> None:
 
 
 def test_library_drift_names_the_file(tmp_path: Path) -> None:
-    target = next(t for t in GEN.TARGETS if t.schema_id == "fenolite.library.v0")
+    from fenolite.model.schema import LIBRARY_SCHEMA
+
+    target = next(t for t in GEN.TARGETS if t.schema_id == LIBRARY_SCHEMA[1])
     stale = tmp_path / "library.json"
     stale.write_text(GEN.render(target).replace('"pins"', '"pinz"'), encoding="utf-8")
     assert stale.read_text(encoding="utf-8") != GEN.render(target)
@@ -189,3 +191,19 @@ def test_release_schema_comparison_is_read_only_and_names_removed_keys(monkeypat
     monkeypatch.setattr(tool.subprocess, "run", run)
     assert tool.compatibility_problems() == ["removed: fenolite.result.bom.v1.rows"]
     assert [args[1] for args in calls] == ["tag", "ls-tree", "show"]
+
+
+def test_frozen_model_zero_bytes_and_input_compatibility() -> None:
+    import hashlib
+
+    from fenolite.cli.results.compatibility import schema_changes
+
+    receipt = json.loads((ROOT / "schemas/frozen-model-v0.json").read_text())
+    assert receipt["source_commit"] == "cbd1e08550f74810f8287edb6a9c0d0ae61af773"
+    assert len(receipt["sha256"]) == 10
+    for name, expected in receipt["sha256"].items():
+        old = ROOT / "schemas/fenolite.model.v0" / name
+        assert hashlib.sha256(old.read_bytes()).hexdigest() == expected, name
+        before = json.loads(old.read_text())
+        after = json.loads((ROOT / "schemas/fenolite.model.v1" / name).read_text())
+        assert schema_changes(before, after, name=name, input_mode=True) == (), name

@@ -5328,6 +5328,67 @@
       },
       "paged": null
     },
+    "migrate": {
+      "default_limit": null,
+      "deprecated": null,
+      "experimental": false,
+      "mutates": true,
+      "options": {
+        "--confirm": {
+          "aliases": [
+            "--confirm"
+          ],
+          "choices": null,
+          "default": false,
+          "deprecated": null,
+          "experimental": false,
+          "nargs": 0,
+          "positional": false,
+          "required": false,
+          "type": "boolean"
+        },
+        "--dry-run": {
+          "aliases": [
+            "--dry-run"
+          ],
+          "choices": null,
+          "default": false,
+          "deprecated": null,
+          "experimental": false,
+          "nargs": 0,
+          "positional": false,
+          "required": false,
+          "type": "boolean"
+        },
+        "--plan": {
+          "aliases": [
+            "--plan"
+          ],
+          "choices": null,
+          "default": null,
+          "deprecated": null,
+          "experimental": false,
+          "nargs": null,
+          "positional": false,
+          "required": false,
+          "type": "string"
+        },
+        "folder": {
+          "aliases": [
+            "folder"
+          ],
+          "choices": null,
+          "default": null,
+          "deprecated": null,
+          "experimental": false,
+          "nargs": null,
+          "positional": true,
+          "required": true,
+          "type": "string"
+        }
+      },
+      "paged": null
+    },
     "models": {
       "default_limit": null,
       "deprecated": null,
@@ -14810,6 +14871,12 @@
       "experimental": false,
       "severities": [
         "error"
+      ]
+    },
+    "model.migrated": {
+      "experimental": false,
+      "severities": [
+        "info"
       ]
     },
     "netlist.assignment-differs": {

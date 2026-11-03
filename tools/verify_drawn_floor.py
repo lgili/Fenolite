@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
-"""Require same-commit native9/native10 complete floor-copy bridge artifacts (c0347)."""
+"""Qualify same-commit native10 floor-copy upgrades; retain native9 observations (c0347)."""
 
 from __future__ import annotations
 
@@ -54,6 +54,19 @@ def verify(folder: Path, manifest: Path, commit: str) -> int:
                 record["original"]["input_sha256"] == declarations[ident]["sha256"],
                 f"{ident}: original digest",
             )
+            observed = record.get("original_native")
+            require(isinstance(observed, dict), f"{ident}: missing original native observation")
+            for field in ("pins", "groups"):
+                require(
+                    type(observed.get(field)) is int and observed[field] >= 0,
+                    f"{ident}: invalid original native signature ({field})",
+                )
+            for field in ("pins_sha256", "partition_sha256", "named_sha256"):
+                require(
+                    isinstance(observed.get(field), str)
+                    and bool(re.fullmatch("[0-9a-f]{64}", observed[field])),
+                    f"{ident}: incomplete original native signature ({field})",
+                )
             inputs = record["inputs"]
             require(len({item["id"] for item in inputs}) == len(inputs), f"{ident}: duplicate inputs")
             for item in inputs:
@@ -90,13 +103,11 @@ def verify(folder: Path, manifest: Path, commit: str) -> int:
         require(
             old["inputs"] == new["inputs"] and old["context"] == new["context"], f"{ident}: context differs"
         )
+        require(new.get("upgrade_bridge_equal") is True, f"{ident}: missing native10 upgrade bridge")
         for field in SIGNATURE:
             require(
-                field in old["original_native"]
-                and old["original_native"][field]
-                == new["original_native"].get(field)
-                == new["upgraded_native"].get(field),
-                f"{ident}: complete native bridge differs ({field})",
+                new["original_native"][field] == new["upgraded_native"].get(field),
+                f"{ident}: complete same-tool native10 bridge differs ({field})",
             )
         census = new["upgraded_census"]
         require(census["status"] == "equal", f"{ident}: incomplete upgraded census")
@@ -145,7 +156,10 @@ def main() -> int:
         count = verify(args.reports, args.manifest, args.commit)
     except (ValueError, KeyError, TypeError, OSError) as error:
         parser.exit(1, f"drawn-floor bridge refused: {error}\n")
-    print(f"drawn-floor: {count} complete same-commit native9/native10 owner bridges")
+    print(
+        f"drawn-floor: {count} complete same-commit native10 upgrade owner proofs; "
+        "native9 observations retained without a cross-version equality claim"
+    )
     return 0
 
 

@@ -7,8 +7,10 @@ All notable changes to Fenolite are documented here. The format follows
 ## [Unreleased]
 
 - c0276: record complete source-bound KiCad9/10 drawn censuses, with naming findings, read-floor refusals and version skips preserved separately from connectivity.
+- Prove schema1.0 activation changes only the version marker in63 canonical metadata files across75 complete build plans; native and other canonical bytes remain identical (c0218).
 
 - c0219: retain explicit route materialization hypotheses and context-aware view evidence controls in combined validation.
+- **Qualified legacy upgrade scope** (c0347): use the maintainer-authorized same-tool KiCad10 original-to-upgraded electrical proof. Preserve the original reader refusal and every native9 observation, including its historical disagreement, while retaining all pin/partition/name/provenance guards and supported9 requirements.
 
 - **Imported native rule semantics** (c0352, in progress): preserve the actual Default netclass in emitted canonical code and rebuilt native projects. Imported digest-bound project declarations set the new optional `preserve_minimums=True` ownership flag so native hard floors remain independent of actual custom DRU overrides; default False retains authored DSL behavior. Native KiCad9/10 controls and traced representation census bound these claims. Path-based level6 now names exact supported native floor/class/membership coverage and source hashes; canonical Design comparisons remain unchanged. Imported provenance records accept their existing typed fidelity proof in the closed schema. Existing derived-cache receipts now have closed typed structure and narrow finite canonical-wire unjudged leaves; actual native record/schema/source-binding controls pass without changing cache acceptance. Exact electrical binding permits parallel physical copies only with identical complete terminal-to-net signatures, retaining every physical footprint and refusing conflict/decomposition. Explicit native null class fields remain represented unset and named unjudged, with no invented fallback.
 - Prove declared native worksheet scopes through actual KiCad9/10 SVG exports and complete public Interf replay without accepted differences (c0354).
@@ -49,6 +51,10 @@ All notable changes to Fenolite are documented here. The format follows
   benches in KiCad, reproduce every reusable layout byte-for-byte and confirm one
   unchanged five-block golden plan. Native10.0.6 DRC, connectivity and schematic
   parity have zero findings; illustrative-device evidence remains INFERRED.
+- Record the explicit approval of migrate as the58th public command alongside the approved unchanged API and project method (c0216).
+
+- Record the actual current-source API KEEP approval and explicit native-project method complement, retaining CLIv0 until release1.0 (c0216).
+
 - Apply the maintainer-reviewed no-claim classification for edit and mcp while preserving strict guards for actual evidence claims (c0219).
 
 - c0219: check new and replayed reply evidence before staging/writing, preserve production replies with one metadata warning, and require closed state-plus-issue receipts for honest incomplete results. The public no-claim list remains unchanged pending maintainer decisions.
@@ -63,6 +69,15 @@ All notable changes to Fenolite are documented here. The format follows
 
 
 - **Typed inter-sheet fields** (c0348): preserve the fixed global-label reference field's pose, hide and font through drawn TOML/canonical/native9/10 writing. Authored native controls retain complete electrical graphs and project-driven text behavior. A private source-bound context resolves project settings and per-instance page lists through view/presentation and cache/live callers. Real-owner replay and exact-head CI remain pending; no final visual fidelity closure is claimed.
+
+- Record the maintainer-approved unchanged model0 inventory of174 classes/1247 fields/40 extension keys before schema1.0 activation (c0218).
+
+- **Model1 migration candidate** (c0218): preserve every actual model0 field and
+  extension, load older canonical folders read-only, refuse unsupported versions
+  early, and migrate six layers under reviewed plans with rollback/backups.
+  Original release fixtures are rebuilt from pinned public tags. Review tooling
+  defaults to pending; this isolated candidate records no human approval or release.
+
 
 - **Typed result and public document schemas** (c0217): describe existing replies
   with closed tests and extensible published records, retain typed user maps,

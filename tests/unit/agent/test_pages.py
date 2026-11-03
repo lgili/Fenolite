@@ -49,6 +49,7 @@ TOOLS = (
     "footprints",
     "library-items",
     "library-review",
+    "model-versions",
     "parts",
     "placement",
     "recovery",
@@ -57,7 +58,7 @@ TOOLS = (
     "supplier-lookup",
     "viewer",
 )
-"""The nineteen tool pages written by hand."""
+"""The twenty tool pages written by hand."""
 PRACTICE = (
     "board-assembly",
     "board-emc",
@@ -74,7 +75,7 @@ PRACTICE = (
 """The eleven practice pages written by hand: design practice, not features."""
 FEATURES = ("signal-topologies", "starter-blocks", "device-symbols", "equivalent-s")
 WRITTEN = (*TOOLS, *PRACTICE, *FEATURES)
-"""The thirty-four pages written by hand."""
+"""The thirty-five pages written by hand."""
 GENERATED = guide.GENERATED_TOPICS
 RUN_TAGS = ("fenolite-loop", "fenolite-cmd", "fenolite-recipe")
 """The tags whose lines are commands: a public command needs a line in one of them."""
@@ -96,6 +97,7 @@ HOME: Mapping[str, tuple[str, ...]] = {
     "library-items": ("get",),
     "device-packs": ("get", "library", "build"),
     "library-review": ("library",),
+    "model-versions": ("migrate", "explain"),
     "placement": ("place", "pads", "neighbors", "region"),
     "routing": ("route", "tidy", "fill", "net", "fetch"),
     "rules": ("analyze",),
@@ -114,6 +116,9 @@ HOME: Mapping[str, tuple[str, ...]] = {
 before the change that adds it) is not asked for."""
 
 TEACHES: Mapping[str, tuple[str, ...]] = {
+    "model-versions": (
+        "schema_version", "0 -> 1.0", "model.migrated", "result.steps", ".bak", "FEN-3002", "INFERRED",
+    ),
     "equivalent-s": ("--level S", "raw", "junction", "drawn-net", "INFERRED", "integer"),
     "starter-blocks": ("voltage_divider", "rc_lowpass", "led_indicator", "i2c_pullups",
                        "protected_input", "design.use", "REQUIRED", "circuit.pullup-parallel", "PI"),
@@ -511,7 +516,7 @@ def test_topics_load() -> None:
     pages = guide.pages()
     topics = [page.topic for page in pages]
     assert topics == [guide.START, *sorted((*WRITTEN, *GENERATED))]
-    assert len(TOOLS) == 19 and len(PRACTICE) == 11 and len(GENERATED) == 8
+    assert len(TOOLS) == 20 and len(PRACTICE) == 11 and len(GENERATED) == 8
     for page in pages:
         assert page.title and page.summary and "\n" not in page.summary, page.topic
         assert page.text.startswith(f"# {page.title}\n"), page.topic
@@ -1108,3 +1113,11 @@ def test_equivalent_teaches_declared_worksheet_bundle() -> None:
         "no ambient worksheet",
     ):
         assert words in text
+
+
+def test_model_migration_recipe_behaves_as_written(tmp_path: Path, no_tools: None) -> None:
+    from _sandbox import recipe_problems
+
+    blocks = [block for block in guide.blocks(guide.page("model-versions")) if block.tag == "fenolite-recipe"]
+    assert len(blocks) == 1
+    assert recipe_problems(blocks[0], tmp_path / "sandbox") == []

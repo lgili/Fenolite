@@ -164,6 +164,12 @@ Back to [the command index](commands.md).
 - `--list`: return the tools and resources; serve nothing
 - `--allow-edit`: also serve fenolite_edit: a client that edits a design script and builds it runs code as you
 
+## migrate
+
+`fenolite migrate [OPTIONS] DIR`
+
+- `FOLDER`: the model folder itself, normally OUT/.fenolite
+
 ## models
 
 `fenolite models [OPTIONS] PATH`
@@ -215,12 +221,3 @@ Back to [the command index](commands.md).
 - `--altium-panel {auto,embedded,flat}`: the Altium form (default auto)
 - `--altium-pour {computed,outline}`: with --target altium: computed pours the polygons with Altium's rules (default, experimental; needs the geo extra, without which the default writes the outline with a warning), outline writes them unpoured
 - `--discard-layout`: replace files edited since
-
-## parity
-
-`fenolite parity [OPTIONS] PATH`
-
-- `PATH`: a .kicad_pcb, a .kicad_pro or a project folder; an Altium .PrjPcb, project folder or .PcbDoc
-- `--netlist {auto,kicad,own}` (default `auto`): where the nets of the schematic come from. auto (default): Fenolite's own reading of a schematic it generated, else kicad-cli; own: never a tool; kicad: always kicad-cli
-- `--kicad-cli PATH`: the kicad-cli to run
-- `--timeout SECONDS` (number, default `300.0`): kicad-cli timeout (300)

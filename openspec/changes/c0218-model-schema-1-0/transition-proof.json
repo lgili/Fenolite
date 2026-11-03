@@ -1,0 +1,396 @@
+{
+  "source0_commit": "7c1789aedd74e063fab138da35165ce51f525fe2",
+  "source1_commit": "87e710010f6b671e219df5a29e2613638f3b2ff5",
+  "rows": 75,
+  "complete_files": 1137,
+  "changed_files": [
+    {
+      "row": "acceptance_v03@10",
+      "file": ".fenolite/meta.json",
+      "before_sha256": "2d3caf28e635ef22a761240d71efcc6132052184cbe425ff1f4882e49afc3ea7",
+      "after_sha256": "71e16fb66a0667e4c550f6398292b0e99c5896f991d60448978f72ff8133e33d"
+    },
+    {
+      "row": "acceptance_v03@altium",
+      "file": ".fenolite/meta.json",
+      "before_sha256": "2d3caf28e635ef22a761240d71efcc6132052184cbe425ff1f4882e49afc3ea7",
+      "after_sha256": "71e16fb66a0667e4c550f6398292b0e99c5896f991d60448978f72ff8133e33d"
+    },
+    {
+      "row": "altium_hier@altium",
+      "file": ".fenolite/meta.json",
+      "before_sha256": "ee5e779a764af412f679215b589de8212817ce4229424acca572e6cd2af03da3",
+      "after_sha256": "9b6753efcbc6187f866de84aee3b316d5de12fe74c57393eb01bb092f49019c2"
+    },
+    {
+      "row": "altium_hier_board@10",
+      "file": ".fenolite/meta.json",
+      "before_sha256": "ebebd30eaa021a42453f5b7d220965dad7500b5c1a425fd3f2e41830b09b2388",
+      "after_sha256": "2024b672e7c8179e22e15568e3618fc5352b9cb3b28b47ab749e742270b45438"
+    },
+    {
+      "row": "altium_hier_board@9",
+      "file": ".fenolite/meta.json",
+      "before_sha256": "ebebd30eaa021a42453f5b7d220965dad7500b5c1a425fd3f2e41830b09b2388",
+      "after_sha256": "2024b672e7c8179e22e15568e3618fc5352b9cb3b28b47ab749e742270b45438"
+    },
+    {
+      "row": "altium_hier_board@altium",
+      "file": ".fenolite/meta.json",
+      "before_sha256": "ebebd30eaa021a42453f5b7d220965dad7500b5c1a425fd3f2e41830b09b2388",
+      "after_sha256": "2024b672e7c8179e22e15568e3618fc5352b9cb3b28b47ab749e742270b45438"
+    },
+    {
+      "row": "altium_kicad@altium",
+      "file": ".fenolite/meta.json",
+      "before_sha256": "59a9cd07ad6bdb474a7c08bbf425dc2e1118f45b771b6309a92dc55fe6022f30",
+      "after_sha256": "b8a8f8e0a914c7823ee5ad43e256deed09f7da5f4a7d69e81c0c86fa66e4b4d9"
+    },
+    {
+      "row": "altium_sample@altium",
+      "file": ".fenolite/meta.json",
+      "before_sha256": "da819915a657e4839f89b8190721fe42d5fe6f4bb8cf441794a82b7f65599332",
+      "after_sha256": "89e6f57ca6fbf23929644de56de57db527edcf11b483f337200635685e8a0203"
+    },
+    {
+      "row": "blink_2layer@10",
+      "file": ".fenolite/meta.json",
+      "before_sha256": "8fdac7f23259504e8f067066c90b21e38d0d78dbc588fbc5db0fc1000554c13c",
+      "after_sha256": "b5274f784ac8198feaac61d31c94829868391cf0004fd37dce57c4d46b6c9f2a"
+    },
+    {
+      "row": "blink_2layer@9",
+      "file": ".fenolite/meta.json",
+      "before_sha256": "8fdac7f23259504e8f067066c90b21e38d0d78dbc588fbc5db0fc1000554c13c",
+      "after_sha256": "b5274f784ac8198feaac61d31c94829868391cf0004fd37dce57c4d46b6c9f2a"
+    },
+    {
+      "row": "blink_2layer@altium",
+      "file": ".fenolite/meta.json",
+      "before_sha256": "8fdac7f23259504e8f067066c90b21e38d0d78dbc588fbc5db0fc1000554c13c",
+      "after_sha256": "b5274f784ac8198feaac61d31c94829868391cf0004fd37dce57c4d46b6c9f2a"
+    },
+    {
+      "row": "blink_routed@10",
+      "file": ".fenolite/meta.json",
+      "before_sha256": "f8e75e9c0c54592a3b80e12781417477e44cc162d42f37182936b1142bd8f042",
+      "after_sha256": "34022e2d3f0d1b524f77d59723a33efd63cf261d6dd818314d7938cea4561f2b"
+    },
+    {
+      "row": "blink_routed@9",
+      "file": ".fenolite/meta.json",
+      "before_sha256": "f8e75e9c0c54592a3b80e12781417477e44cc162d42f37182936b1142bd8f042",
+      "after_sha256": "34022e2d3f0d1b524f77d59723a33efd63cf261d6dd818314d7938cea4561f2b"
+    },
+    {
+      "row": "blink_routed@altium",
+      "file": ".fenolite/meta.json",
+      "before_sha256": "f8e75e9c0c54592a3b80e12781417477e44cc162d42f37182936b1142bd8f042",
+      "after_sha256": "34022e2d3f0d1b524f77d59723a33efd63cf261d6dd818314d7938cea4561f2b"
+    },
+    {
+      "row": "blocks@10",
+      "file": ".fenolite/meta.json",
+      "before_sha256": "61ab9c85563e0bfdbbaf8adc28c8bf23dc61e12151382acf36162ded4bbca38f",
+      "after_sha256": "b587fa082b5605322833e38b8e9199f774cc6aa8287563e191ef2a985235cc40"
+    },
+    {
+      "row": "blocks@9",
+      "file": ".fenolite/meta.json",
+      "before_sha256": "61ab9c85563e0bfdbbaf8adc28c8bf23dc61e12151382acf36162ded4bbca38f",
+      "after_sha256": "b587fa082b5605322833e38b8e9199f774cc6aa8287563e191ef2a985235cc40"
+    },
+    {
+      "row": "blocks@altium",
+      "file": ".fenolite/meta.json",
+      "before_sha256": "61ab9c85563e0bfdbbaf8adc28c8bf23dc61e12151382acf36162ded4bbca38f",
+      "after_sha256": "b587fa082b5605322833e38b8e9199f774cc6aa8287563e191ef2a985235cc40"
+    },
+    {
+      "row": "board_40parts@10",
+      "file": ".fenolite/meta.json",
+      "before_sha256": "63e370cb9cefd3d3247d4108f6f17ed394a8844d9cb2ef101dfbbf3dd7b99695",
+      "after_sha256": "1a8a377efbc633329e2ae486ff11c551302d4fff45e0ee0aaf87c1d5d5bd6b6e"
+    },
+    {
+      "row": "board_40parts@9",
+      "file": ".fenolite/meta.json",
+      "before_sha256": "63e370cb9cefd3d3247d4108f6f17ed394a8844d9cb2ef101dfbbf3dd7b99695",
+      "after_sha256": "1a8a377efbc633329e2ae486ff11c551302d4fff45e0ee0aaf87c1d5d5bd6b6e"
+    },
+    {
+      "row": "board_40parts@altium",
+      "file": ".fenolite/meta.json",
+      "before_sha256": "63e370cb9cefd3d3247d4108f6f17ed394a8844d9cb2ef101dfbbf3dd7b99695",
+      "after_sha256": "1a8a377efbc633329e2ae486ff11c551302d4fff45e0ee0aaf87c1d5d5bd6b6e"
+    },
+    {
+      "row": "board_coverage@10",
+      "file": ".fenolite/meta.json",
+      "before_sha256": "ace0a32346ba8fb40468d0cc7f5d402774a735acc0dadfdf96b4a001b9e80000",
+      "after_sha256": "185f95b44d0304d2c22db28c0b1d36397821cee4c77db764816a5e56f60eeebe"
+    },
+    {
+      "row": "board_coverage@9",
+      "file": ".fenolite/meta.json",
+      "before_sha256": "ace0a32346ba8fb40468d0cc7f5d402774a735acc0dadfdf96b4a001b9e80000",
+      "after_sha256": "185f95b44d0304d2c22db28c0b1d36397821cee4c77db764816a5e56f60eeebe"
+    },
+    {
+      "row": "catalog@10",
+      "file": ".fenolite/meta.json",
+      "before_sha256": "03bc73f5195a8129ffec9f22a58b9c74a7cf38d4bd5a6afb046b8d5be02cbd97",
+      "after_sha256": "87b7d80794b08959d8f674b98efd46e86b422d9f00123b2a44f06ea959789553"
+    },
+    {
+      "row": "catalog@9",
+      "file": ".fenolite/meta.json",
+      "before_sha256": "03bc73f5195a8129ffec9f22a58b9c74a7cf38d4bd5a6afb046b8d5be02cbd97",
+      "after_sha256": "87b7d80794b08959d8f674b98efd46e86b422d9f00123b2a44f06ea959789553"
+    },
+    {
+      "row": "catalog@altium",
+      "file": ".fenolite/meta.json",
+      "before_sha256": "03bc73f5195a8129ffec9f22a58b9c74a7cf38d4bd5a6afb046b8d5be02cbd97",
+      "after_sha256": "87b7d80794b08959d8f674b98efd46e86b422d9f00123b2a44f06ea959789553"
+    },
+    {
+      "row": "devices@10",
+      "file": ".fenolite/meta.json",
+      "before_sha256": "963dbeaec1b845dc9da038a411f5402cdd5b1197cebe95c11ec80760060d12b2",
+      "after_sha256": "64e80b976fb16a7df003d88a32dab6ae9f303e95864ec2970382f1d1ef67ae53"
+    },
+    {
+      "row": "devices@9",
+      "file": ".fenolite/meta.json",
+      "before_sha256": "963dbeaec1b845dc9da038a411f5402cdd5b1197cebe95c11ec80760060d12b2",
+      "after_sha256": "64e80b976fb16a7df003d88a32dab6ae9f303e95864ec2970382f1d1ef67ae53"
+    },
+    {
+      "row": "devices@altium",
+      "file": ".fenolite/meta.json",
+      "before_sha256": "963dbeaec1b845dc9da038a411f5402cdd5b1197cebe95c11ec80760060d12b2",
+      "after_sha256": "64e80b976fb16a7df003d88a32dab6ae9f303e95864ec2970382f1d1ef67ae53"
+    },
+    {
+      "row": "drawn@10",
+      "file": ".fenolite/meta.json",
+      "before_sha256": "cae3d83b9a5996238b9c6d9664f2bc80064d2e9180587d9753867500806f16cb",
+      "after_sha256": "ddf6367652797f22f5b4018eb05d436cc323dd5e9a5afddf58c585e33c959610"
+    },
+    {
+      "row": "drawn@9",
+      "file": ".fenolite/meta.json",
+      "before_sha256": "cae3d83b9a5996238b9c6d9664f2bc80064d2e9180587d9753867500806f16cb",
+      "after_sha256": "ddf6367652797f22f5b4018eb05d436cc323dd5e9a5afddf58c585e33c959610"
+    },
+    {
+      "row": "drawn@altium",
+      "file": ".fenolite/meta.json",
+      "before_sha256": "cae3d83b9a5996238b9c6d9664f2bc80064d2e9180587d9753867500806f16cb",
+      "after_sha256": "ddf6367652797f22f5b4018eb05d436cc323dd5e9a5afddf58c585e33c959610"
+    },
+    {
+      "row": "families@10",
+      "file": ".fenolite/meta.json",
+      "before_sha256": "e9403cd35c5f59524df9b53919b8d1d712db57d6fb089397cf589c179b542e40",
+      "after_sha256": "4cd4dd29f6c498dd57a9c850d98511dd2f04b09bea1f86325c161df53760204c"
+    },
+    {
+      "row": "families@9",
+      "file": ".fenolite/meta.json",
+      "before_sha256": "e9403cd35c5f59524df9b53919b8d1d712db57d6fb089397cf589c179b542e40",
+      "after_sha256": "4cd4dd29f6c498dd57a9c850d98511dd2f04b09bea1f86325c161df53760204c"
+    },
+    {
+      "row": "families@altium",
+      "file": ".fenolite/meta.json",
+      "before_sha256": "e9403cd35c5f59524df9b53919b8d1d712db57d6fb089397cf589c179b542e40",
+      "after_sha256": "4cd4dd29f6c498dd57a9c850d98511dd2f04b09bea1f86325c161df53760204c"
+    },
+    {
+      "row": "generated@10",
+      "file": ".fenolite/meta.json",
+      "before_sha256": "3ec3f5c2611ed0b458ffdf48c08606e6a51a2c8d1ae31d7ec964b920cc023ed3",
+      "after_sha256": "0cc723c055b71dd2011a39acfe64a76f4967e918c98816d19d3367b9904c243f"
+    },
+    {
+      "row": "generated@9",
+      "file": ".fenolite/meta.json",
+      "before_sha256": "3ec3f5c2611ed0b458ffdf48c08606e6a51a2c8d1ae31d7ec964b920cc023ed3",
+      "after_sha256": "0cc723c055b71dd2011a39acfe64a76f4967e918c98816d19d3367b9904c243f"
+    },
+    {
+      "row": "generated@altium",
+      "file": ".fenolite/meta.json",
+      "before_sha256": "3ec3f5c2611ed0b458ffdf48c08606e6a51a2c8d1ae31d7ec964b920cc023ed3",
+      "after_sha256": "0cc723c055b71dd2011a39acfe64a76f4967e918c98816d19d3367b9904c243f"
+    },
+    {
+      "row": "import_python@10",
+      "file": ".fenolite/meta.json",
+      "before_sha256": "81596dc22759fd7d7633909146974798390a08d353b34ec2400b4455b60937b7",
+      "after_sha256": "722b79be7632d1de58823a854fa329510f6c517fa7f66dd772a553af8d05ed14"
+    },
+    {
+      "row": "library-devices@10",
+      "file": ".fenolite/meta.json",
+      "before_sha256": "1546b126569d83f7fe77f5818d901bc3132a64188d15783d4a4b2cc06ed83612",
+      "after_sha256": "863366705add4d9ac8db45736f42e041d912a8bcc28f127d645ab1aebf22e9d3"
+    },
+    {
+      "row": "library-devices@9",
+      "file": ".fenolite/meta.json",
+      "before_sha256": "1546b126569d83f7fe77f5818d901bc3132a64188d15783d4a4b2cc06ed83612",
+      "after_sha256": "863366705add4d9ac8db45736f42e041d912a8bcc28f127d645ab1aebf22e9d3"
+    },
+    {
+      "row": "library-devices@altium",
+      "file": ".fenolite/meta.json",
+      "before_sha256": "1546b126569d83f7fe77f5818d901bc3132a64188d15783d4a4b2cc06ed83612",
+      "after_sha256": "863366705add4d9ac8db45736f42e041d912a8bcc28f127d645ab1aebf22e9d3"
+    },
+    {
+      "row": "library_import@10",
+      "file": ".fenolite/meta.json",
+      "before_sha256": "94905b28dd4ad65d9206c33ffd32563b6ce940f1a85f8c847c34fa0459b2f4b2",
+      "after_sha256": "b8e38cd9b9eb6835a7df670d3b136fe1ea57f256042f70b03edfb7cbb046fcb8"
+    },
+    {
+      "row": "library_import@9",
+      "file": ".fenolite/meta.json",
+      "before_sha256": "94905b28dd4ad65d9206c33ffd32563b6ce940f1a85f8c847c34fa0459b2f4b2",
+      "after_sha256": "b8e38cd9b9eb6835a7df670d3b136fe1ea57f256042f70b03edfb7cbb046fcb8"
+    },
+    {
+      "row": "library_import@altium",
+      "file": ".fenolite/meta.json",
+      "before_sha256": "94905b28dd4ad65d9206c33ffd32563b6ce940f1a85f8c847c34fa0459b2f4b2",
+      "after_sha256": "b8e38cd9b9eb6835a7df670d3b136fe1ea57f256042f70b03edfb7cbb046fcb8"
+    },
+    {
+      "row": "lock@10",
+      "file": ".fenolite/meta.json",
+      "before_sha256": "19e760c3cc8533c75c8829b609b47bacc8a9de771ef7eceadf880ad7d7d0dc7b",
+      "after_sha256": "87fd158acb56142aee100c24b1be255c97dafe6078f7429023b272b39a86d649"
+    },
+    {
+      "row": "lock@9",
+      "file": ".fenolite/meta.json",
+      "before_sha256": "19e760c3cc8533c75c8829b609b47bacc8a9de771ef7eceadf880ad7d7d0dc7b",
+      "after_sha256": "87fd158acb56142aee100c24b1be255c97dafe6078f7429023b272b39a86d649"
+    },
+    {
+      "row": "lock@altium",
+      "file": ".fenolite/meta.json",
+      "before_sha256": "19e760c3cc8533c75c8829b609b47bacc8a9de771ef7eceadf880ad7d7d0dc7b",
+      "after_sha256": "87fd158acb56142aee100c24b1be255c97dafe6078f7429023b272b39a86d649"
+    },
+    {
+      "row": "picks@10",
+      "file": ".fenolite/meta.json",
+      "before_sha256": "58e738304f7de910e4272a3a4ba7f7a311d6586b2af676c23d4cc1fe4b84d118",
+      "after_sha256": "949609096e4a21b441b2c1007a0c6a9587aa355f08c91fbdb8e055e4298dbbdc"
+    },
+    {
+      "row": "picks@9",
+      "file": ".fenolite/meta.json",
+      "before_sha256": "58e738304f7de910e4272a3a4ba7f7a311d6586b2af676c23d4cc1fe4b84d118",
+      "after_sha256": "949609096e4a21b441b2c1007a0c6a9587aa355f08c91fbdb8e055e4298dbbdc"
+    },
+    {
+      "row": "picks@altium",
+      "file": ".fenolite/meta.json",
+      "before_sha256": "58e738304f7de910e4272a3a4ba7f7a311d6586b2af676c23d4cc1fe4b84d118",
+      "after_sha256": "949609096e4a21b441b2c1007a0c6a9587aa355f08c91fbdb8e055e4298dbbdc"
+    },
+    {
+      "row": "pins@10",
+      "file": ".fenolite/meta.json",
+      "before_sha256": "176f720c17833ef7c8df652769be0590954d6f55a3506523a9285d9b1c7d9fdb",
+      "after_sha256": "c097238934bfef180c7c9ef7a90d72ed455cb879141496d1f10efb1faf26543b"
+    },
+    {
+      "row": "pins@9",
+      "file": ".fenolite/meta.json",
+      "before_sha256": "176f720c17833ef7c8df652769be0590954d6f55a3506523a9285d9b1c7d9fdb",
+      "after_sha256": "c097238934bfef180c7c9ef7a90d72ed455cb879141496d1f10efb1faf26543b"
+    },
+    {
+      "row": "pins@altium",
+      "file": ".fenolite/meta.json",
+      "before_sha256": "176f720c17833ef7c8df652769be0590954d6f55a3506523a9285d9b1c7d9fdb",
+      "after_sha256": "c097238934bfef180c7c9ef7a90d72ed455cb879141496d1f10efb1faf26543b"
+    },
+    {
+      "row": "schematic_blocks@altium",
+      "file": ".fenolite/meta.json",
+      "before_sha256": "c787275b28c407b284fa24768dc270205b047b6a8ee9ab60e096f19e0d16200b",
+      "after_sha256": "7adeecdfeb24894d569aad9ddb4ab740f9be1b47c53eb053c38ad76243ee5532"
+    },
+    {
+      "row": "symbols@10",
+      "file": ".fenolite/meta.json",
+      "before_sha256": "b020d106a515cbbc7c821682e8a350fbf851bf67eb2c2e4d226d96c96cbe72e1",
+      "after_sha256": "da92b80ba59d45c5da07e6b579130a8cfc2d73491a66bfb303585f6b813419ba"
+    },
+    {
+      "row": "symbols@9",
+      "file": ".fenolite/meta.json",
+      "before_sha256": "b020d106a515cbbc7c821682e8a350fbf851bf67eb2c2e4d226d96c96cbe72e1",
+      "after_sha256": "da92b80ba59d45c5da07e6b579130a8cfc2d73491a66bfb303585f6b813419ba"
+    },
+    {
+      "row": "symbols@altium",
+      "file": ".fenolite/meta.json",
+      "before_sha256": "b020d106a515cbbc7c821682e8a350fbf851bf67eb2c2e4d226d96c96cbe72e1",
+      "after_sha256": "da92b80ba59d45c5da07e6b579130a8cfc2d73491a66bfb303585f6b813419ba"
+    },
+    {
+      "row": "testing@10",
+      "file": ".fenolite/meta.json",
+      "before_sha256": "f25d9487ec41729652bf868143450b7f47f8aa11fab38ab025e448636af3390a",
+      "after_sha256": "8f94485e7f9a5734164ad3ce998aa7587331db932a0a01c974f2849b898ba15d"
+    },
+    {
+      "row": "testing@9",
+      "file": ".fenolite/meta.json",
+      "before_sha256": "f25d9487ec41729652bf868143450b7f47f8aa11fab38ab025e448636af3390a",
+      "after_sha256": "8f94485e7f9a5734164ad3ce998aa7587331db932a0a01c974f2849b898ba15d"
+    },
+    {
+      "row": "testing@altium",
+      "file": ".fenolite/meta.json",
+      "before_sha256": "f25d9487ec41729652bf868143450b7f47f8aa11fab38ab025e448636af3390a",
+      "after_sha256": "8f94485e7f9a5734164ad3ce998aa7587331db932a0a01c974f2849b898ba15d"
+    },
+    {
+      "row": "topologies@10",
+      "file": ".fenolite/meta.json",
+      "before_sha256": "66ae9ecfbee38a6c343775d70b5b9535623b961027d4c8cdea72c01a2d64d11f",
+      "after_sha256": "11c44f5aa49b0b8ebe595f931464d091d8da404b602f79bf4da7618779600e21"
+    },
+    {
+      "row": "topologies@9",
+      "file": ".fenolite/meta.json",
+      "before_sha256": "66ae9ecfbee38a6c343775d70b5b9535623b961027d4c8cdea72c01a2d64d11f",
+      "after_sha256": "11c44f5aa49b0b8ebe595f931464d091d8da404b602f79bf4da7618779600e21"
+    },
+    {
+      "row": "topologies@altium",
+      "file": ".fenolite/meta.json",
+      "before_sha256": "66ae9ecfbee38a6c343775d70b5b9535623b961027d4c8cdea72c01a2d64d11f",
+      "after_sha256": "11c44f5aa49b0b8ebe595f931464d091d8da404b602f79bf4da7618779600e21"
+    }
+  ],
+  "changed_field_exclusively": "meta.schema_version:0\u21921.0",
+  "native_or_other_canonical_changes": [],
+  "exits_and_path_sets_unchanged": true,
+  "baseline_map_sha256": "96932aa854c9db9352d3480ac245447bf2b91a9ea9d0d6bf949c59b3ca8d79e6",
+  "candidate_map_sha256": "7b920de957d648db9f863215c7676a8192ea8a8aa4447e1af019a571d5a187fa",
+  "models_and_migration_tests_passed": 955,
+  "combined_guide_surface_capabilities_schema_tests_passed": 355,
+  "package_version": "0.7.0.dev0",
+  "cli_contract": "v0",
+  "golden_refresh": "Not required: all complete plan diffs are meta.schema_version only; existing build_bytes exclusion covers meta.json, no native or other canonical bytes changed."
+}

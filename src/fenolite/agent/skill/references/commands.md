@@ -46,6 +46,7 @@ another type; a flag without a value is a switch.
 | `library` | yes | write a footprint library made from a KiCad board, or report how a library differs from it; 'library symbol PINS... --out FILE' writes symbols generated from pin tables; 'library generate PACKAGE... --out DIR' writes footprints, STEP models and a PcbLib from package records; 'library propose --datasheet FILE' prepares cited parameters for generation and human review |
 | `manifest` | yes | write the project manifest: every design file and artefact with its SHA-256 and a state |
 | `mcp` | no | serve Fenolite's commands as tools to an MCP client on standard input and output |
+| `migrate` | yes | migrate an older canonical model folder to the current schema (writes six layers with --confirm) |
 | `models` | yes | list the 3D model files a board's footprints name and where each is found (runs no tool) |
 | `neighbors` | no | list the footprints near one part, by the distance between their courtyards (runs no tool) |
 | `net` | no | list the nets of a board, or one net: pads, copper, vias, zones, open connections (runs no tool) |
@@ -106,13 +107,14 @@ another type; a flag without a value is a switch.
 | `library` | [Arguments](commands-3.md#library) |
 | `manifest` | [Arguments](commands-3.md#manifest) |
 | `mcp` | [Arguments](commands-3.md#mcp) |
+| `migrate` | [Arguments](commands-3.md#migrate) |
 | `models` | [Arguments](commands-3.md#models) |
 | `neighbors` | [Arguments](commands-3.md#neighbors) |
 | `net` | [Arguments](commands-3.md#net) |
 | `netlist` | [Arguments](commands-3.md#netlist) |
 | `pads` | [Arguments](commands-3.md#pads) |
 | `panel` | [Arguments](commands-3.md#panel) |
-| `parity` | [Arguments](commands-3.md#parity) |
+| `parity` | [Arguments](commands-4.md#parity) |
 | `pick` | [Arguments](commands-4.md#pick) |
 | `place` | [Arguments](commands-4.md#place) |
 | `pnp` | [Arguments](commands-4.md#pnp) |

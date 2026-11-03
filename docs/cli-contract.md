@@ -5154,3 +5154,13 @@ of ranges, references, provenance and hashes in addition to JSON Schema types.
 | `verify-source` | [`v0`](../schemas/fenolite.verify-source.v0.json) | [`v1`](../schemas/fenolite.verify-source.v1.json) | `fenolite.result.verify-source.v1` |
 | `view` | [`v0`](../schemas/fenolite.view.v0.json) | [`v1`](../schemas/fenolite.view.v1.json) | `fenolite.result.view.v1` |
 <!-- END RESULT SCHEMAS -->
+
+## migrate
+
+`fenolite migrate DIR --dry-run --json` plans migration of a canonical six-layer model folder.
+Confirm the reviewed `result.plan_id` using `--confirm --plan`. `result.from`, `result.to`, and
+`result.steps` describe the actual version path; current folders plan no writes. Every previous layer
+keeps a backup, changed inputs invalidate the plan, and rollback preserves the normal mutation contract.
+Native CAD and unrelated files are unchanged. Reading model0 may emit `model.migrated` without writing.
+Newer minor/major versions refuse with `FEN-3002`; malformed versions/missing paths use `FEN-3004`.
+See [model versions](model-versions.md). The CLI contract remainsv0; model1 does not activate CLI1.

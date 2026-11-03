@@ -1,0 +1,902 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.circuit.v1",
+  "title": "Circuit",
+  "description": "The circuit layer of a design (``circuit.json``).",
+  "type": "object",
+  "properties": {
+    "components": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Component"
+      }
+    },
+    "nets": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Net"
+      }
+    },
+    "netclasses": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/NetClass"
+      }
+    },
+    "interfaces": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Interface"
+      }
+    },
+    "modules": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Module"
+      }
+    },
+    "ports": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Port"
+      }
+    },
+    "buses": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Bus"
+      }
+    },
+    "no_connects": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/PinRef"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "BlockParam": {
+      "description": "One parameter of a block instance as recorded: its name, its type and its canonical text",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "bool",
+            "int",
+            "str",
+            "length",
+            "quantity",
+            "range",
+            "none"
+          ]
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "type"
+      ]
+    },
+    "Bus": {
+      "description": "An indexed vector of nets (``D[0..7]``): ``name`` is the vector's name without its range and",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z]{2,3}_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "native_ids": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ext": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ExtBag"
+          }
+        },
+        "name": {
+          "type": "string"
+        },
+        "members": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BusMember"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name"
+      ]
+    },
+    "BusMember": {
+      "description": "One member of a bus: its index in the vector and the net it names.",
+      "type": "object",
+      "properties": {
+        "index": {
+          "type": "integer"
+        },
+        "net_id": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "index",
+        "net_id"
+      ]
+    },
+    "Component": {
+      "description": "A part in the circuit. ``ref`` is an attribute, never a key; ``path`` is hierarchical.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z]{2,3}_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "native_ids": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ext": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ExtBag"
+          }
+        },
+        "ref": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        },
+        "dnp": {
+          "type": "boolean"
+        },
+        "lib_symbol_ref": {
+          "type": "string"
+        },
+        "lib_footprint_ref": {
+          "type": "string"
+        },
+        "properties": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "path": {
+          "type": "string"
+        },
+        "pins": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Pin"
+          }
+        },
+        "pin_pad_map": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "prefixItems": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "items": false
+          },
+          "description": "Pairs of (symbol pin number, footprint pad number), in order. A pin may occur in several pairs: it is bonded to each of those pads, and the first is the pad a schematic symbol shows. A pad occurs once. A pin without a pair has the pad of its own number."
+        },
+        "value_range": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ValueRange"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "board_only": {
+          "type": "boolean"
+        },
+        "footprint_definition_ref": {
+          "type": "string"
+        },
+        "bom_only": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "ref"
+      ]
+    },
+    "Decimal10": {
+      "description": "The exact decimal m · 10^e in its one canonical form (change c0246).",
+      "type": "object",
+      "properties": {
+        "m": {
+          "type": "integer"
+        },
+        "e": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "m",
+        "e"
+      ]
+    },
+    "Evidence": {
+      "description": "A level plus the oracle that produced it and the hypotheses it depends on.",
+      "type": "object",
+      "properties": {
+        "level": {
+          "enum": [
+            "ALTIUM-VERIFIED(kit)",
+            "KICAD-VERIFIED",
+            "ORACLE-VERIFIED",
+            "CORPUS-VERIFIED",
+            "ALTIUM-VERIFIED(author-report)",
+            "INFERRED",
+            "UNKNOWN",
+            "UNVERIFIED"
+          ]
+        },
+        "oracle": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "hypotheses": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "ExtBag": {
+      "description": "What a backend knows about an object and the model does not: verbatim fragments.",
+      "type": "object",
+      "properties": {
+        "min_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "payload": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "prefixItems": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "items": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "Interface": {
+      "description": "A typed bundle of nets (power, I2C, SPI…): role name → net id. ``params`` (change c0252) are exact",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z]{2,3}_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "native_ids": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ext": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ExtBag"
+          }
+        },
+        "name": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "members": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ValueRange"
+          }
+        },
+        "reference": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "shared": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "kind"
+      ]
+    },
+    "Module": {
+      "description": "A node of the design hierarchy (``power/ldo``) and the components it owns. A module made by a",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z]{2,3}_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "native_ids": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ext": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ExtBag"
+          }
+        },
+        "path": {
+          "type": "string"
+        },
+        "parent": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "component_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "block": {
+          "type": "string"
+        },
+        "params": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BlockParam"
+          }
+        },
+        "block_version": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "path"
+      ]
+    },
+    "Net": {
+      "description": "An electrical net and the pins it connects.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z]{2,3}_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "native_ids": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ext": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ExtBag"
+          }
+        },
+        "name": {
+          "type": "string"
+        },
+        "netclass_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "members": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PinRef"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name"
+      ]
+    },
+    "NetClass": {
+      "description": "Default physical constraints of a group of nets (all lengths in nm).",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z]{2,3}_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "native_ids": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ext": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ExtBag"
+          }
+        },
+        "name": {
+          "type": "string"
+        },
+        "clearance": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "track_width": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "via_diameter": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "via_drill": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "description": {
+          "type": "string"
+        },
+        "diff_pair_width": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "diff_pair_gap": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "diff_pair_via_gap": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name"
+      ]
+    },
+    "Pin": {
+      "description": "A pin of a component, identified by its number (``\"1\"``, ``\"A3\"``, ``\"PA5\"``).",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z]{2,3}_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "native_ids": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ext": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ExtBag"
+          }
+        },
+        "number": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "etype": {
+          "enum": [
+            "input",
+            "output",
+            "bidirectional",
+            "tri_state",
+            "passive",
+            "free",
+            "unspecified",
+            "power_in",
+            "power_out",
+            "open_collector",
+            "open_emitter",
+            "no_connect"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "number"
+      ]
+    },
+    "PinRef": {
+      "description": "A pin of a component, as a member of a net.",
+      "type": "object",
+      "properties": {
+        "component_id": {
+          "type": "string"
+        },
+        "pin": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "component_id",
+        "pin"
+      ]
+    },
+    "Port": {
+      "description": "A port of a block instance (change c0251): its name, its owner (the id of a module, or of a",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z]{2,3}_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "native_ids": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ext": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ExtBag"
+          }
+        },
+        "name": {
+          "type": "string"
+        },
+        "owner": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "direction": {
+          "enum": [
+            "in",
+            "out",
+            "inout"
+          ]
+        },
+        "members": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "optional": {
+          "type": "boolean"
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ValueRange"
+          }
+        },
+        "reference": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "share": {
+          "type": "boolean"
+        },
+        "requires": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "split": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "evidence": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "owner",
+        "kind"
+      ]
+    },
+    "Provenance": {
+      "description": "Origin of an imported object. ``locator`` is opaque outside the originating backend.",
+      "type": "object",
+      "properties": {
+        "backend": {
+          "type": "string"
+        },
+        "file": {
+          "type": "string"
+        },
+        "file_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "locator": {
+          "type": "string"
+        },
+        "evidence": {
+          "$ref": "#/$defs/Evidence"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "backend",
+        "file",
+        "file_sha256",
+        "locator"
+      ]
+    },
+    "ValueRange": {
+      "description": "An exact range of an electrical value: unit, low, nominal and high, at least one bound given.",
+      "type": "object",
+      "properties": {
+        "unit": {
+          "enum": [
+            "ohm",
+            "farad",
+            "henry",
+            "volt",
+            "ampere",
+            "hertz",
+            "watt",
+            "second",
+            "kelvin"
+          ]
+        },
+        "low": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Decimal10"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "nominal": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Decimal10"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "high": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Decimal10"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "unit"
+      ]
+    }
+  }
+}

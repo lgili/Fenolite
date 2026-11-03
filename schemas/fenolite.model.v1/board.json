@@ -1,0 +1,2856 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.board.v1",
+  "title": "Board",
+  "description": "The board layer of a design (``board.json``).",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z]{2,3}_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "native_ids": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "provenance": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Provenance"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "ext": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/ExtBag"
+      }
+    },
+    "outline": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Outline"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "layers": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Layer"
+      }
+    },
+    "stackup": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Stackup"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "footprints": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/FootprintInstance"
+      }
+    },
+    "tracks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Track"
+      }
+    },
+    "arcs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Arc"
+      }
+    },
+    "vias": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Via"
+      }
+    },
+    "zones": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Zone"
+      }
+    },
+    "keepouts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Keepout"
+      }
+    },
+    "texts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Text"
+      }
+    },
+    "graphics": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Graphic"
+      }
+    },
+    "holes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Hole"
+      }
+    },
+    "dimensions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Dimension"
+      }
+    },
+    "sheet": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SheetFrameRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "title_block": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/TitleBlock"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "via_protection": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ViaProtection"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "groups": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Group"
+      }
+    },
+    "verbatim": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/VerbatimItem"
+      }
+    },
+    "images": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Image"
+      }
+    },
+    "max_curve_error": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 1
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "id"
+  ],
+  "$defs": {
+    "Arc": {
+      "description": "An arc track through ``mid``. ``locked`` as for a track.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z]{2,3}_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "native_ids": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ext": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ExtBag"
+          }
+        },
+        "start": {
+          "$ref": "#/$defs/Point"
+        },
+        "mid": {
+          "$ref": "#/$defs/Point"
+        },
+        "end": {
+          "$ref": "#/$defs/Point"
+        },
+        "width": {
+          "type": "integer"
+        },
+        "layer": {
+          "type": "string"
+        },
+        "net_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "locked": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "start",
+        "mid",
+        "end",
+        "width",
+        "layer"
+      ]
+    },
+    "ComponentBody": {
+      "description": "The physical body of a part: a volume above the side its footprint is placed on.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z]{2,3}_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "native_ids": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ext": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ExtBag"
+          }
+        },
+        "kind": {
+          "enum": [
+            "extruded",
+            "model"
+          ]
+        },
+        "height": {
+          "type": "integer"
+        },
+        "standoff": {
+          "type": "integer"
+        },
+        "outline": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Point"
+          }
+        },
+        "layer": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "z_min": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "z_max": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "projection_unknown": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "height"
+      ]
+    },
+    "Dimension": {
+      "description": "A dimension between two points. The measured value is not a field: it follows from the points.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z]{2,3}_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "native_ids": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ext": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ExtBag"
+          }
+        },
+        "kind": {
+          "enum": [
+            "aligned",
+            "orthogonal",
+            "radial",
+            "leader",
+            "center"
+          ]
+        },
+        "layer": {
+          "type": "string"
+        },
+        "start": {
+          "$ref": "#/$defs/Point"
+        },
+        "end": {
+          "$ref": "#/$defs/Point"
+        },
+        "offset": {
+          "type": "integer"
+        },
+        "direction": {
+          "anyOf": [
+            {
+              "enum": [
+                "horizontal",
+                "vertical"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "units": {
+          "enum": [
+            "mm",
+            "in",
+            "mils",
+            "auto"
+          ]
+        },
+        "precision": {
+          "type": "integer"
+        },
+        "size": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Size"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "thickness": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "width": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "extension_offset": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "text_position": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Point"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "leader_length": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "text": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "frame": {
+          "anyOf": [
+            {
+              "enum": [
+                "none",
+                "rect",
+                "circle"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "layer",
+        "start",
+        "end",
+        "offset"
+      ]
+    },
+    "Evidence": {
+      "description": "A level plus the oracle that produced it and the hypotheses it depends on.",
+      "type": "object",
+      "properties": {
+        "level": {
+          "enum": [
+            "ALTIUM-VERIFIED(kit)",
+            "KICAD-VERIFIED",
+            "ORACLE-VERIFIED",
+            "CORPUS-VERIFIED",
+            "ALTIUM-VERIFIED(author-report)",
+            "INFERRED",
+            "UNKNOWN",
+            "UNVERIFIED"
+          ]
+        },
+        "oracle": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "hypotheses": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "ExtBag": {
+      "description": "What a backend knows about an object and the model does not: verbatim fragments.",
+      "type": "object",
+      "properties": {
+        "min_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "payload": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "prefixItems": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "items": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "FootprintField": {
+      "description": "A text field of a placed footprint (Reference, Value, a user property): placement and appearance.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z]{2,3}_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "native_ids": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ext": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ExtBag"
+          }
+        },
+        "name": {
+          "type": "string"
+        },
+        "position": {
+          "$ref": "#/$defs/Point"
+        },
+        "layer": {
+          "type": "string"
+        },
+        "size": {
+          "$ref": "#/$defs/Size"
+        },
+        "rotation": {
+          "type": "integer"
+        },
+        "thickness": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "visible": {
+          "type": "boolean"
+        },
+        "h_justify": {
+          "enum": [
+            "left",
+            "center",
+            "right"
+          ]
+        },
+        "v_justify": {
+          "enum": [
+            "top",
+            "center",
+            "bottom"
+          ]
+        },
+        "mirrored": {
+          "type": "boolean"
+        },
+        "bold": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "italic": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "face": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "position",
+        "layer",
+        "size"
+      ]
+    },
+    "FootprintInstance": {
+      "description": "A placed footprint of a component. ``attributes`` are the backend's footprint flags, in order;",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z]{2,3}_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "native_ids": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ext": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ExtBag"
+          }
+        },
+        "component_id": {
+          "type": "string"
+        },
+        "lib_ref": {
+          "type": "string"
+        },
+        "position": {
+          "$ref": "#/$defs/Point"
+        },
+        "rotation": {
+          "type": "integer"
+        },
+        "side": {
+          "enum": [
+            "top",
+            "bottom"
+          ]
+        },
+        "locked": {
+          "type": "boolean"
+        },
+        "attributes": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "smd",
+              "through_hole",
+              "board_only",
+              "exclude_from_pos_files",
+              "exclude_from_bom",
+              "dnp",
+              "allow_missing_courtyard",
+              "allow_soldermask_bridges"
+            ]
+          }
+        },
+        "pads": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Pad"
+          }
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FootprintField"
+          }
+        },
+        "bodies": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ComponentBody"
+          }
+        },
+        "graphics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Graphic"
+          }
+        },
+        "texts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Text"
+          }
+        },
+        "net_ties": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "anchor": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MechanicalIntent"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "models": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ModelRef"
+          }
+        },
+        "overrides": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FootprintOverrides"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "component_id",
+        "lib_ref",
+        "position"
+      ]
+    },
+    "FootprintOverrides": {
+      "description": "Footprint-level settings of one placed footprint (change c0277), KiCad's footprint ``clearance``,",
+      "type": "object",
+      "properties": {
+        "clearance": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "mask_margin": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "paste_margin": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "paste_ratio": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "zone_connection": {
+          "anyOf": [
+            {
+              "enum": [
+                "solid",
+                "thermal",
+                "none",
+                "thru_hole_only"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "thermal_gap": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "thermal_spoke_width": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "Graphic": {
+      "description": "A drawing primitive on a non-copper or copper layer; ``points`` meaning depends on ``kind``.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z]{2,3}_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "native_ids": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ext": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ExtBag"
+          }
+        },
+        "kind": {
+          "enum": [
+            "line",
+            "arc",
+            "circle",
+            "rect",
+            "polygon"
+          ]
+        },
+        "layer": {
+          "type": "string"
+        },
+        "points": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Point"
+          }
+        },
+        "width": {
+          "type": "integer"
+        },
+        "filled": {
+          "type": "boolean"
+        },
+        "net_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "layer",
+        "points"
+      ]
+    },
+    "Group": {
+      "description": "A group of board items (change c0277): its name (``\"\"`` for an unnamed group), the ids of its members",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z]{2,3}_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "native_ids": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ext": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ExtBag"
+          }
+        },
+        "name": {
+          "type": "string"
+        },
+        "member_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "locked": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id"
+      ]
+    },
+    "Hole": {
+      "description": "A mechanical hole that is not part of a footprint.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z]{2,3}_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "native_ids": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ext": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ExtBag"
+          }
+        },
+        "position": {
+          "$ref": "#/$defs/Point"
+        },
+        "drill": {
+          "type": "integer"
+        },
+        "plated": {
+          "type": "boolean"
+        },
+        "intent": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MechanicalIntent"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "length": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "rotation": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "position",
+        "drill"
+      ]
+    },
+    "Image": {
+      "description": "A picture on a board layer (change c0277): the PNG bytes of ``data`` (base64 text) at ``position``,",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z]{2,3}_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "native_ids": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ext": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ExtBag"
+          }
+        },
+        "position": {
+          "$ref": "#/$defs/Point"
+        },
+        "layer": {
+          "type": "string"
+        },
+        "data": {
+          "type": "string"
+        },
+        "scale": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "position",
+        "layer",
+        "data"
+      ]
+    },
+    "Keepout": {
+      "description": "A rule area: an area where some kinds of objects are not allowed, or, with every setting false,",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z]{2,3}_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "native_ids": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ext": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ExtBag"
+          }
+        },
+        "outline": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Point"
+          }
+        },
+        "layers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "no_tracks": {
+          "type": "boolean"
+        },
+        "no_vias": {
+          "type": "boolean"
+        },
+        "no_pads": {
+          "type": "boolean"
+        },
+        "no_copper_pour": {
+          "type": "boolean"
+        },
+        "no_footprints": {
+          "type": "boolean"
+        },
+        "name": {
+          "type": "string"
+        },
+        "intent": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MechanicalIntent"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "placement": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "outline"
+      ]
+    },
+    "Layer": {
+      "description": "A board layer. Names are free-form; backends map them to their own names.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z]{2,3}_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "native_ids": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ext": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ExtBag"
+          }
+        },
+        "name": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "copper",
+            "silkscreen",
+            "soldermask",
+            "solderpaste",
+            "courtyard",
+            "fabrication",
+            "edge",
+            "user",
+            "mechanical"
+          ]
+        },
+        "ordinal": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "kind",
+        "ordinal"
+      ]
+    },
+    "MechanicalIntent": {
+      "description": "Declared mechanical provenance; a measured coordinate is still not a qualified fit.",
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "frame": {
+          "enum": [
+            "board"
+          ]
+        },
+        "tolerance": {
+          "type": "integer"
+        },
+        "source": {
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "measured",
+            "estimated",
+            "proposed"
+          ]
+        },
+        "evidence": {
+          "$ref": "#/$defs/Evidence"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "key"
+      ]
+    },
+    "ModelRef": {
+      "description": "A 3D model of a placed footprint named by a script (change c0277): ``name`` is a reference only (a",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "offset": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "integer"
+            }
+          ],
+          "items": false
+        },
+        "rotation": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "integer"
+            }
+          ],
+          "items": false
+        },
+        "scale": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "items": false
+        },
+        "hidden": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name"
+      ]
+    },
+    "Outline": {
+      "description": "Board outline polygon and cut-outs (points in order), and the board's milled slots.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z]{2,3}_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "native_ids": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ext": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ExtBag"
+          }
+        },
+        "points": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Point"
+          }
+        },
+        "cutouts": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/Point"
+            }
+          }
+        },
+        "arcs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OutlineArc"
+          }
+        },
+        "slots": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OutlineSlot"
+          }
+        },
+        "stroke_width": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id"
+      ]
+    },
+    "OutlineArc": {
+      "description": "One edge of a board outline that is an arc through ``mid``.",
+      "type": "object",
+      "properties": {
+        "ring": {
+          "type": "integer"
+        },
+        "edge": {
+          "type": "integer"
+        },
+        "mid": {
+          "$ref": "#/$defs/Point"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "ring",
+        "edge",
+        "mid"
+      ]
+    },
+    "OutlineSlot": {
+      "description": "A milled slot of the board (change c0167): a non-plated stadium cut out of the board, ``length``",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z]{2,3}_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "native_ids": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ext": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ExtBag"
+          }
+        },
+        "center": {
+          "$ref": "#/$defs/Point"
+        },
+        "length": {
+          "type": "integer"
+        },
+        "width": {
+          "type": "integer"
+        },
+        "rotation": {
+          "type": "integer"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "center",
+        "length",
+        "width"
+      ]
+    },
+    "Pad": {
+      "description": "A pad of a footprint; ``position`` and ``rotation`` are relative to the footprint.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z]{2,3}_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "native_ids": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ext": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ExtBag"
+          }
+        },
+        "number": {
+          "type": "string"
+        },
+        "shape": {
+          "enum": [
+            "circle",
+            "rect",
+            "oval",
+            "roundrect",
+            "trapezoid",
+            "custom"
+          ]
+        },
+        "size": {
+          "$ref": "#/$defs/Size"
+        },
+        "position": {
+          "$ref": "#/$defs/Point"
+        },
+        "kind": {
+          "enum": [
+            "smd",
+            "thru_hole",
+            "np_thru_hole",
+            "connect"
+          ]
+        },
+        "rotation": {
+          "type": "integer"
+        },
+        "drill": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "layers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "net_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "padstack": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Padstack"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "zone_connection": {
+          "anyOf": [
+            {
+              "enum": [
+                "solid",
+                "thermal",
+                "none",
+                "thru_hole_only"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "corner_ratio": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "fab_property": {
+          "anyOf": [
+            {
+              "enum": [
+                "bga",
+                "fiducial_global",
+                "fiducial_local",
+                "test_point",
+                "heatsink",
+                "castellated",
+                "mechanical",
+                "press_fit"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "mask_margin": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "paste_margin": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "die_delay_fs": {
+          "type": "integer"
+        },
+        "teardrop": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Teardrop"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "trapezoid_delta": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Point"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "chamfer_ratio": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "chamfer_corners": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "top_left",
+              "top_right",
+              "bottom_left",
+              "bottom_right"
+            ]
+          }
+        },
+        "anchor_shape": {
+          "anyOf": [
+            {
+              "enum": [
+                "circle",
+                "rect"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "primitives": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PadPrimitive"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "number",
+        "shape",
+        "size",
+        "position"
+      ]
+    },
+    "PadPrimitive": {
+      "description": "One shape of a custom pad, in the pad's own frame (change c0277): a ``poly`` (its corners), a",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "enum": [
+            "poly",
+            "segment",
+            "circle",
+            "arc"
+          ]
+        },
+        "points": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Point"
+          }
+        },
+        "width": {
+          "type": "integer"
+        },
+        "filled": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ]
+    },
+    "Padstack": {
+      "description": "Per-layer shapes of a pad; absent when the pad has one shape on all its layers.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z]{2,3}_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "native_ids": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ext": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ExtBag"
+          }
+        },
+        "layers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PadstackLayer"
+          }
+        },
+        "hole_shape": {
+          "enum": [
+            "round",
+            "square",
+            "slot"
+          ]
+        },
+        "hole_length": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "hole_rotation": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id"
+      ]
+    },
+    "PadstackLayer": {
+      "description": "Pad shape on one layer (for pads whose shape differs per layer).",
+      "type": "object",
+      "properties": {
+        "layer": {
+          "type": "string"
+        },
+        "shape": {
+          "enum": [
+            "circle",
+            "rect",
+            "oval",
+            "roundrect",
+            "trapezoid",
+            "custom"
+          ]
+        },
+        "size": {
+          "$ref": "#/$defs/Size"
+        },
+        "offset": {
+          "$ref": "#/$defs/Point"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "layer",
+        "shape",
+        "size"
+      ]
+    },
+    "Point": {
+      "description": "A position in nanometres.",
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "integer"
+        },
+        "y": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "x",
+        "y"
+      ]
+    },
+    "Provenance": {
+      "description": "Origin of an imported object. ``locator`` is opaque outside the originating backend.",
+      "type": "object",
+      "properties": {
+        "backend": {
+          "type": "string"
+        },
+        "file": {
+          "type": "string"
+        },
+        "file_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "locator": {
+          "type": "string"
+        },
+        "evidence": {
+          "$ref": "#/$defs/Evidence"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "backend",
+        "file",
+        "file_sha256",
+        "locator"
+      ]
+    },
+    "SheetFrameRef": {
+      "description": "The board's paper and the drawing sheet its project names (a project-relative path).",
+      "type": "object",
+      "properties": {
+        "paper": {
+          "enum": [
+            "A0",
+            "A1",
+            "A2",
+            "A3",
+            "A4",
+            "A5",
+            "Letter",
+            "Legal",
+            "Tabloid",
+            "custom"
+          ]
+        },
+        "portrait": {
+          "type": "boolean"
+        },
+        "width": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "height": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "drawing_sheet": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "Size": {
+      "description": "A width and height in nanometres.",
+      "type": "object",
+      "properties": {
+        "w": {
+          "type": "integer"
+        },
+        "h": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "w",
+        "h"
+      ]
+    },
+    "StackLayer": {
+      "description": "One entry of the stack-up. Dielectric constants are decimal strings, never floats.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z]{2,3}_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "native_ids": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ext": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ExtBag"
+          }
+        },
+        "name": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "copper",
+            "dielectric",
+            "soldermask",
+            "silkscreen",
+            "solderpaste"
+          ]
+        },
+        "thickness": {
+          "type": "integer"
+        },
+        "material": {
+          "type": "string"
+        },
+        "epsilon_r": {
+          "type": "string"
+        },
+        "loss_tangent": {
+          "type": "string"
+        },
+        "dielectric_kind": {
+          "anyOf": [
+            {
+              "enum": [
+                "core",
+                "prepreg"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "color": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "kind",
+        "thickness"
+      ]
+    },
+    "Stackup": {
+      "description": "The stack-up, from the top face to the bottom face (order is semantic).",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z]{2,3}_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "native_ids": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ext": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ExtBag"
+          }
+        },
+        "layers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StackLayer"
+          }
+        },
+        "finish": {
+          "type": "string"
+        },
+        "impedance_controlled": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id"
+      ]
+    },
+    "Teardrop": {
+      "description": "The teardrop settings of a pad or a via (change c0277): the tool that fills the board draws the",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "max_length": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "max_width": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "length_ratio": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "width_ratio": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "curved": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "filter_ratio": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "two_segments": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "prefer_zones": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "Text": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z]{2,3}_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "native_ids": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ext": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ExtBag"
+          }
+        },
+        "text": {
+          "type": "string"
+        },
+        "position": {
+          "$ref": "#/$defs/Point"
+        },
+        "layer": {
+          "type": "string"
+        },
+        "size": {
+          "$ref": "#/$defs/Size"
+        },
+        "thickness": {
+          "type": "integer"
+        },
+        "rotation": {
+          "type": "integer"
+        },
+        "h_justify": {
+          "enum": [
+            "left",
+            "center",
+            "right"
+          ]
+        },
+        "v_justify": {
+          "enum": [
+            "top",
+            "center",
+            "bottom"
+          ]
+        },
+        "knockout": {
+          "type": "boolean"
+        },
+        "bold": {
+          "type": "boolean"
+        },
+        "italic": {
+          "type": "boolean"
+        },
+        "face": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "text",
+        "position",
+        "layer",
+        "size",
+        "thickness"
+      ]
+    },
+    "TitleBlock": {
+      "description": "The title-block fields of a board and the user parameters its sheet may show.",
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "date": {
+          "type": "string"
+        },
+        "revision": {
+          "type": "string"
+        },
+        "organization": {
+          "type": "string"
+        },
+        "doc_id": {
+          "type": "string"
+        },
+        "responsible": {
+          "type": "string"
+        },
+        "approver": {
+          "type": "string"
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "Track": {
+      "description": "A straight track. ``locked`` marks copper that tools must not move or remove.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z]{2,3}_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "native_ids": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ext": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ExtBag"
+          }
+        },
+        "start": {
+          "$ref": "#/$defs/Point"
+        },
+        "end": {
+          "$ref": "#/$defs/Point"
+        },
+        "width": {
+          "type": "integer"
+        },
+        "layer": {
+          "type": "string"
+        },
+        "net_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "locked": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "start",
+        "end",
+        "width",
+        "layer"
+      ]
+    },
+    "VerbatimItem": {
+      "description": "One item a script keeps as KiCad text (change c0277): ``design.verbatim()`` and ``part.verbatim()``.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z]{2,3}_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "native_ids": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ext": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ExtBag"
+          }
+        },
+        "key": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        },
+        "target": {
+          "enum": [
+            "kicad_pcb",
+            "kicad_dru",
+            "footprint"
+          ]
+        },
+        "component_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "key",
+        "text"
+      ]
+    },
+    "Via": {
+      "description": "A via between ``layers`` (the two outermost copper layers it spans). ``locked`` as for a track.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z]{2,3}_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "native_ids": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ext": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ExtBag"
+          }
+        },
+        "position": {
+          "$ref": "#/$defs/Point"
+        },
+        "diameter": {
+          "type": "integer"
+        },
+        "drill": {
+          "type": "integer"
+        },
+        "layers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "net_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "via_type": {
+          "enum": [
+            "through",
+            "blind",
+            "buried",
+            "micro"
+          ]
+        },
+        "protection": {
+          "$ref": "#/$defs/ViaProtection"
+        },
+        "locked": {
+          "type": "boolean"
+        },
+        "teardrop": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Teardrop"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "free": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "position",
+        "diameter",
+        "drill"
+      ]
+    },
+    "ViaProtection": {
+      "description": "How a via is protected: tenting, covering and plugging per side, capping and filling for the via.",
+      "type": "object",
+      "properties": {
+        "tenting_front": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "tenting_back": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "covering_front": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "covering_back": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "plugging_front": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "plugging_back": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "capping": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "filling": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "Zone": {
+      "description": "A copper zone (pour). ``fills`` are derived and discarded when the zone changes.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z]{2,3}_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "native_ids": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ext": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ExtBag"
+          }
+        },
+        "outline": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Point"
+          }
+        },
+        "name": {
+          "type": "string"
+        },
+        "layers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "net_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "priority": {
+          "type": "integer"
+        },
+        "fills": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ZoneFill"
+          }
+        },
+        "settings": {
+          "$ref": "#/$defs/ZoneSettings"
+        },
+        "filled": {
+          "type": "boolean"
+        },
+        "locked": {
+          "type": "boolean"
+        },
+        "arcs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OutlineArc"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "outline"
+      ]
+    },
+    "ZoneFill": {
+      "description": "Filled copper of a zone on one layer (a derived artefact); a zone may have several per layer.",
+      "type": "object",
+      "properties": {
+        "layer": {
+          "type": "string"
+        },
+        "polygon": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Point"
+          }
+        },
+        "island": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "layer",
+        "polygon"
+      ]
+    },
+    "ZoneHatch": {
+      "description": "The pattern of a hatched fill. Ratios are decimal strings, never floats.",
+      "type": "object",
+      "properties": {
+        "thickness": {
+          "type": "integer"
+        },
+        "gap": {
+          "type": "integer"
+        },
+        "orientation": {
+          "type": "integer"
+        },
+        "smoothing_level": {
+          "type": "integer"
+        },
+        "smoothing_value": {
+          "type": "string"
+        },
+        "border": {
+          "enum": [
+            "hatch_thickness",
+            "min_thickness"
+          ]
+        },
+        "min_hole_area": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ZoneSettings": {
+      "description": "How a copper zone is filled. The defaults are the values KiCad gives a new zone",
+      "type": "object",
+      "properties": {
+        "clearance": {
+          "type": "integer"
+        },
+        "min_thickness": {
+          "type": "integer"
+        },
+        "connection": {
+          "enum": [
+            "solid",
+            "thermal",
+            "none",
+            "thru_hole_only"
+          ]
+        },
+        "thermal_gap": {
+          "type": "integer"
+        },
+        "thermal_spoke_width": {
+          "type": "integer"
+        },
+        "island_removal": {
+          "enum": [
+            "always",
+            "never",
+            "below_area"
+          ]
+        },
+        "min_island_area": {
+          "type": "integer"
+        },
+        "smoothing": {
+          "enum": [
+            "none",
+            "chamfer",
+            "fillet"
+          ]
+        },
+        "smoothing_radius": {
+          "type": "integer"
+        },
+        "fill_mode": {
+          "enum": [
+            "solid",
+            "hatched"
+          ]
+        },
+        "hatch": {
+          "$ref": "#/$defs/ZoneHatch"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

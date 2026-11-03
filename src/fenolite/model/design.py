@@ -29,9 +29,30 @@ from fenolite.model.manufacturing import Manifest
 from fenolite.model.presentation import PAPER_SIZES, PARAM_NAME, US_SIZES, SheetFrameRef, TitleBlock
 from fenolite.model.rules import RuleSet
 
-SCHEMA_VERSION = "0"
+SCHEMA_VERSION = "1.0"
+
+
+def parse_version(version: object) -> tuple[int, int]:
+    """Parse the legacy ``0`` or a canonical ``MAJOR.MINOR`` model version."""
+    if version == "0":
+        return (0, 0)
+    if not isinstance(version, str) or not re.fullmatch(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)", version):
+        raise ValueError("model schema version is '0' or MAJOR.MINOR without leading zeroes")
+    major, minor = version.split(".")
+    return (int(major), int(minor))
+
+
+def readable(version: str) -> bool:
+    """Whether this reader supports a legacy folder or the same major up to its current minor."""
+    try:
+        value, current = parse_version(version), parse_version(SCHEMA_VERSION)
+    except ValueError:
+        return False
+    return version == "0" or (value[0] == current[0] and value[1] <= current[1])
+
+
 MODEL_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
-    {"model.bom-only": "error", "model.corner-ratio": "error"}
+    {"model.bom-only": "error", "model.corner-ratio": "error", "model.migrated": "info"}
 )
 """The codes of ``Design.validate`` that ``fenolite explain`` knows (``cli.explain.TABLES``): those added
 since change c0126. The older ``model.*`` codes are described in ``docs/cli-contract.md`` only."""
@@ -530,4 +551,6 @@ __all__ = [
     "iter_entities",
     "presentation_issues",
     "stackup_issues",
+    "parse_version",
+    "readable",
 ]

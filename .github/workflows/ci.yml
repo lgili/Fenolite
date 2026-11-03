@@ -306,7 +306,7 @@ jobs:
           if-no-files-found: error
 
   drawn-floor-bridge:
-    name: drawn-floor (same-commit native9/native10 electrical bridge)
+    name: drawn-floor (same-commit native10 upgrade qualification)
     needs: [kicad-9, kicad-10]
     if: always()
     runs-on: ubuntu-latest

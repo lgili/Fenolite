@@ -75,7 +75,7 @@ def test_net_ties_schema_in_step() -> None:
     library = json.loads((SCHEMAS / "library.json").read_text(encoding="utf-8"))
     assert board["$defs"]["FootprintInstance"]["properties"]["net_ties"] == GROUPS
     assert library["$defs"]["FootprintDef"]["properties"]["net_ties"] == GROUPS
-    assert SCHEMA_VERSION == "0"
+    assert SCHEMA_VERSION == "1.0"
 
 
 def test_waivers_round_trip_through_the_cache(tmp_path: Path) -> None:

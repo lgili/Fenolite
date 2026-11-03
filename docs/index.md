@@ -38,6 +38,7 @@ Create PCB projects from Python, inspect KiCad and Altium files, and review desi
 - [Detailed release scope and limits](release/v0.6.md) (0.6; [0.5](release/v0.5.md)).
 - [CLI reference and JSON contract](cli-contract.md).
 - [Model and units](design-model.md).
+- [Canonical model folders and migrations](model-versions.md).
 - [Evidence matrix](evidence/matrix.md).
 - [Changelog](../CHANGELOG.md).
 - [Contributing](../CONTRIBUTING.md) and [help](https://github.com/lgili/Fenolite/issues).

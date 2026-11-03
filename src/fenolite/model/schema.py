@@ -1,47 +1,49 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
-"""Schema ids of the canonical layer files. ``tools/gen_schemas.py`` generates one JSON Schema per
-entry into ``schemas/fenolite.model.v0/``; ids stay ``v0`` until 1.0."""
+"""Current model schema ids; earlier major directories remain immutable snapshots."""
 
 from __future__ import annotations
 
-SCHEMA_DIR = "schemas/fenolite.model.v0"
+from fenolite.model.design import SCHEMA_VERSION, parse_version
+
+_MAJOR = parse_version(SCHEMA_VERSION)[0]
+SCHEMA_DIR = f"schemas/fenolite.model.v{_MAJOR}"
 
 # layer file name -> (schema id, "module:Class")
 LAYER_SCHEMAS: dict[str, tuple[str, str]] = {
-    "meta.json": ("fenolite.meta.v0", "fenolite.model.design:DesignHeader"),
-    "circuit.json": ("fenolite.circuit.v0", "fenolite.model.circuit:Circuit"),
-    "board.json": ("fenolite.board.v0", "fenolite.model.board:Board"),
-    "rules.json": ("fenolite.rules.v0", "fenolite.model.rules:RuleSet"),
-    "manufacturing.json": ("fenolite.manufacturing.v0", "fenolite.model.manufacturing:Manifest"),
-    "findings.json": ("fenolite.findings.v0", "fenolite.model.findings:Findings"),
+    "meta.json": (f"fenolite.meta.v{_MAJOR}", "fenolite.model.design:DesignHeader"),
+    "circuit.json": (f"fenolite.circuit.v{_MAJOR}", "fenolite.model.circuit:Circuit"),
+    "board.json": (f"fenolite.board.v{_MAJOR}", "fenolite.model.board:Board"),
+    "rules.json": (f"fenolite.rules.v{_MAJOR}", "fenolite.model.rules:RuleSet"),
+    "manufacturing.json": (f"fenolite.manufacturing.v{_MAJOR}", "fenolite.model.manufacturing:Manifest"),
+    "findings.json": (f"fenolite.findings.v{_MAJOR}", "fenolite.model.findings:Findings"),
 }
 
 # Library definitions are reference data, not a layer of a design: (file name, schema id, "module:Class").
 LIBRARY_SCHEMA: tuple[str, str, str] = (
     "library.json",
-    "fenolite.library.v0",
+    f"fenolite.library.v{_MAJOR}",
     "fenolite.model.library:Library",
 )
 
 # Drawing sheets are definitions outside a design, like library definitions (change c0012).
 SHEET_SCHEMA: tuple[str, str, str] = (
     "drawing_sheet.json",
-    "fenolite.drawing_sheet.v0",
+    f"fenolite.drawing_sheet.v{_MAJOR}",
     "fenolite.model.presentation:DrawingSheet",
 )
 
 # Schematic sheets are definitions outside a design too (change c0060).
 SCHEMATIC_SCHEMA: tuple[str, str, str] = (
     "schematic.json",
-    "fenolite.schematic.v0",
+    f"fenolite.schematic.v{_MAJOR}",
     "fenolite.model.schematic:SchematicSheet",
 )
 
 # Panels are definitions outside a design too: copies of one built board (change c0173).
 PANEL_SCHEMA: tuple[str, str, str] = (
     "panel.json",
-    "fenolite.panel_model.v0",
+    f"fenolite.panel_model.v{_MAJOR}",
     "fenolite.model.panel:Panel",
 )
 

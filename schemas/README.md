@@ -100,14 +100,11 @@ tracked separately in `frozen-v0.json` while the active CLI writer remains v0.
 | `fenolite.block-layout-base.v0` | internal | `internal` | Protected copied-copper ownership base. |
 | `fenolite.block-layout.v0` | public | `fenolite.cli.file_formats:BlockLayoutFile` | User-authored input or agent-readable output. |
 | `fenolite.block.v0` | public | `fenolite.cli.file_formats:BlockFile` | User-authored input or agent-readable output. |
-| `fenolite.board.v0` | public | `fenolite.model.board:Board` | Canonical model target; c0218 owns activation and migration. |
 | `fenolite.build-record.v0` | public | `fenolite.cli.file_formats:BuildRecordFile` | User-authored input or agent-readable output. |
-| `fenolite.circuit.v0` | public | `fenolite.model.circuit:Circuit` | Canonical model target; c0218 owns activation and migration. |
 | `fenolite.conformance.v1` | public | `fenolite.backends.matrix:Conformance` | User-authored input or agent-readable output. |
 | `fenolite.device.v0` | public | `fenolite.cli.file_record_formats:LegacyDeviceFile` | Legacy device dialect; existing v1 dispatch is retained. |
 | `fenolite.device.v1` | public | `fenolite.cli.file_record_formats:DeviceFile` | Canonical device-record dialect, already v1. |
 | `fenolite.drawing-spec.v0` | public | `fenolite.cli.file_formats:DrawingSpecFile` | User-authored input or agent-readable output. |
-| `fenolite.drawing_sheet.v0` | public | `fenolite.model.presentation:DrawingSheet` | Canonical model target; c0218 owns activation and migration. |
 | `fenolite.drawn-schematic.v0` | public | `fenolite.cli.file_formats:DrawnSchematicFile` | User-authored input or agent-readable output. |
 | `fenolite.edits.v0` | public | `fenolite.cli.file_formats:EditsFile` | User-authored input or agent-readable output. |
 | `fenolite.envelope.v0` | public | `fenolite.cli.output:Envelope` | CLI protocol. |
@@ -115,7 +112,6 @@ tracked separately in `frozen-v0.json` while the active CLI writer remains v0.
 | `fenolite.export-preset.v0` | public | `fenolite.cli.file_formats:ExportPresetFile` | User-authored input or agent-readable output. |
 | `fenolite.family.v0` | public | `fenolite.cli.file_record_formats:FamilyRowsFile` | Enumerated row dialect; existing grammar dispatch is retained. |
 | `fenolite.family.v1` | public | `fenolite.cli.file_record_formats:FamilyGrammarFile` | Grammar dialect, already v1. |
-| `fenolite.findings.v0` | public | `fenolite.model.findings:Findings` | Canonical model target; c0218 owns activation and migration. |
 | `fenolite.import-provenance.v0` | public | `fenolite.cli.file_formats:ImportProvenanceFile` | User-authored input or agent-readable output. |
 | `fenolite.import.v0` | public | `fenolite.importer.schema:ImportReply` | Frozen legacy result schema. |
 | `fenolite.library-cache.v0` | internal | `internal` | Disposable library-download cache. |
@@ -128,15 +124,11 @@ tracked separately in `frozen-v0.json` while the active CLI writer remains v0.
 | `fenolite.library-releases.v0` | internal | `internal` | Packaged release-location policy. |
 | `fenolite.library-seed.v0` | public | `fenolite.cli.file_formats:LibrarySeedFile` | User-authored input or agent-readable output. |
 | `fenolite.library-sources.v0` | public | `fenolite.cli.file_formats:LibrarySourcesFile` | User-authored input or agent-readable output. |
-| `fenolite.library.v0` | public | `fenolite.model.library:Library` | Canonical model target; c0218 owns activation and migration. |
 | `fenolite.library_sheets.v0` | public | `fenolite.cli.file_formats:LibrarySheetsFile` | User-authored input or agent-readable output. |
 | `fenolite.lock.v0` | public | `fenolite.cli.file_formats:LockFile` | User-authored input or agent-readable output. |
-| `fenolite.manufacturing.v0` | public | `fenolite.model.manufacturing:Manifest` | Canonical model target; c0218 owns activation and migration. |
-| `fenolite.meta.v0` | public | `fenolite.model.design:DesignHeader` | Canonical model target; c0218 owns activation and migration. |
-| `fenolite.model.v0` | internal | `internal` | Schema-directory marker, not a document ID. |
+| `fenolite.model.v1` | internal | `internal` | Schema-directory marker, not a document ID. |
 | `fenolite.package.v0` | public | `fenolite.cli.file_record_formats:PackageFile` | User-authored input or agent-readable output. |
 | `fenolite.package.v1` | public | `fenolite.cli.file_record_formats:PackageFile` | Prepared mirror; v0 remains readable. |
-| `fenolite.panel_model.v0` | public | `fenolite.model.panel:Panel` | Canonical model target; c0218 owns activation and migration. |
 | `fenolite.part.v0` | public | `fenolite.cli.file_record_formats:PartFile` | User-authored input or agent-readable output. |
 | `fenolite.part.v1` | public | `fenolite.cli.file_record_formats:PartFile` | Prepared mirror; v0 remains readable. |
 | `fenolite.pins.v0` | public | `fenolite.cli.file_record_formats:PinsFile` | User-authored input or agent-readable output. |
@@ -152,9 +144,7 @@ tracked separately in `frozen-v0.json` while the active CLI writer remains v0.
 | `fenolite.role-copper.v0` | public | `fenolite.cli.file_formats:RoleCopperFile` | User-authored input or agent-readable output. |
 | `fenolite.roles.v0` | public | `fenolite.cli.file_formats:RolesFile` | User-authored input or agent-readable output. |
 | `fenolite.route-decisions.v0` | public | `fenolite.cli.file_source_formats:RouteDecisionsFile` | User-authored input or agent-readable output. |
-| `fenolite.rules.v0` | public | `fenolite.model.rules:RuleSet` | Canonical model target; c0218 owns activation and migration. |
 | `fenolite.schematic-composition.v0` | public | `fenolite.cli.file_formats:SchematicCompositionFile` | User-authored input or agent-readable output. |
-| `fenolite.schematic.v0` | public | `fenolite.model.schematic:SchematicSheet` | Canonical model target; c0218 owns activation and migration. |
 | `fenolite.snapshot.v0` | public | `fenolite.cli.file_formats:SnapshotFile` | User-authored input or agent-readable output. |
 | `fenolite.supplier-lookup.v0` | internal | `internal` | Python supplier negotiation marker, not a serialized document. |
 | `fenolite.supplier-proposal.v0` | public | `fenolite.cli.file_source_formats:SupplierProposalFile` | User-authored input or agent-readable output. |

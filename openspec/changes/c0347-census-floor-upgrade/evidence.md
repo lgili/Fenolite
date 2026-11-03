@@ -68,3 +68,24 @@ planted negative ensure all floor inputs stay required. Every existing library,
 reader, project, external-tool and heavy-input check remains enforced. The
 complete workflow plus bridge modules pass 70 tests in 0.28 seconds. No workflow
 command, resource, acceptance criterion or pending native9 contradiction changes.
+
+
+## User-authorized same-tool10 upgrade scope (2026-11-03)
+
+The user explicitly selected “Validar a atualização no KiCad10” after the retained
+native9-legacy-scope-review observation. This supersedes the earlier additional cross-major
+acceptance condition described above. Original floor refusal, original/native9 metadata and the
+196/44-versus284/84 observation for092 remain unchanged and visible; no original or9-equivalence
+claim follows. No supported-native9 job/census requirement is relaxed.
+
+Before the gate change, the independent planted9/10-disagreement control correctly fails the old
+cross-version condition (1failed). The revised gate preserves and validates both same-commit
+observations/context/inputs, but qualifies only SAME-native10 original→upgraded complete pin,
+partition and name signatures plus all three supported own/lowered/native checks. Changed10
+original/upgraded signatures, missing9 signature, malformed metadata, changed input/context,
+provenance/output digest and every incomplete comparison still refuse. Artifact schema and
+production parser/floor/model remain unchanged; ordinary supported9 tests remain strict.
+
+The initial focused floor/bridge/workflow group passes98 tests in1.09s. A further planted
+native10-original signature mismatch is included in final verification. Root-owned combined
+fast and exact-head required CI remain separate3.1 gates.

@@ -17,6 +17,27 @@ Every entity (`fenolite.model.base.Entity`) carries:
 Entities are frozen dataclasses; change them with `dataclasses.replace` and
 `Design.replace_entity`.
 
+## Model schema versions
+
+The active canonical model schema is `1.0`, independently of package and CLI versions.
+A model minor adds optional fields with defaults; changing a field's type, meaning or name, or
+removing one, raises the major. This reader accepts legacy `0` through the explicit `0 -> 1.0` migration and accepts
+its current major only through its supported minor. Newer minors/majors refuse with `FEN-3002` before
+unknown content is decoded; malformed input raises `FEN-3004`. Reading migrates in memory without writes; `fenolite migrate` reviews
+six atomic writes and keeps backups. See [model folders and migration](model-versions.md).
+
+Earlier sections saying that `schema_version` stays `0` describe their historical pre-freeze changes;
+their version rule is this section. Their integer units, fields/defaults, identifiers and opaque
+extensions are retained. The first migration changes the schema marker; canonical writing records
+the current package version using its existing rule. The ten model0 schemas remain immutable byte
+snapshots, while active model1 schemas are generated from the current fields. No field is renamed or dropped.
+The informational finding `model.migrated` records in-memory migration.
+
+| Version | Reading and writing |
+|---|---|
+| `0` | Read-only legacy input; preserved schemas and release fixtures |
+| `1.0` | Active canonical writer and current reader |
+
 ## Units
 
 Lengths are `int` nanometres, angles `int` microdegrees; floats are rejected everywhere
@@ -39,7 +60,7 @@ objects change; the diff matches such objects by content.
 
 | File | Class | Contents |
 |---|---|---|
-| `meta.json` | `DesignHeader` | id, name, `schema_version` (`"0"`), `fenolite_version` |
+| `meta.json` | `DesignHeader` | id, name, `schema_version` (`"1.0"`), `fenolite_version` |
 | `circuit.json` | `Circuit` | components (pins), nets (pin members), net classes, interfaces, modules, block ports, no-connect marks |
 | `board.json` | `Board` | outline, layers, stack-up, footprints (pads), tracks, arcs, vias, zones, keep-outs, texts, graphics, holes |
 | `rules.json` | `RuleSet` | rules: kind, selectors, layers, min/opt/max, severity, priority (1 = highest); check severities |
@@ -62,7 +83,7 @@ that the design leaves unconnected on purpose (`no_connect` of `docs/dsl.md`).
   `Pin.etype == "no_connect"` still means the pin type that the symbol declares. A mark has no id.
 - The field is additive: `canonical` omits the default, so a design without marks gives the
   `circuit.json` bytes it gave before, and a file without the key `no_connects` loads with `()`.
-  `SCHEMA_VERSION` stays `"0"`; `schemas/fenolite.model.v0/circuit.json` lists `no_connects` as an
+  The historical schema was `"0"`; see [version history](#model-schema-versions); `schemas/fenolite.model.v0/circuit.json` lists `no_connects` as an
   optional array of pin references.
 - `Design.validate()` reports three findings for a mark, each with `where` set to `<ref>-<pin>` (or
   `<component id>-<pin>` when the component is unknown):
@@ -82,7 +103,7 @@ that the design leaves unconnected on purpose (`no_connect` of `docs/dsl.md`).
 - A bus differs from an `Interface`, which maps role names to nets. A group of nets with different names
   (a harness, a KiCad group bus) stays an `Interface`.
 - The change is additive: a design without buses gives the `circuit.json` bytes it gave before, and a file
-  without the key `buses` loads with `()`. `SCHEMA_VERSION` stays `"0"`.
+  without the key `buses` loads with `()`. The historical schema was `"0"`; see [version history](#model-schema-versions).
 - `Design.entities()` yields buses. `Design.validate()` reports, with `where` set to the bus name:
   - `model.unknown-net` (error): a member's `net_id` is no net of the circuit;
   - `model.duplicate-bus-index` (error): an index is used twice in one bus.
@@ -123,7 +144,7 @@ c0246) holds the exact range of a part value given as a DSL `Range` (`docs/dsl.m
   | time | 1 fs | 10^6 s |
 
 - The field is additive: `canonical` omits `None`, a `circuit.json` without the key loads with `None`,
-  `SCHEMA_VERSION` stays `"0"`, and `schemas/fenolite.model.v0/circuit.json` lists `value_range` as
+  The historical schema was `"0"`; see [version history](#model-schema-versions), and `schemas/fenolite.model.v0/circuit.json` lists `value_range` as
   optional. No backend writes or reads it: a build keeps it in `.fenolite/circuit.json` only, and a board
   read from KiCad without `.fenolite/` has `None`. The unit tables of the DSL arithmetic
   (`quantity.UNIT_PRODUCTS`, `quantity.UNIT_QUOTIENTS`) are in `docs/dsl.md`, "Ranges".
@@ -342,7 +363,7 @@ pin in several pairs: `(("3", "3"), ("3", "EP"))` bonds pin 3 to the pads 3 and 
   one pad per pin, and a test refuses it anywhere in `src/fenolite` outside `model/circuit.py`.
 - **Canonical form.** The field did not change: same name, same type, same place, pairs written in the
   order held, an empty map left out. A design whose pins have one pad each is written byte for byte as
-  before, and a document written before loads as it is; nothing is migrated. `SCHEMA_VERSION` stays `"0"`
+  before, and a document written before loads as it is; nothing is migrated. The historical schema was `"0"`; see [version history](#model-schema-versions)
   (decided by the maintainer on 2026-10-06), and `schemas/fenolite.model.v0/circuit.json` gained only a
   description of the field.
 - **The cost of keeping the version.** Fenolite 0.2.x and earlier read a document that holds a pin of
@@ -434,7 +455,7 @@ c0126).
   read them: a design read from a KiCad board has empty `graphics` and `texts` and no ratio, and keeps
   its footprint drawings where it always kept them, in the footprint's opaque slots.
   `backends.kicad.fpitems.with_footprint_items` gives them on request, as read-only copies.
-- **Old model documents.** The three fields are additive and `SCHEMA_VERSION` stays `"0"`. The canonical
+- **Old model documents.** The three fields are additive and the historical schema was `"0"`; see [version history](#model-schema-versions). The canonical
   form leaves a field at its default out, so a design without footprint items gives the `board.json`
   bytes it gave before, and a model document without the keys `graphics`, `texts` and `corner_ratio`
   loads unchanged: `tests/data/model/v0.2.0/blink_2layer.board.json`, which release 0.2.0 itself wrote,
@@ -475,7 +496,7 @@ a board whose source states none has `stackup` `None`, and the model then holds 
   is what KiCad writes for a solder mask).
 - The three fields are additive: `canonical` omits the defaults, a `board.json` written before them loads
   unchanged and serialises to its own bytes (`tests/data/model/v0.2.1/blink_2layer.board.json`), and
-  `schema_version` stays `"0"`. The other direction does not hold. Release 0.2.x cannot read a model
+  the historical schema was `"0"`; see [version history](#model-schema-versions). The other direction does not hold. Release 0.2.x cannot read a model
   document that carries `dielectric_kind`, `color` or `impedance_controlled`: its reader refuses an
   unknown key.
 
@@ -520,7 +541,7 @@ via, for `capping` and `filling`), `False` that it is not.
 - The two fields are additive: `canonical` omits the defaults, so a via whose protection is
   `ViaProtection()` and a board without a default write the text they wrote before, a `board.json` written
   before them loads unchanged and serialises to its own bytes
-  (`tests/data/model/v0.2.1/blink_2layer.board.json`), and `schema_version` stays `"0"`. The other
+  (`tests/data/model/v0.2.1/blink_2layer.board.json`), and the historical schema was `"0"`; see [version history](#model-schema-versions). The other
   direction does not hold. Fenolite 0.2.x and 0.3.0 cannot read a `board.json` that carries `protection` or
   `via_protection`: their reader of the canonical form is strict.
 
@@ -549,7 +570,7 @@ and via gap are values of the net class of its two nets, and its limits are rule
   `Selector("diff_pair", v)` matches a subject whose base matches `v` as a glob with its letter case, or
   ends with `_` and matches `v` without that `_`.
 - The fields, the kinds and the leaf are additive: `canonical` omits the defaults, a `circuit.json` and a
-  `rules.json` written before them load unchanged, and `schema_version` stays `"0"`. The other direction
+  `rules.json` written before them load unchanged, and the historical schema was `"0"`; see [version history](#model-schema-versions). The other direction
   does not hold. Fenolite 0.2.x and 0.3.0 cannot read a `circuit.json` or a `rules.json` that carries them
   (one of the three class keys, one of the five kinds or a `diff_pair` leaf): their reader of the canonical
   form is strict. A build regenerates `.fenolite/`.
@@ -571,7 +592,7 @@ pads. `fenolite.model.rules` defines two frozen value objects for it, without an
   (`docs/dsl.md`, `near`), and `fenolite.checks.placement.judge` judges them (`docs/placement.md`).
 - The field is additive: `canonical` omits `proximity` when it is empty, so a design that declares no
   rule writes the bytes it wrote before and every output of 0.2.0 keeps its bytes, a `rules.json` written
-  before the field loads unchanged, and `schema_version` stays `"0"`. The other direction does not hold.
+  before the field loads unchanged, and the historical schema was `"0"`; see [version history](#model-schema-versions). The other direction does not hold.
   Fenolite 0.2.x and 0.3.0 cannot read a `rules.json` that carries `proximity`: their reader of the
   canonical form is strict.
 
@@ -589,7 +610,7 @@ pads. `fenolite.model.rules` defines two frozen value objects for it, without an
   (`docs/placement.md`).
 - The field is additive: `canonical` omits `heights` when it is empty, so a design that declares no limit
   writes the bytes it wrote before, a `rules.json` written before the field loads unchanged, and
-  `schema_version` stays `"0"`. The other direction does not hold. Fenolite 0.2.x and 0.3.0 cannot read a
+  the historical schema was `"0"`; see [version history](#model-schema-versions). The other direction does not hold. Fenolite 0.2.x and 0.3.0 cannot read a
   `rules.json` that carries `heights`: their reader of the canonical form is strict.
 
 ## Net roles
@@ -628,7 +649,7 @@ an integer (nm, nm², mA, mV, mK, per mille).
   (`fenolite.roles.v0`, `docs/roles.md`).
 - The field is additive: an empty `RoleSet` is stored as `None` and `canonical` omits `roles` then, so a
   design without roles writes the bytes it wrote before, a `rules.json` written before the field loads
-  with `roles` `None`, and `schema_version` stays `"0"`. The other direction does not hold. Fenolite
+  with `roles` `None`, and the historical schema was `"0"`; see [version history](#model-schema-versions). The other direction does not hold. Fenolite
   0.5.0 cannot read a `rules.json` that carries `roles`: its reader of the canonical form is strict.
 
 ## Electrical contracts
@@ -674,7 +695,7 @@ unknown="info", expects=(), rig=())`, every range in c0246's encoding (a unit na
   tolerance text that is not a positive decimal or a tolerance of 100 or more.
 - Every width and gap is the user's or a KiCad profile's: no estimate enters the model.
 - The field is additive: `canonical` omits `impedance` when it is empty, a `rules.json` written before the
-  field loads with an empty tuple, and `schema_version` stays `"0"`. The other direction does not hold:
+  field loads with an empty tuple, and the historical schema was `"0"`; see [version history](#model-schema-versions). The other direction does not hold:
   0.2.x and 0.3.0 cannot read a `rules.json` that carries the key `impedance`, because their reader of the
   canonical form is strict.
 
@@ -748,7 +769,7 @@ Change c0251 records the blocks of a design script (`docs/dsl.md`, "Blocks").
   empty `name` or `kind` raises `ValueError`.
 - The fields are additive: each is omitted from `circuit.json` when empty or default, so a design without
   blocks gives the bytes it gave before, and an older file loads with `block == ""`, no params and no
-  ports. `SCHEMA_VERSION` stays `"0"`. No backend writes ports to a KiCad or Altium file.
+  ports. The historical schema was `"0"`; see [version history](#model-schema-versions). No backend writes ports to a KiCad or Altium file.
 
 - Change c0268 adds `Module.block_version: str` (empty by default): the version of the block with a record
   that made the module, `MAJOR.MINOR.PATCH`; `block` is then the record's id (`Acme:divider`). A version
@@ -838,7 +859,7 @@ order; the five pair and length kinds of change c0104 ("Differential pairs") fol
 
 The kind is additive in one direction only. A `rules.json` without a `no_tracks` rule is, byte for byte,
 what it was (`tests/data/model/v0.2.1/twelve_kinds.rules.json` loads and serialises to its own bytes), and
-`schema_version` stays `"0"`.
+the historical schema was `"0"`; see [version history](#model-schema-versions).
 Releases 0.2.x and 0.3.x cannot read a model document that holds a `no_tracks` rule: their `RuleKind` lacks
 the value.
 ## Net ties, waivers and check severities

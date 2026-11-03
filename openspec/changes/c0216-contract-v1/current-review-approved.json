@@ -1,0 +1,86 @@
+{
+  "reviewer": "Luiz Carlos Gili",
+  "decision_date": "2026-11-03",
+  "decision": "KEEP original current-source public API packet plus explicitly approved project method delta; no rename/drop",
+  "reviewed_source": "613b78dfb000166964d2d84c9ef6703d5291eb5a",
+  "reviewed_packet_sha256": "fe061eb015e508cafc190cd79f83275549be075959c00e33fbc8b2df777ae9e6",
+  "approved_decisions_sha256": "fc6ea31950082cf9c3a8cbf7751afb23ae49b3b25bb80ef223a62bb12a2ae146",
+  "commands": 57,
+  "option_rows": 713,
+  "export_name_rows": 185,
+  "expanded_python_rows": 1415,
+  "added_method": {
+    "name": "fenolite.dsl.Design.kicad_project",
+    "signature": "(path: str, *, sha256: str, preserve_minimums: bool = False) -> None",
+    "decision": "keep",
+    "actual_user_complement": "Aprovo tamb\u00e9m esse m\u00e9todo"
+  },
+  "later_model_migrate_command": {
+    "decision": "keep",
+    "actual_user_complement": "Aprovo incluir migrate",
+    "scope": "58th visible command: migrate DIR; schema1.0 folder migration under dry-run reviewed plan and confirmation; no CAD process or design script execution",
+    "descriptor": {
+      "default_limit": null,
+      "deprecated": null,
+      "experimental": false,
+      "mutates": true,
+      "options": {
+        "--confirm": {
+          "aliases": [
+            "--confirm"
+          ],
+          "choices": null,
+          "default": false,
+          "deprecated": null,
+          "experimental": false,
+          "nargs": 0,
+          "positional": false,
+          "required": false,
+          "type": "boolean"
+        },
+        "--dry-run": {
+          "aliases": [
+            "--dry-run"
+          ],
+          "choices": null,
+          "default": false,
+          "deprecated": null,
+          "experimental": false,
+          "nargs": 0,
+          "positional": false,
+          "required": false,
+          "type": "boolean"
+        },
+        "--plan": {
+          "aliases": [
+            "--plan"
+          ],
+          "choices": null,
+          "default": null,
+          "deprecated": null,
+          "experimental": false,
+          "nargs": null,
+          "positional": false,
+          "required": false,
+          "type": "string"
+        },
+        "folder": {
+          "aliases": [
+            "folder"
+          ],
+          "choices": null,
+          "default": null,
+          "deprecated": null,
+          "experimental": false,
+          "nargs": null,
+          "positional": true,
+          "required": true,
+          "type": "string"
+        }
+      },
+      "paged": null
+    },
+    "combined_surface_sha256": "7e94b7e5e17442d10a6a1869ab692f17b5cfbece36a1087362dd72250c0c8031"
+  },
+  "approved_visible_commands_after_supplement": 58
+}

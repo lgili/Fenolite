@@ -75,6 +75,7 @@ uses = ["sch-old", "origin:kicad-demos"]
         native_version="10.0.6",
         status="upgraded/equal",
         upgrade_capability=True,
+        upgrade_bridge_equal=True,
         upgraded_native=dict(signature),
         upgrades=[
             {
@@ -113,9 +114,12 @@ def test_complete_authored_same_commit_bridge_passes(tmp_path) -> None:
         "input",
         "context",
         "native-pin",
+        "ten-original-pin",
         "partition",
         "name",
         "missing-signature",
+        "invalid-nine-signature",
+        "bridge-flag",
         "incomplete-census",
         "missing-comparison",
         "naming",
@@ -145,9 +149,15 @@ def test_planted_cross_job_failures_refuse(defect: str, tmp_path) -> None:
         old["context"]["instances"][0]["input_sha256"] = "0" * 64
     elif defect in {"native-pin", "partition", "name"}:
         field = {"native-pin": "pins_sha256", "partition": "partition_sha256", "name": "named_sha256"}[defect]
-        old["original_native"][field] = "0" * 64
+        new["upgraded_native"][field] = "0" * 64
+    elif defect == "ten-original-pin":
+        new["original_native"]["pins_sha256"] = "d" * 64
     elif defect == "missing-signature":
         del old["original_native"]["pins_sha256"]
+    elif defect == "invalid-nine-signature":
+        old["original_native"]["pins"] = True
+    elif defect == "bridge-flag":
+        new["upgrade_bridge_equal"] = False
     elif defect == "incomplete-census":
         new["upgraded_census"]["status"] = "refused"
     elif defect == "missing-comparison":
@@ -180,3 +190,14 @@ def test_ci_keeps_both_failed_artifacts_and_requires_the_complete_bridge() -> No
     assert command in workflow
     assert 'test "$NATIVE_NINE_RESULT" = success' in workflow
     assert 'test "$NATIVE_TEN_RESULT" = success' in workflow
+
+
+def test_native_ten_upgrade_scope_preserves_a_disagreeing_nine_observation(tmp_path) -> None:
+    manifest, records = authored_reports(tmp_path)
+    observed9 = records[0]["original_native"]
+    observed9.update(pins=1, groups=1, pins_sha256="a" * 64, partition_sha256="b" * 64, named_sha256="c" * 64)
+    before = copy.deepcopy(records)
+    (tmp_path / "drawn-floor.json").write_text(json.dumps(records))
+    assert bridge.verify(tmp_path, manifest, "authored-code") == 1
+    assert json.loads((tmp_path / "drawn-floor.json").read_text()) == before
+    assert records[0]["status"] == "original/refused" and not records[0]["upgrade_capability"]

@@ -1,7 +1,7 @@
 ---
 topic: recovery
 title: Recovery: what to do for each exit code
-summary: One tested recipe per exit code from 2 to 7 and for shorted copper, the table of every error code, and reading the guide itself.
+summary: Tested recipes for exit codes 2–7 and shorted copper, error codes and reading the guide.
 ---
 
 # Recovery: what to do for each exit code

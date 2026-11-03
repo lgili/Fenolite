@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Any
 
 from fenolite import __version__
-from fenolite.core.errors import FormatError
+from fenolite.core.errors import FormatError, Issue
 from fenolite.core.io import atomic_write
 from fenolite.model.base import Entity
 from fenolite.model.board import Board
@@ -31,6 +31,7 @@ from fenolite.model.circuit import Circuit
 from fenolite.model.design import SCHEMA_VERSION, Design, DesignHeader
 from fenolite.model.findings import Findings
 from fenolite.model.manufacturing import Manifest
+from fenolite.model.migrate import Folder, MigrationError, migrate, validate_version
 from fenolite.model.rules import RuleSet
 
 LAYER_FILES: tuple[tuple[str, str, type], ...] = (
@@ -231,15 +232,37 @@ def loads(text: str, cls: type, *, file: str = "") -> Any:
     return decode(cls, data, "", file)
 
 
-def load_dir(path: str | Path) -> Design:
-    """Read the six layer files written by :func:`dump_dir`."""
+def _read_json(path: Path) -> Any:
+    if not path.is_file():
+        raise FormatError("missing layer file", file=str(path))
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise FormatError(f"invalid JSON: {exc.msg}", file=str(path), offset=exc.pos) from exc
+
+
+def read_data(path: str | Path) -> Folder:
+    """Read raw layer JSON, refusing future versions before reading the other layers."""
+    root = Path(path)
+    raw_meta = _read_json(root / "meta.json")
+    if not isinstance(raw_meta, dict):
+        raise MigrationError("expected a meta.json object", file=str(root / "meta.json"), locator="/")
+    meta = typing.cast(dict[str, Any], raw_meta)
+    validate_version(meta.get("schema_version"), file=str(root / "meta.json"))
+    data: Folder = {"meta.json": meta}
+    for file_name, _, _ in LAYER_FILES[1:]:
+        data[file_name] = _read_json(root / file_name)
+    return data
+
+
+def from_data(data: Folder, *, path: str | Path = "") -> Design:
+    """Decode migrated folder JSON against the active model's strict type annotations."""
     root = Path(path)
     parts: dict[str, Any] = {}
     for file_name, attr, cls in LAYER_FILES:
-        target = root / file_name
-        if not target.is_file():
-            raise FormatError("missing layer file", file=str(target))
-        parts[attr] = loads(target.read_text(encoding="utf-8"), cls, file=str(target))
+        if file_name not in data:
+            raise FormatError("missing layer file", file=str(root / file_name))
+        parts[attr] = decode(cls, data[file_name], file=str(root / file_name))
     header: DesignHeader = parts["header"]
     if header.schema_version != SCHEMA_VERSION:
         raise FormatError(
@@ -250,4 +273,30 @@ def load_dir(path: str | Path) -> Design:
     return Design(**parts)
 
 
-__all__ = ["LAYER_FILES", "decode", "dump_dir", "dump_texts", "dumps", "load_dir", "loads", "to_data"]
+def load_dir(path: str | Path) -> Design:
+    """Read six layers, migrate older folders in memory and report the steps without writing."""
+    data = read_data(path)
+    migrated, steps = migrate(data, data["meta.json"]["schema_version"], file=str(Path(path) / "meta.json"))
+    design = from_data(migrated, path=path)
+    if steps:
+        note = Issue(
+            "model.migrated", "info", "model migrated in memory: " + "; ".join(steps), where=str(path)
+        )
+        design = dataclasses.replace(
+            design, findings=dataclasses.replace(design.findings, issues=(*design.findings.issues, note))
+        )
+    return design
+
+
+__all__ = [
+    "LAYER_FILES",
+    "decode",
+    "dump_dir",
+    "dump_texts",
+    "dumps",
+    "from_data",
+    "load_dir",
+    "loads",
+    "read_data",
+    "to_data",
+]

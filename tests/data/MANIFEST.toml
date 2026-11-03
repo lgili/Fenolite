@@ -4996,3 +4996,213 @@ path = "tests/data/fidelity/sensor/sheets/channel.kicad_sch"
 origin = "authored"
 corpus_id = ""
 notes = "authored shared nonempty child sheet of sensor ch0/ch1, saved by the real KiCad10.0.6 GUI on2026-11-02 through both ch0/ch1 contexts; native partition retains R2/R3 and separate SENSE nets"
+
+[[file]]
+path = "tests/data/model/v0.1.0/SOURCE"
+origin = "authored"
+corpus_id = ""
+notes = "Own CC0 Mini example rebuilt offline from pinned public tag v0.1.0; SOURCE records original model0 hashes (c0218)."
+
+[[file]]
+path = "tests/data/model/v0.1.0/board.json"
+origin = "authored"
+corpus_id = ""
+notes = "Own CC0 Mini example rebuilt offline from pinned public tag v0.1.0; SOURCE records original model0 hashes (c0218)."
+
+[[file]]
+path = "tests/data/model/v0.1.0/circuit.json"
+origin = "authored"
+corpus_id = ""
+notes = "Own CC0 Mini example rebuilt offline from pinned public tag v0.1.0; SOURCE records original model0 hashes (c0218)."
+
+[[file]]
+path = "tests/data/model/v0.1.0/findings.json"
+origin = "authored"
+corpus_id = ""
+notes = "Own CC0 Mini example rebuilt offline from pinned public tag v0.1.0; SOURCE records original model0 hashes (c0218)."
+
+[[file]]
+path = "tests/data/model/v0.1.0/manufacturing.json"
+origin = "authored"
+corpus_id = ""
+notes = "Own CC0 Mini example rebuilt offline from pinned public tag v0.1.0; SOURCE records original model0 hashes (c0218)."
+
+[[file]]
+path = "tests/data/model/v0.1.0/meta.json"
+origin = "authored"
+corpus_id = ""
+notes = "Own CC0 Mini example rebuilt offline from pinned public tag v0.1.0; SOURCE records original model0 hashes (c0218)."
+
+[[file]]
+path = "tests/data/model/v0.1.0/rules.json"
+origin = "authored"
+corpus_id = ""
+notes = "Own CC0 Mini example rebuilt offline from pinned public tag v0.1.0; SOURCE records original model0 hashes (c0218)."
+
+[[file]]
+path = "tests/data/model/v0.2.0/SOURCE"
+origin = "authored"
+corpus_id = ""
+notes = "Own CC0 Mini example rebuilt offline from pinned public tag v0.2.0; SOURCE records original model0 hashes (c0218)."
+
+[[file]]
+path = "tests/data/model/v0.2.0/board.json"
+origin = "authored"
+corpus_id = ""
+notes = "Own CC0 Mini example rebuilt offline from pinned public tag v0.2.0; SOURCE records original model0 hashes (c0218)."
+
+[[file]]
+path = "tests/data/model/v0.2.0/circuit.json"
+origin = "authored"
+corpus_id = ""
+notes = "Own CC0 Mini example rebuilt offline from pinned public tag v0.2.0; SOURCE records original model0 hashes (c0218)."
+
+[[file]]
+path = "tests/data/model/v0.2.0/findings.json"
+origin = "authored"
+corpus_id = ""
+notes = "Own CC0 Mini example rebuilt offline from pinned public tag v0.2.0; SOURCE records original model0 hashes (c0218)."
+
+[[file]]
+path = "tests/data/model/v0.2.0/manufacturing.json"
+origin = "authored"
+corpus_id = ""
+notes = "Own CC0 Mini example rebuilt offline from pinned public tag v0.2.0; SOURCE records original model0 hashes (c0218)."
+
+[[file]]
+path = "tests/data/model/v0.2.0/meta.json"
+origin = "authored"
+corpus_id = ""
+notes = "Own CC0 Mini example rebuilt offline from pinned public tag v0.2.0; SOURCE records original model0 hashes (c0218)."
+
+[[file]]
+path = "tests/data/model/v0.2.0/rules.json"
+origin = "authored"
+corpus_id = ""
+notes = "Own CC0 Mini example rebuilt offline from pinned public tag v0.2.0; SOURCE records original model0 hashes (c0218)."
+
+[[file]]
+path = "tests/data/model/v0.3.0/SOURCE"
+origin = "authored"
+corpus_id = ""
+notes = "Own CC0 Mini example rebuilt offline from pinned public tag v0.3.0; SOURCE records original model0 hashes (c0218)."
+
+[[file]]
+path = "tests/data/model/v0.3.0/board.json"
+origin = "authored"
+corpus_id = ""
+notes = "Own CC0 Mini example rebuilt offline from pinned public tag v0.3.0; SOURCE records original model0 hashes (c0218)."
+
+[[file]]
+path = "tests/data/model/v0.3.0/circuit.json"
+origin = "authored"
+corpus_id = ""
+notes = "Own CC0 Mini example rebuilt offline from pinned public tag v0.3.0; SOURCE records original model0 hashes (c0218)."
+
+[[file]]
+path = "tests/data/model/v0.3.0/findings.json"
+origin = "authored"
+corpus_id = ""
+notes = "Own CC0 Mini example rebuilt offline from pinned public tag v0.3.0; SOURCE records original model0 hashes (c0218)."
+
+[[file]]
+path = "tests/data/model/v0.3.0/manufacturing.json"
+origin = "authored"
+corpus_id = ""
+notes = "Own CC0 Mini example rebuilt offline from pinned public tag v0.3.0; SOURCE records original model0 hashes (c0218)."
+
+[[file]]
+path = "tests/data/model/v0.3.0/meta.json"
+origin = "authored"
+corpus_id = ""
+notes = "Own CC0 Mini example rebuilt offline from pinned public tag v0.3.0; SOURCE records original model0 hashes (c0218)."
+
+[[file]]
+path = "tests/data/model/v0.3.0/rules.json"
+origin = "authored"
+corpus_id = ""
+notes = "Own CC0 Mini example rebuilt offline from pinned public tag v0.3.0; SOURCE records original model0 hashes (c0218)."
+
+[[file]]
+path = "tests/data/model/v0.4.0/SOURCE"
+origin = "authored"
+corpus_id = ""
+notes = "Own CC0 Mini example rebuilt offline from pinned public tag v0.4.0; SOURCE records original model0 hashes (c0218)."
+
+[[file]]
+path = "tests/data/model/v0.4.0/board.json"
+origin = "authored"
+corpus_id = ""
+notes = "Own CC0 Mini example rebuilt offline from pinned public tag v0.4.0; SOURCE records original model0 hashes (c0218)."
+
+[[file]]
+path = "tests/data/model/v0.4.0/circuit.json"
+origin = "authored"
+corpus_id = ""
+notes = "Own CC0 Mini example rebuilt offline from pinned public tag v0.4.0; SOURCE records original model0 hashes (c0218)."
+
+[[file]]
+path = "tests/data/model/v0.4.0/findings.json"
+origin = "authored"
+corpus_id = ""
+notes = "Own CC0 Mini example rebuilt offline from pinned public tag v0.4.0; SOURCE records original model0 hashes (c0218)."
+
+[[file]]
+path = "tests/data/model/v0.4.0/manufacturing.json"
+origin = "authored"
+corpus_id = ""
+notes = "Own CC0 Mini example rebuilt offline from pinned public tag v0.4.0; SOURCE records original model0 hashes (c0218)."
+
+[[file]]
+path = "tests/data/model/v0.4.0/meta.json"
+origin = "authored"
+corpus_id = ""
+notes = "Own CC0 Mini example rebuilt offline from pinned public tag v0.4.0; SOURCE records original model0 hashes (c0218)."
+
+[[file]]
+path = "tests/data/model/v0.4.0/rules.json"
+origin = "authored"
+corpus_id = ""
+notes = "Own CC0 Mini example rebuilt offline from pinned public tag v0.4.0; SOURCE records original model0 hashes (c0218)."
+
+[[file]]
+path = "tests/data/model/v0.5.0/SOURCE"
+origin = "authored"
+corpus_id = ""
+notes = "Own CC0 Mini example rebuilt offline from pinned public tag v0.5.0; SOURCE records original model0 hashes (c0218)."
+
+[[file]]
+path = "tests/data/model/v0.5.0/board.json"
+origin = "authored"
+corpus_id = ""
+notes = "Own CC0 Mini example rebuilt offline from pinned public tag v0.5.0; SOURCE records original model0 hashes (c0218)."
+
+[[file]]
+path = "tests/data/model/v0.5.0/circuit.json"
+origin = "authored"
+corpus_id = ""
+notes = "Own CC0 Mini example rebuilt offline from pinned public tag v0.5.0; SOURCE records original model0 hashes (c0218)."
+
+[[file]]
+path = "tests/data/model/v0.5.0/findings.json"
+origin = "authored"
+corpus_id = ""
+notes = "Own CC0 Mini example rebuilt offline from pinned public tag v0.5.0; SOURCE records original model0 hashes (c0218)."
+
+[[file]]
+path = "tests/data/model/v0.5.0/manufacturing.json"
+origin = "authored"
+corpus_id = ""
+notes = "Own CC0 Mini example rebuilt offline from pinned public tag v0.5.0; SOURCE records original model0 hashes (c0218)."
+
+[[file]]
+path = "tests/data/model/v0.5.0/meta.json"
+origin = "authored"
+corpus_id = ""
+notes = "Own CC0 Mini example rebuilt offline from pinned public tag v0.5.0; SOURCE records original model0 hashes (c0218)."
+
+[[file]]
+path = "tests/data/model/v0.5.0/rules.json"
+origin = "authored"
+corpus_id = ""
+notes = "Own CC0 Mini example rebuilt offline from pinned public tag v0.5.0; SOURCE records original model0 hashes (c0218)."

@@ -4,7 +4,7 @@
 tooling holes (capability design-model, "Panels in the model"; change c0173).
 
 The panel is a definition outside ``Design``, as a drawing sheet is: written as canonical JSON
-``<name>.panel.json`` (schema ``schemas/fenolite.model.v0/panel.json``), lengths in nanometres and angles
+``<name>.panel.json`` (schema ``schemas/fenolite.model.v1/panel.json``), lengths in nanometres and angles
 in microdegrees. Its coordinates are panel-relative: the origin is the panel's top-left corner and Y points
 down, as ``board()`` of a design script. ``fenolite.panel.layout`` turns a panel and its board into the
 places of every copy, tab, hole and score line; nothing here is laid out.

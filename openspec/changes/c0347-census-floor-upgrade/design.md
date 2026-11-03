@@ -32,3 +32,26 @@ adding the required sch fetch. Update the closed fetch-step marker and ensure
 planted missing-library and heavy-exclusion mutations actually change the
 current command. Add an explicit required-sch negative. Do not remove any
 resource guard, narrow the corpus fetch or waive either native gate.
+
+
+## Maintainer-authorized native10 upgrade qualification (2026-11-03)
+
+The user explicitly chose “Validar a atualização no KiCad10” after reviewing the retained legacy
+native9 discrepancy. This supersedes the earlier additional cross-major acceptance requirement for
+below-reader-floor upgrade qualification. It does not change any reader floor or supported-native9
+requirement: all original below-floor rows still refuse FEN3003 and every supported9 case remains
+strict in its existing job. Both same-commit artifacts, identical originals/context and the actual
+9 observation remain required and visible. No9-equivalence or original-support claim is made.
+
+Only the upgraded-copy qualification is established by the SAME native10 executable exporting the
+complete original and upgraded graphs, exact pin universe/partitions/names, immutable source and
+per-file upgrade provenance, followed by all three complete supported own/lowered/native checks.
+For092, retain the historical196pins/44groups9 versus284pins/84groups10 observations; do not
+intersect/filter the88pin/40group discrepancy or relabel either original. Native10 original and
+upgraded both have284/84 and become exact after the independent c0350 root-HLabel repair.
+
+The bridge verifier must validate the structure/provenance of both observations, compare10 original
+against10 upgraded, and retain all changed-pin/name/partition/provenance/context negatives. A
+measured cross-version disagreement alone is no longer a failure of a10-only upgrade claim. This
+is explicit maintainer-authorized scope, not an inferred acceptance change or data-specific waiver.
+No artifact format/schema/model/production reader changes are needed.

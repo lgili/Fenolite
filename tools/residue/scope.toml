@@ -104,3 +104,28 @@ reason = "Authored c0265 one-page PDF: its six ten-digit xref offsets are PDF st
 path = "examples/import_python/native/project.kicad_pro"
 pattern = "numeric-code"
 reason = "Exact digest-bound copy of the already waived Fenolite-authored tests/data/import_python/two_sheet/two_sheet.kicad_pro (c0351): both numeric matches are KiCad INT_MAX class priority 2147483647. Source and sidecar SHA-256 are c0c49764831dbbb9ab9a54a643153d4fb636b70e8113c56e328e1f431f78173f. All other public/private patterns and known-blob checks remain active."
+
+[[waiver]]
+path = "tests/data/model/v0.1.0/board.json"
+pattern = "numeric-code"
+reason = "Authored blink_2layer integer nanometre coordinates 100000000 to 150000000 (outline and three placements), reproduced offline from public Fenolite tag v0.1.0 with original SOURCE commit/SHA256 (c0218). Exact-byte legacy migration input; all other residue/private patterns still apply."
+
+[[waiver]]
+path = "tests/data/model/v0.2.0/board.json"
+pattern = "numeric-code"
+reason = "Authored blink_2layer integer nanometre coordinates 100000000 to 150000000 (outline and three placements), reproduced offline from public Fenolite tag v0.2.0 with original SOURCE commit/SHA256 (c0218). Exact-byte legacy migration input; all other residue/private patterns still apply."
+
+[[waiver]]
+path = "tests/data/model/v0.3.0/board.json"
+pattern = "numeric-code"
+reason = "Authored blink_2layer integer nanometre coordinates 100000000 to 150000000 (outline and three placements), reproduced offline from public Fenolite tag v0.3.0 with original SOURCE commit/SHA256 (c0218). Exact-byte legacy migration input; all other residue/private patterns still apply."
+
+[[waiver]]
+path = "tests/data/model/v0.4.0/board.json"
+pattern = "numeric-code"
+reason = "Authored blink_2layer integer nanometre coordinates 100000000 to 150000000 (outline and three placements), reproduced offline from public Fenolite tag v0.4.0 with original SOURCE commit/SHA256 (c0218). Exact-byte legacy migration input; all other residue/private patterns still apply."
+
+[[waiver]]
+path = "tests/data/model/v0.5.0/board.json"
+pattern = "numeric-code"
+reason = "Authored blink_2layer integer nanometre coordinates 100000000 to 150000000 (outline and three placements), reproduced offline from public Fenolite tag v0.5.0 with original SOURCE commit/SHA256 (c0218). Exact-byte legacy migration input; all other residue/private patterns still apply."

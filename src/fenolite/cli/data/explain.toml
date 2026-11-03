@@ -5458,3 +5458,7 @@ see = "Stability"
 meaning = "A command returned evidence metadata that violates the reply contract: a supported level names no hypothesis, a complete unverified claim has no eligible no-claim or experimental context, or UNKNOWN is used outside unknown-file detection. Incomplete reports require their specific state and limitation receipt. The production reply is preserved."
 fix = "Keep the command line and reply and report the metadata fault. In tests FENOLITE_CONTRACT_CHECK=1 turns it into FEN-1001 before plans or files are written; it does not replace a primary diagnostic-only error."
 see = "Evidence of replies"
+["model.migrated"]
+meaning = "An older canonical folder was migrated in memory or its migration was planned. Reading writes nothing; confirmed migration rewrites six layers with backups and leaves native CAD alone."
+fix = "Review fenolite migrate DIR --dry-run --json, then confirm the reviewed plan. A current folder needs no write."
+see = "migrate"

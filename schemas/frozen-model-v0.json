@@ -1,0 +1,17 @@
+{
+  "schema": "fenolite.frozen-model-schemas.v0",
+  "source_commit": "cbd1e08550f74810f8287edb6a9c0d0ae61af773",
+  "review_status": "pending; mechanical byte capture only",
+  "sha256": {
+    "board.json": "78977dc7e10c80bab7a825df5fca25298dd4a83acb743554f1249825a9e5e434",
+    "panel.json": "aaec6f35af4462d7c3ccdb2536a553b479a548dda0715e62848dbdc309ddc819",
+    "schematic.json": "a050e795711f85a773670f320e578e010e394acf76523653ccdd35d67d005151",
+    "drawing_sheet.json": "4500bb23a2fce883051f62484f5eaf352a58285035281e51d964a9845ef33e42",
+    "findings.json": "3279e1641eca3defc462e40db3694068b7c3522c9390952d379b0b14cd915a8d",
+    "library.json": "3ac0fba9963522d4218c273d40b2c98f2214da48cae94afe04c1506d67dd65c7",
+    "rules.json": "6fb55b35bbc68e9d521503d10be3f2ec3e0d0b969ed000bf70bc156465c17fab",
+    "manufacturing.json": "bc76a1d81fbb814d25589661b0e422e535858e1efb98a9cf46ccb44a9ab61625",
+    "circuit.json": "4249dcbd05dd57793029b9e49bc117fb83a5e53023731f3725a0223d2c621713",
+    "meta.json": "1b04ab4e33d308f54713cce5db5abe12d555a17f670a3962ea693c58dbb48557"
+  }
+}

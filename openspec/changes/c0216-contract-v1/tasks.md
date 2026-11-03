@@ -19,7 +19,7 @@
 - [x] 1.3 `tools/gen_cli_surface.py --review`: the list for the pre-freeze review (unused options, hidden
   commands, issue codes no test raises), written to the maintainer's review file outside the repository.
   Proof: `uv run python tools/gen_cli_surface.py --review --out /tmp/review.md` writes the list.
-- [ ] 1.4 **Maintainer.** Review the list and decide, per item, keep, rename (the old name deprecated) or drop;
+- [x] 1.4 **Maintainer.** Review the list and decide, per item, keep, rename (the old name deprecated) or drop;
   record the answers under this task. Proof: the record under this task.
 - [ ] 1.5 Apply the decisions of 1.4, each rename with its deprecation. Proof: `uv run pytest tests/unit/cli
   tests/consistency -q`.
@@ -50,3 +50,31 @@
 
 Current-source proof is recorded in current-source-proof.md. Human review1.4 remains pending;
 this preparation does not activate CLIv1 or freeze a historical schema/model receipt.
+
+## Actual current-source maintainer review, 2026-11-03
+
+The user approved the original current-source57-command/713-option/185-export
+packet, KEEP without renames/drops. The separately disclosed source613 delta
+Design.kicad_project(path, *, sha256, preserve_minimums=False) was then
+explicitly approved with the reply "Aprovo também esse método". Its False
+default and import's True preservation mode were disclosed in the question.
+The source-bound record is current-review-approved.json; the complete reviewed
+row list is retained externally by its recorded hashes. CLI remainsv0 until
+package1.0 as already decided.
+
+The isolated c0218 activation additionally introduces migrate as command58.
+It was NOT already one of the57; its explicit approval is a separate pending
+complement, not inferred from the method or original packet approval. Root
+exact-head validation and the later addition's review remain separate.
+
+## Actual migrate supplement, 2026-11-03
+
+The user's subsequent exact reply "Aprovo incluir migrate" approves the
+explicitly disclosed58th visible command: migrate DIR for canonical schema1.0
+folders, reviewed dry-run/plan/confirm, without executing CAD or design scripts.
+This supersedes only the pending migrate complement above. Its actual current
+descriptor and combined-surface digest are recorded in current-review-approved.json.
+All original57 names and the separately approved native-project method remain
+kept; no rename/drop or CLIv1 activation was requested. Root validation remains
+separate from the human decisions. The surface's '*' row is global arguments,
+not an additional command; visible counts exclude it.

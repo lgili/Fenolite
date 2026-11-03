@@ -87,6 +87,16 @@ def _blocks(folder: Path) -> None:
     shutil.copy(DIVIDER, folder / "divider.py")
 
 
+def _migrate(folder: Path) -> None:
+    from fenolite.cli.cmd_migrate import EXAMPLE_CURRENT, EXAMPLE_LEGACY
+    from fenolite.model import canonical
+    from fenolite.model.design import Design
+
+    canonical.dump_dir(Design.new("migration example", seed=0), folder / EXAMPLE_CURRENT)
+    source = Path(__file__).resolve().parent / "data/model/v0.5.0"
+    shutil.copytree(source, folder / EXAMPLE_LEGACY)
+
+
 PREPARED: dict[str, Callable[[Path], None]] = {
     "fmt": _fmt,
     "copper": _copper,
@@ -95,6 +105,7 @@ PREPARED: dict[str, Callable[[Path], None]] = {
     "publish": _publish,
     "pick": _pick,
     "blocks": _blocks,
+    "migrate": _migrate,
 }
 """Command name → the function that writes its example files into a folder."""
 PLANS_NOTHING = frozenset({"check", "models", "refs"})

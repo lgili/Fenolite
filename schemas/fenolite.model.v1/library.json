@@ -1,0 +1,1686 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.library.v1",
+  "title": "Library",
+  "description": "A set of definitions under one name (the schema root of ``library.json``). ``devices`` are sorted",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "footprints": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/FootprintDef"
+      }
+    },
+    "symbols": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/SymbolDef"
+      }
+    },
+    "devices": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/DeviceDef"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "ComponentBody": {
+      "description": "The physical body of a part: a volume above the side its footprint is placed on.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z]{2,3}_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "native_ids": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ext": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ExtBag"
+          }
+        },
+        "kind": {
+          "enum": [
+            "extruded",
+            "model"
+          ]
+        },
+        "height": {
+          "type": "integer"
+        },
+        "standoff": {
+          "type": "integer"
+        },
+        "outline": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Point"
+          }
+        },
+        "layer": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "z_min": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "z_max": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "projection_unknown": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "height"
+      ]
+    },
+    "Decimal10": {
+      "description": "The exact decimal m · 10^e in its one canonical form (change c0246).",
+      "type": "object",
+      "properties": {
+        "m": {
+          "type": "integer"
+        },
+        "e": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "m",
+        "e"
+      ]
+    },
+    "DeviceBridge": {
+      "description": "An authored series connection between two device functions or pin numbers.",
+      "type": "object",
+      "properties": {
+        "between": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "items": false
+        },
+        "delay_fs": {
+          "type": "integer"
+        },
+        "loss_mdb": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "between"
+      ]
+    },
+    "DeviceDef": {
+      "description": "A device (change c0248): one reviewed record that joins a symbol, a footprint, the map from pin",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "symbol": {
+          "type": "string"
+        },
+        "footprint": {
+          "type": "string"
+        },
+        "manufacturer": {
+          "type": "string"
+        },
+        "mpn": {
+          "type": "string"
+        },
+        "datasheet": {
+          "type": "string"
+        },
+        "ref_prefix": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "case": {
+          "type": "string"
+        },
+        "tolerance": {
+          "type": "string"
+        },
+        "dielectric": {
+          "type": "string"
+        },
+        "evidence": {
+          "type": "string"
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "ground": {
+          "type": "string"
+        },
+        "unused_pads": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "ends": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "properties": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "pins": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DevicePin"
+          }
+        },
+        "ratings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Rating"
+          }
+        },
+        "limits": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PinPairLimit"
+          }
+        },
+        "cls": {
+          "type": "string"
+        },
+        "interfaces": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DeviceInterface"
+          }
+        },
+        "options": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DeviceOption"
+          }
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DeviceProvenance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "bridges": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DeviceBridge"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id"
+      ]
+    },
+    "DeviceInterface": {
+      "description": "An interface port a device declares (``[[interfaces]]``, change c0252): its name, kind and direction,",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "direction": {
+          "enum": [
+            "in",
+            "out",
+            "inout"
+          ]
+        },
+        "members": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ValueRange"
+          }
+        },
+        "reference": {
+          "type": "string"
+        },
+        "requires": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "evidence": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "kind"
+      ]
+    },
+    "DeviceOption": {
+      "description": "One interface option a device offers (``[[options]]``, change c0257): the interface ``kind``",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "alternatives": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        },
+        "evidence": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "name"
+      ]
+    },
+    "DevicePin": {
+      "description": "One function of a device: its name, the symbol pins it joins and their pads as ordered",
+      "type": "object",
+      "properties": {
+        "function": {
+          "type": "string"
+        },
+        "pin_pads": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "prefixItems": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "items": false
+          }
+        },
+        "ratings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Rating"
+          }
+        },
+        "thresholds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Threshold"
+          }
+        },
+        "must_connect": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "function"
+      ]
+    },
+    "DeviceProvenance": {
+      "description": "The stamp of a device written by a tool: the tool, its source (lib ids, never a path), the ISO 8601",
+      "type": "object",
+      "properties": {
+        "tool": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "date": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "tool",
+        "source",
+        "date",
+        "sha256"
+      ]
+    },
+    "Evidence": {
+      "description": "A level plus the oracle that produced it and the hypotheses it depends on.",
+      "type": "object",
+      "properties": {
+        "level": {
+          "enum": [
+            "ALTIUM-VERIFIED(kit)",
+            "KICAD-VERIFIED",
+            "ORACLE-VERIFIED",
+            "CORPUS-VERIFIED",
+            "ALTIUM-VERIFIED(author-report)",
+            "INFERRED",
+            "UNKNOWN",
+            "UNVERIFIED"
+          ]
+        },
+        "oracle": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "hypotheses": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "ExtBag": {
+      "description": "What a backend knows about an object and the model does not: verbatim fragments.",
+      "type": "object",
+      "properties": {
+        "min_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "payload": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "prefixItems": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "items": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "FootprintDef": {
+      "description": "A footprint of a library. ``properties`` is sorted by key in the canonical form.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z]{2,3}_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "native_ids": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ext": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ExtBag"
+          }
+        },
+        "name": {
+          "type": "string"
+        },
+        "library": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "keywords": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "kind": {
+          "enum": [
+            "smd",
+            "through_hole",
+            "unspecified"
+          ]
+        },
+        "flags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "properties": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "pads": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Pad"
+          }
+        },
+        "graphics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Graphic"
+          }
+        },
+        "models": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "bodies": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ComponentBody"
+          }
+        },
+        "net_ties": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "placements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ModelPlacement"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name"
+      ]
+    },
+    "Graphic": {
+      "description": "A drawing primitive on a non-copper or copper layer; ``points`` meaning depends on ``kind``.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z]{2,3}_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "native_ids": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ext": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ExtBag"
+          }
+        },
+        "kind": {
+          "enum": [
+            "line",
+            "arc",
+            "circle",
+            "rect",
+            "polygon"
+          ]
+        },
+        "layer": {
+          "type": "string"
+        },
+        "points": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Point"
+          }
+        },
+        "width": {
+          "type": "integer"
+        },
+        "filled": {
+          "type": "boolean"
+        },
+        "net_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "layer",
+        "points"
+      ]
+    },
+    "ModelPlacement": {
+      "description": "A 3D model of a footprint with its placement (change c0223). ``path`` names the model file as the",
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "offset": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "integer"
+            }
+          ],
+          "items": false
+        },
+        "rotation": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "integer"
+            }
+          ],
+          "items": false
+        },
+        "scale": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "integer"
+            }
+          ],
+          "items": false
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "path"
+      ]
+    },
+    "Pad": {
+      "description": "A pad of a footprint; ``position`` and ``rotation`` are relative to the footprint.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z]{2,3}_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "native_ids": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ext": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ExtBag"
+          }
+        },
+        "number": {
+          "type": "string"
+        },
+        "shape": {
+          "enum": [
+            "circle",
+            "rect",
+            "oval",
+            "roundrect",
+            "trapezoid",
+            "custom"
+          ]
+        },
+        "size": {
+          "$ref": "#/$defs/Size"
+        },
+        "position": {
+          "$ref": "#/$defs/Point"
+        },
+        "kind": {
+          "enum": [
+            "smd",
+            "thru_hole",
+            "np_thru_hole",
+            "connect"
+          ]
+        },
+        "rotation": {
+          "type": "integer"
+        },
+        "drill": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "layers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "net_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "padstack": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Padstack"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "zone_connection": {
+          "anyOf": [
+            {
+              "enum": [
+                "solid",
+                "thermal",
+                "none",
+                "thru_hole_only"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "corner_ratio": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "fab_property": {
+          "anyOf": [
+            {
+              "enum": [
+                "bga",
+                "fiducial_global",
+                "fiducial_local",
+                "test_point",
+                "heatsink",
+                "castellated",
+                "mechanical",
+                "press_fit"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "mask_margin": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "paste_margin": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "die_delay_fs": {
+          "type": "integer"
+        },
+        "teardrop": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Teardrop"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "trapezoid_delta": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Point"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "chamfer_ratio": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "chamfer_corners": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "top_left",
+              "top_right",
+              "bottom_left",
+              "bottom_right"
+            ]
+          }
+        },
+        "anchor_shape": {
+          "anyOf": [
+            {
+              "enum": [
+                "circle",
+                "rect"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "primitives": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PadPrimitive"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "number",
+        "shape",
+        "size",
+        "position"
+      ]
+    },
+    "PadPrimitive": {
+      "description": "One shape of a custom pad, in the pad's own frame (change c0277): a ``poly`` (its corners), a",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "enum": [
+            "poly",
+            "segment",
+            "circle",
+            "arc"
+          ]
+        },
+        "points": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Point"
+          }
+        },
+        "width": {
+          "type": "integer"
+        },
+        "filled": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ]
+    },
+    "Padstack": {
+      "description": "Per-layer shapes of a pad; absent when the pad has one shape on all its layers.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z]{2,3}_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "native_ids": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ext": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ExtBag"
+          }
+        },
+        "layers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PadstackLayer"
+          }
+        },
+        "hole_shape": {
+          "enum": [
+            "round",
+            "square",
+            "slot"
+          ]
+        },
+        "hole_length": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "hole_rotation": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id"
+      ]
+    },
+    "PadstackLayer": {
+      "description": "Pad shape on one layer (for pads whose shape differs per layer).",
+      "type": "object",
+      "properties": {
+        "layer": {
+          "type": "string"
+        },
+        "shape": {
+          "enum": [
+            "circle",
+            "rect",
+            "oval",
+            "roundrect",
+            "trapezoid",
+            "custom"
+          ]
+        },
+        "size": {
+          "$ref": "#/$defs/Size"
+        },
+        "offset": {
+          "$ref": "#/$defs/Point"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "layer",
+        "shape",
+        "size"
+      ]
+    },
+    "PinAlternate": {
+      "description": "An alternate function of a pin.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "etype": {
+          "enum": [
+            "input",
+            "output",
+            "bidirectional",
+            "tri_state",
+            "passive",
+            "free",
+            "unspecified",
+            "power_in",
+            "power_out",
+            "open_collector",
+            "open_emitter",
+            "no_connect"
+          ]
+        },
+        "shape": {
+          "enum": [
+            "line",
+            "inverted",
+            "clock",
+            "inverted_clock",
+            "input_low",
+            "clock_low",
+            "output_low",
+            "edge_clock_high",
+            "non_logic"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "etype",
+        "shape"
+      ]
+    },
+    "PinPairLimit": {
+      "description": "A limit between two functions of a device (change c0274): ``between`` names them, the voltage being",
+      "type": "object",
+      "properties": {
+        "between": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "ratings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Rating"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "Point": {
+      "description": "A position in nanometres.",
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "integer"
+        },
+        "y": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "x",
+        "y"
+      ]
+    },
+    "Provenance": {
+      "description": "Origin of an imported object. ``locator`` is opaque outside the originating backend.",
+      "type": "object",
+      "properties": {
+        "backend": {
+          "type": "string"
+        },
+        "file": {
+          "type": "string"
+        },
+        "file_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "locator": {
+          "type": "string"
+        },
+        "evidence": {
+          "$ref": "#/$defs/Evidence"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "backend",
+        "file",
+        "file_sha256",
+        "locator"
+      ]
+    },
+    "Rating": {
+      "description": "One limit of a device, of a device pin or of a pair of pins: ``key`` (``voltage``, ``current``,",
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "unit": {
+          "enum": [
+            "uV",
+            "uA",
+            "uW",
+            "mK"
+          ]
+        },
+        "min": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "max": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "limit": {
+          "enum": [
+            "abs_max",
+            "operating"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "key",
+        "unit"
+      ]
+    },
+    "Size": {
+      "description": "A width and height in nanometres.",
+      "type": "object",
+      "properties": {
+        "w": {
+          "type": "integer"
+        },
+        "h": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "w",
+        "h"
+      ]
+    },
+    "SymbolDef": {
+      "description": "A symbol of a library. A derived symbol read as written has ``extends`` set and no pins.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z]{2,3}_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "native_ids": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ext": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ExtBag"
+          }
+        },
+        "name": {
+          "type": "string"
+        },
+        "library": {
+          "type": "string"
+        },
+        "extends": {
+          "type": "string"
+        },
+        "power": {
+          "enum": [
+            "",
+            "global",
+            "local"
+          ]
+        },
+        "properties": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "in_bom": {
+          "type": "boolean"
+        },
+        "on_board": {
+          "type": "boolean"
+        },
+        "exclude_from_sim": {
+          "type": "boolean"
+        },
+        "pin_names_hidden": {
+          "type": "boolean"
+        },
+        "pin_numbers_hidden": {
+          "type": "boolean"
+        },
+        "pin_name_offset": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "units": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SymbolUnit"
+          }
+        },
+        "pins": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SymbolPin"
+          }
+        },
+        "graphics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SymbolGraphic"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name"
+      ]
+    },
+    "SymbolGraphic": {
+      "description": "A vector primitive in symbol-local coordinates (nanometres). ``unit`` and ``body_style`` say which",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "enum": [
+            "line",
+            "circle",
+            "rect",
+            "polygon"
+          ]
+        },
+        "points": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Point"
+          }
+        },
+        "width": {
+          "type": "integer"
+        },
+        "filled": {
+          "type": "boolean"
+        },
+        "unit": {
+          "type": "integer"
+        },
+        "body_style": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "points"
+      ]
+    },
+    "SymbolPin": {
+      "description": "A pin of a symbol; ``position`` is its connection point, ``rotation`` 0/90/180/270 degrees.",
+      "type": "object",
+      "properties": {
+        "number": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "etype": {
+          "enum": [
+            "input",
+            "output",
+            "bidirectional",
+            "tri_state",
+            "passive",
+            "free",
+            "unspecified",
+            "power_in",
+            "power_out",
+            "open_collector",
+            "open_emitter",
+            "no_connect"
+          ]
+        },
+        "position": {
+          "$ref": "#/$defs/Point"
+        },
+        "shape": {
+          "enum": [
+            "line",
+            "inverted",
+            "clock",
+            "inverted_clock",
+            "input_low",
+            "clock_low",
+            "output_low",
+            "edge_clock_high",
+            "non_logic"
+          ]
+        },
+        "rotation": {
+          "type": "integer"
+        },
+        "length": {
+          "type": "integer"
+        },
+        "unit": {
+          "type": "integer"
+        },
+        "body_style": {
+          "type": "integer"
+        },
+        "hidden": {
+          "type": "boolean"
+        },
+        "alternates": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PinAlternate"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "number",
+        "name",
+        "etype",
+        "position"
+      ]
+    },
+    "SymbolUnit": {
+      "description": "One unit/body-style combination of a symbol.",
+      "type": "object",
+      "properties": {
+        "unit": {
+          "type": "integer"
+        },
+        "body_style": {
+          "type": "integer"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "unit",
+        "body_style"
+      ]
+    },
+    "Teardrop": {
+      "description": "The teardrop settings of a pad or a via (change c0277): the tool that fills the board draws the",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "max_length": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "max_width": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "length_ratio": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "width_ratio": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "curved": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "filter_ratio": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "two_segments": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "prefer_zones": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "Threshold": {
+      "description": "One logic threshold of a device pin (change c0274): ``key``, its integer ``unit`` (``uV`` for a",
+      "type": "object",
+      "properties": {
+        "key": {
+          "enum": [
+            "input_high_min",
+            "input_low_max",
+            "output_current_max",
+            "output_high_min",
+            "output_low_max"
+          ]
+        },
+        "unit": {
+          "enum": [
+            "uV",
+            "uA",
+            "uW",
+            "mK"
+          ]
+        },
+        "value": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "key",
+        "unit",
+        "value"
+      ]
+    },
+    "ValueRange": {
+      "description": "An exact range of an electrical value: unit, low, nominal and high, at least one bound given.",
+      "type": "object",
+      "properties": {
+        "unit": {
+          "enum": [
+            "ohm",
+            "farad",
+            "henry",
+            "volt",
+            "ampere",
+            "hertz",
+            "watt",
+            "second",
+            "kelvin"
+          ]
+        },
+        "low": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Decimal10"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "nominal": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Decimal10"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "high": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Decimal10"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "unit"
+      ]
+    }
+  }
+}
