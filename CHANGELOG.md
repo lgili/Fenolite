@@ -6,6 +6,8 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Reconcile existing native evidence against the literal remaining c0160 acceptance criteria, preserving source/version boundaries and unfinished aggregate, graduation and CI gates.
+
 - Reconcile existing native evidence against the literal remaining c0092 acceptance criteria, preserving source/version boundaries and unfinished aggregate, graduation and CI gates.
 
 - Prepare a second twenty-spec closure batch plus its edit-merge ordering prerequisite, preserving the complete 37-change external rehearsal, the dependent CI bridge and separate later-runtime failures without claiming actual archival (c0319).
