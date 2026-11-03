@@ -335,7 +335,7 @@
   all schema/guide/evidence-matrix/Altium-graduation generators are current, public residue
   finds no hits, and all five affected changes validate strictly. See validation.md for the
   exact mapped proof, model0 boundary, byte guards and remaining source/native/CI limits.
-- [ ] 2.2 Repeat the complete local fast gate on the stable repaired candidate.
+- [x] 2.2 Repeat the complete local fast gate on the stable repaired candidate.
   Proof: `make check-fast`.
 
   Passed 2026-11-02 on the stable repaired source
@@ -395,3 +395,34 @@ Task2.7 proof: source M705 is explicitly pinless in_bom=yes/on_board=no and abse
 Task2.8 proof: exact18351e40 reproduction gives3fail/106pass: v0.4's hardcoded completed4.2 negative, and c0092 new5.3 unnamed in v0.5/v0.6. Three additional authored parser reds demonstrate letter-suffixed open/checked IDs were omitted. The guard now retains distinct lowercase continuation IDs and still refuses an unnamed open continuation; v0.4's negative reads an independent temporary authored tasks.md while retaining both existing failure assertions. Dated2026-11-03 tracking names c0092.5.3, c0178.3.4a and c0180.2.4a; no historical acceptance text/result, freeze, runtime or source CAD changes. Complete focused release-record files:112passed3.35s, Ruff/format/diff clean; private staged gate0hits. Exact-head full validation remains2.3/root-owned. Receipt release-ledger-proof.json.
 
 - [x] 2.9 Repair the two stale drawn-example guards exposed by the complete b5f6c84a fast gate: assert the intentionally added IN label and make the missing-symbol mutation actually append R9 after the source's GND connection changed. Preserve refusal/no-output and repeated-build byte checks; prove the missing-symbol finding identifies R9 without changing a producer or comparator. Proof: original two failures reproduced (1.54s); complete drawn module7passed (1.98s), then drawn plus all three release-ledger modules119passed (4.17s). The negative now reuses the existing GND object, produces exactly one R9 missing-symbol finding and writes no output; the positive explicitly checks IN plus the exact eight-label count and unchanged rebuild bytes. Ruff/format/strict OpenSpec pass; final whole fast/exact CI remain pending.
+
+- [x] 2.10 Reconcile the bounded v0.7 closure queue with literal integration, native, human and library-publication gates. Preserve historical CI failures and source-bound successes separately; do not archive or infer current CI success. Proof: review all eight ready-current-CI entries, original c0246–c0279 open tasks, and source-bound receipts; strict OpenSpec validation and git diff --check.
+
+  - Root review: original open task IDs and the eight candidates reconciled; corrected c0279 release/workflow IDs against its literal tasks. Historical13/13 job results and producer hashes independently rechecked, focused196/55/152 receipts and cleanup hashes verified. Strict c0319 validation and diff check pass. The interrupted97a52 replay remains19failed/6passed/2heavy-skipped, not a combined pass. This completes only the queue audit;2.2/2.3 and every actual archive remain pending.
+
+
+- [x] 2.11 Reconcile the new c0215.6.4a continuation with the historical v0.6 release ledger after fast12's literal unnamed-open-task failure. Name it in the current open-task cell and a dated continuation paragraph, preserving the original release/K6 outcome, native24 authorization scope and pending exact-current CI. Keep every release-record checker unchanged. Proof: complete v0.4/v0.5/v0.6 release-record modules and strict c0319 validation; preserve the failed fast12 receipt.
+
+
+Task2.11 proof: complete source5bbe19c7 fast12 finished with1failed/22350passed/
+52skipped in2090.46s (whole2197.368s, exit2), clean unchanged HEAD. Sole failure:
+c0215.6.4a was open and absent from the historical record's current tracking.
+Added its exact ID and an explicitly dated continuation; all historical verdicts,
+K6 and current CI requirements stay unchanged. Complete unchanged v0.4/v0.5/v0.6
+record checkers now112passed12.81s. Strict c0319/diff checks pass. Receipt
+fast12-receipt.json preserves log SHA48459d3aa490fb7c8d2411a0646e8672245ff8049145275e54ad0c5a0dded9a7.
+This fixes the named consistency failure; neither the full fast nor exact-current
+CI is relabelled successful, and2.2/2.3 remain open for the final source.
+
+
+Task2.2 fast13 reproof —2026-11-03: complete make check-fast
+PYTEST_MAX_WORKERS=2 exits0 on clean unchanged source
+2c0540572c936303eb5c46a25002872648dfabad:22366passed/52skipped,
+1624.58s pytest/1720.2919891250203s total. Public/private residue, all generated
+checks, Ruff/format and pyright pass. Receipt fast13-receipt.json binds the
+command, source, driver and complete log SHA. All later commits through
+c5e34749 contain only evidence/docs/OpenSpec/CHANGELOG changes, with separate
+82/24 focused evidence proofs; no later whole-fast or native/CI success is
+inferred. Revalidate any subsequent runtime candidate. The source-bound local
+fast requirement2.2 is complete; exact-head required GitHub CI2.3 and every
+independent native/library/private/release gate remain open.

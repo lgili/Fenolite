@@ -90,3 +90,7 @@ The maintainer selected Fenolite-authored inputs for the pending comparison, wit
 ### Official headless persistence investigation
 
 Use CLI/IPC as process boundaries only; importing pcbnew/GPL in a preparer script is not permitted. Discovery must be bounded to installed KiCad10.0.6 and official9/10 IPC capabilities. An unexecuted SWIG save signature, a manually authored JSON file or a future KiCad11 feature is not a measured native save. If GUI is required, keep the original-theme preparation open and hand off exact creation steps without interacting with the running CAD.
+
+## Source-bound native preparation,2026-11-03
+
+The maintainer chose authored Fenolite review inputs, not approval of the resulting images. An isolated actual KiCad10.0.6 GUI-created theme is now prepared, with three authored board colours and two authored schematic colours. Reopened preferences show the exact schematic values. Keep inherited colours, complete nativeJSON andscreenshots external. Four actual standalone viewer exports are bound toclean11bfefd0; native ten-input source hashes and theme bytes remain unchanged. Human task3.4 and complete exact-commit CI stay open. Browser preview was blocked by file-URL policy; no bypass was attempted. Staticlinks/hash and embedded-scene palette checks are the measured preparation proof, alongside actual native captures.

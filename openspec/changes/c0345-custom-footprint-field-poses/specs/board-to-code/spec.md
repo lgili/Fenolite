@@ -16,3 +16,8 @@ SHALL refuse before staging rather than silently lowering presentation.
 #### Scenario: Unknown field name
 - **WHEN** a script requests placement of a field that is neither conventional nor a declared user property
 - **THEN** the DSL rejects that request
+
+
+## Proposed native mirror-ownership scenario
+
+An otherwise exactly representable native custom-property field whose mirror differs from its owner side MAY be retained through the existing native library field representation without adding a public mirror API. Its name/value/geometry/style/visibility and relative mirror SHALL remain exact. The ordinary printable Part property declaration SHALL remain subject to existing conflict checks. Unknown/malformed names, effects or dimensions and other unsupported poses SHALL still refuse before a plan. This proposal remains unimplemented until authored RED and transform evidence are reviewed.

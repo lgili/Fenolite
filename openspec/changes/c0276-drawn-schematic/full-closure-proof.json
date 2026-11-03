@@ -1,0 +1,48 @@
+{
+  "task": "c0276.6.5",
+  "integration_source": "754872eaad1022aced899a7aa717f38776b31ab3",
+  "native_source_commit": "615c28145cfe219ab30ce258c19f9540feacc24b",
+  "maintainer_decision": {
+    "date": "2026-11-03",
+    "answer": "Aceitar a prova retrospectiva documentada",
+    "scope": "Only replacement of pre-implementation baseline-capture ordering by documented retrospective original-versus-corrected comparison. No test, CI or evidence waiver.",
+    "review_packet_sha256": "fee3cf5c133951fb82bcf83ddc45ded18794572e130d4baa44b67a9a8c3267ad"
+  },
+  "historical_acquisition_chronology_preserved": "Earlier code/focused repairs were already prepared. This batch acquires current24 immutable-baseline observations first, then corrected native observations; it does not claim baseline collection predated implementation.",
+  "current_full_inputs_identical_to_native_packet": [
+    {
+      "file": "tests/data/drawn/full/fp-lib-table",
+      "sha256": "136d3c5cc6e0984541acb9dc872ac3fb486c4dc9b4807cc2796e3ea8c23b3604"
+    },
+    {
+      "file": "tests/data/drawn/full/design.py",
+      "sha256": "204978e8c1cc2a1b499203fef5bfa9ea45652c5f973bb4abf75c6900ec108c00"
+    },
+    {
+      "file": "tests/data/drawn/full/sym-lib-table",
+      "sha256": "fd7905c783d72351b8ae0e0e4c23631c30e76b81e402d8d4b1fb6c867a2b3d41"
+    },
+    {
+      "file": "tests/data/drawn/full/schematic.toml",
+      "sha256": "fb4dbc07044257a3d08792f54dff4d92440c99e3738e86b24d53337a0840415a"
+    }
+  ],
+  "closed_native_files_reverified": 172,
+  "memory_proof_sha256": "a42b565d28e498787860a6c88b9ec855fa7c04386c8dc561845ab04bde6c5c3e",
+  "saved_proof_sha256": "5ccbf996f321335b65dbaeda810fac6cd9c2af475cceade369d9096873b4ee05",
+  "baseline_pins": 36,
+  "corrected_pins": 40,
+  "groups_both": 32,
+  "corrected_both_forms_Info_only": true,
+  "four_saved_full_documents_reopened": true,
+  "complete_exports_byte_identical_after_reopen": true,
+  "authored_RED_log_sha256": "81bbb06f7bf6169947c6c162eaa4fded85711080c8c5c3991b114096a3e5cdca",
+  "focused_command": "uv run pytest tests/unit/backends/altium/test_drawn_full_acceptance.py tests/unit/backends/altium/test_drawn_fonts.py tests/unit/backends/kicad/test_sch_write_drawn.py tests/unit/model/test_drawn_value.py tests/unit/test_build_bytes.py -q",
+  "focused_passed": 113,
+  "focused_seconds": "13.50",
+  "focused_log_sha256": "f7cd2982bb5ec422685c18eabaeacb6098b1476dfd553c6ca676aef3dd99b451",
+  "canonical_order_proof_sha256": "8d7ff6945fb76a8ab87f4311af6c25a676570f335aec102748aee9d8619bcf9f",
+  "current_CI_passed": false,
+  "aggregate_H_A_DRAWN_WRITE_promoted": false,
+  "parent_spec_archived": false
+}

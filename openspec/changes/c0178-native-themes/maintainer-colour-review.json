@@ -1,0 +1,16 @@
+{
+  "spec": "c0178-native-themes",
+  "task": "3.4",
+  "date": "2026-11-03",
+  "reviewer": "maintainer",
+  "response": "Revisei e aprovo a correspondência de cores",
+  "approved_scope": "Visual correspondence of default/authored board and schematic colours in the actual native KiCad and Fenolite comparison packet.",
+  "packet_manifest_sha256": "e05008a9eb73f8450db7cee68d4b8cd10f15db9c7b0fa3eda4694da26d6b8406",
+  "verified_manifest_files": 30,
+  "export_source_core": "11bfefd0436e5cf6dc19be9096763a389fddb022",
+  "native_theme_sha256": "7a126a92dff7f74f5cdc31ce316705ac272fa9fe2ca724f3b054cc255d9f2e27",
+  "native_version": "KiCad10.0.6",
+  "human_review": true,
+  "required_CI": "PENDING",
+  "independent_gates": "No electrical/PCB-quality proof or broader evidence graduation; original preparation receipts remain unchanged."
+}

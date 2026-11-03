@@ -1,0 +1,42 @@
+{
+  "base_source": "a6f6406feb49fa01e799705960c587afbc783a66",
+  "runtime_changed": false,
+  "assertions_changed": false,
+  "native_cases": 8,
+  "source_helpers": "Existing tab_project body moved verbatim to tests/_native_custom.py; source_project unchanged",
+  "moves": [
+    {
+      "function": "test_native_mirror_full_import_proof",
+      "body_and_parameters_ast_identical": true,
+      "old_unit_file": "tests/unit/importer/test_native_mirror_property.py",
+      "new_native_file": "tests/kicad/board/test_import_native_properties.py"
+    },
+    {
+      "function": "test_native_tab_full_import_proof",
+      "body_and_parameters_ast_identical": true,
+      "old_unit_file": "tests/unit/importer/test_native_tab_property.py",
+      "new_native_file": "tests/kicad/board/test_import_native_properties.py"
+    }
+  ],
+  "collection": {
+    "native9": 8,
+    "native10": 8,
+    "unit_pure": 100,
+    "complete_native_functions_in_unit": 0
+  },
+  "execution": {
+    "native9": "4passed,4explicitunsupportedwriter10skips; not counted aspass",
+    "native10": "8passed"
+  },
+  "compatibility": "Only writer10 parameters carry existing kicad_min_major(10); every case is exercised by native10, all writer9 cases also by native9",
+  "unit_only_execution": "100passed with KicadCli.run replaced by a failing guard; no native subprocess wrapper invocation",
+  "logs_sha256": {
+    "native9-collection.log": "ee2d8b07b74aff100ee78636f94433aaf8af68b28c93f98dd81584f8683ed2d5",
+    "native10-collection.log": "865a8f4b85605af99e5139b8783c5c3b07eaa6ca9acdd8551147e79593d4caec",
+    "unit-collection.log": "ccf0e7babb6095c181f25b542c9f67b2f034b7ad3febaec701edfbdf59ee5118",
+    "native9-execution.log": "b9ebb13ee1b3601fa75d74df00cfe4baaf44b51765ab1f160d853e3df1dd895b",
+    "native10-execution.log": "d22f6d8c1a78969853a4ba1762c5d3faec20d8db357e514d930f0ab8d41908bb",
+    "unit-with-cli-forbidden.log": "7e6956b73692a73d46a2386309bf2b8beb4b380a88607c67d2dbab5c2a3f5f89"
+  },
+  "limits": "An initial invalid-env override probe still discovered the installed macOS candidate, so its pass is NOT a missing-tool proof. The independent forbidden-run unit guard is the measured no-CLI proof. Exact-head combined CI remains pending."
+}

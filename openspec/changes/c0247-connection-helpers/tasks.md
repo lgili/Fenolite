@@ -29,7 +29,7 @@
 
 ## 3. Example, documentation and agent guide
 
-- [ ] 3.1 `examples/blink_2layer/design.py`: replace the explicit marks with `u1.unused_no_connect()` and the LED wiring with `series(led_drv, r1, led_a, (d1.b, d1.a), gnd)`; no pinned digest may move (scenario "The blink keeps its pinned bytes"). Proof: `uv run pytest tests/unit/lens/test_build_bytes_pinned.py -q`; CI's KiCad job runs ERC on it (`KICAD-VERIFIED`).
+- [ ] 3.1 `examples/blink_2layer/design.py`: replace the explicit marks with `u1.unused_no_connect()` and the LED wiring with `series(led_drv, r1, led_a, (d1.b, d1.a), gnd)`; no pinned digest may move (scenario "The blink keeps its pinned bytes"). Proof: `uv run pytest tests/unit/test_build_bytes.py -q`; CI's KiCad job runs ERC on it (`KICAD-VERIFIED`).
   2026-10-29: done in part. The explicit marks are replaced by `u1.unused_no_connect()` and every pinned digest stays (proof passed; `tests/_buildhelp.build` and `tests/_pinned.altium_pin` pass the side channels as the command does). The `series` rewrite of the LED wiring was held back: about ten test files edit the blink by the exact text of its `connect` lines, and the parallel branches touch the same lines; `series` is taught in `docs/dsl.md` and the guide instead. Coordinator: decide whether to take the rewrite in a follow-up. KICAD-VERIFIED needs CI's KiCad job (task 4.2).
   2026-11-01, base `7c2f1df2`: the user authorized the recommended decisions and the remaining rewrite. The blink now uses the exact `series` chain above. Source-edit tests preserve their previous missing-pin, removed-part, removed-net and renamed-pin mutations. The pinned-byte proof passes (83); affected tests pass (141 initially, with four shared routed-example helper failures corrected and all 36 tests of those files then passing). No digest constant changed. Task remains open only for the required exact-head CI ERC proof; the local tool is KiCad 9.0.2, not the required CI 9.0.9/10.0.6.
 - [x] 3.2 `docs/dsl.md`: a section "Connection helpers" (ends, `series`, `decouple`, `pull_up`/`pull_down`, generated net names, `unused_no_connect`, must-connect pins, the two codes), and the section "No-connect marks" updated. Proof: `uv run pytest tests/consistency -q`.
@@ -48,3 +48,15 @@
   2026-10-29: open: waits for `0.7.0.dev0` on `dev` (the v0.6 guard needs `[Unreleased]` empty).
 - [ ] 4.4 Publish the batch branch (with c0246) and confirm CI green on its exact commit (unit and KiCad jobs) before archiving. Proof: `gh run list --branch <branch> --limit 1` shows success for the commit; `npx -y @fission-ai/openspec validate c0247-connection-helpers --strict`.
   2026-10-29: open: the batch branch (with c0246) is published by the coordinator; this branch is `cac/c0247-connection-helpers`.
+
+
+## Current proof-command reconciliation —2026-11-03
+
+The former `tests/unit/lens/test_build_bytes_pinned.py` path does not exist
+in the current integration. Its current complete example-byte guard is
+`tests/unit/test_build_bytes.py`; the task command above now names that file.
+Actual current proof:76passed10.79s, with the test source and pinned table
+unchanged. Log SHA256:
+`67ef6a95094b396651e6d41c9b0d88a5f1d94efdeb14389ed2ec4e880e31d11f`.
+This updates a proof path only. Historical results remain historical; required
+KiCad ERC/oracle/current-commit CI and pending task checkboxes are unchanged.

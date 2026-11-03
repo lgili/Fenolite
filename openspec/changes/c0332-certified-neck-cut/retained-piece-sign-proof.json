@@ -1,0 +1,24 @@
+{
+  "actual03_production_pass_claimed": false,
+  "exact_whole_loss_value_required": true,
+  "external_RED_sha256": "7ca9b7b853b86d1a02f26f5b2f6d1dbf37b14be9560256903ac49561e29b302a",
+  "final_area_neighbor_controls_after_shared_helper_name": {
+    "passed": 24,
+    "seconds": 0.16
+  },
+  "focused_geometry_pour": {
+    "passed": 321,
+    "seconds": 10.18
+  },
+  "independent_global_scalar_4096_RED": true,
+  "limits_changed": false,
+  "local_product_sum_work_storage_deadline_guards_preserved": true,
+  "negative_and_unresolved_refuse": true,
+  "scalar_zero_and_exact_fraction_unchanged": true,
+  "scope": "B retained sign only, A not yet production",
+  "selected_pyright_errors": 0,
+  "source_sha256": {
+    "src/fenolite/geometry/boolean/_exact_faces.py": "ec1a0340af0984e281d7d9d6f3671640f822f24256feff0c60e0ca53c9c47bb0",
+    "src/fenolite/geometry/boolean/_exact_realization.py": "cc62f10d9b847dfc0e03783516226a6995ae2d4256cbf61e077a40b503247c87"
+  }
+}

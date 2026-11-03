@@ -18,8 +18,18 @@ from math import gcd
 
 from fenolite.geometry.boolean._exact_contacts import contacts, on, parents
 from fenolite.geometry.boolean._exact_distance import boundary_bound
-from fenolite.geometry.boolean._exact_faces import Ring, area2, checked, clean, cross, require, sub
-from fenolite.geometry.boolean._exact_noding import Budget, ExactPoint, IntPoint, Segment
+from fenolite.geometry.boolean._exact_faces import (
+    Ring,
+    area2,
+    checked,
+    clean,
+    cross,
+    global_area_sum,
+    require,
+    sub,
+)
+from fenolite.geometry.boolean._exact_noding import Budget, ExactPoint, IntPoint, ResourceLimit, Segment
+from fenolite.geometry.errors import GeometryError
 from fenolite.geometry.polygon import Polygon, normalize_polygons
 from fenolite.geometry.predicates import round_point
 from fenolite.geometry.vector import Point
@@ -37,6 +47,34 @@ def sum_areas(values: Iterable[F], budget: Budget) -> F:
             budget.check()
         total = checked(total + value, 4096)
     return total
+
+
+def _piece_exact_area(terms: Iterable[F], retained_eligible: bool, budget: Budget) -> F | None:
+    """None is a proven retained sign ONLY, never an approximate or recorded area."""
+    values: list[F] = []
+    for value in terms:
+        budget.check()
+        if len(values) >= budget.limits.faces:
+            raise ResourceLimit("exact piece area storage budget exceeded")
+        values.append(checked(value, 4096))
+    exact = global_area_sum(values, budget)
+    if exact is not None:
+        return exact
+    require(retained_eligible, "whole-piece exact area exceeds bit budget")
+    lower = upper = 0
+    for value in values:
+        budget.visit(1)
+        scaled = value.numerator * (1 << 32)
+        require(abs(scaled).bit_length() <= 4096, "piece sign product bit budget exceeded")
+        q, remainder = divmod(scaled, value.denominator)
+        lower += q
+        upper += q + bool(remainder)
+        require(
+            max(abs(lower).bit_length(), abs(upper).bit_length()) <= 4096,
+            "piece sign sum bit budget exceeded",
+        )
+    require(lower >= 0, "retained piece area nonnegative certificate unresolved")
+    return None
 
 
 def rational(ring: IntRing) -> Ring:
@@ -193,10 +231,16 @@ class Projection:
         owned = set(retained)
         for i in self.outers:
             holes = tuple(j for j, owner in self.parent.items() if owner == i)
-            exact = sum_areas(chain((exact_areas[i],), (exact_areas[j] for j in holes)), budget)
             net = sum_areas(chain((integer_areas[i],), (integer_areas[j] for j in holes)), budget)
-            require(exact >= 0 and net >= 0, "negative piece net area")
+            exact = _piece_exact_area(
+                chain((exact_areas[i],), (exact_areas[j] for j in holes)),
+                i in retained and i not in self.collapsed and net >= floor,
+                budget,
+            )
+            require((exact is None or exact >= 0) and net >= 0, "negative piece net area")
             if i in self.collapsed or net < floor:
+                if exact is None:
+                    raise GeometryError("whole-piece loss requires its exact bounded area")
                 require(
                     i not in retained and not retained.intersection(holes), "policy keeps an ineligible piece"
                 )

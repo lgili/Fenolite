@@ -6,11 +6,95 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Bind the local integration of four exactly re-approved LibrePCB items to library23deaee, preserving existing source IDs, native outputs and outstanding CI/release/audit gates (c0338).
+
+- Repair stale example-byte proof commands in quantity-range and connection-helper tasks; retain all pending CI requirements and record historical closure dependency checks (c0246/c0247/c0319).
+
+- Close the FULL drawn-circuit repair task with 113 focused passes and reverified native source/save-reopen proofs, recording the maintainer’s scoped acceptance of retrospective baseline acquisition and preserving all remaining gates (c0276).
+
+- Close the repeated-local-net naming task using 107 current focused passes, byte-identical native writer code and reverified Altium binary/ASCII save-reopen evidence; retain the parent CAC/CI gates (c0276).
+
+- Prioritize the bounded CAC closure queue, distinguish checked tasks from archival eligibility, and rehearse eight normal spec-delta applications outside the working branch without waiving CI (c0319).
+
+- Preserve logs and 17 artifacts before removing two later failed/cancelled CI runs, recording verified deletion separately from integration success (c0319).
+
+- Record the actual acceptance_v03 Altium24 layer-stack CSV, all reported layer rows and three via spans; preserve dielectric display rounding and the remaining full-kit/graduation/CI gates (c0092).
+
+- Record the complete clean-source fast13 pass (22,366 tests, 52 skips) and complete the source-bound local fast gate, retaining failed fast12 history and all separate native/current-CI gates (c0319).
+
+- Record all four acceptance_v03 native body owners, layers, heights, projections and bounds, with exact source equality and a native 3D top-view observation; retain the failed layer-stack probe and broader acceptance gates (c0092).
+
+- Preserve the complete actual Altium24 acceptance_v03 DRC result (nine unrouted and five antenna findings) and native retention of all seven source rule field sets, without claiming DRC-clean/full-kit or graduation (c0092).
+
+- Record actual Altium24 PCB census and native save/close/reopen for acceptance_v03 with byte-identical complete exports and unchanged inputs; retain DRC/full-kit/graduation gates (c0092).
+
+- Prove oversized frame-cycle orientation with exact outward bounds and directed cancellation, keeping strict scalar/loss areas and all resource limits; preserve the later native contour-repair refusal (c0332).
+
+- Name the pending c0215.6.4a continuation in current tracking of the v0.6 release record, preserving its historical outcome and all native/current-CI gates (c0319).
+
+- Certify oversized connected-component area identities through exact directed boundary currents and signed outward bounds, preserving arithmetic/resource limits, ownership and exact whole-loss areas; retain later native contour-repair failures (c0332).
+
+- Record actual Altium24 schematic compilation and three-document native save/reopen for acceptance_v03, preserving all eight pins, three physical nets and complete raw exports; keep PCB/full-kit/graduation gates open (c0092).
+
+- Reduce exact spatial self-join work by descending the larger bounding box, preserving complete closed-box pairs and every existing resource limit; retain the subsequent native contour-repair refusal explicitly (c0332).
+
+- Record actual Altium24 save/reopen of ten FULL/REPEAT schematic copies; complete exports retain every pin, net object and name byte-for-byte, with Info-only compilation.
+
+- Record the actual Altium24 FULL/REPEAT memory compile/export batch with complete pin/net-object comparisons, unchanged inputs and preserved baseline findings; native save/reopen remains pending (c0276).
+
+- Preserve the current native regression frontier and interrupted replay without treating scoped geometry successes as complete CI acceptance (c0332).
+
+- Record the bounded v0.7 closure queue with source-bound CI history and distinct native, human and library gates; preserve pending integration criteria without archiving prematurely.
+
+- Reconcile completed external OpenAir preparation with its located legacy native-source receipt, preserving the failed source and keeping library promotion, publication and CI gates open.
+
+- Collect the eight complete native mirror/TAB preservation proofs in the KiCad oracle jobs, preserving their assertions and explicit writer-version compatibility; unit-only jobs retain pure controls.
+
+- Certify all imported pour copper within the continuous10nm boundary band while retaining native fragmentation, every fill/hole, strict net/layer identity and the existing XOR limit; add located tiny-copper negatives instead of assuming native container counts (c0215).
+
+- Record the maintainer’s source-bound approval of the native KiCad/viewer colour comparison (c0178), retaining independent CI and electrical gates.
+
+- Restore canonical FULL drawing-file ordering while preserving the complete parsed drawing and all emitted build bytes on KiCad9/10; keep the canonical serialization guard unchanged.
+
+- Assert the repaired FULL fixture’s complete load symbols, ground ports, named local labels and both unused-pin markers in its reader/writer controls.
+
+- Keep all FULL ground ports in the visible-power-font test, asserting unchanged complete nets/pins and untouched native fields alongside the requested font.
+
 - Exclude pytest current-directory aliases from native floor evidence uploads; preserve all real owner reports and strict duplicate-proof rejection.
 
 - Declare the real KiCad requirement of the BOM-only KiCad-to-Altium refusal integration test, so unit-only CI does not fail before reaching its writer check.
 
 - Fix the native-rule tool-version test on Windows by matching path components; retain the metadata-change assertion and require PCB, project and DRU hashes.
+- Select bounded exact rounding-cell proposals under local repair-pool pressure while preserving the original ample-pool producer and one shared trial state; the public Altium03pour census and ECC83 native conversion now pass without baseline changes (c0332).
+
+- Prove a retained piece’s exact nonnegative area without a huge global denominator, preserving scalar-first checks and requiring the original bounded exact Fraction for every whole-piece loss (c0332).
+
+- Add an explicit exact-subchain identity proof beside continuous capsule intervals: verify every original edge endpoint and complete bidirectional ownership while preserving legacy covers and resource limits (c0332).
+
+- Propose exact target-vertex projection breaks for continuous capsule certificates, keeping the original full verifier, dyadic fallback and every interval/depth/work limit (c0332).
+
+- Retain exact area certification for independent nested supports when a global product denominator exceeds the existing bit bound: compare signed component identities and prove the global sign with exact outward bounds, preserving the original scalar path and all limits (c0332).
+
+- Select formal winding sources through exact closed-Y intervals when full scanning exceeds the remaining global work budget; retain all boundary ties, source multiplicity, certificates and resource caps (c0332).
+
+- Enumerate exact closed-box candidates with a bounded tree self join, retaining every source-ID pair and the existing work/storage/output caps instead of scanning false one-axis overlaps (c0332).
+
+- Preserve the original certified-candidate fallback when refinement preparation refuses, while propagating resource exhaustion unchanged (c0332).
+
+- Add bounded exact-curve subdivision proposals for projected neck-cut conflicts; only the original global certificate can accept them. Preserve source corners, half-even, all resource limits and existing byte defaults; ECC83 native conversion now passes without a baseline change (c0332).
+
+- Expand the private exact neck-cut input domain to the existing 100,000-edge structural envelope while retaining every other resource/certificate guard and explicit refusal above the ceiling (c0332).
+
+- Retain current-source CI geometry refusal proofs: one caller exceeds the unchanged edge cap, and another fails the continuous certificate before its fallback node limit. Keep repair and final validation gates open (c0332).
+- Prepare source-bound native KiCad GUI/theme and viewer colour comparisons for c0178, preserving authored input hashes and keeping final maintainer review and CI pending.
+
+- Preserve measured native custom-property TAB values alongside LF without relaxing printable DSL properties, native names or unsupported control and presentation guards.
+
+- Propose bounded native custom-property TAB value preservation; implementation and native proof remain pending and public printable property validation stays unchanged.
+
+- Preserve exact native poses for top mirrored and bottom unmirrored custom footprint properties while retaining printable property declarations and refusing other unsupported field forms.
+
+- Document the proposed symmetric native custom-field mirror fallback with authored refusal and representation evidence; runtime implementation and complete native proof remain pending.
 
 - Preserve the completed failed fast-gate receipt and the exact five-case repair replay, keeping the next whole-source and native validation gates open (c0319).
 
@@ -102,7 +186,7 @@ All notable changes to Fenolite are documented here. The format follows
 
 - Give the original FULL drawn fixture real B0/B1 pull-down loads, retaining all36 old pins and measuring40pins/five components; only unused U1-11/U1-12 are marked and IN labels the existing wire. Native record and KiCad9/10 checks pass without the old dangling-label exception; native Altium acceptance remains pending (c0276).
 
-- Record actual Altium24.5.2.23 S3 slot/cut-out openings in2D/3D and exact NC drill absence, plus S4 one native Board Cutout region for the merged L. Current24 DRC and the writer gate remain pending (c0168).
+- Record actual Altium24.5.2.23 S3 slot/cut-out openings in2D/3D and exact NC drill absence, plus S4 one native Board Cutout region for the merged L. The S5 literal subtest now has a complete seven-finding native DRC result: TP1 positive and TP2 absent from Board Outline Clearance, with all extra findings retained and no independent TP2 SDK census. Other current24 cases and the writer gate remain pending (c0168).
 
 - **Exact imported physical pad annotations** (c0355): preserve existing native pinfunction/pintype children and their absence per physical pad in explicit imported definitions. Conflicting duplicate pad numbers retain their own metadata; changed identities and ambiguous annotated sources refuse. Source/output top/bottom controls retain metadata, and malformed annotations refuse before planning. Generic library extraction and default writers remain unchanged. Native identity/order normalization remains an unimplemented proposal with strict annotation and ambiguity preconditions; derived-cache differences remain visible.
 - **Measured hash pin names** (c0357): preserve `#` in native open/no-connect pin net names after exact authored KiCad9/10 export proofs. Other unmeasured characters remain unsupported; strict native class-membership comparison is unchanged.

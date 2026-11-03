@@ -29,7 +29,7 @@ def test_actual_caller_tests_whole_piece_before_hole() -> None:
 
 def test_input_limit_refuses_before_large_exact_arrangement() -> None:
     with pytest.raises(GeometryError, match="input-edge budget"):
-        _certified_neck_cut((rectangle(0, 0, 10, 10),) * 2501, (), 1)
+        _certified_neck_cut((rectangle(0, 0, 10, 10),) * 25_001, (), 1)
 
 
 def test_real_unrepresentable_corner_refuses_without_fallback() -> None:

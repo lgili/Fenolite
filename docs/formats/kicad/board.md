@@ -1061,3 +1061,11 @@ The bounded c0355 observation additionally covers original through-hole and cham
 `ORACLE-VERIFIED(KiCad10.0.6)`: an original authored board with two labelled routed networks preserves complete terminal membership after table order or known netcode changes; unnumbered NPTH/SMD pads remain physical NO_NET objects. This test-only observation does not qualify a third-party board for renumbering.
 
 `ORACLE-VERIFIED(KiCad10.0.6)`: a direct footprint `zone_connect` wire integer0/1/2 produces distinct ordinary-fill results in the original SMD control;3 matches2 in that control only. No through-hole behavior is inferred. An original silkscreen `gr_text` with an explicit face acquires `render_cache` text matching the owner, followed by its rotation and ordered `polygon/pts/xy` coordinate pairs. Changing only owner rotation0→90 changes that scalar accordingly. Translating the owner5mm/7mm translates all14 ordered cache polygons exactly, with no vertex/ring normalization. The test-only descriptor is limited to F/B.SilkS and refuses unknown members/malformed or ambiguous ownership. No glyph geometry is committed, no cache is seeded, and no copper-cache exception is implied. Receipt: `openspec/changes/c0355-verified-native-identity/numeric-role-ledger-proof.json`.
+
+## Authored native TAB value observations
+
+| Fact | Source | Evidence |
+| --- | --- | --- |
+| KiCad9.0.9 and10.0.6 official PCB SVG exports accept an authored custom property value containing TAB and LF; original and byte-exact native-model-writer controls agree across both sides and normal/styled visible fields. All glyph paths/transforms/style/multiplicity agree; only root title output-name/date metadata is excluded from the independent XML comparison and retained in raw evidence. | S-1301 | KICAD-VERIFIED (9.0.9,10.0.6; authored scope only) |
+
+These preliminary observations prove native representation, not native GUI save/reopen. The separate c0363 implementation-proof.json records complete production import/build controls. Other control characters, names and malformed input have not gained support. Exact native-value equality is independently asserted: existing strict modeled1–7 does not judge Component.properties values.

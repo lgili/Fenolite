@@ -1,0 +1,16 @@
+{
+  "authoring_red": {
+    "elapsed_seconds": 0.25,
+    "failed": 1,
+    "passed": 1
+  },
+  "focused_tests_passed": 102,
+  "full_validation": "pending root-owned exact-head CI",
+  "original_global_certificate_unchanged": true,
+  "scope": "Reject whole refinement attempts on GeometryError, including preparation before yield; propagate ResourceLimit unchanged",
+  "source_pyright_errors": 0,
+  "source_sha256": {
+    "src/fenolite/backends/altium/pour.py": "8bdfb1ba471dc25b7e3d7359471ea7fa0d6d301f10646d87be8899cec93f414b",
+    "tests/unit/backends/altium/test_exact_refinement_proposal.py": "fc33f50fb72ff1d3047e90f3eb6bfdc52faf17741bf1c4d50759c9d411c6edf1"
+  }
+}

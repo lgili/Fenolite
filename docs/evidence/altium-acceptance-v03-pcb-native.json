@@ -1,0 +1,433 @@
+{
+  "source": "S-1304",
+  "writer_source": "b5f6c84ade0cd74690874143bc1de96605279522",
+  "native_version": "Altium Designer24.5.2.23",
+  "scope": "Actual native PCB full object-kind census and exported pad/via/net/text/rule fields; new-copy native PCB Binary save/close/reopen with byte-identical complete raw census. Not DRC, complete layer/body/rule-parameter inspection, OutJob, full kit or graduation.",
+  "SDK_procedure": "RunC0092BoardBatch",
+  "SDK_source_sha256": "6c5884f77d88a33bf70cd6371cd2c5ecbade8a138a1b6325e461611f77084f89",
+  "SDK_project_sha256": "f722f1ff452eac0dafa683f4024caf6592ecaba88fc693313696aa41bd0c337b",
+  "input_sha256": "2a78551faf793ea1c95843b1fac518c175caba105c03fc722566412c9ebd212e",
+  "collection_manifest_sha256": "4f19d0f73204c6539b181ea040b09360141cbf18f5c440995b38fb5352a6de55",
+  "closed_collected_files": 15,
+  "all_reads_exclusive": true,
+  "staged_3_files_unchanged": true,
+  "original_prepared_packet_files_verified": 50,
+  "native_saved_pcb_sha256": "64f43648437e427b894bccbb0bbe8a6150eb606d313803dc34fdcee97cd56734",
+  "native_saved_pcb_bytes": 190976,
+  "complete_census_byte_identical": true,
+  "census_sha256": "d21ad1166ac416c227d7a2ea077dfbdae3371f4026f94a731d697df0c5a28497",
+  "object_kind_counts": {
+    "1": 0,
+    "2": 9,
+    "3": 3,
+    "4": 17,
+    "5": 9,
+    "6": 0,
+    "7": 0,
+    "8": 3,
+    "9": 4,
+    "10": 1,
+    "11": 2,
+    "12": 4,
+    "13": 0,
+    "14": 0,
+    "15": 18,
+    "16": 37,
+    "17": 0,
+    "18": 0,
+    "19": 0,
+    "20": 0,
+    "21": 0,
+    "22": 0,
+    "25": 0,
+    "26": 0
+  },
+  "internal_only_kinds_not_enumerated": [
+    "eTraceObject",
+    "eSpareViaObject"
+  ],
+  "pads": [
+    [
+      "1",
+      "21417323",
+      "21811024",
+      "0",
+      "False",
+      "D0"
+    ],
+    [
+      "2",
+      "22204724",
+      "21811024",
+      "0",
+      "False",
+      "GND"
+    ],
+    [
+      "1",
+      "13543307",
+      "21811024",
+      "0",
+      "False",
+      "D0"
+    ],
+    [
+      "2",
+      "14330709",
+      "21811024",
+      "0",
+      "False",
+      "GND"
+    ],
+    [
+      "1",
+      "25354331",
+      "21811024",
+      "0",
+      "False",
+      "D1"
+    ],
+    [
+      "2",
+      "26141732",
+      "21811024",
+      "0",
+      "False",
+      "GND"
+    ],
+    [
+      "1",
+      "17480315",
+      "21811024",
+      "0",
+      "False",
+      "D1"
+    ],
+    [
+      "2",
+      "18267717",
+      "21811024",
+      "0",
+      "False",
+      "GND"
+    ],
+    [
+      "",
+      "31653543",
+      "11968504",
+      "787402",
+      "False",
+      "<none>"
+    ]
+  ],
+  "vias": [
+    [
+      "17874016",
+      "17874016",
+      "1",
+      "32",
+      "236220",
+      "118110",
+      "GND"
+    ],
+    [
+      "19842520",
+      "17874016",
+      "1",
+      "2",
+      "236220",
+      "118110",
+      "GND"
+    ],
+    [
+      "21811024",
+      "17874016",
+      "2",
+      "3",
+      "236220",
+      "118110",
+      "GND"
+    ]
+  ],
+  "nets": [
+    "D0",
+    "D1",
+    "GND"
+  ],
+  "texts": [
+    "V03 ACCEPTANCE",
+    "R3",
+    "1k",
+    "R1",
+    "1k",
+    "R4",
+    "1k",
+    "R2",
+    "1k"
+  ],
+  "native_rules": [
+    [
+      "UnpouredPolygon",
+      "62",
+      "True",
+      "All",
+      "All"
+    ],
+    [
+      "NetAntennae",
+      "56",
+      "True",
+      "All",
+      "All"
+    ],
+    [
+      "SilkToBoardRegionClearance",
+      "59",
+      "True",
+      "All",
+      "All"
+    ],
+    [
+      "SilkToSilkClearance",
+      "55",
+      "True",
+      "All",
+      "All"
+    ],
+    [
+      "SilkToSolderMaskClearance",
+      "54",
+      "True",
+      "IsPad",
+      "All"
+    ],
+    [
+      "MinimumSolderMaskSliver",
+      "53",
+      "True",
+      "All",
+      "All"
+    ],
+    [
+      "DiffPairsRouting",
+      "51",
+      "True",
+      "All",
+      "All"
+    ],
+    [
+      "Fanout_BGA",
+      "49",
+      "True",
+      "IsBGA",
+      "All"
+    ],
+    [
+      "Fanout_LCC",
+      "49",
+      "True",
+      "IsLCC",
+      "All"
+    ],
+    [
+      "Fanout_SOIC",
+      "49",
+      "True",
+      "IsSOIC",
+      "All"
+    ],
+    [
+      "Fanout_Small",
+      "49",
+      "True",
+      "(CompPinCount < 5)",
+      "All"
+    ],
+    [
+      "Fanout_Default",
+      "49",
+      "True",
+      "All",
+      "All"
+    ],
+    [
+      "LayerPairs",
+      "48",
+      "True",
+      "All",
+      "All"
+    ],
+    [
+      "Height",
+      "50",
+      "True",
+      "All",
+      "All"
+    ],
+    [
+      "ComponentClearance",
+      "24",
+      "True",
+      "All",
+      "All"
+    ],
+    [
+      "AssemblyTestpoint",
+      "57",
+      "True",
+      "All",
+      "All"
+    ],
+    [
+      "AssemblyTestPointUsage",
+      "58",
+      "True",
+      "All",
+      "All"
+    ],
+    [
+      "FabricationTestpoint",
+      "43",
+      "True",
+      "All",
+      "All"
+    ],
+    [
+      "FabricationTestPointUsage",
+      "44",
+      "True",
+      "All",
+      "All"
+    ],
+    [
+      "RoutingTopology",
+      "7",
+      "True",
+      "All",
+      "All"
+    ],
+    [
+      "SolderMaskExpansion",
+      "13",
+      "True",
+      "All",
+      "All"
+    ],
+    [
+      "PasteMaskExpansion",
+      "14",
+      "True",
+      "All",
+      "All"
+    ],
+    [
+      "RoutingCorners",
+      "10",
+      "True",
+      "All",
+      "All"
+    ],
+    [
+      "RoutingLayers",
+      "9",
+      "True",
+      "All",
+      "All"
+    ],
+    [
+      "RoutingPriority",
+      "8",
+      "True",
+      "All",
+      "All"
+    ],
+    [
+      "PolygonConnect",
+      "20",
+      "True",
+      "All",
+      "All"
+    ],
+    [
+      "PlaneClearance",
+      "12",
+      "True",
+      "All",
+      "All"
+    ],
+    [
+      "PlaneConnect",
+      "6",
+      "True",
+      "All",
+      "All"
+    ],
+    [
+      "UnRoutedNet",
+      "16",
+      "True",
+      "All",
+      "All"
+    ],
+    [
+      "ShortCircuit",
+      "15",
+      "True",
+      "All",
+      "All"
+    ],
+    [
+      "Clearance",
+      "0",
+      "True",
+      "All",
+      "All"
+    ],
+    [
+      "Width",
+      "2",
+      "True",
+      "All",
+      "All"
+    ],
+    [
+      "RoutingVias",
+      "11",
+      "True",
+      "All",
+      "All"
+    ],
+    [
+      "HoleSize",
+      "42",
+      "True",
+      "All",
+      "All"
+    ],
+    [
+      "BoardOutlineClearance",
+      "63",
+      "True",
+      "All",
+      "All"
+    ],
+    [
+      "HoleToHoleClearance",
+      "52",
+      "True",
+      "All",
+      "All"
+    ],
+    [
+      "MinimumAnnularRing",
+      "19",
+      "True",
+      "All",
+      "All"
+    ]
+  ],
+  "rules_parameters_compared": false,
+  "drc_tested": false,
+  "parent_task5_3_complete": false,
+  "write_kind_graduated": false
+}

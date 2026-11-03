@@ -31,7 +31,7 @@
   - 2026-10-29: `tests/consistency` passes.
 - [x] 3.2 Agent guide: a `fenolite-design` block in `src/fenolite/agent/skill/references/parts.md` that uses `Range` through `pct`, `between`, `.max()` and `within()` and a part value with a tolerance, so every new name of `fenolite.dsl.__all__` is taught (or listed with a reason in `DSL_NOT_TAUGHT` of `src/fenolite/agent/guide.py`); then regenerate the reference page. Proof: `uv run python tools/gen_agent_guide.py`; `uv run pytest tests/unit/agent/test_pages.py -q`.
   - 2026-10-29: block "Value ranges" in `parts.md` (uses `Range`, `Tolerance`, `between`, `pct`); `dsl-reference.md` regenerated (11 887 bytes, under 12 000); `test_pages.py` passes.
-- [x] 3.3 Examples: none of the shipped examples changes (their KiCad bytes are pinned); the guide block of 3.2 is the example. Write that here once 2.3 passes. Proof: `uv run pytest tests/unit/lens/test_build_bytes_pinned.py -q`.
+- [x] 3.3 Examples: none of the shipped examples changes (their KiCad bytes are pinned); the guide block of 3.2 is the example. Write that here once 2.3 passes. Proof: `uv run pytest tests/unit/test_build_bytes.py -q`.
   - 2026-10-29: no shipped example changes; the block of 3.2 is the example. `test_build_bytes_pinned.py` passes.
 
 ## 4. Closing
@@ -45,3 +45,15 @@
   - 2026-10-29: left open: `dev` is at unpublished 0.6.0, whose guard needs `[Unreleased]` empty; the entry waits for 0.7.0.dev0.
 - [ ] 4.4 Publish the batch branch and confirm CI green on its exact commit (unit and KiCad jobs) before archiving. Proof: `gh run list --branch <branch> --limit 1` shows success for the commit; `npx -y @fission-ai/openspec validate c0246-quantity-ranges --strict`.
   - 2026-10-29: left open: CI runs with the batch (maintainer's rule of 2026-10-29); the `KICAD-VERIFIED` run of 2.3 is recorded once the batch's CI is green.
+
+
+## Current proof-command reconciliation —2026-11-03
+
+The former `tests/unit/lens/test_build_bytes_pinned.py` path does not exist
+in the current integration. Its current complete example-byte guard is
+`tests/unit/test_build_bytes.py`; the task command above now names that file.
+Actual current proof:76passed10.79s, with the test source and pinned table
+unchanged. Log SHA256:
+`67ef6a95094b396651e6d41c9b0d88a5f1d94efdeb14389ed2ec4e880e31d11f`.
+This updates a proof path only. Historical results remain historical; required
+KiCad ERC/oracle/current-commit CI and pending task checkboxes are unchanged.

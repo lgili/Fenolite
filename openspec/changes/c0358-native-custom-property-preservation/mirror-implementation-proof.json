@@ -1,0 +1,64 @@
+{
+  "base_source": "5b0853b718e54f2ce487a2545a3ed44df7bd0f9a",
+  "planning_commit": "07140074",
+  "authored_red_commit": "fec4e6b4",
+  "scope": "Exact native ownership for top-mirrored/bottom-unmirrored custom fields; no public API/model/comparator change.",
+  "source_files_sha256": {
+    "src/fenolite/importer/emit/fields.py": "28ce75f486f7c47acc79453fc43601cb1337c6d3b6883b71cf44b8fc7d3c106e",
+    "src/fenolite/importer/vendor.py": "c445fb94102a3dcf3bd024c0638ee79ee1ac71d957e9bb06f61bf374d87c5d31",
+    "tests/unit/importer/test_custom_field_poses.py": "f3d5ada737ddaf8d953aa0f8ba429ac525a2be30eef6da35eb9925b62a3ea997",
+    "tests/unit/importer/test_native_mirror_property.py": "db7b50376c527349870fddcbc26dd7d29bfc5cb87bbbd521063f5b50f003dc66"
+  },
+  "focused_tests": {
+    "combined": 177,
+    "deselected_full_native_proofs": 8,
+    "import_graph_evidence_vendor_and_mirror": 162,
+    "deselected_full_native_proofs_structural": 4,
+    "native_full_9": 2,
+    "native_full_10": 2,
+    "native_versions": [
+      "9.0.9",
+      "10.0.6"
+    ],
+    "native_full_levels": [
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "7",
+      "8",
+      "S"
+    ],
+    "native_accepted": 0,
+    "native_differences": 0
+  },
+  "defaults": {
+    "baseline_source": "5b0853b718e54f2ce487a2545a3ed44df7bd0f9a",
+    "plans": 75,
+    "all_exit_and_complete_file_maps_identical": true,
+    "files": 1137,
+    "before_sha256": "32fda8048b0add5889734944f64ec05620e96574cc98a0d940022d55a0db28b9",
+    "after_sha256": "03242d2a8ba9cea4548932093a39489f9c31590ae598442e36d5fef6a9470874"
+  },
+  "static": {
+    "ruff": "passed",
+    "pyright": "0errors/0warnings on both runtime files",
+    "openspec": "both strict passed"
+  },
+  "public_cm5_replay": {
+    "source_sha256": "123e209e6245cbcc344c1c70b425dcb44a12cd0a2d05f00a39d3f2e7ff307ffa",
+    "mirror_error_fixed": true,
+    "exit": 3,
+    "remaining_code": "FEN-3004",
+    "remaining_message": "unsupported native custom property text",
+    "remaining_property": "Part Description",
+    "remaining_control": "TAB in native value, deliberately still refused",
+    "source_unchanged": true,
+    "complete_CI_fix_claimed": false
+  },
+  "required_exact_commit_CI": "PENDING",
+  "acceptances_or_waivers_added": 0,
+  "third_party_CAD_in_core": false
+}

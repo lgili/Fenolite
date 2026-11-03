@@ -1,0 +1,61 @@
+{
+  "base_source": "a59d2053f4f2eb3df7708f0ae4bb37350c81db62",
+  "runtime_file_sha256": "e47cb284a124690edbdf773b246e8486dfecd6ac1861db7b055d713836b99540",
+  "original_segments": 65620,
+  "all_closed_pairs": 139739,
+  "complete_reference_equality": true,
+  "pair_sha256": "7255453901460e7b3d923c2d61c53e00a16925a38d52490302fa045c0ca5899c",
+  "production_original_limits": true,
+  "seconds": 0.880478334001964,
+  "native07_complete": false,
+  "native07_next_failure": "implicated proposal-node budget exceeded",
+  "native_log_sha256": "8c8d8673136a32a1580be80f7b782414f7974f6bde6be4d2320016d689cc1c9d",
+  "authored_red_sha256": "2db9bebe555ade6935c3fa7c1a12d86ad05e3820a998eac0bacc50ccd31529d8",
+  "authored_green_sha256": "e2014f687aaa94984bc98f66573cad12dca10dca6d7a500441edc980289f3bde",
+  "capture": {
+    "source": "a59d2053f4f2eb3df7708f0ae4bb37350c81db62",
+    "caller": "tests/kicad/convert/test_triangle.py::test_demo_boards[07]",
+    "segments": 65620,
+    "call": 1,
+    "sha256": "0583b3d6ed2ebbe2dfe82acd63913127360c74532cf455933b446f27610914b5",
+    "kwargs": {},
+    "comparisons_limit": 1000000,
+    "caller_and_budget_unmodified": true,
+    "failure": "geometry.degenerate: exact geometry index-comparison budget exceeded"
+  },
+  "pilot": [
+    {
+      "mode": "old",
+      "complete": false,
+      "failure": "original comparison bound",
+      "visits": 1000001,
+      "peak": 42,
+      "seconds": 0.22424837498692796
+    },
+    {
+      "mode": "larger",
+      "complete": true,
+      "visits": 796979,
+      "peak": 42,
+      "pairs": 139739,
+      "pair_sha256": "7255453901460e7b3d923c2d61c53e00a16925a38d52490302fa045c0ca5899c",
+      "seconds": 0.19913354099844582
+    },
+    {
+      "mode": "both",
+      "complete": true,
+      "visits": 900107,
+      "peak": 92,
+      "pairs": 139739,
+      "pair_sha256": "7255453901460e7b3d923c2d61c53e00a16925a38d52490302fa045c0ca5899c",
+      "seconds": 0.1977107499842532
+    }
+  ],
+  "geometry_tests": {
+    "passed": 628,
+    "seconds": 14.16
+  },
+  "authored_cap": 1000,
+  "authored_red": "1 failed before runtime change; unchanged assertion passes after",
+  "final_integration_ci_passed": false
+}

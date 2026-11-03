@@ -241,3 +241,15 @@ is which values the records get.
 - **Texts outside 7-bit ASCII.** A designator or a comment that the 8-bit string cannot hold is written
   as a free text is: the 8-bit string with `?` for each character outside ISO-8859-1, and the text
   itself as the wide string.
+
+
+### Source-bound native acceptance stack observation
+
+ALTIUM-VERIFIED(kit), S-1308, Altium24.5.2.23: the authored acceptance_v03
+native Layer Stack Manager CSV reports six signal copper layers and five TEST
+cores (Dk4), plus masks/overlays and through/blind/buried via definitions.
+Each core's displayed9.843mil is rounded from encoded9.8425mil; the CSV does
+not establish exact internal precision. Paste layers are absent from this
+report. This observation supports only this packet, not general format
+semantics or writer graduation (H-A-PCB-DOC-OPEN). See the complete receipt in
+`docs/evidence/altium-acceptance-v03-layer-native.json`.

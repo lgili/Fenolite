@@ -88,10 +88,14 @@ def test_power_visible_field_font_keeps_existing_hidden_reference_rule(target: i
     field = DrawnField("Value", Point(power.at.x, power.at.y + 1_270_000), font=font)
     changed = dataclasses.replace(power, fields=(field,))
     drawing = dataclasses.replace(
-        value, sheets=(dataclasses.replace(root, powers=(changed,)), *value.sheets[1:])
+        value, sheets=(dataclasses.replace(root, powers=(changed, *root.powers[1:])), *value.sheets[1:])
     )
     output = _drawn.build("full", target, value=drawing)
-    extracted, _, _ = _drawn.resolved(output)
+    assert not [issue for issue in output.issues if issue.severity == "error"]
+    extracted, netlist, _ = _drawn.resolved(output)
+    baseline_drawing, baseline, _ = _drawn.resolved(_drawn.build("full", target))
+    assert netlist.pins == baseline.pins and netlist.nets == baseline.nets
+    assert extracted.sheets[0].powers[1:] == baseline_drawing.sheets[0].powers[1:]
     again = extracted.sheets[0].powers[0]
     assert again.fields == (field,)
     assert again.net == power.net and again.symbol == power.symbol

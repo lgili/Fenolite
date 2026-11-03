@@ -28,9 +28,8 @@ transcribe. This page holds the form of the file only; sources are listed in `do
 | KICAD_CONFIG_HOME selects a configuration base with version subdirectories; isolation must be set on a separately launched owned process, not by modifying the active user's configuration | S-1298 | INFERRED | H-K-THEME |
 
 Actual10.0.6 CLI discovery exposes theme selection for SVG export, but no create/save command.
-No native theme was written in this investigation. A handcrafted JSON seed, a binding signature or
-a future-version capability cannot be labelled a KiCad-written theme. The GUI creation/native
-comparison and the maintainer's review remain pending; no builtin palette is transcribed.
+No native theme was written in that initial headless investigation. A handcrafted JSON seed, a binding signature or
+a future-version capability cannot be labelled a KiCad-written theme. The later actual GUI preparation is recorded below; the maintainer's review remains pending. No builtin palette is transcribed into core.
 
 ## Fenolite's reading
 
@@ -38,3 +37,13 @@ comparison and the maintainer's review remain pending; no builtin palette is tra
   colour, and an unknown key is ignored. The alpha of `rgba` is kept as the slot's opacity.
 - `--theme NAME` looks for `NAME.json` in the `colors` folder of each settings folder, majors 10 to 6, then
   takes `NAME` as a path.
+
+## Actual isolated GUI preparation
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| In actual10.0.6, a GUI-created theme retained three authored board colour choices while the schematic Colors dialog changed only `schematic.wire` and `schematic.component_body`. After closing/reopening preferences, the two swatches showed the exact authored RGBA values; the native JSON held their corresponding rgb strings. | S-1302 | KICAD-VERIFIED (10.0.6; authored GUI scope only) | H-K-THEME |
+
+The native file, inherited colours and screenshots remain external. Four actual standalone viewer
+exports map the five authored slots exactly; no general module evidence level, native-vs-viewer
+pixel equality, PCB quality or maintainer review is inferred. See c0178 native-gui-preparation-proof.json.

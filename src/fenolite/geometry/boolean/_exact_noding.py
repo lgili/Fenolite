@@ -9,7 +9,6 @@ including edges whose total current cancels. There is no process-global state.
 
 from __future__ import annotations
 
-import heapq
 import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
@@ -17,6 +16,8 @@ from fractions import Fraction
 
 from fenolite.geometry.boolean.base import COORD_LIMIT
 from fenolite.geometry.errors import OUT_OF_RANGE, GeometryError
+from fenolite.geometry.index import SpatialIndex
+from fenolite.geometry.shapes import BBox
 
 IntPoint = tuple[int, int]
 ExactPoint = tuple[Fraction, Fraction]
@@ -30,7 +31,9 @@ class ResourceLimit(GeometryError):
 class Limits:
     """Deterministic storage/work caps; deadlines bound the remaining arithmetic."""
 
-    input_edges: int = 10_000
+    # Explicit input coverage: min(nodes, fragments, halfedges // 2, incidences // 2).
+    # All downstream work/storage/deadline caps still apply independently.
+    input_edges: int = 100_000
     comparisons: int = 1_000_000
     candidates: int = 250_000
     nodes: int = 100_000
@@ -85,6 +88,10 @@ class Budget:
             > self.limits.coordinate_bits
         ):
             raise ResourceLimit("exact geometry coordinate bit budget exceeded")
+
+    @property
+    def remaining_visits(self) -> int:
+        return self.limits.winding_visits - self._visits
 
     def visit(self, count: int) -> None:
         self._visits += count
@@ -161,47 +168,46 @@ def candidate_pairs(
     _validate(segments, budget, budget.limits.input_edges if edge_limit is None else edge_limit)
     if start_stage:
         budget.stage("index")
-    bounds = [
-        (min(s.a[0], s.b[0]), min(s.a[1], s.b[1]), max(s.a[0], s.b[0]), max(s.a[1], s.b[1])) for s in segments
-    ]
-
-    def density(axis: int) -> int:
-        heap: list[tuple[int, int]] = []
-        count = 0
-        for i in sorted(range(len(bounds)), key=lambda j: (bounds[j][axis], j)):
-            budget.check()
-            while heap and heap[0][0] < bounds[i][axis]:
-                heapq.heappop(heap)
-            count += len(heap)
-            heapq.heappush(heap, (bounds[i][axis + 2], i))
-        return count
-
-    densities = (density(0), density(1))
-    axis = 0 if densities[0] <= densities[1] else 1
-    other = 1 - axis
-    active: dict[int, None] = {}
-    heap: list[tuple[int, int]] = []
-    result: list[tuple[int, int]] = []
-    comparisons = 0
-    for i in sorted(range(len(bounds)), key=lambda j: (bounds[j][axis], j)):
-        budget.check()
-        while heap and heap[0][0] < bounds[i][axis]:
-            _, old = heapq.heappop(heap)
-            del active[old]
-        for j in active:
-            comparisons += 1
-            if comparisons > budget.limits.comparisons:
-                raise GeometryError("exact geometry index-comparison budget exceeded")
-            if comparisons % 1024 == 0:
-                budget.check()
-            if bounds[j][other + 2] >= bounds[i][other] and bounds[i][other + 2] >= bounds[j][other]:
-                if len(result) >= budget.limits.candidates:
-                    raise GeometryError("exact geometry candidate-pair budget exceeded")
-                result.append((min(i, j), max(i, j)))
-        active[i] = None
-        heapq.heappush(heap, (bounds[i][axis + 2], i))
+    level = len(segments)
+    tree_nodes = 0
+    while level:
+        level = (level + 3) // 4
+        tree_nodes += level
+        if tree_nodes > budget.limits.nodes:
+            raise GeometryError("exact geometry tree-node storage budget exceeded")
+        if level == 1:
+            break
+    index = SpatialIndex[int].build(
+        (
+            (BBox(min(s.a[0], s.b[0]), min(s.a[1], s.b[1]), max(s.a[0], s.b[0]), max(s.a[1], s.b[1])), i)
+            for i, s in enumerate(segments)
+        ),
+        capacity=4,
+    )
     budget.check()
-    return tuple(sorted(result))
+    comparisons = 0
+
+    def visit() -> None:
+        nonlocal comparisons
+        comparisons += 1
+        if comparisons > budget.limits.comparisons:
+            raise GeometryError("exact geometry index-comparison budget exceeded")
+        if comparisons % 1024 == 0:
+            budget.check()
+
+    def reserve(count: int) -> None:
+        if count > budget.limits.nodes:
+            raise GeometryError("exact geometry index-stack budget exceeded")
+        budget.check()
+
+    result: list[tuple[int, int]] = []
+    for i, j in index._join_pairs(visit, reserve):  # pyright: ignore[reportPrivateUsage]
+        if len(result) >= budget.limits.candidates:
+            raise GeometryError("exact geometry candidate-pair budget exceeded")
+        result.append((i, j))
+    ordered = tuple(sorted(result))
+    budget.check()
+    return ordered
 
 
 def _on(p: IntPoint, s: Segment) -> bool:

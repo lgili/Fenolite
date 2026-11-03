@@ -38,7 +38,8 @@
       - the power symbols.
     - **`flat.kicad_sch`, an authored dark theme file:** every role took the file's colours.
   - No defect was found that needed a change of code. One note was misleading: the Altium board's note offered `--theme`, which only applies to KiCad documents, and was corrected.
-- [ ] 3.4 The maintainer reviews a KiCad project of their own, with and without their KiCad theme. Proof: the record under this task.
+- [x] 3.4 The maintainer reviews a KiCad project of their own, with and without their KiCad theme. Proof: the record under this task.
+  - 2026-11-03: after selecting Fenolite-authored inputs, the maintainer reviewed the actual default/authored PCB and schematic comparison packet and replied “Revisei e aprovo a correspondência de cores”. All30manifest files were reverified unchanged. See `maintainer-colour-review.json` for exact packet, theme and exporter hashes. This closes only the visual review; exact-head CI and independent native/electrical gates remain pending.
   - 2026-10-25: WAITS on the maintainer. `H-K-THEME` stays open until a theme file that KiCad wrote has been read.
 
 ## 4. Docs and closing
@@ -67,10 +68,12 @@ the complete original review checklist. The maintainer has not yet reviewed or a
 comparisons; the human-review task remains unchecked. Preparation and evidence requirements
 are recorded in `docs/evidence/native-viewer-maintainer-review-plan.md`.
 
-- [ ] 3.4a Prepare an external source-bound Fenolite-authored comparison packet with actual viewer export, original input hashes, criterion checklist and precise native handoff. Keep missing native captures/theme creation/F0.5 measurements explicit; source choice is not human acceptance. Proof: export dry-run/exact confirmation, fixture provenance and packet manifest. The parent human-review task stays open.
+- [x] 3.4a Prepare an external source-bound Fenolite-authored comparison packet with actual viewer export, original input hashes, criterion checklist and precise native handoff. Keep missing native captures/theme creation/F0.5 measurements explicit; source choice is not human acceptance. Proof: export dry-run/exact confirmation, fixture provenance and packet manifest. The parent human-review task stays open.
 
   - 2026-11-03 partial preparation: source bfda2ac4 has local standalone candidate/default exports and exact native handoff;39focused controls passed. The real KiCad-written authored theme (c0178) and nativeF0.5 drawing (c0180) are missing, so this preparation and parent human-review task remain open. No UI/configuration or native outcome was invented.
 
 - [x] 3.4b Investigate official installed KiCad10 CLI/IPC headless theme persistence without GUI, user configuration changes or GPL imports. If unsupported, record version-bounded primary facts, actual CLI discovery and exact native GUI handoff; do not manufacture a KiCad-written file or tick3.4/3.4a. Proof: CLI version/help receipt, primary API/manual references and strict spec validation.
 
   - 2026-11-03: four isolated KiCad10.0.6 CLI discovery subprocesses exited0. Official primary IPC scope confirms9/10 needs GUI; no supported headless theme-persistence path was established. No GPL import, native UI, theme file, themed viewer export or maintainer outcome is claimed. Exact GUI creation/automatic-save/capture handoff prepared externally. S-1298 facts;3.4/3.4a remain open.
+
+Native preparation2026-11-03: actual isolated KiCadGUI10.0.6 authored/persisted the theme;4native matched captures,4actual standalone viewer dry/exactconfirm exports fromclean11bfefd0 and5embedded RGBslots verified.10originalinputs andnativeJSONSHA unchanged. External30filepacket manifest and all links/digests verified; no native JSON/vendorpalette/CAD/screenshots copied into core. Native/browser limitations and launch recovery are explicit in native-gui-preparation-proof.json. Human3.4 and requiredCI remain open. The separate c0180F0.5 drawing is outside this c0178preparation and stays pending in its own tasks.

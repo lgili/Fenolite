@@ -128,7 +128,7 @@
   ],
   "pending": [
     "S1 pad properties and native Drill Drawings on24",
-    "S2/S5 actual24 clearance DRC",
+    "S2 complete current24 case acceptance (one Hole To Hole finding is preserved under S5)",
     "S6/S7/S8 current24 outcomes"
   ],
   "s3_all_criteria_passed": true,
@@ -142,8 +142,8 @@
     "outline": "One selected L contour with the authored three rounded extremities; Properties belongs to that single selection.",
     "selection_count": 1
   },
-  "s5_passed": false,
-  "scope": "Current authored Part S regions kit: S3 and S4 actual observations only; other24 cases and full acceptance remain pending",
+  "s5_passed": true,
+  "scope": "Current authored Part S kit: S3/S4 actual observations and S5 literal TP1-positive/TP2-absent native-result subtest; remaining24 cases and full acceptance stay pending",
   "screenshots": {
     "view-2d.png": "5ce034ebedbd409b81bb520667414d18c90af76dbcfa785e1c00caa314bb0b21",
     "view-3d.png": "f6d93cf2f2829a69fdb9d6f2c47bb9799d160b6dace62ba9f4380af114dd2b00",
@@ -156,5 +156,74 @@
     "3d": "Actual green board with white open milled slot S1, rounded rectangle cutout and merged L; side-wall/shadow visible; no blank GPU view.",
     "planning": "Board planning mode shows S1, rounded rectangular and L cutout areas."
   },
-  "writer_source_commit": "a0e8e5edb08dc989bbfd72c2f79067cbc3b96967"
+  "writer_source_commit": "a0e8e5edb08dc989bbfd72c2f79067cbc3b96967",
+  "s5_literal_subtest_only": true,
+  "s5_native_drc": {
+    "source": "S-1297",
+    "date": "2026-11-03",
+    "native_version": "24.5.2.23",
+    "native_pid": 8436,
+    "case": "S5 literal TP1 positive / TP2 absent from complete Board Outline Clearance results",
+    "input_file": "slots-clearance-native-v2.PcbDoc",
+    "input_sha256": "822d31cf5ee269e44b573db595388c0532008523ff4d0d93d103c7a528a8ec3e",
+    "activation_full_path_guard_proved": true,
+    "drc_invocations": 1,
+    "configuration_changed": false,
+    "create_report_file": false,
+    "create_violations": true,
+    "native_limit": 500,
+    "limit_reached": false,
+    "rule_class_selection": "[All Rules]",
+    "all_rules_selected": true,
+    "display_mode": "eGraphicalView_Normal",
+    "total_violations": 7,
+    "waived_violations": 0,
+    "complete_row_indices": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "native_grid_stable": true,
+    "categories": {
+      "Hole Size Constraint": 4,
+      "Board Outline Clearance(Cutout Edge)": 2,
+      "Hole To Hole Clearance Constraint": 1
+    },
+    "all_findings": [
+      "Hole Size Constraint: (393.701mil > 100mil) Pad Free-(1692.913mil,314.961mil) on Multi-Layer Actual Slot Hole Width = 393.701mil",
+      "Hole Size Constraint: (472.441mil > 100mil) Pad Free-(1062.992mil,275.591mil) on Multi-Layer Actual Slot Hole Width = 472.441mil",
+      "Hole Size Constraint: (125.984mil > 100mil) Pad Free-(2047.244mil,314.961mil) on Multi-Layer Actual Hole Size = 125.984mil",
+      "Hole Size Constraint: (393.701mil > 100mil) Pad Free-(1496.063mil,511.811mil) on Multi-Layer Actual Slot Hole Width = 393.701mil",
+      "Board Outline Clearance(Cutout Edge): (7.874mil < 19.685mil) Between Board Cutout (Multi-Layer)Region (0 hole(s)) Multi-Layer And Pad TP1-1(1496.063mil,1114.173mil) on Top Layer ",
+      "Board Outline Clearance(Cutout Edge): (Collision < 19.685mil) Between Board Cutout (Multi-Layer)Region (0 hole(s)) Multi-Layer And Text \"TP1\" (1496.063mil,1153.543mil) on Top Overlay ",
+      "Hole To Hole Clearance Constraint: (Collision < 9.842mil) Between Pad Free-(1496.063mil,511.811mil) on Multi-Layer And Pad Free-(1692.913mil,314.961mil) on Multi-Layer Pad/Via Touching Holes"
+    ],
+    "s5_literal_subtest_passed": true,
+    "native_TP1_pad_positive": true,
+    "TP2_Board_Outline_absent_from_complete_result": true,
+    "independent_native_TP2_object_census_performed": false,
+    "limitation": "TP2 negative is scoped to the complete native result for the hash-guarded authored input; no independent SDK census of TP2 was executed. No clean-board, saved/reopened, full-kit or release claim.",
+    "full_gate_passed": false,
+    "CUTOUT_REGIONS_changed": false,
+    "proofs_sha256": {
+      "drc-results-panel-full-v1.json": "67b4394f86e08803f997457f7d91a19b9136181b43f6ebdaea16de7a234eead4",
+      "drc-results-panel-stable-v1.json": "76e5566c4e29377c334473bc4004a2ea6656d7f4a5ed232db02d6e3086209627"
+    },
+    "source_scripts_sha256": {
+      "single_drc_request": "2d29c077d2f90514912d63f35b6686132e91443848ea443204a58c43fa4e7b08",
+      "full_panel_read": "63f40e0a1d8f521922704c606c970b48455252a90d947d66e3c377bd80c4bb58",
+      "complete_stable_grid_read": "bd3fd7d0321b2cb01726a139b90f812c6231a4377c0a72ca44d806eff6cdb6a4",
+      "pre_drc_options": "ff4edb187ec7af21004f7c70680f2cd23483b8a362d71c1308e3b572c49369b6"
+    },
+    "vm_full_read_started": "2026-11-03T14:03:41.4773762Z",
+    "vm_full_read_finished": "2026-11-03T14:05:09.2281388Z",
+    "vm_stable_read_started": "2026-11-03T14:07:25.5344486Z",
+    "vm_stable_read_finished": "2026-11-03T14:07:27.7803765Z",
+    "host_observed_utc": "2026-11-03T14:09:42.872540+00:00",
+    "clock_domains_calibrated": false
+  }
 }

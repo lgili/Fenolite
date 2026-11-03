@@ -156,3 +156,28 @@ def test_expired_call_does_not_poison_concurrent_independent_calls() -> None:
 
     with ThreadPoolExecutor(max_workers=4) as pool:
         assert list(pool.map(healthy, range(16))) == [F(100)] * 16
+
+
+def test_disconnected_sparse_components_do_not_scan_unrelated_y_intervals() -> None:
+    segments = tuple(
+        Segment(a, b, 0)
+        for i in range(100)
+        for ring in (((3 * i, 3 * i), (3 * i + 1, 3 * i), (3 * i + 1, 3 * i + 1), (3 * i, 3 * i + 1)),)
+        for a, b in zip(ring, ring[1:] + ring[:1], strict=True)
+    )
+    budget = Budget(replace(Limits(), winding_visits=5000))
+    loops = exact.difference_loops(segments, budget)
+    assert len(loops) == 100
+    assert all(exact.area2(ring, budget) == 2 for ring in loops)
+    assert budget._visits == 4947
+    with pytest.raises(GeometryError, match="visit budget"):
+        exact.difference_loops(segments, Budget(replace(Limits(), winding_visits=4946)))
+
+
+def test_affordable_full_scan_does_not_acquire_index_storage(monkeypatch) -> None:
+    def forbidden(*args):
+        raise AssertionError("affordable full scan must keep its original producer")
+
+    monkeypatch.setattr(exact, "ClosedYIndex", forbidden)
+    result = exact.difference_loops(segments((SQUARE,), ()), Budget())
+    assert len(result) == 1

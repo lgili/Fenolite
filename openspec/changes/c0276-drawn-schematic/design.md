@@ -675,3 +675,18 @@ actual prequalification plans/final circuit, proves eight covered pins/five comp
 checking FB0/FB1, and supplies missing/unmatched/ambiguous membership, casefold duplicate, automatic
 global/power collision, duplicate physical reference and nonrepeated-file controls. No runtime
 implementation has been applied at this RED checkpoint.
+
+
+## Maintainer acceptance of retrospective FULL baseline acquisition —2026-11-03
+
+The original requirement "First retain current24 baseline" remains documented
+above. Implementation preparation actually preceded native acquisition. After
+reviewing the source-bound original/corrected measurements, unchanged inputs
+and complete save/reopen evidence, the maintainer explicitly answered
+"Aceitar a prova retrospectiva documentada". For task6.5 only, accept that
+documented retrospective comparison in place of acquisition-before-implementation.
+Preserve the true chronology and all original failed outcomes; no electrical
+criterion, complete pin universe, comparator, ERC setting, resource budget,
+CI requirement or other task is waived. See full-closure-proof.json for the
+review-packet hash and scoped evidence. This decision is not permission to
+repeat the procedural deviation in another task.

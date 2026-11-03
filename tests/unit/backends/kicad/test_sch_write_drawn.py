@@ -6,6 +6,7 @@ change c0276)."""
 from __future__ import annotations
 
 import dataclasses
+from collections import Counter
 
 import _drawn
 import pytest
@@ -42,7 +43,11 @@ def test_every_kind_written(target: int) -> None:
     assert len(_root_children(text, "bus_entry")) == len(root.bus_entries) == 2
     assert len(_root_children(text, "bus_alias")) == len(root.bus_aliases) == 1
     assert len(_root_children(text, "wire")) == len(root.segments())
-    assert len(_root_children(text, "label")) == 4 and len(_root_children(text, "global_label")) == 2
+    assert len(_root_children(text, "label")) == 7 and len(_root_children(text, "global_label")) == 2
+    assert Counter(node.atoms()[0].value for node in _root_children(text, "label")) == Counter(
+        {"SDA": 1, "B0": 2, "B1": 2, "{BUSA}": 1, "IN": 1}
+    )
+    assert len(_root_children(text, "no_connect")) == len(root.no_connects) == 2
     heads = [c.name for c in parse(text).children if isinstance(c, Node)]
     # opaque items follow the sheet references, in their drawn order, before sheet_instances
     assert heads[heads.index("sheet") + 1 : heads.index("sheet_instances")] == ["text", "rectangle"]
@@ -50,6 +55,7 @@ def test_every_kind_written(target: int) -> None:
     again = extracted.sheets[0]
     assert set(again.segments()) == set(root.segments())
     assert again.junctions == root.junctions and again.bus_entries == root.bus_entries
+    assert again.no_connects == root.no_connects
     assert again.bus_aliases == root.bus_aliases
     # Legacy target10 output adds its explicit hidden field at the authored label anchor. c0348
     # preserves that actual pose: project visibility can override hide, so it cannot become None.

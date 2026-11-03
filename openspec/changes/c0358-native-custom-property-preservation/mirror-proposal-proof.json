@@ -1,0 +1,39 @@
+{
+  "source_core": "5b0853b718e54f2ce487a2545a3ed44df7bd0f9a",
+  "runtime_changed": false,
+  "production_request_red_cases": 64,
+  "production_import_red_cases": 4,
+  "strict_existing_model_1_to_7_equal_cases": 64,
+  "strict_existing_model_exclusions": 0,
+  "native_versions": [
+    "9.0.9",
+    "10.0.6"
+  ],
+  "native_svg_representatives": 4,
+  "native_svg_layers": [
+    "F.Fab",
+    "B.Fab",
+    "F.SilkS",
+    "B.SilkS"
+  ],
+  "native_svg_raw_difference": "Only root title filename/date metadata (one line per comparison); retained in raw SVG and diff receipt.",
+  "native_svg_entire_xml_except_root_title_equal": true,
+  "variant_same_payload_definitions": 1,
+  "variant_distinct_value_definitions": 2,
+  "full_L8_S": "PENDING: isolated derive/placed_tree reconstruction has no board-owned pad net restoration; original self L8 passed, mechanism rebuilt was refused FEN-3004 unbound net. This probe is not a complete writer/importer.",
+  "raw_uuid_identity": "Not claimed; existing placement rekeys UUIDs. No new identity comparator changes proposed.",
+  "public_source": {
+    "manifest_id": "kicad-demo-10-0-6-pcb-01",
+    "sha256": "123e209e6245cbcc344c1c70b425dcb44a12cd0a2d05f00a39d3f2e7ff307ffa",
+    "third_party_payload_in_core": false
+  },
+  "files": {
+    "matrix.json": "4c362a20a46bb2862d9481875b062662c094ea9f733c6c2e03a3ffc0dae22a0f",
+    "actual-import-RED.json": "f7510ed4b8c89cd2237548e591e2c3d288ddac9e03eabea02804c1e987d19e21",
+    "variant-mechanism.json": "9f4cfc8658395bd7a8e2a4876923f0f1991d2d01f00cb427fdc71bd1b922d11a",
+    "native-svg-9.json": "eaaec60b93fc3ab32a34e3dceb8eeebdb6510e7dc4a241c6640261437d16e8f5",
+    "native-svg-10.json": "f510f4d408a8a25146faf565f6607e611ef366fc6927bd6513bc28a55a868426",
+    "native-9.json": "8d7a803990e9783e3c6674d379d5a63998917091f6c47769b2bfb6d8e0bcfb49",
+    "baseline-original-self-L8.json": "e3e6604905dd5860e55c5d93fc0909a41303af4a1bdadf964278e5c182221e87"
+  }
+}

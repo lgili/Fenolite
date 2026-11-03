@@ -15,8 +15,10 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from fractions import Fraction
 from functools import cmp_to_key
+from math import gcd, lcm
 
 from fenolite.geometry.boolean._exact_noding import Budget, ExactPoint, Segment, node_segments
+from fenolite.geometry.boolean._exact_seed_index import ClosedYIndex
 from fenolite.geometry.errors import GeometryError
 
 Ring = tuple[ExactPoint, ...]
@@ -56,6 +58,52 @@ def area2(ring: Ring, budget: Budget) -> Fraction:
 
 def sign(x: Fraction) -> int:
     return (x > 0) - (x < 0)
+
+
+def _face_sign(ring: Ring, budget: Budget) -> int:
+    counts: dict[ExactPoint, int] = {}
+    for point in ring:
+        budget.visit(1)
+        for coordinate in point:
+            budget.coordinate(coordinate)
+        require(point in counts or len(counts) < budget.limits.nodes, "face sign point budget exceeded")
+        counts[point] = counts.get(point, 0) + 1
+    anchor = min(counts, key=lambda point: (-counts[point], point))
+    lower = upper = 0
+    positive = negative = False
+    for a, b in zip(ring, ring[1:] + ring[:1], strict=True):
+        budget.visit(1)
+        a, b = sub(a, anchor), sub(b, anchor)
+        term = checked(a[0] * b[1] - b[0] * a[1], 4096)
+        positive |= term > 0
+        negative |= term < 0
+        scaled = term.numerator * (1 << 32)
+        require(abs(scaled).bit_length() <= 4096, "face sign product bit budget exceeded")
+        q, remainder = divmod(scaled, term.denominator)
+        lower += q
+        upper += q + bool(remainder)
+        require(
+            max(abs(lower).bit_length(), abs(upper).bit_length()) <= 4096, "face sign sum bit budget exceeded"
+        )
+    if lower > 0 or (positive and not negative):
+        return 1
+    if upper < 0 or (negative and not positive):
+        return -1
+    require(not positive and not negative, "face area sign certificate unresolved")
+    return 0
+
+
+def _face_area(ring: Ring, budget: Budget) -> tuple[Fraction | None, int]:
+    """None denotes a proven sign only; strict area2 and Loss areas stay unchanged."""
+    require(len(ring) <= budget.limits.halfedges, "face area walk budget exceeded")
+    total = Fraction(0)
+    for i, (a, b) in enumerate(zip(ring, ring[1:] + ring[:1], strict=True)):
+        if i % 256 == 0:
+            budget.check()
+        total += checked(a[0] * b[1] - b[0] * a[1], 4096)
+        if max(abs(total.numerator).bit_length(), total.denominator.bit_length()) > 4096:
+            return None, _face_sign(ring, budget)
+    return total, sign(total)
 
 
 def angular(center: ExactPoint, a: ExactPoint, b: ExactPoint) -> int:
@@ -123,7 +171,8 @@ def frames(edges: dict[Edge, Current], budget: Budget) -> Frame:
     halves = sorted([e for e in edges] + [(b, a) for a, b in edges])
     left: dict[Edge, int] = {}
     cycles: list[tuple[Edge, ...]] = []
-    areas: list[Fraction] = []
+    areas: list[Fraction | None] = []
+    directions: list[int] = []
     for start in halves:
         if start in left:
             continue
@@ -141,10 +190,11 @@ def frames(edges: dict[Edge, Current], budget: Budget) -> Frame:
                 break
             if len(cycle) % 256 == 0:
                 budget.check()
-        area = area2(tuple(a for a, _ in cycle), budget)
-        require(area != 0, "zero-area face walk")
+        area, direction = _face_area(tuple(a for a, _ in cycle), budget)
+        require(direction != 0, "zero-area face walk")
         cycles.append(tuple(cycle))
         areas.append(area)
+        directions.append(direction)
     require(len(left) == len(halves), "incomplete halfedge coverage")
     groups: list[list[int]] = [[] for _ in components]
     for i, face_cycle in enumerate(cycles):
@@ -156,11 +206,13 @@ def frames(edges: dict[Edge, Current], budget: Budget) -> Frame:
         edge_count = sum(len(adjacent[p]) for p in points) // 2
         ids = groups[c]
         require(len(points) - edge_count + len(ids) == 2, "Euler identity failed")
-        total = Fraction(0)
-        for i in ids:
-            total = checked(total + areas[i], 4096)
-        require(total == 0, "component face areas do not cancel")
-        outside = [i for i in ids if areas[i] < 0]
+        values = tuple(value for i in ids if (value := areas[i]) is not None)
+        total = global_area_sum(values, budget) if len(values) == len(ids) else None
+        if total is None:
+            _component_current_identity((), tuple(cycles[i] for i in ids), budget)
+        else:
+            require(total == 0, "component face areas do not cancel")
+        outside = [i for i in ids if directions[i] < 0]
         require(len(outside) == 1, "component exterior not unique")
         exteriors.append(outside[0])
     dual: dict[int, list[tuple[int, Current]]] = defaultdict(list)
@@ -207,8 +259,19 @@ def solve(frame: Frame, segments: Sequence[Segment], budget: Budget) -> dict[int
         ExactSegment((Fraction(s.a[0]), Fraction(s.a[1])), (Fraction(s.b[0]), Fraction(s.b[1])), s.channel)
         for s in segments
     )
+    budget.check()
+    # Keep the original exact producer whenever its complete scan fits. This
+    # avoids imposing tree storage on previously affordable connected inputs.
+    index = (
+        ClosedYIndex(segments, budget)
+        if len(segments) * len(frame.exteriors) > budget.remaining_visits
+        else None
+    )
     for outside in frame.exteriors:
-        values[outside] = winding(frame.cycles[outside][0], exact, budget)
+        edge = frame.cycles[outside][0]
+        y = (edge[0][1] + edge[1][1]) / 2
+        selected = exact if index is None else tuple(exact[i] for i in index.query(y))
+        values[outside] = winding(edge, selected, budget)
         todo = deque([outside])
         while todo:
             face = todo.popleft()
@@ -300,15 +363,154 @@ def boundaries(frame: Frame, values: dict[int, Current], budget: Budget) -> tupl
             require(len(trimmed) >= 3 and area2(trimmed, budget) != 0, "exact selected boundary collapse")
             loops.append(trimmed)
     require(visited == edges, "unvisited selected halfedge")
-    total = Fraction(0)
-    for ring in loops:
-        total = checked(total + area2(ring, budget), 4096)
-    expected = Fraction(0)
-    for i, cycle in enumerate(frame.cycles):
-        if selected[i]:
-            expected = checked(expected + area2(tuple(a for a, _ in cycle), budget), 4096)
-    require(total == expected and total >= 0, "boundary/selected face area mismatch")
+    _area_identity(frame, tuple(loops), selected, budget)
     return tuple(loops)
+
+
+def global_area_sum(areas: Sequence[Fraction], budget: Budget) -> Fraction | None:
+    """Only a too-wide GLOBAL sum requests the alternative exact certificate."""
+    total = Fraction(0)
+    for value in areas:
+        budget.check()
+        total += value
+        if max(abs(total.numerator).bit_length(), total.denominator.bit_length()) > 4096:
+            return None
+    return total
+
+
+def _component_current_identity(
+    loops: Sequence[Ring], cycles: Sequence[Sequence[Edge]], budget: Budget
+) -> None:
+    """Exact finite oriented interval currents, independent of a summed denominator."""
+    balances: dict[tuple[tuple[int, int, int], ExactPoint], int] = {}
+
+    def add(a: ExactPoint, b: ExactPoint, direction: int) -> None:
+        budget.visit(1)
+        for point in (a, b):
+            for coordinate in point:
+                budget.coordinate(coordinate)
+        require(a != b, "zero current edge")
+        coefficients = (a[1] - b[1], b[0] - a[0], a[0] * b[1] - b[0] * a[1])
+        common = lcm(*(value.denominator for value in coefficients))
+        require(common.bit_length() <= 4096, "current line denominator bit budget exceeded")
+        integers = tuple(value.numerator * (common // value.denominator) for value in coefficients)
+        require(
+            max(abs(value).bit_length() for value in integers) <= 4096, "current line bit budget exceeded"
+        )
+        divisor = gcd(*integers)
+        sign = 1 if next(value for value in integers if value) > 0 else -1
+        line = (sign * integers[0] // divisor, sign * integers[1] // divisor, sign * integers[2] // divisor)
+        for point, delta in ((a, direction), (b, -direction)):
+            budget.visit(1)
+            key = (line, point)
+            value = balances.get(key, 0) + delta
+            if value:
+                require(
+                    key in balances or len(balances) < budget.limits.nodes, "current endpoint budget exceeded"
+                )
+                require(abs(value).bit_length() <= 4096, "current count bit budget exceeded")
+                balances[key] = value
+            else:
+                balances.pop(key, None)
+
+    for ring in loops:
+        for a, b in zip(ring, ring[1:] + ring[:1], strict=True):
+            add(a, b, 1)
+    for cycle in cycles:
+        for a, b in cycle:
+            add(a, b, -1)
+    require(not balances, "component boundary/selected face current mismatch")
+
+
+def _area_identity(frame: Frame, loops: Sequence[Ring], selected: dict[int, bool], budget: Budget) -> None:
+    require(len(loops) <= budget.limits.halfedges, "area loop budget exceeded")
+    require(len(frame.cycles) <= budget.limits.faces, "area component face budget exceeded")
+    loop_areas = tuple(area2(ring, budget) for ring in loops)
+    face_areas = {
+        i: area2(tuple(a for a, _ in cycle), budget) for i, cycle in enumerate(frame.cycles) if selected[i]
+    }
+    total = global_area_sum(loop_areas, budget)
+    expected = global_area_sum(tuple(face_areas.values()), budget)
+    if total is not None and expected is not None:
+        require(total == expected and total >= 0, "boundary/selected face area mismatch")
+        return
+    # Finite additivity permits exact equality component by component, without
+    # constructing the product denominator across independent nested supports.
+    require(len(frame.cycles) <= budget.limits.faces, "area component face budget exceeded")
+    components: dict[int, int] = {}
+    points: dict[ExactPoint, int] = {}
+    for start in range(len(frame.cycles)):
+        if start in components:
+            continue
+        owner = start
+        todo = [start]
+        pending = {start}
+        while todo:
+            budget.visit(1)
+            face = todo.pop()
+            pending.remove(face)
+            require(face not in components and 0 <= face < len(frame.cycles), "invalid area component face")
+            components[face] = owner
+            for a, _ in frame.cycles[face]:
+                budget.visit(1)
+                require(a not in points or points[a] == owner, "ambiguous area point ownership")
+                require(a in points or len(points) < budget.limits.nodes, "area point budget exceeded")
+                points[a] = owner
+            for other, _ in frame.dual.get(face, ()):
+                budget.visit(1)
+                require(0 <= other < len(frame.cycles), "invalid area dual owner")
+                if other in components:
+                    require(components[other] == owner, "conflicting area component")
+                elif other not in pending:
+                    require(len(todo) < budget.limits.faces, "area component stack budget exceeded")
+                    pending.add(other)
+                    todo.append(other)
+    require(set(components) == set(range(len(frame.cycles))), "incomplete area component coverage")
+    totals: dict[int, list[Fraction]] = defaultdict(list)
+    component_loops: dict[int, list[Ring]] = defaultdict(list)
+    for ring, area in zip(loops, loop_areas, strict=True):
+        budget.visit(1)
+        require(bool(ring) and ring[0] in points, "unbound area loop")
+        owner = points[ring[0]]
+        for point in ring:
+            budget.visit(1)
+            require(points.get(point) == owner, "ambiguous area loop ownership")
+        totals[owner].append(area)
+        component_loops[owner].append(ring)
+    targets: dict[int, list[Fraction]] = defaultdict(list)
+    component_cycles: dict[int, list[Sequence[Edge]]] = defaultdict(list)
+    for face, area in face_areas.items():
+        budget.visit(1)
+        owner = components[face]
+        targets[owner].append(area)
+        component_cycles[owner].append(frame.cycles[face])
+    owners = set(components.values())
+    lower = upper = 0
+    for owner in sorted(owners):
+        budget.visit(1)
+        terms = totals.get(owner, [])
+        value = global_area_sum(terms, budget)
+        target = global_area_sum(targets.get(owner, []), budget)
+        if value is None or target is None:
+            _component_current_identity(
+                component_loops.get(owner, []), component_cycles.get(owner, []), budget
+            )
+        else:
+            require(value == target, "component boundary/selected face area mismatch")
+            terms = [value]
+        # Directed integer enclosure is a logical sign proof, NOT a tolerance.
+        # Negative hole components remain signed and exterior baselines intact.
+        for term in terms:
+            budget.visit(1)
+            scaled = term.numerator * (1 << 32)
+            require(abs(scaled).bit_length() <= 4096, "area enclosure bit budget exceeded")
+            q, remainder = divmod(scaled, term.denominator)
+            lower += q
+            upper += q + bool(remainder)
+            require(
+                max(abs(lower).bit_length(), abs(upper).bit_length()) <= 4096, "area sum bit budget exceeded"
+            )
+    require(lower >= 0, "global area nonnegative certificate unresolved")
 
 
 def difference_loops(segments: Sequence[Segment], budget: Budget | None = None) -> tuple[Ring, ...]:

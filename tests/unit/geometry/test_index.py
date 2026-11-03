@@ -34,6 +34,7 @@ def test_agreement_with_brute_force() -> None:
         (i, j) for i in range(len(boxes)) for j in range(i + 1, len(boxes)) if boxes[i].intersects(boxes[j])
     ]
     assert index.pairs() == brute
+    assert sorted(index._join_pairs(lambda: None, lambda count: None)) == brute
 
 
 RAW_BOX = st.tuples(st.integers(-50, 50), st.integers(-50, 50), st.integers(0, 20), st.integers(0, 20))
@@ -50,6 +51,7 @@ def test_small_sets(raw: list[tuple[int, int, int, int]], capacity: int) -> None
         (i, j) for i in range(len(boxes)) for j in range(i + 1, len(boxes)) if boxes[i].intersects(boxes[j])
     ]
     assert index.pairs() == brute
+    assert sorted(index._join_pairs(lambda: None, lambda count: None)) == brute
 
 
 def test_insertion_order() -> None:
@@ -62,3 +64,35 @@ def test_empty_index() -> None:
     assert index.query(BBox(0, 0, 1, 1)) == []
     assert index.pairs() == []
     assert len(index) == 0
+
+
+def test_private_join_preserves_closed_degenerate_pairs_and_charges_callbacks() -> None:
+    from itertools import combinations
+
+    boxes = [BBox(0, 0, 0, 0), BBox(0, 0, 2, 0), BBox(2, 0, 2, 3), BBox(2, 3, 2, 3)]
+    expected = [(i, j) for i, j in combinations(range(len(boxes)), 2) if boxes[i].intersects(boxes[j])]
+    for capacity in (2, 4, 8):
+        index = SpatialIndex.build(((b, i) for i, b in enumerate(boxes)), capacity=capacity)
+        visits = []
+        reservations = []
+        found = list(index._join_pairs(lambda visits=visits: visits.append(True), reservations.append))
+        assert sorted(found) == expected and len(found) == len(set(found))
+        assert visits and reservations and max(reservations) >= 1
+    pair = SpatialIndex.build([(BBox(0, 0, 1, 1), 0), (BBox(1, 1, 2, 2), 1)], capacity=4)
+    visits = []
+    assert list(pair._join_pairs(lambda: visits.append(True), lambda count: None)) == [(0, 1)]
+    assert len(visits) == 2  # one diagonal-node visit and one closed leaf-box predicate
+
+
+def test_private_join_callback_exhaustion_propagates_before_output() -> None:
+    import pytest
+
+    index = SpatialIndex.build([(BBox(0, 0, 1, 1), i) for i in range(8)], capacity=4)
+
+    def refuse(*args):
+        raise RuntimeError("authored resource stop")
+
+    with pytest.raises(RuntimeError, match="authored resource stop"):
+        list(index._join_pairs(refuse, lambda count: None))
+    with pytest.raises(RuntimeError, match="authored resource stop"):
+        list(index._join_pairs(lambda: None, refuse))

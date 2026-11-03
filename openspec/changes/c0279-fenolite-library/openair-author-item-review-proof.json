@@ -34,5 +34,43 @@
   "authoritative_promoted": false,
   "published": false,
   "payload_tree": "fenolite-tree-1:e38753aa46e3fa2baac33c6f81fe80e10bc6eaedcf421ed168fef0151b59fdb7",
-  "provenance_sha256": "62bc64c9d5f8fce21041ffbaad493fa06096413c2d853121397b3394630ff748"
+  "provenance_sha256": "62bc64c9d5f8fce21041ffbaad493fa06096413c2d853121397b3394630ff748",
+  "legacy_source_reconciliation": {
+    "legacy_receipt_sha256": "1fd26871792657ccdcb10d65f7dc57c682466266656d52cf50587c8e5abed0b7",
+    "legacy_driver_sha256": "9659882f9256173c611c19e6bdfd62f099b0762e2d9a1eb4bdee5f1d9a09d71a",
+    "legacy_official_input_verification_sha256": "f3e08ee64d3cd068a361b6201757e104abb88970731c0aafa594ac0dabe540e4",
+    "legacy_input_hashes": {
+      "Battery-Holder.kicad_sch": "434f095724ba741e3b15a1a1fedce93b8262ffdd1144a61ef4c0966791279f04",
+      "One-Air-Max.kicad_pcb": "a577ba5e2b337c9b827f3c30256161a1893da8303d278fb7db10dba4f02ea810",
+      "One-Air-Max.kicad_pro": "d64469625e0a2d874a7073dd13145a37ab1d33218cc2150fb55fe6f424911fa5",
+      "One-Air-Max.kicad_sch": "dd5b65cdbfa1735d21bd6b6e00b61b386bb89b8f1c9a282f753ed63c20387f87",
+      "Solar-Module.kicad_sch": "ba1e342f29ba5b6150f6d71bdeefaea6e2c1874482ccc5ddec3293dfa314ca9d"
+    },
+    "legacy_public_commit": "97acc80c223d75520c03fc44cab63cd9a3202c42",
+    "legacy_native_version": "10.0.6",
+    "legacy_count_scope": "connected numbered pins; all647board/native/common under the retained driver, not a new complete physical/NO_NET-universe claim",
+    "legacy_native_groups_on_common": 155,
+    "legacy_board_groups_on_common": 156,
+    "legacy_only_board_groups": 2,
+    "legacy_only_native_groups": 1,
+    "legacy_old_failed_import_exit": 5,
+    "legacy_failed_import_sha256": "7971ffa059169f0f62715c17ebab4cf02f5c016be17164018d0d1df6f37bd126",
+    "legacy_supplement_manifest_sha256": "1c01231716656bcb8ca359bbdca0856f7dfca9806a7f81e8b692e1edf14f5477"
+  },
+  "preparation_reverified": {
+    "original_packet_manifest_sha256": "a8435b9095dc541ef44f6799379cba56f30cf6475365ec42dbc4c2dbefdb86f9",
+    "verified_packet_files": 1355,
+    "verified_candidate_files": 267,
+    "license_bytes_identical_to_approved_legacy_and_author": true,
+    "source_model_refs": 233,
+    "source_unique_model_names": 41,
+    "vendored_definition_refs": 231,
+    "nominal_name_sets_equal": true,
+    "model_asset_payloads": [],
+    "full_native_target": "kicad-10",
+    "all_9_levels": "equal",
+    "CAD_tools_rerun": false,
+    "authoritative_promotion_or_publication": false,
+    "reconciliation_receipt_sha256": "4dc8b565b561978781d7509ace84662e22ec26a4f45ecb56940cf864e81a5e78"
+  }
 }

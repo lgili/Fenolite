@@ -1,0 +1,314 @@
+{
+  "source": "70db27e056de48a2c8d9d21ca2c7c0a129527032",
+  "scope": "External archival rehearsal only. Zero actual branch archives, no task or CI waiver, no push.",
+  "eight_normal_delta_applications_passed": true,
+  "all12_resulting_living_specs_strictly_valid": true,
+  "archive_flags": [
+    "--yes"
+  ],
+  "force_warning_on_incomplete_tasks_is_not_approval": true,
+  "required_current_CI_still_pending": true,
+  "all_rehearsed_change_input_files_identical": [
+    {
+      "file": "openspec/changes/c0248-device-catalog/design.md",
+      "sha256": "7087f8aac9d2c35458e669fbf8ea73e0b41b463f97a394e271d2eecb25fdf2da"
+    },
+    {
+      "file": "openspec/changes/c0248-device-catalog/proposal.md",
+      "sha256": "89c17aa911cf0573302598f795aca5a9ba797eea0732268b598954174c87dc8c"
+    },
+    {
+      "file": "openspec/changes/c0248-device-catalog/specs/design-dsl/spec.md",
+      "sha256": "0d09cecad6a029f17c2b504005cccfed21f0ae59fadeabfd0878995b63fbe0e3"
+    },
+    {
+      "file": "openspec/changes/c0248-device-catalog/specs/design-model/spec.md",
+      "sha256": "903d1ecc74e64b1617223ad0e603bbcbfb5bfaca628323f29e74de470a669cea"
+    },
+    {
+      "file": "openspec/changes/c0248-device-catalog/specs/fenolite-component-catalog/spec.md",
+      "sha256": "d982d59a8d437b5eca46531502b5f33075386732dead3c0ce5b346135cfb03d7"
+    },
+    {
+      "file": "openspec/changes/c0248-device-catalog/specs/package-layering/spec.md",
+      "sha256": "9e80e376eeb3b530d6caa59fdda5f544f40dc84b7a4ca9b26da815803b75eee9"
+    },
+    {
+      "file": "openspec/changes/c0248-device-catalog/tasks.md",
+      "sha256": "19cc17b254c7c67b3fe7f9809378260e7d519b5a1aee170d2a2b967a68bf54a4"
+    },
+    {
+      "file": "openspec/changes/c0259-library-data-format/design.md",
+      "sha256": "15c20c55ca7f81733aa29358eb962156c8843852851509ef643a1bad044cd19e"
+    },
+    {
+      "file": "openspec/changes/c0259-library-data-format/proposal.md",
+      "sha256": "1669941c12fc153e5a375b03fd96e13ef1d6ff647e236c8c0385dc13468cb5b0"
+    },
+    {
+      "file": "openspec/changes/c0259-library-data-format/specs/fenolite-component-catalog/spec.md",
+      "sha256": "70eeed3b5e12c6e4bd35144ce45375dabec275d4e090bd0f331a95f8fb442a21"
+    },
+    {
+      "file": "openspec/changes/c0259-library-data-format/specs/library-records/spec.md",
+      "sha256": "49b8fa93bb15d38801bfad921ea99526e641bb92e013fccc14073836d42ddd50"
+    },
+    {
+      "file": "openspec/changes/c0259-library-data-format/tasks.md",
+      "sha256": "175114787dbb9b8c7f771411f56084314e38e367283a70d21560eb784daa0aba"
+    },
+    {
+      "file": "openspec/changes/c0261-symbol-generator/design.md",
+      "sha256": "78ab40b1eded55264634d5c402f321cf477b70939b2f6776e91a17ec1a455a35"
+    },
+    {
+      "file": "openspec/changes/c0261-symbol-generator/proposal.md",
+      "sha256": "a5747f42947bd26550545ba650b8b05eda94b869e79dbf2dcbc2ce96c0e9d744"
+    },
+    {
+      "file": "openspec/changes/c0261-symbol-generator/specs/altium-schematic-writer/spec.md",
+      "sha256": "40357e1c4300703dcbde9c06577651f50fb004255359c8ad20a5d71eaaaa25a3"
+    },
+    {
+      "file": "openspec/changes/c0261-symbol-generator/specs/cli-contract/spec.md",
+      "sha256": "10d6be47a59e073fba9061d070a6a96f74621c80f60e3258c77567e185222ef1"
+    },
+    {
+      "file": "openspec/changes/c0261-symbol-generator/specs/design-dsl/spec.md",
+      "sha256": "33e71cc92052d7d73a43be09126926c509f66135417b71418e85d06bb1325302"
+    },
+    {
+      "file": "openspec/changes/c0261-symbol-generator/specs/symbol-generation/spec.md",
+      "sha256": "e066f972c4391d103be1a57ef45f1ddee50228c6b3762be96be44142de61d861"
+    },
+    {
+      "file": "openspec/changes/c0261-symbol-generator/tasks.md",
+      "sha256": "2d2f76aa97f06496442c47385e092605f96a7f02a04e76246eac78a49c58ca3a"
+    },
+    {
+      "file": "openspec/changes/c0178-native-themes/design.md",
+      "sha256": "c13acb90ed51cbed591416a3c37c0805f4492fac67334e4acf7bb85aa20cef53"
+    },
+    {
+      "file": "openspec/changes/c0178-native-themes/maintainer-colour-review.json",
+      "sha256": "a9c568d72122ca40676d5fb6c467acd157d9b4f2e69c88dd77496a31db1b11f3"
+    },
+    {
+      "file": "openspec/changes/c0178-native-themes/native-gui-preparation-proof.json",
+      "sha256": "dfd3474c3406336651c4119f9cad51b03e6bcde29a621a4806015fed634790f2"
+    },
+    {
+      "file": "openspec/changes/c0178-native-themes/proposal.md",
+      "sha256": "57ee5dc36c24675bed0bb1aa20ba8f34863ae219fb1eaeb6b5640b4bb56f8931"
+    },
+    {
+      "file": "openspec/changes/c0178-native-themes/specs/cli-contract/spec.md",
+      "sha256": "10f0273573c3d627af9358bcac7eac996683cc4ec174f5f2f28f0500d505e489"
+    },
+    {
+      "file": "openspec/changes/c0178-native-themes/specs/native-themes/spec.md",
+      "sha256": "043e7630498fbcec6f1bb5b44382f05019629ffc0d231500dbf0235620e760cd"
+    },
+    {
+      "file": "openspec/changes/c0178-native-themes/tasks.md",
+      "sha256": "a91515a6e6896cfca689c7d742f1476bee864e160ffd95280275364c0d8426b8"
+    },
+    {
+      "file": "openspec/changes/c0345-custom-footprint-field-poses/design.md",
+      "sha256": "17baff57efc92b1d67b53a6a1fb874852abb832049a98295ff055f373304dbd1"
+    },
+    {
+      "file": "openspec/changes/c0345-custom-footprint-field-poses/proposal.md",
+      "sha256": "c51dc095bfb00fcf90cbbc80bb39093db849c0b07a93eecd5427cf374600bb4a"
+    },
+    {
+      "file": "openspec/changes/c0345-custom-footprint-field-poses/specs/board-to-code/spec.md",
+      "sha256": "3040212e4b110d92b63f4fd8b57f456885928512a36f5fab9af70199fd49ba41"
+    },
+    {
+      "file": "openspec/changes/c0345-custom-footprint-field-poses/tasks.md",
+      "sha256": "eb7e6a231641e1e7be1f391dc3a9ebc01f87c84b20548d5ec98d968c48f9f451"
+    },
+    {
+      "file": "openspec/changes/c0358-native-custom-property-preservation/design.md",
+      "sha256": "fc6e38996f5f9b0e5e1a2e467b233e3aa28166fd0b979a30634a5ddc0ee6e1db"
+    },
+    {
+      "file": "openspec/changes/c0358-native-custom-property-preservation/mirror-implementation-proof.json",
+      "sha256": "2ea3b613eeaadb6f903d3d628aadbcf15100553dbc6efdf036ff7230c5abd90b"
+    },
+    {
+      "file": "openspec/changes/c0358-native-custom-property-preservation/mirror-proposal-proof.json",
+      "sha256": "c0a2af4329c3b2ddd5892602acc1bc343fa05c58d9d151d4cafb3ea622b9d9f0"
+    },
+    {
+      "file": "openspec/changes/c0358-native-custom-property-preservation/proposal.md",
+      "sha256": "0502767b77d17e54ae5a887b334726a21f4c51b4d62ce2e11da4c0fa79ac664e"
+    },
+    {
+      "file": "openspec/changes/c0358-native-custom-property-preservation/public-source-proof.json",
+      "sha256": "d2c11d2e6fa2ea81a8211ffcd58a4abcdff82240fc262125de6e2fe8d97fff5e"
+    },
+    {
+      "file": "openspec/changes/c0358-native-custom-property-preservation/specs/import-python/spec.md",
+      "sha256": "1c5f5826f011884f8b470cad3f14904073184bb77322565dfafeac8fda03e900"
+    },
+    {
+      "file": "openspec/changes/c0358-native-custom-property-preservation/tasks.md",
+      "sha256": "a0167ab730059b719d39e735aa8ec1dfaa2ba10f57a5977c9290dbec24f9390f"
+    },
+    {
+      "file": "openspec/changes/c0359-declared-native-rule-context/design.md",
+      "sha256": "9cbc4739be5a82210a5bef818ed1062c7c543ceba9cb1ccd6d8e2de734f7a738"
+    },
+    {
+      "file": "openspec/changes/c0359-declared-native-rule-context/proposal.md",
+      "sha256": "75ea4b4274cb2da0efac690db717bf41d0d620cd8f5c8319f0963293b565c320"
+    },
+    {
+      "file": "openspec/changes/c0359-declared-native-rule-context/public-source-proof.json",
+      "sha256": "7de7892b2b819ef98457c7b78e031537d8beb550d02fd4b230faa58911d1f07b"
+    },
+    {
+      "file": "openspec/changes/c0359-declared-native-rule-context/specs/native-project-inputs/spec.md",
+      "sha256": "4d90ecefa510823d6fd4ae219d7862b2929b1fcd29bb1d70a722a19a6a091ee3"
+    },
+    {
+      "file": "openspec/changes/c0359-declared-native-rule-context/tasks.md",
+      "sha256": "6eb2d0ed685767c40707f97a82090c6693128eea14638b214bb50756f7c08db4"
+    },
+    {
+      "file": "openspec/changes/c0363-native-tab-property-preservation/design.md",
+      "sha256": "ac8462e389f087a518935d0ce110c7c1a6be57cc070a210356febcdc7bca512b"
+    },
+    {
+      "file": "openspec/changes/c0363-native-tab-property-preservation/implementation-proof.json",
+      "sha256": "8469496adc5556e05766783bddc55bac156526a8a61ad566a8e4ee620d0eaf9a"
+    },
+    {
+      "file": "openspec/changes/c0363-native-tab-property-preservation/native-proof-placement.json",
+      "sha256": "8fe321752a9701ebda9ea751a4574155a8545250cd1092a110295e18d8a2f653"
+    },
+    {
+      "file": "openspec/changes/c0363-native-tab-property-preservation/native-proposal-proof.json",
+      "sha256": "00192527ffda559663e213d6ff116eadae472b415d1072b8534ece202c6790de"
+    },
+    {
+      "file": "openspec/changes/c0363-native-tab-property-preservation/proposal.md",
+      "sha256": "1e7741ab854ed35decbcd576871dad4955f4da68c54fe42f3efdd4f8457471c5"
+    },
+    {
+      "file": "openspec/changes/c0363-native-tab-property-preservation/specs/import-python/spec.md",
+      "sha256": "137d8b110dd29a9482b111d3a23bed0154836b1c21af44163d72bdd957f97001"
+    },
+    {
+      "file": "openspec/changes/c0363-native-tab-property-preservation/tasks.md",
+      "sha256": "3da43262423522237c1588d27e3bfcfc0890f90702c054ee4624ecc294b1fd6a"
+    }
+  ],
+  "archive_logs": [
+    {
+      "spec": "c0248-device-catalog",
+      "sha256": "f431a42b1a8f19e04d5f218f44a4037a5efa3213c9f1dd017b573cddab633346",
+      "exit": 0
+    },
+    {
+      "spec": "c0259-library-data-format",
+      "sha256": "5c2204fdc87574a14dc3ce6cf46bfdd4c7afeb64e8fbe1d3f1a82fee90e92a6b",
+      "exit": 0
+    },
+    {
+      "spec": "c0261-symbol-generator",
+      "sha256": "c6e8b6d914f2ff75367dea05aa31aa12143cf73b74b37766875d1d52211cfd5d",
+      "exit": 0
+    },
+    {
+      "spec": "c0178-native-themes",
+      "sha256": "93d883efbb2d0d299ba88045157290c81aa0d72692a6df7817096a4f5c31ec5c",
+      "exit": 0
+    },
+    {
+      "spec": "c0345-custom-footprint-field-poses",
+      "sha256": "e560f77b1d3e547f9a04dda15e730d08d9ca6abb991eeb914ccda45adb976c54",
+      "exit": 0
+    },
+    {
+      "spec": "c0358-native-custom-property-preservation",
+      "sha256": "e75968067ce32155d1be7629e49ad9b422ce4ff231c2db0bf080b3d0da81cdd0",
+      "exit": 0
+    },
+    {
+      "spec": "c0359-declared-native-rule-context",
+      "sha256": "3a3f15da635ca107eafa82f8b490d3d46db8dd210ab81246c7e30954bf1762e5",
+      "exit": 0
+    },
+    {
+      "spec": "c0363-native-tab-property-preservation",
+      "sha256": "3836562de86458251592dbe89f69d9c686c3d3ae293d57551f576119c80656d2",
+      "exit": 0
+    }
+  ],
+  "living_validation": [
+    {
+      "spec": "altium-schematic-writer",
+      "exit": 0,
+      "output": "Specification 'altium-schematic-writer' is valid"
+    },
+    {
+      "spec": "board-to-code",
+      "exit": 0,
+      "output": "Specification 'board-to-code' is valid"
+    },
+    {
+      "spec": "cli-contract",
+      "exit": 0,
+      "output": "Specification 'cli-contract' is valid"
+    },
+    {
+      "spec": "design-dsl",
+      "exit": 0,
+      "output": "Specification 'design-dsl' is valid"
+    },
+    {
+      "spec": "design-model",
+      "exit": 0,
+      "output": "Specification 'design-model' is valid"
+    },
+    {
+      "spec": "fenolite-component-catalog",
+      "exit": 0,
+      "output": "Specification 'fenolite-component-catalog' is valid"
+    },
+    {
+      "spec": "import-python",
+      "exit": 0,
+      "output": "Specification 'import-python' is valid"
+    },
+    {
+      "spec": "library-records",
+      "exit": 0,
+      "output": "Specification 'library-records' is valid"
+    },
+    {
+      "spec": "native-project-inputs",
+      "exit": 0,
+      "output": "Specification 'native-project-inputs' is valid"
+    },
+    {
+      "spec": "native-themes",
+      "exit": 0,
+      "output": "Specification 'native-themes' is valid"
+    },
+    {
+      "spec": "package-layering",
+      "exit": 0,
+      "output": "Specification 'package-layering' is valid"
+    },
+    {
+      "spec": "symbol-generation",
+      "exit": 0,
+      "output": "Specification 'symbol-generation' is valid"
+    }
+  ],
+  "inventory_sha256": "a632d49409d29f7a30a7a203398d9ec5c6479df1e0d7103a110f5ab00cf9dc59"
+}

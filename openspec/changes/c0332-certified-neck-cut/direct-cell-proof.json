@@ -1,0 +1,53 @@
+{
+  "05_pass_claimed": false,
+  "actual_KiCad10_ECC83_triangle04": {
+    "assertion_edits": 0,
+    "passed": 1,
+    "seconds": 8.88,
+    "tool": "KiCad10.0.6"
+  },
+  "actual_production_public_Altium03_pour_census": {
+    "assertion_edits": 0,
+    "passed": 1,
+    "seconds": 24.13
+  },
+  "additional_new_cell_ResourceLimit_propagation": {
+    "passed": 1,
+    "seconds": 6.54
+  },
+  "authored_oldcap2_RED": true,
+  "cell_and_refinement_controls": {
+    "passed": 90,
+    "seconds": 0.45
+  },
+  "complete_buildbytes_and_examples": {
+    "baseline_updates": 0,
+    "passed": 194,
+    "seconds": 25.67
+  },
+  "external_proofs_sha256": {
+    "direct-cell-authored-v2.json": "fee6a92c272dfd05946388cc1fd71f2183f82705a352ae1c48d929166a2e8e54",
+    "direct-cell-production-RED.log": "c80f5e75211cbf6b25799f661941cf8ec502a7d2a31d2c94e1d09a56cd48f72b",
+    "direct-cell-production-bytes.log": "b4873d878610d357fee07a6c920133fea66b6bd62c91455cfd0148219f64150c",
+    "direct-cell-production-focused.log": "bb8437a8010df979d4eafb5d1cf6ef65065c63a1d5db0e9fbb5dfdddd2982396",
+    "direct-cell-production-native04-v1.log": "20a3413829ca5bbb951a2f57c92f30324564f354b8216a15fb7bf51a5b02d0c7",
+    "direct-cell-production03-final.log": "5568672a40494405510aa800dd0341e4c532c526019f3a2033adcbd02e915b08",
+    "exact03-consolidated-review-v1.md": "0d47b99b5ced86a86a4fdc95fd326551a9ad71e684fd1275c23de23706c60a4d"
+  },
+  "full_CI_pass_claimed": false,
+  "geometry_pour_refinement": {
+    "passed": 411,
+    "seconds": 6.09
+  },
+  "half_even_and_all_original_exact_nodes_preserved": true,
+  "initial_probes_consumed_once_in_original_order": true,
+  "limits_changed": false,
+  "one_TrialState_and_global_Budget_no_resets": true,
+  "scope": "A pressure-selected exact cell proposals, complete production03and04focused proofs;05stillopen",
+  "selected_pyright_errors": 0,
+  "selection": "LOCAL_FIRST_affected_owner_estimate26timescurrenttargets_vs_remaining_slots_not_global_bound",
+  "source_sha256": {
+    "src/fenolite/geometry/boolean/_exact_cells.py": "167a636c0f8442c6171c11f8abad0be2d8276ec066b256549ad266035eb61344",
+    "src/fenolite/geometry/boolean/_exact_refinement.py": "47a66f1654de16d5e82fb8f30490fd3526a8a51fc4e71ab5b46b777b123eed0d"
+  }
+}

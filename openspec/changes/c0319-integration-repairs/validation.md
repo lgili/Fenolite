@@ -368,3 +368,43 @@ byte/font/repeat/manifest group passes176tests; numeric/reference/format-fact
 guards pass84tests. The actual library licence-copy comparison also passes
 against unchanged c62d7b8. These scoped results do not replace the next complete
 local gate, exact-head CI, missing native cases or maintainer visual reviews.
+
+
+## Complete fast13 reproof —2026-11-03
+
+`make check-fast PYTEST_MAX_WORKERS=2` passed on clean unchanged source
+`2c0540572c936303eb5c46a25002872648dfabad`:22366passed/52skipped,
+1624.58s pytest,1720.2919891250203s complete driver, exit0.
+Log SHA256:`3e74d627e77139979c42ba6ca13e53344a23b8416aff252e747e34d56286abfe`.
+Driver SHA256:`a01ab40c31eedbdc44e44fb4f0d5421e5dd2040ed75af23776bf063b912a7c4b`.
+`fast13-receipt.json` preserves the exact receipt. All later source changes
+through c5e34749 are documentation/evidence/OpenSpec/CHANGELOG only, verified
+by the complete git path delta; their focused evidence/format proofs are
+recorded under c0092. This completes local task2.2 on its stated source, not
+GitHub CI2.3, a later runtime candidate, the failed native callers or any full
+local suite. The failed fast12 receipt remains unchanged and auditable.
+
+
+## Additional requested CI cleanup —2026-11-03
+
+Two later runs on codex/ci-layers-and-coverage were terminal:41681471834
+failed on f97ebebeb799b3a02504b8f79a23aadacdf3cae8;41681205419 was cancelled
+on3ce918fd640571aa7c18a113e3b4e4f5f11e38f5. Both complete log ZIPs and all17
+nonexpired artifacts were preserved before deletion, with every archived file
+SHA256 and ZIP CRC reverified. Both DELETEs returned success and subsequent
+individual GETs returned404. A complete297-run post-query has zero failed,
+cancelled or live runs. Receipt:docs/evidence/cac-ci-cleanup-additional-20261103.json.
+Together with the prior11,13requested run records have been removed. No push,
+required-current-CI success, native acceptance or archive is inferred.
+
+
+## Maintainer closure-first reset —2026-11-03
+
+Reconciled the current literal task inventory and front-loaded the existing
+closure-queue.md with the bounded work order. Eight ordinary archive delta
+applications succeed in an external copy; all12resulting living specs validate
+strictly. Every archived change input matches the original branch bytes. Four
+force warnings (2/2/1/1unchecked tasks) remain recorded, not waived. No branch
+archive, new passing task, runtime edit or push occurred. The source-bound
+closure-rehearsal.json records this preparation; the explicit exact-current-CI
+gates remain. Speculative geometry pilots are no longer the first work item.

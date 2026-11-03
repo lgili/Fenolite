@@ -709,3 +709,139 @@ Do not combine different versions/input digests into one fictional kit run.
 All existing acceptance criteria, facts-before-code rules and final CI remain.
 The kit form keeps its existing AD major.minor dialect: use AD 24.5; keep full
 build 24.5.2.23 in the separate native observation report, not a new form key.
+
+
+## acceptance_v03 schematic acceptance on Altium24 — 2026-11-03
+
+S-1303 records actual Altium Designer24.5.2.23 compilation of the immutable
+prepared-v2 acceptance_v03 project from writerb5f6c84a. The complete component
+pin dump covers all four components/eight pins. Native net objects exactly
+match D0={R1.1,R3.1}, D1={R2.1,R4.1}, GND={R1.2,R2.2,R3.2,R4.2}; short/full
+names are exact. The fourth native net object is empty D[0..1] bus metadata,
+retained explicitly rather than counted as another physical net or filtered.
+Compilation emits only one success Info, with no error/warning or ERC change.
+
+All three schematic documents were saved to fresh owned native binary copies,
+closed/reopened and the saved project compiled/exported again. Every complete
+raw message/pin/net-object file is byte-identical before/after. The collection
+contains34 exclusively read closed files, including the three saved native
+schematics. All17 staged inputs/support/SDK files and all50 original prepared
+packet files remain hash-identical. The strict source-bound comparison and
+all export/document hashes are in `altium-acceptance-v03-schematic-native.json`.
+
+This completes the schematic portion of the real task5.3 measurement. It does
+not claim PCB primitive/layer/via/body/rule inspection, native PCB DRC/save,
+OutJob/frame inspection, the complete kit or per-kind write graduation. Those
+steps and exact-source CI remain required; c0092.5.3 stays open.
+
+
+## acceptance_v03 PCB save/reopen on Altium24 — 2026-11-03
+
+S-1304 records the actual native opening and census of the immutable authored
+PCB from the same prepared-v2 writerb5f6c84a packet. The SDK checks the complete
+owned path, PCB kind and active board before iterating every public object kind
+from eArcObject through eBoardOutlineObject, excluding only the internal
+eTraceObject/eSpareViaObject kinds. Every enumerated count and every emitted
+pad/via/net/text/rule field is retained in the raw census.
+
+A fresh copy was saved through native PCB Binary, its exact path and physical
+file checked, closed and reopened before repeating the census. Both complete
+raw census files are byte-identical:9pads (eight electrical plus one non-plated
+hole),3vias with layer spans1–32/1–2/2–3,3nets and37native rule objects. Native
+default rule names are preserved in the receipt; this does not assert that all
+37were requested by Fenolite or that their complete parameters were checked.
+The15 closed collected files include the190976-byte native saved PCB. Exclusive
+reads verified all3 staged source/SDK files and all50 original prepared packet
+files unchanged. See `altium-acceptance-v03-pcb-native.json`.
+
+The initial operator attempt expired before its interactive ready event and
+refused absent cleanup permission without CAD input. A separately guarded
+operator with a longer observation window invoked the same immutable SDK once;
+its temporary task definition was removed before GUI permission. The native
+SDK's once markers prevent replay. This controller repair changes no CAD input
+or geometry and neither failed preparation nor return values count as proof.
+
+This completes the PCB census/new-copy save/reopen portion, not DRC, detailed
+layer/body/rule-parameter inspection, OutJob/frame validation, the full kit or
+per-kind graduation. c0092.5.3 and exact-source CI remain open.
+
+
+## acceptance_v03 actual native DRC — 2026-11-03
+
+S-1305 records one native DRC on the S-1304 saved copy, after recording the
+current ten option checkboxes and three numeric fields. No configuration was
+changed: Create Report File was off, Create Violations on and the stop bound
+remained500. A separate readonly SDK procedure checked the exact active owned
+PCB path and exported the complete current message manager without clearing,
+compiling, re-running DRC or saving. All14messages are retained:9Un-Routed Net
+Constraint and5Net Antennae findings. The two identical track-antenna messages
+are preserved independently. The bound was not reached. This intentionally
+sparse exercise board is not fully routed; neither that intent nor successful
+report acquisition establishes DRC-clean acceptance.
+
+All6 closed export files were collected with exclusive reads and both SDK
+inputs remained unchanged; all50 original prepared files still match their
+manifest. Fenolite reads both the original and native-saved PCB with zero
+reader issues. All literal fields of each of the7 original rule records remain
+identical in the native-saved bytes; the30 additional native default rules are
+reported separately, never passed off as source-authored rules. This is raw
+field retention, not independent semantic acceptance of every rule parameter.
+See `altium-acceptance-v03-drc-native.json` for the complete messages/options,
+source/input/export hashes and original rule field counts.
+
+Independent inventory of every native batch-rule category, detailed physical
+inspection, OutJob/frame, full-kit and per-kind graduation/current CI remain
+open. No hypothesis or writer evidence level is promoted by this observation.
+The DRC marks only the owned saved copy modified in memory; it was not saved
+after the run, and original prepared documents were not changed.
+
+
+## acceptance_v03 native body measurements — 2026-11-03
+
+S-1306 records all four native component bodies of the S-1304 saved PCB. The
+readonly SDK checks its exact active path and iterates the complete body kind
+without filtering owners. R1/R2/R3/R4 each retain layer69, standoff0, overall
+height196850native coordinate units, projection0 and all four XY bounds exactly
+as encoded in the original source record. No geometry, DRC or Save is invoked.
+All6closed output files were collected with exclusive reads, both SDK inputs
+remain unchanged and all50 original prepared files still match their hashes.
+See `altium-acceptance-v03-body-native.json`.
+
+A guarded public View > 3D Layout Mode command also produced the actual native
+3D top view: all four grey bodies are visible between their respective pads.
+This is an agent's qualitative observation, not a maintainer review, independent
+mesh/oblique inspection or model-copy/fit acceptance. Exact measurements come
+from the separate native SDK export. The source and saved body-record comparison
+retains native MODELID/checksum rewrites externally rather than normalizing IDs
+or claiming their algorithm is known.
+
+The first combined layer/body script stopped at its Stack.FirstLayer lookup
+with an undeclared-identifier error and a zero-byte partial export. Its failure
+is preserved; acknowledging that owned error did not make the attempted layer
+inspection pass. The fresh body-only export uses its own immutable input/output
+paths and succeeds separately. Actual copper-stack inspection remains pending,
+as do the other full-kit, graduation and exact-current-commit CI requirements.
+
+
+## acceptance_v03 native stack CSV — 2026-11-03
+
+S-1308 binds the complete native Layer Stack Manager File > Export CSV result
+from the unchanged S-1304 saved PCB. All15reported layer rows were compared:
+six signal copper layers in source order, five TEST core layers with Dk4,
+two solder masks and two overlays. The three declared via types span
+Top–Bottom, Top–Mid1 and Mid1–Mid2 respectively. Native CSV reports no impedance
+profiles and no back drills; this is not an impedance or manufacturing test.
+
+Each core is displayed as9.843mil against the encoded9.8425mil: the difference
+is0.0005mil (12.7nm), consistent with three-decimal half-up display rounding.
+This does not prove exact internal native thickness equality. Copper1.378mil
+and solder-mask0.4mil match encoded decimal values; source paste layers are not
+reported in this native CSV and are explicitly outside this inspection.
+Complete rows and all additional native weight/orientation columns are retained
+in `altium-acceptance-v03-layer-native.json`; no row was silently discarded.
+
+The CSV and one-shot marker were collected through exclusive reads; the saved
+PCB remains hash-identical and all50original prepared files match. No layer
+edit or PCB Save was requested. This succeeds independently of the preserved
+FirstLayer script failure. Full physical kit, detailed rule coverage, remaining
+native acceptance, per-kind graduation and exact-source CI remain open.

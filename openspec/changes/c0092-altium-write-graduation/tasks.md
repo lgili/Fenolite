@@ -168,3 +168,104 @@ build 24.5.2.23 in the separate native observation report, not a new form key.
 Review-record proof: historical v0.3 release-record tests21 passed; strict OpenSpec validation passed. The roadmap acceptance heading no longer says proposal. Native acceptance, graduation and final CI remain open.
 
   - 2026-11-03: fresh prepare-only source b5f6c84a (0.7.0.dev0), all twelve scope checks passed; focused preparation/probe tests:10passed. Packet contains47 original prepared files,8pins/3nets/4components and complete SHA maps. All43 non-reply files equal historical v1; four replies differ only in timing/paths/plan and receipt identifiers. Actual native version/run id remain null, acceptance_complete=false. No write kind graduates;5.3 and exact-source CI remain open.
+
+
+## Actual native schematic step of5.3 — 2026-11-03
+
+Altium24.5.2.23 now compiled the source-bound prepared-v2 project, exported every
+component pin/native net object/message, saved all three schematic copies to
+new native binary files, closed/reopened them and compiled/exported again.
+All4components/8pins/3physical groups and declared short/full names are exact;
+every complete raw export is byte-identical before/after. Info1 only, no ERC
+change; empty native D[0..1] metadata is retained explicitly. All17 staged and
+50prepared packet files unchanged. S-1303 and
+`docs/evidence/altium-acceptance-v03-schematic-native.json` bind the sources and
+all34 closed collected files. This is real native schematic evidence, replacing
+preparation-only status for that step. PCB/DRC/physical inspection/save, OutJob,
+complete kit, per-kind graduation and exact-source CI still prevent5.3 closure.
+
+Current native-evidence/register/format-fact focused proof:77passed84.00s.
+Both c0092/c0319 strict validations and `git diff --check` pass. Full fast is
+running separately on source5bbe19c7; no outcome or exact-current CI is inferred.
+
+
+## Actual native PCB census/save/reopen portion of5.3 — 2026-11-03
+
+S-1304 proves a fresh native PCB Binary save/close/reopen of the immutable
+prepared-v2 acceptance PCB on24.5.2.23. Complete raw object census is byte
+identical before/after, including every enumerated kind count and exported
+pad/via/net/text/rule field:9pads/3vias/3nets/37native rules. All3staged and
+50original prepared files are hash-identical;15closed files collected with
+exclusive reads include the native190976-byte PCB. See
+`docs/evidence/altium-acceptance-v03-pcb-native.json`. This does not complete
+DRC, detailed physical/layer/body/rule-parameter/OutJob/frame inspection, the
+full kit, graduation or exact-source CI. Task5.3 stays open.
+
+Focused evidence/register/format controls:82passed68.40s. Both c0092/c0319
+strict OpenSpec checks and diff whitespace validation pass. No full local
+suite or exact-current-head CI success is inferred.
+
+
+## Actual native PCB DRC observation within5.3 — 2026-11-03
+
+One unchanged-configuration DRC on the owned S-1304 native copy produced14
+complete manager messages:9Un-Routed Net Constraint and5Net Antennae, with
+duplicates preserved and original500bound not reached. Readonly active-path
+guarded SDK export did not clear/compile/re-run/save. All6closed files and
+2unchanged SDK inputs collected exclusively; all50original packet files still
+match. Native-saved PCB also preserves every literal field of all7original
+rule records, with30native-added defaults kept separate. Receipt S-1305,
+`docs/evidence/altium-acceptance-v03-drc-native.json`. Not DRC-clean, independent
+full-category batch-rule coverage, full-kit, semantic rule acceptance or
+graduation;5.3 remains open.
+
+Focused evidence/register/format controls for S-1305:82passed; see the bound
+external docs-tests log. c0092/c0319 strict validation and diff checks pass;
+full fast/current CI remain independent.
+
+
+## Native body measurements within5.3 — 2026-11-03
+
+S-1306: complete4body native census preserves each owner, layer, standoff,
+overall height, projection and every XY bound exactly against encoded source
+records. R1/R2/R3/R4 appear in the actual native3D top view; this agent observation
+is not a maintainer review, mesh/oblique or model-copy/fit acceptance. All6closed
+files collected exclusively,2SDK inputs and50prepared files unchanged. The
+combined layer/body v1 FirstLayer failure remains preserved; the fresh body-only
+measurement does not close copper-stack inspection or the other5.3/full-kit/
+graduation/current-CI requirements. Receipt
+`docs/evidence/altium-acceptance-v03-body-native.json`.
+
+S-1306 focused proof:82evidence/register/format tests passed64.03s; after the
+precise public SDK source citation update, complete format-fact module24passed
+10.75s. Evidence-matrix generator check, strict c0092 and whitespace checks
+passed. Broader integration and native gates remain separate.
+
+
+## Native layer-stack portion of5.3 — 2026-11-03
+
+S-1308 binds the complete native Layer Stack Manager File > Export CSV result
+from the unchanged S-1304 saved PCB. All15reported layer rows were compared:
+six signal copper layers in source order, five TEST core layers with Dk4,
+two solder masks and two overlays. The three declared via types span
+Top–Bottom, Top–Mid1 and Mid1–Mid2 respectively. Native CSV reports no impedance
+profiles and no back drills; this is not an impedance or manufacturing test.
+
+Each core is displayed as9.843mil against the encoded9.8425mil: the difference
+is0.0005mil (12.7nm), consistent with three-decimal half-up display rounding.
+This does not prove exact internal native thickness equality. Copper1.378mil
+and solder-mask0.4mil match encoded decimal values; source paste layers are not
+reported in this native CSV and are explicitly outside this inspection.
+Complete rows and all additional native weight/orientation columns are retained
+in `altium-acceptance-v03-layer-native.json`; no row was silently discarded.
+
+The CSV and one-shot marker were collected through exclusive reads; the saved
+PCB remains hash-identical and all50original prepared files match. No layer
+edit or PCB Save was requested. This succeeds independently of the preserved
+FirstLayer script failure. Full physical kit, detailed rule coverage, remaining
+native acceptance, per-kind graduation and exact-source CI remain open.
+
+S-1308 focused proof:70 evidence/register/format tests passed50.68s. Evidence-matrix
+generator check, strict c0092 validation and whitespace checks passed. This
+documentation-only receipt does not require or claim a new runtime fast result;
+fast13 remains bound to2c054057 and exact-current CI remains open.

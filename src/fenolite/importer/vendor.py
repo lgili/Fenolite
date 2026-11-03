@@ -60,17 +60,40 @@ def library_footprint(node: Node) -> Node:
         name = atoms[0].value
         if name.casefold() in LIBRARY_PROPERTIES:
             return True
-        if len(atoms) != 2 or atoms[1].value.isprintable():
+        if len(atoms) > 1 and "\t" in atoms[1].value:
+            headers = [node.name for node in child.nodes()]
+            if (
+                len(atoms) != 2
+                or len(headers) != len(set(headers))
+                or set(headers) - {"at", "unlocked", "layer", "hide", "uuid", "effects"}
+            ):
+                raise FormatError("unsupported native TAB property shape", locator=name)
+            for flag in ("hide", "unlocked"):
+                node = child.find(flag)
+                if node is not None and (
+                    node.nodes() or [atom.value for atom in node.atoms()] not in (["yes"], ["no"])
+                ):
+                    raise FormatError("unsupported native TAB property flag", locator=name)
+        if len(atoms) != 2:
             return False
         value = atoms[1].value
-        # Native LF text is representable by the existing footprint model, but
+        effects = child.find("effects")
+        justify = effects.find("justify") if effects is not None else None
+        mirrored = justify is not None and any(a.value == "mirror" for a in justify.atoms())
+        if value.isprintable() and (not mirrored or name.casefold().startswith(("fenolite.", "ki_"))):
+            return False
+        # Derivation has already unflipped bottom to the local top frame.
+        # Top-mirrored and bottom-unmirrored fields are therefore both mirrored
+        # here; preserve their native pose instead of issuing Part.field.
+
+        # Native LF/TAB values are representable by the existing footprint model, but
         # deliberately outside Part.properties. Keep it native-owned (c0358).
         if (
             not name
             or name != name.strip()
             or not name.isprintable()
             or name.casefold().startswith(("fenolite.", "ki_"))
-            or not all(line.isprintable() for line in value.split("\n"))
+            or not all(line.replace("\t", " ").isprintable() for line in value.split("\n"))
             or names.count(name) != 1
         ):
             raise FormatError("unsupported native custom property text", locator=name)

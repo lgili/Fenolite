@@ -1,0 +1,86 @@
+{
+  "05_or_complete_caller_pass_claimed": false,
+  "additional_custom_boundary_test_passed": 1,
+  "additional_custom_elapsed_seconds": 0.19,
+  "authoring_reds": {
+    "elapsed_seconds": 0.34,
+    "failed": 2,
+    "passed": 1
+  },
+  "derived_envelope": "min(nodes,fragments,halfedges//2,incidences//2)",
+  "external_pilot_summary_sha256": "d110fc26971396023c07abb2cf29f90e34bdb3a98b97e19769832c1148f26013",
+  "focused_elapsed_seconds": 9.7,
+  "focused_geometry_and_pour_tests_passed": 84,
+  "full_validation": "pending root-owned exact-head CI",
+  "new_input_edges": 100000,
+  "original_input_edges": 10000,
+  "pilot": {
+    "counters": {
+      "distance_intervals": 362,
+      "distance_predicates": 4540,
+      "repair_trials": 2,
+      "winding_visits": 592114
+    },
+    "driver_sha256": "aabf0699fece0b20b8fca823dfcb8b82448019de7cf4654f715359582aeee011",
+    "elapsed_seconds": 5.360171833977802,
+    "failure": "geometry.degenerate: exact geometry implicated enumeration-node budget exceeded",
+    "graphs": [
+      {
+        "candidate_pairs": 24291,
+        "fragments": 12282,
+        "intersecting_pairs": 17788,
+        "nodes": 10036,
+        "source_edges": 10155
+      }
+    ],
+    "input_edges": 10155,
+    "limits": {
+      "candidates": 250000,
+      "comparisons": 1000000,
+      "coordinate_bits": 256,
+      "distance_bits": 1024,
+      "distance_depth": 32,
+      "distance_intervals": 16384,
+      "distance_predicates": 1000000,
+      "faces": 100000,
+      "fragments": 100000,
+      "halfedges": 200000,
+      "incidences": 1000000,
+      "input_edges": 100000,
+      "nodes": 100000,
+      "repair_candidates": 4096,
+      "repair_nodes": 16,
+      "repair_proposal_nodes": 256,
+      "stage_seconds": 120,
+      "total_seconds": 240,
+      "winding_visits": 10000000
+    },
+    "negative_controls": [
+      {
+        "case": "above-derived-input-cap",
+        "elapsed_seconds": 1.1500000255182385e-05,
+        "input_segments": 100001,
+        "intersection_calls": 0,
+        "outcome": "geometry.degenerate: exact geometry input-edge budget exceeded"
+      },
+      {
+        "case": "explosive-candidate-pairs",
+        "elapsed_seconds": 0.11382233400945552,
+        "input_segments": 1000,
+        "intersection_calls": 0,
+        "outcome": "geometry.degenerate: exact geometry candidate-pair budget exceeded"
+      }
+    ],
+    "operand_sha256": "2f29135f08e1414d0e59b4968185cdadd8b7c1dd4d73438af2d0078af2e81932",
+    "rss_before_bytes": 34586624,
+    "rss_peak_after_negatives_bytes": 63291392,
+    "rss_peak_bytes": 63291392,
+    "rss_unit": "macOS ru_maxrss bytes",
+    "scope": "EXTERNAL approved explicit input-cap expansion10000->100000 only; no runtime change",
+    "shared_budget_instances": 1,
+    "status": "failed"
+  },
+  "scope": "Approved private input-domain expansion only; no precision/certificate/downstream-budget change",
+  "source_pyright_errors": 0,
+  "timing_context": "Concurrent root2-worker and unrelated8-worker make check-fast jobs observed; not an exclusive benchmark"
+}

@@ -156,3 +156,65 @@ the established table, and only circuit/board/PCB/root/child outputs change with
 correction. Library/project/rule/manufacturing bytes and all unrelated rows remain fixed.
 Task6.4 is complete. Wider6.2 acceptance, H-A-DRAWN-WRITE and exact-head CI remain open. S-1295 is separate
 from S-1293; no version26.5, full fixture cohort, GUI authorship or evidence promotion is claimed.
+
+## Current24 FULL/REPEAT memory batch — 2026-11-03
+
+The maintainer started the reviewed `RunC0276MemoryBatch` once. All eight owned
+cases compiled and produced closed message, component-pin and net-object dumps.
+All126staged source/SDK files remain byte-identical. The exact source versions,
+88-file collection and export hashes are retained in
+[the memory observation](altium-drawn-full-repeat-memory-native.json), S-1300.
+
+| Case, both binary and ASCII | Physical pins | Complete physical groups | Declared-name differences | Native messages |
+| --- | ---: | ---: | ---: | --- |
+| Immutable FULL baseline |36|32|1(IN)|3Error/1Warning|
+| Corrected FULL |40|32|0|Info1 only|
+| Parent REPEAT |8|5|2(FB0/FB1)|Info1 only|
+| Canonical REPEAT |8|5|0|Info1 only|
+
+The original net-object comparator is retained: every native physical pin is
+accounted for; graph edges come from native net-object membership, not matching
+names. Uncovered pins must be source-open singletons. FULL
+DM_Component.DM_Pins includes U1-32, while DM_Nets omits its membership and
+includes a zero-pin B[0..1] bus row. This raw API-view difference remains explicit;
+U1-32 is verified against the source as open. No connected pin is discarded.
+All declared native short/full names match in the corrected cases, and complete
+pin dumps and every net-object name/member agree between the two source forms.
+
+The corrected FULL includes actual R3/R4 10k B0/B1-to-GND loads and intentional
+NoERC only on11/12. REPEAT now returns literal FB0/FB1 with the full original
+eight-pin/five-group partition, instead of accepting its older qualified names.
+Earlier implementation/focused repairs predated this current24 baseline
+collection; the baseline was compiled before the corrected copies in this batch.
+
+This phase invokes no Save/Close and does not satisfy native save/reopen.
+Tasks6.5/6.6, aggregate H-A-DRAWN-WRITE graduation and exact integration CI remain
+open until their independent remaining proofs pass. Historical22.2.1 findings
+are not overwritten or combined with this24.5.2.23 batch.
+
+
+### Current24 FULL/REPEAT native save/reopen — 2026-11-03
+
+S-1300 follow-up: `RunC0276SaveReopenBatch` saved ten fresh owned schematic
+copies (two sheets per corrected FULL project and three per canonical REPEAT
+project), closed/reopened every document, then compiled/exported all four
+projects. Both binary-origin and ASCII-origin inputs were natively saved as
+binary. Every complete raw `messages.txt`, `pins.tsv` and `nets.tsv` is
+**byte-identical** to its corrected memory export: FULL40pins/32groups and
+REPEAT8pins/5groups, exact declared and generated names, Info-only compilation.
+This retains empty bus metadata and the explicitly documented FULL source-open
+U1-32 manager-view difference; no raw pin or net object is filtered.
+
+The collection contains84 exclusively read, closed files, including all ten
+native saved documents. All116 staged support/source/SDK files and all126
+original memory inputs remain hash-identical. The operator invoked the exact
+owned procedure once by keyboard after proving its focus and enabled OK;
+unsuccessful earlier UIA selection did not invoke it. The temporary operator
+task definition was removed before input was permitted. See
+`altium-drawn-full-repeat-saved-native.json` for source, SDK, document and export
+hashes. No personal project was saved or closed.
+
+This completes the save/reopen portion of tasks6.5/6.6. Their earlier current24
+baseline chronology is disclosed by the memory proof; this follow-up does not
+rewrite it. Aggregate6.2, census7.1/7.2 and exact-commit9.2 CI remain independent;
+`H-A-DRAWN-WRITE` remains `INFERRED` until all original acceptance gates pass.

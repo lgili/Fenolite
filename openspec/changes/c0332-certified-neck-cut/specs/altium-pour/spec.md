@@ -45,3 +45,46 @@ A bounded repair MAY omit implicated noninteger intersection nodes while preserv
 - **GIVEN** the corresponding 0.9-nm hairline
 - **WHEN** its cleaned boundary exceeds the existing bound
 - **THEN** it is refused; integer nodes and source corners cannot be waived
+
+
+### Requirement: Explicit bounded source-input coverage
+
+The private source-edge admission ceiling SHALL use the reviewed100,000edge structural envelope while retaining every other storage/work/coordinate/distance/deadline guard and the complete geometry certificate. This expands input coverage; it SHALL NOT imply a successful pour when another certificate or resource guard refuses.
+
+#### Scenario: Sparse source above the former pilot ceiling
+- **GIVEN**10,001independent authored source edges within every downstream limit
+- **WHEN** the exact input is admitted
+- **THEN** all source-edge provenance and signed multiplicity remain present; the former10,000pilot ceiling does not reject it
+
+#### Scenario: Expanded input does not expand dense work
+- **WHEN** an input exceeds100,000source edges or the unchanged candidate-pair ceiling
+- **THEN** the operation refuses before intersection arithmetic and returns no partial graph
+
+
+### Requirement: Exact boundary subdivision proposals
+
+A bounded repair MAY subdivide an exact selected boundary edge at a rational interior point while retaining every original exact node and proving identical signed curve/current. Each new canonical node SHALL use the same shared prescribed half-even projection and existing coordinate/resource bounds. Endpoint or midpoint predicates SHALL be necessary pruning only; the unchanged complete GLOBAL continuous/source/topology/parentage/debris certificate SHALL judge every returned result. Rejected proposals SHALL NOT become unqualified fallbacks.
+
+#### Scenario: Near-boundary authored notch
+- **GIVEN** an original rational notch whose nearest projection is nonsimple and whose original omission exceeds the continuous bound
+- **WHEN** an exact collinear subdivision permits a candidate with the same exact curve
+- **THEN** the original global certificate protects every original integer corner and complete continuous bound, or the operation refuses
+
+#### Scenario: Samples do not certify an edge interior
+- **GIVEN** a proposed projection with plausible endpoint distances but an uncovered interior
+- **WHEN** the builder presents it to the caller
+- **THEN** the original full global verifier rejects it; necessary probes do not waive any interval
+
+
+### Requirement: Complete bounded closed-box candidate enumeration
+
+The exact arrangement index SHALL emit every unordered original source-ID pair whose CLOSED integer envelopes intersect exactly once, sorted by source IDs, including point/degenerate/endpoint contacts. Tree pruning SHALL use exact containing envelopes and SHALL NOT alter geometry, merge IDs or discard multiplicity. All node/leaf predicates within one index call SHALL share its existing comparison ceiling; query/component subdivisions SHALL NOT reset it. Storage, candidate-output, coordinate and shared deadline guards SHALL remain effective.
+
+#### Scenario: False single-axis density is not an overlap
+- **GIVEN** two independent authored box families which overlap separately inXandYbut have no2Doverlap
+- **WHEN** hierarchical candidate enumeration completes within the same work cap
+- **THEN** the complete candidate tuple is empty, with every source ID still represented
+
+#### Scenario: Callback resource refusal remains a refusal
+- **WHEN** a node/leaf/storage callback exhausts its work or memory bound
+- **THEN** traversal propagates the refusal before returning any partial graph

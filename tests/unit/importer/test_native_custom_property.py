@@ -89,7 +89,7 @@ def test_native_owned_property_variants_and_unsupported_controls():
     assert library_footprint(first) != library_footprint(other)
     printable = footprint("A B")
     assert all(p.atoms()[0].value != "Author" for p in library_footprint(printable).nodes("property"))
-    for text in ("A\tB", "A\rB"):
+    for text in ("A\rB",):
         with pytest.raises(FormatError, match="unsupported native custom property"):
             library_footprint(footprint(text))
     with pytest.raises(ValueError, match="NUL"):
@@ -139,7 +139,7 @@ def test_distinct_native_owned_properties_get_separate_variants(tmp_path: Path):
     assert proof.result["accepted"] == [] and proof.result["differences"] == []
 
 
-@pytest.mark.parametrize("value", ["A\tB", "A\rB"])
+@pytest.mark.parametrize("value", ["A\rB"])
 def test_native_unmeasured_control_refuses_before_plan(tmp_path: Path, value: str):
     source = original(tmp_path / "original", 180, 10)
     board = source.with_suffix(".kicad_pcb")

@@ -1,0 +1,229 @@
+{
+  "source": "S-1305",
+  "native_version": "Altium Designer24.5.2.23",
+  "writer_source": "b5f6c84ade0cd74690874143bc1de96605279522",
+  "native_input_saved_pcb_sha256": "64f43648437e427b894bccbb0bbe8a6150eb606d313803dc34fdcee97cd56734",
+  "drc_invocations": 1,
+  "configuration_changed": false,
+  "create_report_file": false,
+  "create_violations": true,
+  "native_limit": 500,
+  "limit_reached": false,
+  "complete_native_message_manager_count": 14,
+  "messages": [
+    {
+      "class": "[Un-Routed Net Constraint Violation]",
+      "text": "Un-Routed Net Constraint: Net D0 Between Pad R1-1(354.331mil,1181.102mil) on Top Layer [Unplated] And Pad R3-1(1141.732mil,1181.102mil) on Top Layer [Unplated] ",
+      "source": "Advanced PCB"
+    },
+    {
+      "class": "[Un-Routed Net Constraint Violation]",
+      "text": "Un-Routed Net Constraint: Net D0 Between Track (196.85mil,787.402mil)(590.551mil,787.402mil) on Top Layer And Pad R1-1(354.331mil,1181.102mil) on Top Layer [Unplated] ",
+      "source": "Advanced PCB"
+    },
+    {
+      "class": "[Un-Routed Net Constraint Violation]",
+      "text": "Un-Routed Net Constraint: Net GND Between Pad R1-2(433.071mil,1181.102mil) on Top Layer [Unplated] And Pad R2-2(826.772mil,1181.102mil) on Top Layer [Unplated] ",
+      "source": "Advanced PCB"
+    },
+    {
+      "class": "[Un-Routed Net Constraint Violation]",
+      "text": "Un-Routed Net Constraint: Net D1 Between Pad R2-1(748.032mil,1181.102mil) on Top Layer [Unplated] And Pad R4-1(1535.433mil,1181.102mil) on Top Layer [Unplated] ",
+      "source": "Advanced PCB"
+    },
+    {
+      "class": "[Un-Routed Net Constraint Violation]",
+      "text": "Un-Routed Net Constraint: Net GND Between Pad R2-2(826.772mil,1181.102mil) on Top Layer [Unplated] And Pad R3-2(1220.472mil,1181.102mil) on Top Layer [Unplated] ",
+      "source": "Advanced PCB"
+    },
+    {
+      "class": "[Un-Routed Net Constraint Violation]",
+      "text": "Un-Routed Net Constraint: Net GND Between Pad R3-2(1220.472mil,1181.102mil) on Top Layer [Unplated] And Pad R4-2(1614.173mil,1181.102mil) on Top Layer [Unplated] ",
+      "source": "Advanced PCB"
+    },
+    {
+      "class": "[Un-Routed Net Constraint Violation]",
+      "text": "Un-Routed Net Constraint: Net GND Between Via (1181.102mil,787.402mil) from Mid-Layer 1 to Mid-Layer 2 And Pad R3-2(1220.472mil,1181.102mil) on Top Layer [Unplated] ",
+      "source": "Advanced PCB"
+    },
+    {
+      "class": "[Un-Routed Net Constraint Violation]",
+      "text": "Un-Routed Net Constraint: Net GND Between Via (984.252mil,787.402mil) from Top Layer to Mid-Layer 1 And Via (1181.102mil,787.402mil) from Mid-Layer 1 to Mid-Layer 2 ",
+      "source": "Advanced PCB"
+    },
+    {
+      "class": "[Un-Routed Net Constraint Violation]",
+      "text": "Un-Routed Net Constraint: Net GND Between Via (787.402mil,787.402mil) from Top Layer to Bottom Layer And Via (984.252mil,787.402mil) from Top Layer to Mid-Layer 1 ",
+      "source": "Advanced PCB"
+    },
+    {
+      "class": "[Net Antennae Violation]",
+      "text": "Net Antennae: Track (196.85mil,787.402mil)(590.551mil,787.402mil) on Top Layer ",
+      "source": "Advanced PCB"
+    },
+    {
+      "class": "[Net Antennae Violation]",
+      "text": "Net Antennae: Track (196.85mil,787.402mil)(590.551mil,787.402mil) on Top Layer ",
+      "source": "Advanced PCB"
+    },
+    {
+      "class": "[Net Antennae Violation]",
+      "text": "Net Antennae: Via (1181.102mil,787.402mil) from Mid-Layer 1 to Mid-Layer 2 ",
+      "source": "Advanced PCB"
+    },
+    {
+      "class": "[Net Antennae Violation]",
+      "text": "Net Antennae: Via (787.402mil,787.402mil) from Top Layer to Bottom Layer ",
+      "source": "Advanced PCB"
+    },
+    {
+      "class": "[Net Antennae Violation]",
+      "text": "Net Antennae: Via (984.252mil,787.402mil) from Top Layer to Mid-Layer 1 ",
+      "source": "Advanced PCB"
+    }
+  ],
+  "message_classes": {
+    "[Un-Routed Net Constraint Violation]": 9,
+    "[Net Antennae Violation]": 5
+  },
+  "raw_message_duplicates_preserved": true,
+  "raw_messages_sha256": "2e40a34546a0915c01250d40f93284a517a66135edb5237580fa7471e4b97da5",
+  "preflight_snapshot_sha256": "21e7f94da7ea891ec97bdeae67cc2e2a315fabfd2cbe45f2d2bec6f5e7d06c3a",
+  "run_request_sha256": "d9b7988a300b47d21677a91d427860b0f6c3b0ced93d9977244d068f5b93c13c",
+  "preflight_options": [
+    {
+      "hwnd": 71382,
+      "name": "Create Report File",
+      "enabled": true,
+      "toggle": "Off"
+    },
+    {
+      "hwnd": 71396,
+      "name": "Report Starved Thermals with less than ",
+      "enabled": true,
+      "toggle": "On"
+    },
+    {
+      "hwnd": 71394,
+      "name": "Report Dead Copper larger than",
+      "enabled": true,
+      "toggle": "On"
+    },
+    {
+      "hwnd": 71376,
+      "name": "Report Multilayer Pads with 0 size Hole",
+      "enabled": true,
+      "toggle": "On"
+    },
+    {
+      "hwnd": 71392,
+      "name": "Report Broken Planes",
+      "enabled": true,
+      "toggle": "On"
+    },
+    {
+      "hwnd": 71374,
+      "name": "Report Drilled SMT Pads",
+      "enabled": true,
+      "toggle": "On"
+    },
+    {
+      "hwnd": 71372,
+      "name": "Verify Shorting Copper",
+      "enabled": true,
+      "toggle": "On"
+    },
+    {
+      "hwnd": 71370,
+      "name": "Sub-Net Details",
+      "enabled": true,
+      "toggle": "On"
+    },
+    {
+      "hwnd": 71368,
+      "name": "Create Violations",
+      "enabled": true,
+      "toggle": "On"
+    },
+    {
+      "hwnd": 71384,
+      "name": "Report PCB Health Issues",
+      "enabled": false,
+      "toggle": "Off"
+    }
+  ],
+  "preflight_edits": [
+    {
+      "name": "100 sq. mils",
+      "hwnd": 71400
+    },
+    {
+      "name": "50%",
+      "hwnd": 71398
+    },
+    {
+      "name": "500",
+      "hwnd": 71378
+    }
+  ],
+  "SDK_procedure": "ExportC0092DRCMessages",
+  "SDK_source_sha256": "938f07215ba228814352f6e6ba288989e44a29abfef2ab1952c7673d8ca0a52b",
+  "SDK_project_sha256": "bb7e86d5808722720ef3f564c7ac47e968497805f9ac8f41815ca69ab4416dbf",
+  "SDK_cleared_messages_or_recompiled": false,
+  "collection_manifest_sha256": "da2fbf803debf714d8dd7a0be4b69f33a6c185cb3eddb5ba156a2e7381ba3b7a",
+  "all_reads_exclusive": true,
+  "closed_collected_files": 6,
+  "staged2_unchanged": true,
+  "original_prepared_packet_files_verified": 50,
+  "fenolite_raw_readback_issues": 0,
+  "original_rules": [
+    {
+      "name": "Clearance",
+      "kind_number": 0,
+      "every_original_field_unchanged": true,
+      "original_field_count": 22
+    },
+    {
+      "name": "Width",
+      "kind_number": 2,
+      "every_original_field_unchanged": true,
+      "original_field_count": 21
+    },
+    {
+      "name": "RoutingVias",
+      "kind_number": 11,
+      "every_original_field_unchanged": true,
+      "original_field_count": 25
+    },
+    {
+      "name": "HoleSize",
+      "kind_number": 42,
+      "every_original_field_unchanged": true,
+      "original_field_count": 23
+    },
+    {
+      "name": "BoardOutlineClearance",
+      "kind_number": 63,
+      "every_original_field_unchanged": true,
+      "original_field_count": 22
+    },
+    {
+      "name": "HoleToHoleClearance",
+      "kind_number": 52,
+      "every_original_field_unchanged": true,
+      "original_field_count": 20
+    },
+    {
+      "name": "MinimumAnnularRing",
+      "kind_number": 19,
+      "every_original_field_unchanged": true,
+      "original_field_count": 19
+    }
+  ],
+  "native_added_rules": 30,
+  "drc_clean": false,
+  "all_native_batch_rule_categories_independently_inspected": false,
+  "parent_task5_3_complete": false,
+  "write_kind_graduated": false,
+  "scope": "Actual unchanged-configuration native DRC and complete current message-manager export. Literal field retention in all seven original rule records of the independently native-saved PCB. Not production board quality, independently inventoried per-category batch-rule coverage, full kit, rule semantic equivalence or graduation."
+}

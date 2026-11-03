@@ -1,0 +1,286 @@
+{
+  "source": "S-1300",
+  "native_version": "Altium Designer24.5.2.23",
+  "scope": "Actual compile/export in memory only; no native save/reopen or aggregate writer graduation.",
+  "user_start_confirmation": "Iniciei a rotina uma vez",
+  "SDK_procedure": "RunC0276MemoryBatch",
+  "SDK_source_sha256": "a5dc587dffe2a42a051d3d2dbd0127f11da05f9481b6b9cb922f45109617cbba",
+  "SDK_project_sha256": "faf649af16670926e0a5d5405e44f98b1bd2bb3c87120064a6e18ed7e8ccd741",
+  "cases_completed": 8,
+  "closed_native_files": 88,
+  "collection_manifest_sha256": "180b07dd852d1f3af8c90144b85592fe8636ad5e6f59d948f546dbe762346bf0",
+  "comparison_sha256": "9fc6510292d151ddf65be8b433135db4afa6bf4c1b674c63d6bb14ed4042d9c7",
+  "post_memory_input_hashes_sha256": "3985aa0670f8e8019b0a628dc7a43806de54b8b5ddba21a6e2a6fc493aabf43d",
+  "all126staged_inputs_unchanged": true,
+  "comparison_contract": "Complete unfiltered physical pin universe and native net-object identity/memberships; source-open singletons only for uncovered native-manager pins. Declared short/full names exact. No pin filtering, alias normalization or global ERC change.",
+  "native_manager_scope": "FULL raw DM_Nets contains empty B[0..1] metadata and omits U1-32 membership; DM_Component.DM_Pins includes that physical pin, which the canonical source proves an open singleton. Both raw views retained; neither is falsely described as the complete other view.",
+  "implementation_chronology": "Earlier code/focused repairs were already prepared. This batch acquires current24 immutable-baseline observations first, then corrected native observations; it does not claim baseline collection predated implementation.",
+  "native_save_reopen_complete": false,
+  "aggregate_H_A_DRAWN_WRITE": "INFERRED; independent original criteria and CI still apply.",
+  "cases": [
+    {
+      "case": "full-baseline-binary",
+      "canonical_pins": 36,
+      "native_pins": 36,
+      "canonical_groups": 32,
+      "native_complete_groups": 32,
+      "complete_pin_universe_equal": true,
+      "complete_net_object_partitions_equal": true,
+      "declared_name_differences": [
+        {
+          "declared": "IN",
+          "native_short": "NetR2_1",
+          "native_full": "NetR2_1"
+        }
+      ],
+      "uncovered_source_open_singletons": [
+        [
+          "U1",
+          "32"
+        ]
+      ],
+      "empty_native_records": [
+        {
+          "short": "B[0..1]",
+          "full": "B[0..1]"
+        }
+      ],
+      "raw_message_lines": [
+        "[Error]|Net B0 has only one pin (Pin U1-18)|Compiler",
+        "[Error]|Net B1 has only one pin (Pin U1-19)|Compiler",
+        "[Error]|Net NetU1_12 contains floating input pins (Pin U1-12)|Compiler",
+        "[Warning]|Net NetU1_12 has no driving source (Pin U1-12)|Compiler",
+        "end of messages"
+      ],
+      "writer_source": "6de40c69169e665fd88def48aa136d0b1b3a1271",
+      "canonical_circuit_sha256": "055a45f0137125aac47cc8efbb57e40338a45b4c8fc3deb38ef0fa52e701d0ea",
+      "native_exports": {
+        "messages.txt": "c6730b7b7b643a844768a3d3e8c72bd2d3bc90b2020f58869332c8b1c1d1efbf",
+        "nets.tsv": "5aacdf28e628de8f8f11efd653debac30a1c05ebb6448e817f9732d79f671a4b",
+        "pins.tsv": "31e9e4879d6511b40f1ff84cf470d8f9360f21bd889263d79942aac2f788cdc3"
+      }
+    },
+    {
+      "case": "full-baseline-ascii",
+      "canonical_pins": 36,
+      "native_pins": 36,
+      "canonical_groups": 32,
+      "native_complete_groups": 32,
+      "complete_pin_universe_equal": true,
+      "complete_net_object_partitions_equal": true,
+      "declared_name_differences": [
+        {
+          "declared": "IN",
+          "native_short": "NetR2_1",
+          "native_full": "NetR2_1"
+        }
+      ],
+      "uncovered_source_open_singletons": [
+        [
+          "U1",
+          "32"
+        ]
+      ],
+      "empty_native_records": [
+        {
+          "short": "B[0..1]",
+          "full": "B[0..1]"
+        }
+      ],
+      "raw_message_lines": [
+        "[Error]|Net B0 has only one pin (Pin U1-18)|Compiler",
+        "[Error]|Net B1 has only one pin (Pin U1-19)|Compiler",
+        "[Error]|Net NetU1_12 contains floating input pins (Pin U1-12)|Compiler",
+        "[Warning]|Net NetU1_12 has no driving source (Pin U1-12)|Compiler",
+        "end of messages"
+      ],
+      "writer_source": "6de40c69169e665fd88def48aa136d0b1b3a1271",
+      "canonical_circuit_sha256": "055a45f0137125aac47cc8efbb57e40338a45b4c8fc3deb38ef0fa52e701d0ea",
+      "native_exports": {
+        "messages.txt": "c6730b7b7b643a844768a3d3e8c72bd2d3bc90b2020f58869332c8b1c1d1efbf",
+        "nets.tsv": "5aacdf28e628de8f8f11efd653debac30a1c05ebb6448e817f9732d79f671a4b",
+        "pins.tsv": "31e9e4879d6511b40f1ff84cf470d8f9360f21bd889263d79942aac2f788cdc3"
+      }
+    },
+    {
+      "case": "full-corrected-binary",
+      "canonical_pins": 40,
+      "native_pins": 40,
+      "canonical_groups": 32,
+      "native_complete_groups": 32,
+      "complete_pin_universe_equal": true,
+      "complete_net_object_partitions_equal": true,
+      "declared_name_differences": [],
+      "uncovered_source_open_singletons": [
+        [
+          "U1",
+          "32"
+        ]
+      ],
+      "empty_native_records": [
+        {
+          "short": "B[0..1]",
+          "full": "B[0..1]"
+        }
+      ],
+      "raw_message_lines": [
+        "[Info]|Compile successful, no errors found.|Compiler",
+        "end of messages"
+      ],
+      "writer_source": "615c28145cfe219ab30ce258c19f9540feacc24b",
+      "canonical_circuit_sha256": "f4397924ffc3a87ff76004a4886baa0b481cf2aed4b6deff345aaccd969eb1dd",
+      "native_exports": {
+        "messages.txt": "ca55a1941df78a29d89b3f4e1a2eeb009136cbe75294492e706b4aca85d16258",
+        "nets.tsv": "8083724dcea67c46ff8377426d495729d289e9f327c0674fb78d305d74da58ab",
+        "pins.tsv": "a45a23756d1e7d9c91ebbd1f4ddcd973e7a1f3102d65f57394e9e81a6f070453"
+      }
+    },
+    {
+      "case": "full-corrected-ascii",
+      "canonical_pins": 40,
+      "native_pins": 40,
+      "canonical_groups": 32,
+      "native_complete_groups": 32,
+      "complete_pin_universe_equal": true,
+      "complete_net_object_partitions_equal": true,
+      "declared_name_differences": [],
+      "uncovered_source_open_singletons": [
+        [
+          "U1",
+          "32"
+        ]
+      ],
+      "empty_native_records": [
+        {
+          "short": "B[0..1]",
+          "full": "B[0..1]"
+        }
+      ],
+      "raw_message_lines": [
+        "[Info]|Compile successful, no errors found.|Compiler",
+        "end of messages"
+      ],
+      "writer_source": "615c28145cfe219ab30ce258c19f9540feacc24b",
+      "canonical_circuit_sha256": "f4397924ffc3a87ff76004a4886baa0b481cf2aed4b6deff345aaccd969eb1dd",
+      "native_exports": {
+        "messages.txt": "ca55a1941df78a29d89b3f4e1a2eeb009136cbe75294492e706b4aca85d16258",
+        "nets.tsv": "8083724dcea67c46ff8377426d495729d289e9f327c0674fb78d305d74da58ab",
+        "pins.tsv": "a45a23756d1e7d9c91ebbd1f4ddcd973e7a1f3102d65f57394e9e81a6f070453"
+      }
+    },
+    {
+      "case": "repeat-parent-binary",
+      "canonical_pins": 8,
+      "native_pins": 8,
+      "canonical_groups": 5,
+      "native_complete_groups": 5,
+      "complete_pin_universe_equal": true,
+      "complete_net_object_partitions_equal": true,
+      "declared_name_differences": [
+        {
+          "declared": "FB0",
+          "native_short": "__local_PCWPSBNL_FB",
+          "native_full": "__local_PCWPSBNL_FB"
+        },
+        {
+          "declared": "FB1",
+          "native_short": "__local_HIETOPDD_FB",
+          "native_full": "__local_HIETOPDD_FB"
+        }
+      ],
+      "uncovered_source_open_singletons": [],
+      "empty_native_records": [],
+      "raw_message_lines": [
+        "[Info]|Compile successful, no errors found.|Compiler",
+        "end of messages"
+      ],
+      "writer_source": "cd69b353",
+      "canonical_circuit_sha256": "77a79892286001654189a7456e200aa3241e1e0ec81811fc144adfd583a50c78",
+      "native_exports": {
+        "messages.txt": "ca55a1941df78a29d89b3f4e1a2eeb009136cbe75294492e706b4aca85d16258",
+        "nets.tsv": "18319c4f53f09b6a70d5c387491a3d6cb2afa155bc1a8d552be22eb908537000",
+        "pins.tsv": "fb3440a42e273bad37ee63959a79154f66b757c9e0a637bda56270150d9bd756"
+      }
+    },
+    {
+      "case": "repeat-parent-ascii",
+      "canonical_pins": 8,
+      "native_pins": 8,
+      "canonical_groups": 5,
+      "native_complete_groups": 5,
+      "complete_pin_universe_equal": true,
+      "complete_net_object_partitions_equal": true,
+      "declared_name_differences": [
+        {
+          "declared": "FB0",
+          "native_short": "__local_PCWPSBNL_FB",
+          "native_full": "__local_PCWPSBNL_FB"
+        },
+        {
+          "declared": "FB1",
+          "native_short": "__local_HIETOPDD_FB",
+          "native_full": "__local_HIETOPDD_FB"
+        }
+      ],
+      "uncovered_source_open_singletons": [],
+      "empty_native_records": [],
+      "raw_message_lines": [
+        "[Info]|Compile successful, no errors found.|Compiler",
+        "end of messages"
+      ],
+      "writer_source": "cd69b353",
+      "canonical_circuit_sha256": "77a79892286001654189a7456e200aa3241e1e0ec81811fc144adfd583a50c78",
+      "native_exports": {
+        "messages.txt": "ca55a1941df78a29d89b3f4e1a2eeb009136cbe75294492e706b4aca85d16258",
+        "nets.tsv": "18319c4f53f09b6a70d5c387491a3d6cb2afa155bc1a8d552be22eb908537000",
+        "pins.tsv": "fb3440a42e273bad37ee63959a79154f66b757c9e0a637bda56270150d9bd756"
+      }
+    },
+    {
+      "case": "repeat-canonical-binary",
+      "canonical_pins": 8,
+      "native_pins": 8,
+      "canonical_groups": 5,
+      "native_complete_groups": 5,
+      "complete_pin_universe_equal": true,
+      "complete_net_object_partitions_equal": true,
+      "declared_name_differences": [],
+      "uncovered_source_open_singletons": [],
+      "empty_native_records": [],
+      "raw_message_lines": [
+        "[Info]|Compile successful, no errors found.|Compiler",
+        "end of messages"
+      ],
+      "writer_source": "5eeaf346",
+      "canonical_circuit_sha256": "77a79892286001654189a7456e200aa3241e1e0ec81811fc144adfd583a50c78",
+      "native_exports": {
+        "messages.txt": "ca55a1941df78a29d89b3f4e1a2eeb009136cbe75294492e706b4aca85d16258",
+        "nets.tsv": "959b8680044db41a7c7a0668fca1d92c54519781f7148de08a19f0716ff4cf5c",
+        "pins.tsv": "0cdeacb34dd1eb4590847e36b2239babb1697be77d502b7ed2dcc62525149bbf"
+      }
+    },
+    {
+      "case": "repeat-canonical-ascii",
+      "canonical_pins": 8,
+      "native_pins": 8,
+      "canonical_groups": 5,
+      "native_complete_groups": 5,
+      "complete_pin_universe_equal": true,
+      "complete_net_object_partitions_equal": true,
+      "declared_name_differences": [],
+      "uncovered_source_open_singletons": [],
+      "empty_native_records": [],
+      "raw_message_lines": [
+        "[Info]|Compile successful, no errors found.|Compiler",
+        "end of messages"
+      ],
+      "writer_source": "5eeaf346",
+      "canonical_circuit_sha256": "77a79892286001654189a7456e200aa3241e1e0ec81811fc144adfd583a50c78",
+      "native_exports": {
+        "messages.txt": "ca55a1941df78a29d89b3f4e1a2eeb009136cbe75294492e706b4aca85d16258",
+        "nets.tsv": "959b8680044db41a7c7a0668fca1d92c54519781f7148de08a19f0716ff4cf5c",
+        "pins.tsv": "0cdeacb34dd1eb4590847e36b2239babb1697be77d502b7ed2dcc62525149bbf"
+      }
+    }
+  ]
+}

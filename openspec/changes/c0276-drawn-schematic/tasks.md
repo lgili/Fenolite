@@ -345,10 +345,16 @@
   Preserve complete old/new deterministic plans before updating only the three drawn example byte rows. The intentional source circuit change moves R3-2 from VCC to GND, so its PCB/board/circuit bytes legitimately change alongside root/child schematics; all library/project/rule/manufacturing hashes and every unrelated example row stay fixed. Do not refresh an unmeasured file or weaken the complete-file assertion.
   2026-11-03 partial proof: original current963 actual24.5.2.23 reproduces38pins/33groups, IN naming and3Error/2Warning. Authored regression3fails before and3passes after. Corrected binary/ASCII both retain every38pins/33groups with names exact and Info1 only. Four native binary documents saved/closed/reopened retain exact marker positions/flags; saved binary full recompile/export also passes. Saved ASCII export remains incomplete on operator I/O32 at stage.txt append, with no CAD-failure or completed-export claim. Before retry, consciously stop the paused owned SDK and prove an immutable-event/final-marker I/O protocol; do not poll an actively appended file. Receipt and sourceS-1295 are separate from6.3. Focused neighbors78pass; actual KiCad9/10 example oracle/load2passes each. All45original/30save-source hashes remain unchanged at collection. The three source-driven byte rows pass with complete old/new maps retained. Keep6.4/6.2 and exact-head CI OPEN.
 
-- [ ] 6.5 Repair the original FULL authored circuit after source-bound current24 baseline capture. Add real R3/R4 10k pull-down terminals to B0/B1 and GND, keeping all36 old pins and explicitly measuring the complete40pin/five-component universe; retain32groups. Keep existing11 NC, declare only actually unused11/12, add the missing12 drawn marker, and label IN on its existing wire. Preserve all drawn item kinds and exact buses/entries/hierarchy/poses. Start with authored RED regression, then focused code/drawn/native-record proofs and actual binary/ASCII compile/export/save/reopen. No connected NoERC, global ERC/scope change, pin filtering, comparator renaming or broad byte refresh. Record every native message/name and keep historical failures/independent6.3 separate.
+- [x] 6.5 Repair the original FULL authored circuit after source-bound current24 baseline capture. Add real R3/R4 10k pull-down terminals to B0/B1 and GND, keeping all36 old pins and explicitly measuring the complete40pin/five-component universe; retain32groups. Keep existing11 NC, declare only actually unused11/12, add the missing12 drawn marker, and label IN on its existing wire. Preserve all drawn item kinds and exact buses/entries/hierarchy/poses. Start with authored RED regression, then focused code/drawn/native-record proofs and actual binary/ASCII compile/export/save/reopen. No connected NoERC, global ERC/scope change, pin filtering, comparator renaming or broad byte refresh. Record every native message/name and keep historical failures/independent6.3 separate.
   Coordinator design review approved2026-11-03; current24 baseline and implementation proofs remain pending. No source fixture was edited before this task/design.
 
-- [ ] 6.6 Propose and prove canonical code-net preference for repeated local labels ONLY under a complete physical group↔circuit-net bijection and casefold-unique native identity. Preserve existing explicit fallback/refusal and label-text-change info for ambiguity/collisions, plus all8pins/five groups and local isolation. Establish RED positive FB0/FB1 and negatives for missing/unmatched/ambiguous groups, duplicate names, global/power collision and ordinary-sheet behavior before runtime. Never change the native comparator, measured results, net scope or ERC policy. Actual native both forms/save-reopen and inventoried byte effects are separate required proofs.
+- [x] 6.5a Repair the visible-power-font mutation control to retain the added FULL ground ports and prove unchanged complete pins/nets while preserving its exact font/reference assertions. Proof: focused font module; no runtime/source-fixture change.
+
+- [x] 6.5b Reconcile the literal every-kind reader/writer assertions with the reviewed FULL loads, IN label and11/12 NC markers; assert exact named/positioned items and retain all existing item-kind/roundtrip guards. Proof: focused every-kind selectors.
+
+- [x] 6.5c Restore canonical serialization of the authored FULL file by ordering only, proving identical complete parsed drawing and both9/10 build byte maps before/after. Keep the canonical byte assertion unchanged. Proof: existing canonical/module guards and source-bound byte receipt; native24 task6.5 remains open.
+
+- [x] 6.6 Propose and prove canonical code-net preference for repeated local labels ONLY under a complete physical group↔circuit-net bijection and casefold-unique native identity. Preserve existing explicit fallback/refusal and label-text-change info for ambiguity/collisions, plus all8pins/five groups and local isolation. Establish RED positive FB0/FB1 and negatives for missing/unmatched/ambiguous groups, duplicate names, global/power collision and ordinary-sheet behavior before runtime. Never change the native comparator, measured results, net scope or ERC policy. Actual native both forms/save-reopen and inventoried byte effects are separate required proofs.
   Coordinator approved the narrow proposal direction2026-11-03; binding-carrier design and RED controls must be reviewed before runtime. Current __local_<id>_FB behavior remains explicit and unchanged.
 
   2026-11-03 local6.5 checkpoint: authored RED1failed0.88s before source edits; after repair3focused pass1.97s, including all40native records/all physical refs+pins and exact code memberships in both forms. Focused neighbors89pass10.55s. Actual KiCad9.0.9 and10.0.6 FULL export/load2cases each pass2.77s/3.07s; obsolete9 label_dangling exception removed, with no replacement waiver. Complete old binary/ASCII reviewed plans(15files each, source6de40c69) were preserved before edit. Actual Altium24 baseline/final compile/export/save/reopen and wider6.2/CI remain pending; task6.5 stays unchecked.
@@ -496,3 +502,84 @@ checkout remains clean and unchanged. Task7.2 stays unchecked pending the
 required exact-current-source CI; naming differences are not silently accepted.
 
   2026-11-03 completion of6.4: the user consciously stopped the paused owned SDK. Independent Windows I/O control reproduced sharing error32 and passed1000 existence-only marker checks with closed-export hash exact, without touching CAD. Fresh ASCII-saved-v2 uses immutable unique events and zero active-stage reads. Actual Altium24.5.2.23 exports all38pins/33groups/all declared names exactly with Info1 only, identical partitionSHA to both corrected source forms and saved binary. No successful case was repeated; historical I/O32 remains recorded. Task6.4 native scope is complete; wider6.2, other original fixtures, H-A-DRAWN-WRITE and exact-head CI remain OPEN. Proof: focused original acceptance and verification metadata tests.
+
+  2026-11-03 fast10 follow-up6.5a: the visible-power-font control now retains all other FULL ground ports. Complete emitted pins/nets and the other native power fields equal an unmodified build on each target; the requested font and original hidden-reference assertion remain exact. Font module42passed4.13s. The first attempted extra assertion compared native synthesized default fields to omitted source fields and was corrected to compare the unmodified native baseline. No runtime or source-fixture bytes changed;6.5/9.2 remain open.
+
+  2026-11-03 fast10 follow-up6.5b: reader/writer guards now require four root symbols U1/R1/R3/R4, three GND ports, nine labels including the exact seven local names/multiplicities, and both unused-pin markers at their original positions. All existing opaque/titleblock/bus/entry/hierarchy/label-pose guards remain; emitted/read-back no-connects must equal source. Focused reader selector plus complete drawn-writer module6passed1.41s. Canonical source ordering6.5c and final CI remain pending.
+
+  2026-11-03 fast10 follow-up6.5c: canonicalized only FULL TOML item ordering. Complete parsed drawing equality passes; all17build files are byte-identical before/after on EACH target9/10, with zero file differences. Original source SHA7706a66dbac162f5bd14f01944df8ef63b96877b3db22106824b18c7e58d92ea, canonicalSHAfb4dbc07044257a3d08792f54dff4d92440c99e3738e86b24d53337a0840415a. The unchanged canonical-byte assertion and all three affected modules pass67cases4.32s. See full-canonical-order-proof.json. Native24 and exact-head CI remain separately pending.
+
+## Current24 memory-only follow-up — 2026-11-03
+
+Tasks6.5/6.6 partial native proof (S-1300): all eight immutable baseline/corrected
+FULL and parent/canonical REPEAT cases, binary and ASCII, completed compile/export.
+Corrected FULL retains every40pins/32groups; canonical REPEAT retains8pins/5groups;
+all declared short/full names are exact and messages are Info1 only. Full original
+physical membership/net-object comparison and every raw finding are preserved;
+FULL raw manager omits source-open U1-32 membership and contains empty bus metadata,
+while the complete component-pin dump includes that pin.126inputs unchanged.
+See docs/evidence/altium-drawn-full-repeat-memory-native.json. This is current24
+memory proof acquired after earlier code preparation; it never claims native
+save/reopen, pre-implementation baseline chronology or final integration CI.
+Tasks6.5/6.6 and aggregate6.2 remain unchecked pending their remaining proofs.
+
+
+## Current24 FULL/REPEAT save/reopen follow-up — 2026-11-03
+
+The actual save/reopen portion of6.5/6.6 is complete: ten fresh native binary
+schematic documents closed/reopened, then all four corrected projects compiled
+and exported. Every complete raw message/pin/net-object export is byte-identical
+to its source-bound corrected memory export, including every generated name
+and manager metadata. FULL40pins/32groups, REPEAT8pins/5groups, Info-only messages;
+all116 staged files and126 original memory inputs unchanged. See S-1300 and
+`docs/evidence/altium-drawn-full-repeat-saved-native.json`. Previous chronology
+is retained explicitly; native saving does not rewrite the original inputs.
+Parent task checkboxes remain open for final reconciliation with their earlier
+proof requirements/current integration gates; no further FULL/REPEAT native
+save/reopen is pending. Aggregate6.2 and exact-current-commit CI/census stay open.
+
+Focused current-head full/repeat/default-byte guards:95passed (21.93s).
+Native evidence/register/format-fact guards:77passed (63.69s). Both c0276 and
+c0319 strict OpenSpec validations and `git diff --check` pass. No full local
+suite or current CI verdict is inferred from these focused proofs.
+
+
+## Literal task6.6 reconciliation —2026-11-03
+
+Task6.6 is complete; this closes the task, not the spec or its CI gate. Current
+focused repeat-name/default-byte/native-kit-documentation tests pass107cases
+in11.61s. The ENTIRE current drawn.py is byte-identical to native writer5eeaf346.
+Reverified all172closed memory/save/reopen files against their original
+collection manifests. Both canonical repeated forms preserve all8pins/five
+groups, all short/full names and Info-only messages; their complete exports
+are byte-identical after six saved schematic copies close/reopen. The prior
+authored RED and unchanged75plans/1011files remain bound by hashes, alongside
+all existing ambiguity/collision/fallback/isolation tests. Native comparison
+and ERC scope are unchanged. See repeat-closure-proof.json.
+
+The historical post-preparation acquisition chronology remains disclosed; no
+pre-implementation native baseline is fabricated. FULL task6.5, aggregate6.2,
+KiCad CI/census7.1/7.2 and exact-current-CI9.2 remain unchecked. No aggregate
+evidence promotion, archive or push occurred. Earlier pending notes describe
+their dated checkpoints and are superseded only for literal task6.6 here.
+
+
+## Literal task6.5 reconciliation and maintainer decision —2026-11-03
+
+The maintainer reviewed the documented acquisition-order deviation and answered
+"Aceitar a prova retrospectiva documentada". This substitutes the retrospective
+original/corrected comparison ONLY for the requirement that native baseline
+acquisition precede implementation. No test, ERC, membership, CI or other gate
+is waived; the real chronology remains explicit in the original memory report.
+
+All four current FULL source files exactly match the actual native615c2814
+packet. Reverified172closed native memory/save files and both bound manifests.
+Both original forms retain36pins/32groups and their real3errors/1warning; both
+corrected forms retain40pins/32groups, exact declared names and Info-only
+compilation. All four saved FULL documents close/reopen with complete exports
+byte-identical to memory. Current full/font/every-kind/canonical/default-byte
+proof passes113tests13.50s; prior authored RED and canonical-order receipt are
+bound in full-closure-proof.json. This completes task6.5. Aggregate6.2,
+KiCad CI/census7.1/7.2 and exact-current-CI9.2 remain open; no whole-spec archive
+or aggregate H-A-DRAWN-WRITE promotion is made. Earlier pending notes remain
+historical and are superseded only for this literal task.

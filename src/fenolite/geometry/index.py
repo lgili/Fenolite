@@ -9,7 +9,8 @@ change. Boxes are closed, so boxes that only touch intersect. Results are in ins
 from __future__ import annotations
 
 import math
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Iterator, Sequence
+from itertools import combinations, product
 from typing import Generic, TypeVar
 
 from fenolite.geometry.shapes import BBox
@@ -111,6 +112,50 @@ class SpatialIndex(Generic[T]):
     def query(self, bbox: BBox) -> list[T]:
         """Payloads (insertion order) of the items whose boxes intersect ``bbox``."""
         return [self._payloads[i] for i in self._search(bbox.as_tuple())]
+
+    def _join_pairs(
+        self, visit: Callable[[], None], reserve: Callable[[int], None]
+    ) -> Iterator[tuple[int, int]]:
+        """Private exact self join. Hooks bound every node/leaf predicate and pending pair storage."""
+        if self._root is None:
+            return
+
+        def closed(a: _Box, b: _Box) -> bool:
+            return a[0] <= b[2] and b[0] <= a[2] and a[1] <= b[3] and b[1] <= a[3]
+
+        def size(node: _Node) -> tuple[int, int]:
+            x0, y0, x1, y1 = node.box
+            width, height = x1 - x0, y1 - y0
+            return width * height, width + height
+
+        reserve(1)
+        stack = [(self._root, self._root)]
+        while stack:
+            a, b = stack.pop()
+            visit()  # Count diagonal visits too; identity is not a free per-query budget reset.
+            if a is b:
+                if a.children:
+                    count = len(a.children)
+                    reserve(len(stack) + count * (count + 1) // 2)
+                    stack.extend((child, child) for child in a.children)
+                    stack.extend(combinations(a.children, 2))
+                else:
+                    for i, j in combinations(a.items, 2):
+                        visit()
+                        if closed(self._boxes[i], self._boxes[j]):
+                            yield i, j
+            elif closed(a.box, b.box):
+                if a.children and (not b.children or size(a) >= size(b)):
+                    reserve(len(stack) + len(a.children))
+                    stack.extend((child, b) for child in a.children)
+                elif b.children:
+                    reserve(len(stack) + len(b.children))
+                    stack.extend((a, child) for child in b.children)
+                else:
+                    for i, j in product(a.items, b.items):
+                        visit()
+                        if closed(self._boxes[i], self._boxes[j]):
+                            yield min(i, j), max(i, j)
 
     def pairs(self) -> list[tuple[int, int]]:
         """Every pair ``(i, j)``, ``i < j``, of items whose boxes intersect, sorted ascending."""

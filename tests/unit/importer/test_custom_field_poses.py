@@ -66,14 +66,13 @@ def test_only_declared_user_field_names_are_allowed(name: str):
         part.field(name, rot=0)
 
 
-@pytest.mark.parametrize("defect", ["size", "layer", "mirror", "thickness", "font"])
+@pytest.mark.parametrize("defect", ["size", "layer", "thickness", "font"])
 def test_unrepresentable_custom_pose_refuses_before_plan(tmp_path: Path, defect: str):
     source = original(tmp_path / "original", 180, 10)
     board = source.with_suffix(".kicad_pcb")
     replacements = {
         "size": ("(size 1 1)", "(size 1 2)"),
         "layer": ('(layer "F.Fab")', '(layer "User.Drawings")'),
-        "mirror": ("(thickness 0.15)", "(thickness 0.15)"),
         "thickness": ("(thickness 0.15)", ""),
         "font": ("(thickness 0.15)", "(thickness 0.15) (future_style yes)"),
     }
@@ -82,11 +81,6 @@ def test_unrepresentable_custom_pose_refuses_before_plan(tmp_path: Path, defect:
     prop = next(p for p in fp.nodes("property") if p.atoms()[0].value == "Author")
     a, b = replacements[defect]
     changed = parse(dumps(prop).replace(a, b))
-    if defect == "mirror":
-        effects = changed.find("effects")
-        assert effects is not None
-        mirrored = effects.with_children((*effects.children, parse("(justify mirror)")))
-        changed = changed.with_children(tuple(mirrored if c is effects else c for c in changed.children))
     assert isinstance(changed, Node)
     fp2 = fp.with_children(tuple(changed if c is prop else c for c in fp.children))
     board.write_text(dumps(root.with_children(tuple(fp2 if c is fp else c for c in root.children))))

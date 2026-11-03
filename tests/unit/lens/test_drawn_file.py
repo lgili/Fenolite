@@ -5,6 +5,7 @@ file", "Drawn file numbers", "Drawn sheet items" and "Canonical drawn file"; cha
 
 from __future__ import annotations
 
+from collections import Counter
 from dataclasses import replace
 
 import _drawn
@@ -121,12 +122,18 @@ def test_every_kind_read() -> None:
     """Scenario "Every kind read"."""
     drawn = _drawn.drawn("full")
     root, sub = drawn.sheets
-    assert (len(root.symbols), len(root.powers), len(root.wires), len(root.buses)) == (2, 1, 5, 1)
+    assert (len(root.symbols), len(root.powers), len(root.wires), len(root.buses)) == (4, 3, 5, 1)
     assert (len(root.bus_entries), len(root.junctions), len(root.no_connects), len(root.labels)) == (
         2,
         1,
-        1,
-        6,
+        2,
+        9,
+    )
+    assert [symbol.part for symbol in root.symbols] == ["U1", "R1", "R3", "R4"]
+    assert [power.net for power in root.powers] == ["GND"] * 3
+    assert root.no_connects == (Point(88_900_000, 95_250_000), Point(88_900_000, 97_790_000))
+    assert Counter(label.text for label in root.labels if label.kind == "local") == Counter(
+        {"SDA": 1, "B0": 2, "B1": 2, "{BUSA}": 1, "IN": 1}
     )
     assert (len(root.bus_aliases), len(root.sheet_refs), len(root.opaques)) == (1, 1, 2)
     assert len(root.sheet_refs[0].pins) == 1 and root.block() is not None

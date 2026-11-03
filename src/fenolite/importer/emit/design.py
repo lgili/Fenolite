@@ -28,7 +28,7 @@ from fenolite.backends.kicad.pcb import OUTLINE_WIDTH
 from fenolite.backends.kicad.pro import project_minimums, template
 from fenolite.backends.kicad.sexpr import Atom, AtomKind, Node
 from fenolite.core.coords import Point
-from fenolite.core.errors import Issue
+from fenolite.core.errors import FormatError, Issue
 from fenolite.dsl.items import BOARD_LAYER_KINDS
 from fenolite.importer import coverage
 from fenolite.importer.codes import issue
@@ -1356,6 +1356,21 @@ def emit(source: Source, options: Options) -> Emission:
     layers = _copper_names(copper_count)
     names = {net.id: net.name for net in design.circuit.nets}
     refs = {c.id: c.ref for c in design.circuit.components}
+    components_by_id = {component.id: component for component in design.circuit.components}
+    for footprint in board.footprints:
+        component = components_by_id[footprint.component_id]
+        tab_names = [name for name, value in component.properties.items() if "\t" in value]
+        # Native TAB values have no printable Part declaration. Validate their
+        # complete measured pose/font profile before retaining them natively;
+        # discard these private validation calls, never emit them (c0363).
+        if tab_names:
+            if source.backend != "kicad":
+                raise FormatError("native TAB preservation requires a KiCad source", locator=component.ref)
+            if any(sum(field.name == name for field in footprint.fields) != 1 for name in tab_names):
+                raise FormatError(
+                    "native TAB property requires exactly one field pose", locator=component.ref
+                )
+            field_requests(footprint, tab_names, "_native", component.ref)
     vendored = vendor(design, source.board_text, target=options.target, source=source)
     issues += vendored.issues
     if shown:

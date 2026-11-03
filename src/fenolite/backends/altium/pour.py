@@ -911,6 +911,7 @@ def _certified_neck_cut(subject: Sequence[Polygon], cut: Sequence[Polygon], tol:
     from fenolite.geometry.boolean._exact_faces import difference_loops
     from fenolite.geometry.boolean._exact_noding import Budget, ResourceLimit, Segment
     from fenolite.geometry.boolean._exact_realization import project_boundaries, project_nodes
+    from fenolite.geometry.boolean._exact_refinement import refinement_candidates
     from fenolite.geometry.boolean._exact_repair import candidates
 
     budget = Budget()
@@ -935,6 +936,7 @@ def _certified_neck_cut(subject: Sequence[Polygon], cut: Sequence[Polygon], tol:
     except ResourceLimit:
         raise
     except GeometryError as failure:
+        refinement_attempted = False
         for projection in candidates(loops, segments, projected, budget):
             result = _without_debris(projection.polygons, tol)
             try:
@@ -942,6 +944,23 @@ def _certified_neck_cut(subject: Sequence[Polygon], cut: Sequence[Polygon], tol:
             except ResourceLimit:
                 raise
             except GeometryError:
+                if refinement_attempted:
+                    continue
+                refinement_attempted = True
+                try:
+                    for refined in refinement_candidates(projection, segments, result, budget):
+                        refined_result = _without_debris(refined.polygons, tol)
+                        try:
+                            refined.certify(refined_result, tol, budget)
+                        except ResourceLimit:
+                            raise
+                        except GeometryError:
+                            continue
+                        return refined_result
+                except ResourceLimit:
+                    raise
+                except GeometryError:
+                    pass  # Reject preparation too; the original candidates remain available.
                 continue
             return result
         raise failure

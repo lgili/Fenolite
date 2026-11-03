@@ -1,0 +1,66 @@
+{
+  "actual03caller": {
+    "next_refusal": "exact geometry refinement proposal-node budget exceeded",
+    "passed": false,
+    "seconds": 20.91,
+    "unchanged_limit": 256
+  },
+  "area_resource_examples": {
+    "baseline_changes": 0,
+    "passed": 50,
+    "seconds": 5.83
+  },
+  "authored_RED": {
+    "contract_tests_before_helper": 9,
+    "independent_global_scalar_4096_refusal": true,
+    "seconds": 0.15
+  },
+  "exact_head_CI_pass_claimed": false,
+  "external_authored_math": {
+    "component_mismatch_refused": true,
+    "coprime_denominator_product_bits": 5117,
+    "driver_sha256": "812ea7cd331fa402006a7b444186fe4eb41e774ef58717fd10ddd852848c7a98",
+    "global_scalar_4096_RED": true,
+    "independent_authored": true,
+    "local_terms_fit": true,
+    "negative_global_refused": true,
+    "negative_hole_retained": true,
+    "nested_permutations": 6,
+    "ordinary_zero_scalar_unchanged": true,
+    "positive_ambiguous_enclosure_refused": true
+  },
+  "external_component_math": {
+    "all_component_areas_equal": true,
+    "components": 379,
+    "driver_sha256": "7e117b163f3aaa377e3c2e683d29a39982ca462572babe83c00c9c930eada52f",
+    "global_nonnegative_certificate": {
+      "dyadic_exponent": 32,
+      "lower_integer": 129445054532150110866387847,
+      "upper_integer": 129445054532150110866388071
+    },
+    "global_visits": 514167,
+    "loops": 1215,
+    "negative_components": 369,
+    "operand_sha256": "ffc92b39facc4da18fcd2325be6db2a6c77660689fdf7a9d71263809979dcdf2",
+    "passed": true,
+    "peak_rational_bits": 2155,
+    "peak_rss_bytes": 173817856,
+    "result_sha256": "8c0b510d37245e8737a5329620fa5d35e6b0ebf9b2ff5dcff6274a6aa26b930b",
+    "scope": "EXTERNAL pilot ONLY exactcomponent certificate, NOT complete caller/global scalar pass",
+    "seconds": 5.023380250000628,
+    "selected_components": 376,
+    "timing_nonexclusive": true
+  },
+  "files_sha256": {
+    "area-author-red-v1.log": "953ffc8e8efd8673f51e3724cd130918a9058819f31c08c8c34cf228f058766e",
+    "component-area-review-v1.md": "9ffdfa6af24b9d8e8e7cfd2be058e00cb02e7ac7956d40de6db2aa7f03ae075e",
+    "product-component-area-pour03-final.log": "cb64c0c3d4ac051fa7e3e940e84f1bfcaeed3c0643ea5b81fd0f579d7e8b7a21"
+  },
+  "focused_geometry_pour": {
+    "passed": 286,
+    "seconds": 7.23
+  },
+  "limits_changed": false,
+  "scope": "Exact existing area certificate only;03caller still refuses later,05not claimed",
+  "selected_source_sha256": "760be6568e716f01e7c2a4a85647fa77c46f91b47a1230419b2a07f469af6142"
+}

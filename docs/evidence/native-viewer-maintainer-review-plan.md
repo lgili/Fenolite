@@ -34,3 +34,21 @@ The KiCad default board/schematic pages exist, but no actual KiCad-written autho
 The recorded KiCad10.0.6 discovery set used four version/help subprocesses, all exit0, with an isolated KICAD_CONFIG_HOME. The CLI exposes selection of existing export themes, not creation/persistence. Official IPC documentation limits9/10 to a running GUI; the11 headless feature was not tested or substituted. No pcbnew/GPL module was imported, no GUI/session was operated and no theme/themed viewer page was manufactured. The isolated discovery created two temporary configuration files; no user configuration change was requested.
 
 Native handoff: on a separate owned configuration, create the original named theme through Colors/New Theme, enter and document original RGBA roles, close/reopen preferences to verify native persistence, and preserve exact JSON/version/hash and board/schematic captures. New themes inherit the previous palette; identify those inherited roles, keep the configuration external and copy no vendor palette into core. Only after the real file exists, export both viewer documents with that theme through reviewed plans. c0178/3.4 and3.4a remain open. Facts and limits: S-1298 and `docs/formats/kicad/color-theme.md`.
+
+## c0178 preparation available
+
+The external native-theme review packet now has actual KiCad10.0.6 GUI default/authored board and
+sheet captures, a GUI-written persisted theme and four standalone viewer exports bound toclean
+11bfefd0. Its30-filemanifest is pinned in c0178 native-gui-preparation-proof.json. Source ten-input
+hashes and theme bytes were unchanged. This is colour-only preparation on the authored FULL
+fixture, not a PCB quality/electrical gate. Inherited palette data stays external. Browser file-URL
+preview was rejected by policy; static links/hashes and embedded palette mappings passed.
+Human review remains pending; no source choice was converted into approval.
+
+## c0178 maintainer decision — 2026-11-03
+
+The maintainer reviewed the actual default/authored PCB and schematic colour packet and replied
+“Revisei e aprovo a correspondência de cores”. The30manifest files were reverified unchanged;
+`c0178-native-themes/maintainer-colour-review.json` binds the approval to the packet, exporter and
+native-theme hashes. Task3.4 is complete. Historical preparation receipts retain their then-pending
+review status. Exact-head CI and every independent electrical/native gate remain pending.

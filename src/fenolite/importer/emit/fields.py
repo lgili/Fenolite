@@ -34,6 +34,17 @@ def _check_font(footprint: FootprintInstance, name: str, ref: str) -> None:
             and c.value == "hide"
             for c in effects.children
         )
+        justifications = effects.nodes("justify")
+        valid &= len(justifications) <= 1
+        for justify in justifications:
+            tokens = [a.value for a in justify.atoms()]
+            valid &= (
+                not justify.nodes()
+                and len(tokens) == len(set(tokens))
+                and set(tokens) <= {"left", "right", "top", "bottom", "mirror"}
+                and not {"left", "right"} <= set(tokens)
+                and not {"top", "bottom"} <= set(tokens)
+            )
         if valid:
             font = fonts[0]
             keys = [c.name for c in font.children if isinstance(c, Node)]
@@ -70,8 +81,6 @@ def requests(footprint: FootprintInstance, names: Collection[str], receiver: str
             reason = "anisotropic font size"
         elif field.layer not in layers:
             reason = "unsupported layer"
-        elif field.mirrored != (footprint.side == "bottom"):
-            reason = "unsupported mirror"
         elif field.size.w <= 0 or field.thickness is None or field.thickness <= 0:
             reason = "unspecified/non-positive font size or thickness"
         elif transform.inverse().apply(anchor) != field.position:
@@ -82,6 +91,10 @@ def requests(footprint: FootprintInstance, names: Collection[str], receiver: str
             )
         assert field.thickness is not None
         _check_font(footprint, field.name, ref)
+        if field.mirrored != (footprint.side == "bottom"):
+            # This exact native field stays in its vendored definition (c0358).
+            # All other representability checks above still apply.
+            continue
         justify = " ".join(value for value in (field.h_justify, field.v_justify) if value != "center")
         kwargs: list[tuple[str, Expr]] = [
             ("dx", length(anchor.x - footprint.position.x)),

@@ -1192,14 +1192,14 @@ build 24.5.2.23 in the separate native observation report, not a new form key.
 ### 2026-11-03, actual `AD24.5.2.23`, Part S
 
 Source S-1297: [current native report](altium-part-s-slots-2026-11-03.md) and
-[measured recap](altium-slots-24-native.json). Only S3/S4 are current24 passes; historical26.5
+[measured recap](altium-slots-24-native.json). S3/S4 and the S5 literal result subtest pass on current24; historical26.5
 observations are unchanged. All three native input hashes remain exact. No global settings changed.
 
 | Case | Measured observation | Result |
 |---|---|---|
 | S3 | Planning/2D/actual3D openings plus native NC3drilled slots/1round NPTH, no milled/cut-out hit | as expected |
 | S4 | One selected L Region, Kind Board Cutout, authored rounded extremities | as expected |
-| S5 | Current24 clearance DRC not run | pending |
+| S5 | Complete stable7-row native DRC result: TP1 pad Board Outline Clearance7.874mil<19.685mil; no TP2 in that category. All Rules, Normal mode,0waived, cap500 not reached; all other findings retained. No independent native TP2 object census. | literal subtest as expected |
 
-S1/S2/S5/S6/S7/S8 current24 outcomes remain open; CUTOUT_REGIONS stays false and H-A-SLOT-KIT
+S1/S2/S6/S7/S8 current24 outcomes remain open; CUTOUT_REGIONS stays false and H-A-SLOT-KIT
 stays INFERRED pending the required remaining acceptance.

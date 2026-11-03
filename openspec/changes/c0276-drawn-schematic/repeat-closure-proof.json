@@ -1,0 +1,30 @@
+{
+  "task": "c0276.6.6",
+  "integration_source": "f7919ee99b9c81a5fc059649a23548ce9c3a4f96",
+  "writer_source": "5eeaf346",
+  "entire_current_drawn_module_byte_identical_to_native_writer": true,
+  "current_drawn_module_sha256": "e68a713d408a3e99e9db666689c6348b8f9c4f5d524c021b69abd7f23e339ca2",
+  "closed_native_files_reverified": 172,
+  "memory_proof_sha256": "a42b565d28e498787860a6c88b9ec855fa7c04386c8dc561845ab04bde6c5c3e",
+  "saved_proof_sha256": "5ccbf996f321335b65dbaeda810fac6cd9c2af475cceade369d9096873b4ee05",
+  "focused_command": "uv run pytest tests/unit/backends/altium/test_drawn_repeat_names.py tests/unit/test_build_bytes.py tests/unit/test_altium_verification_docs.py -q",
+  "focused_passed": 107,
+  "focused_seconds": "11.61",
+  "focused_log_sha256": "b59faaa519ac911c1aa32904a82c67a925f603ac84df057a45118e3677a0a4c2",
+  "authored_RED_log_sha256": "7b9389a05ceb38cca5a89451eb01845803dc5747d32262d675adb3ccce04d45f",
+  "unchanged_plan_count": 75,
+  "unchanged_file_count": 1011,
+  "byte_comparison_sha256": "0d946696bb7306d758da423142b522b88909abdc361cfe1da98fce02b0caa6c3",
+  "native_forms": [
+    "binary",
+    "ascii"
+  ],
+  "native_pins": 8,
+  "native_groups": 5,
+  "six_saved_repeat_schematics_reopened": true,
+  "original_chronology_disclosure_preserved": true,
+  "current_CI_passed": false,
+  "aggregate_H_A_DRAWN_WRITE_promoted": false,
+  "parent_spec_archived": false,
+  "scope": "Reconcile and close only literal task6.6 using current focused/default proofs and immutable actual native compile/export/save/reopen evidence. All other original task requirements and exact-current-CI remain separate."
+}

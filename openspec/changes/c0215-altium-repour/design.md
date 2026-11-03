@@ -1,5 +1,9 @@
 ## Context
 
+### Native importer proof repair — 2026-11-03
+
+Actual native10.0.6 retains all copper within10nm but represents B.Cu as three fills instead of one, including two tiny boundary triangles; F.Cu gains a boundary hole. The unsupported serialized-container count fails before the specified geometry check. Preserve all pieces/holes, unique net/layer identity and the old XOR-area bound. Add a sufficient continuous certificate: each source edge's Minkowski sum with the convex hull of integer offsets x²+y²≤100 is a subset of its exact Euclidean10nm capsule. Require both native minus(written+capsules) and written minus(native+capsules) to have NO exact rational difference loops, before realization/snapping. All differences then lie in the declared closed band; no small island, triangle or hole is discarded. Keep original exact-operation resource limits; any refusal fails. Independent remote/narrow/missing/11nm and identity negatives exercise the actual helper. This test-only representation clarification never changes pourcompare M3, writer output, Altium acceptance or a corpus baseline.
+
 - **Request.** The maintainer's request of 2026-10-26: when Fenolite writes or edits a `.PcbDoc`, it
   computes the poured copper with Altium's rules and algorithm and writes the regions, so the document
   opens poured without Tools » Polygon Pours » Repour All. This reverses row 23 of the roadmap's "Open

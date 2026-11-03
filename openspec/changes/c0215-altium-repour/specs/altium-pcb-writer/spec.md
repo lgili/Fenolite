@@ -79,6 +79,8 @@ With the pour mode `computed`, `pcbdoc.write_pcbdoc` SHALL write each piece of a
 - **WHEN** `uv run pytest tests/kicad/altium/test_pour_import.py -rA` imports the computed kit sample `pour` with `kicad-cli pcb import` (10.0.6)
 - **THEN** each imported zone holds fills equal to the written pieces within 10 nm, and the zones of refused polygons hold none
 
+Serialized native fill and hole counts may differ only when ALL imported copper passes the existing XOR-area limit AND a conservative continuous closed10nm band certificate around the written boundaries. Match every zone uniquely by layer/net and retain every fill/hole. Check exact rational differences before any integer realization; refuse unknown/resource-exhausted proofs. Remote narrow copper, missing interior copper, an out-of-band bridge and11nm displacement MUST fail. This does not alter the independent pourcompare M3 one-to-one topology contract.
+
 ### Requirement: Polygon Connect Style records
 With the pour mode `computed` and at least one polygon, `pcbdoc.write_pcbdoc` SHALL write Polygon Connect Style rules (kind number 20) in `Rules6` after the kinds of "Design rule records", in the Advanced form of the fact rows of `docs/formats/altium/pcb-pour.md`, "Polygon Connect Style" (`H-A-POUR-CONNECT`), lowered from the zones (the maintainer's decision of 2026-10-26):
 

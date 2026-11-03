@@ -11,11 +11,13 @@ whole boundaries. Merely close vertices never establish this certificate.
 from __future__ import annotations
 
 from collections import defaultdict
+from collections.abc import Sequence
 from dataclasses import dataclass
 from fractions import Fraction as F
 from math import ceil, floor
 
 from fenolite.geometry.boolean._exact_faces import Ring, require
+from fenolite.geometry.boolean._exact_identity import IdentityRun, identity_matches, verify_identities
 from fenolite.geometry.boolean._exact_noding import Budget, ExactPoint, Segment, candidate_pairs
 from fenolite.geometry.boolean.base import COORD_LIMIT
 
@@ -32,6 +34,7 @@ class Interval:
 class Cover:
     intervals: tuple[Interval, ...]
     maximum_squared_distance: F
+    identities: tuple[IdentityRun, ...] = ()
 
 
 def distance_squared(p: ExactPoint, a: ExactPoint, b: ExactPoint, budget: Budget) -> F:
@@ -59,10 +62,60 @@ def _envelope(a: ExactPoint, b: ExactPoint, channel: int) -> Segment:
     )
 
 
+def _projected_split(
+    start: ExactPoint,
+    end: ExactPoint,
+    p: ExactPoint,
+    q: ExactPoint,
+    lo: F,
+    hi: F,
+    options: Sequence[int],
+    target: Sequence[tuple[ExactPoint, ExactPoint]],
+    budget: Budget,
+) -> tuple[F, tuple[int, F, F], tuple[int, F, F]] | None:
+    """Propose two convex capsule witnesses; passing samples alone never accepts."""
+    check = budget.distance_value
+    dx, dy = check(end[0] - start[0]), check(end[1] - start[1])
+    length = check(dx * dx + dy * dy)
+    if not length:
+        return None
+    times: set[F] = set()
+    for j in options:
+        for vertex in target[j]:
+            budget.visit(1)
+            dot = check((vertex[0] - start[0]) * dx + (vertex[1] - start[1]) * dy)
+            t = check(dot / length)
+            if lo < t < hi:
+                require(len(times) < budget.limits.nodes, "projected break storage budget exceeded")
+                times.add(t)
+    for t in sorted(times, key=lambda t: (abs(t - (lo + hi) / 2), t)):
+        budget.check()
+        middle = check(start[0] + t * dx), check(start[1] + t * dy)
+        left: tuple[int, F, F] | None = None
+        right: tuple[int, F, F] | None = None
+        for j in options:
+            a, b = target[j]
+            dm = distance_squared(middle, a, b, budget)
+            if dm > F(1, 2):
+                continue
+            if left is None:
+                dp = distance_squared(p, a, b, budget)
+                if dp <= F(1, 2):
+                    left = j, dp, dm
+            if right is None:
+                dq = distance_squared(q, a, b, budget)
+                if dq <= F(1, 2):
+                    right = j, dm, dq
+            if left is not None and right is not None:
+                return t, left, right
+    return None
+
+
 def cover(source: Ring, target: Ring, budget: Budget) -> Cover:
     require(len(source) >= 2 and len(target) >= 2, "continuous cover needs nonempty curves")
     first = tuple(zip(source, source[1:] + source[:1], strict=True))
     second = tuple(zip(target, target[1:] + target[:1], strict=True))
+    equal, identities = identity_matches(first, second, budget)
     boxes = tuple(_envelope(a, b, channel) for channel, edges in enumerate((first, second)) for a, b in edges)
     pairs = candidate_pairs(boxes, budget, edge_limit=budget.limits.halfedges, start_stage=False)
     candidates: dict[int, list[int]] = defaultdict(list)
@@ -72,6 +125,8 @@ def cover(source: Ring, target: Ring, budget: Budget) -> Cover:
     proof: list[Interval] = []
     maximum = F(0)
     for edge, (start, end) in enumerate(first):
+        if edge in equal:
+            continue
         options = candidates[edge]
         require(bool(options), "continuous edge has no capsule candidates")
         todo = [(start, end, F(0), F(1), 0)]
@@ -96,10 +151,20 @@ def cover(source: Ring, target: Ring, budget: Budget) -> Cover:
                 proof.append(Interval(edge, lo, hi, j))
             else:
                 require(depth < budget.limits.distance_depth, "distance subdivision depth budget exceeded")
+                split = _projected_split(start, end, p, q, lo, hi, options, second, budget)
+                if split is not None:
+                    parameter, left, right = split
+                    for lower, upper, part in ((lo, parameter, left), (parameter, hi, right)):
+                        budget.distance_interval()
+                        j, d0, d1 = part
+                        maximum = max(maximum, d0, d1)
+                        proof.append(Interval(edge, lower, upper, j))
+                    continue
+                require(depth < budget.limits.distance_depth, "distance subdivision depth budget exceeded")
                 middle = ((p[0] + q[0]) / 2, (p[1] + q[1]) / 2)
                 parameter = (lo + hi) / 2
                 todo.extend(((middle, q, parameter, hi, depth + 1), (p, middle, lo, parameter, depth + 1)))
-    certificate = Cover(tuple(proof), maximum)
+    certificate = Cover(tuple(proof), maximum, identities)
     verify_cover(source, target, certificate, budget)
     return certificate
 
@@ -110,9 +175,12 @@ def verify_cover(source: Ring, target: Ring, certificate: Cover, budget: Budget)
         len(certificate.intervals) <= budget.limits.distance_intervals, "distance interval budget exceeded"
     )
     groups: dict[int, list[tuple[F, F]]] = defaultdict(list)
+    groups.update(verify_identities(source, target, certificate.identities, budget))
+    exact_edges = set(groups)
     maximum = F(0)
     for part in certificate.intervals:
         budget.check()
+        require(part.edge not in exact_edges, "identity/capsule coverage overlap")
         require(
             0 <= part.edge < len(source) and 0 <= part.target < len(target), "invalid cover segment reference"
         )

@@ -1,0 +1,28 @@
+{
+  "ResourceLimit_propagates": true,
+  "actual03_production_pass_claimed": false,
+  "authored_RED": {
+    "failed": 1,
+    "refusal": "distance interval budget exceeded",
+    "same_interval_cap": 5
+  },
+  "complete_original_verifier": true,
+  "external_proof_sha256": {
+    "exact03-consolidated-review-v1.md": "0d47b99b5ced86a86a4fdc95fd326551a9ad71e684fd1275c23de23706c60a4d",
+    "projection-break-authored-v1.json": "ef3a3c62e20c76e09b3ce567c57b258450a122c20723db11884334398d7dba61",
+    "projection-break-authored-v1.py": "956bdffdc1f188abb7863d3b7f209f9c7ebdb9e41358115dfb2d4306809213bf",
+    "projection-break-production-RED.log": "222c16da0eb97daeec1a560bc5d2295853b6cdb5715838fe6c94a433c94b0115"
+  },
+  "false_proposal_refused": true,
+  "focused_geometry_pour": {
+    "passed": 292,
+    "seconds": 5.79
+  },
+  "legacy_dyadic_fallback_intervals": 7,
+  "limits_changed": false,
+  "new_producer_intervals": 5,
+  "scope": "D projected capsule witnesses only, C/B/A not yet production",
+  "selected_pyright_errors": 0,
+  "source_sha256": "3b3444c7a23f5a7c8816c0cb56cfd1f88c4a81587b80f330ef9355211b18db2b",
+  "zero_depth_limit_preserved": true
+}
