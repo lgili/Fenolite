@@ -2,9 +2,7 @@
 
 ## Purpose
 TBD - created by archiving change c0079-agent-guide. Update Purpose after archive.
-
 ## Requirements
-
 ### Requirement: Packaged agent guide
 The package `fenolite.agent` SHALL hold everything an AI agent needs to start using Fenolite from an installed wheel: a skill folder, its pages and starter projects, with `fenolite.agent.guide` as their only reader.
 - The files MUST be `src/fenolite/agent/skill/SKILL.md`, the pages `src/fenolite/agent/skill/references/<topic>.md`, and one folder `src/fenolite/agent/starters/<name>/` per starter with `starter.toml` and `design.py.tmpl`. The repository root MUST NOT hold an `agent/` folder.
@@ -243,3 +241,12 @@ The pages SHALL stay small enough to be read whole. A tool page SHALL state only
 - **GIVEN** a copy of a page, made in the test, that holds `c0042` in a sentence
 - **WHEN** the writing-rules check runs on it
 - **THEN** it fails naming the page and the line
+
+### Requirement: Bounded command reference pages
+The generated command reference SHALL keep an index and linked argument pages, each no larger than
+12000 UTF-8 bytes. The pages MUST retain every public command and its argument descriptions, be
+included in the packaged guide index, and be reproduced by tools/gen_agent_guide.py.
+
+#### Scenario: Full reference within the page budget
+- **WHEN** the agent-guide tests generate the reference
+- **THEN** every argument remains documented, every reference page is at most 12000 bytes, and --check reports no drift

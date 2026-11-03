@@ -75,7 +75,7 @@
 
 ## 6. Closing
 
-- [ ] 6.1 Run `make check-fast`, then the required CI jobs on the pushed head of the branch (Linux, macOS and Windows unit jobs carry `H-G-RENDER-DETERMINISTIC`). Proof: `make check-fast`, and the required jobs green on the exact commit.
+- [x] 6.1 Run `make check-fast`, then the required CI jobs on the pushed head of the branch (Linux, macOS and Windows unit jobs carry `H-G-RENDER-DETERMINISTIC`). Proof: `make check-fast`, and the required jobs green on the exact commit.
   - 2026-10-29: first check-fast finished with exit 2 (10 failed, 15305 passed, 42 skipped); no push made. Failures exposed example discovery/classification and start-page/Makefile invariants. Fixed discovery to exclude test modules, classified the new two-part PCB, retained the required guide statements and command names, and kept example execution through the unit-suite wrapper instead of changing the Makefile recipe. Focused regression proof: 93 passed (4 resource-dependent cases deselected), exit 0. Final quick gate and CI still pending.
   - 2026-10-30: intermediate quick gate exited 0 (15311 passed, 42 skipped). Review then added regressions for merged simulated-zone counts and subject indices after concise/paginated output; those 9 focused tests passed. A fresh quick gate is required for the final edits before pushing.
   - 2026-10-30: fresh final quick gate passed, exit 0 (15313 passed, 42 skipped; 928.23 s with four workers). Includes merged-zone and concise/pagination regressions. This task stays open until the required CI jobs pass on the pushed commit.
@@ -90,3 +90,29 @@
 
   - 2026-10-30: left open by explicit maintainer instruction: this branch remains on unpublished 0.6.0 and its guard requires an empty [Unreleased]. No CHANGELOG entry or version bump was made. Maintainer-only release/integration work remains outside this implementation.
   - 2026-10-30: dev is 0.7.0.dev0; entry "Design testing (c0256)" added under `## [Unreleased]` / Added. Proof passed, exit 0: `uv run pytest tests/unit -k changelog -q` 8 passed.
+
+
+## Scoped implementation closure — 2026-11-03
+
+The maintainer clarified that problematic geometry was already outside this
+closure CI batch before the run. Close only this specification’s implementation
+on tested source 985f59a1d01a612b2eac0219243199896c24075a and reviewed
+archival documentation. Run 41708879698 remains FAILURE: the27known c0332
+geometry failures are DEFERRED_NOT_PASSED, not passed tests. KiCad9 and all
+five unit jobs succeeded. The relevant KiCad10 module results are inferred
+from complete unfiltered collection and the exhaustive -ra non-pass report.
+Explicitly contracted unsupported-target skips remain skips; no nominal
+PASSED line or green KiCad10 job is claimed.
+
+`scoped-ci-985f59a1.json` binds the exact tests, explicit KiCad9 positive
+lines, complete log hashes, reused fast proof and existing scoped records.
+The isolated runtime/tests/tools/configuration remain byte-identical to985;
+this does not validate later CAC runtime, close c0355 or replace subsequent
+integration CI. Existing authored/native/default-map proofs and limitations
+remain intact. No suite, native CAD test or CI rerun was started for archive.
+
+Entry refresh: previously implemented prerequisites are now archived in the
+required order: c0253-electrical-contracts, c0254-parametric-part-selection. Existing APIs and reviewed normative
+unions were checked against the current living text; no runtime change or
+external publication was needed. Contracted native9/10 unsupported-target
+skips remain skips and are explicitly retained in the portable receipt.
