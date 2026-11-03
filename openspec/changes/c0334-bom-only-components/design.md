@@ -69,3 +69,14 @@ the existing guard omitted the closed severity registry. Register that existing
 build guard and the existing model.bom-only guard, explain and teach both, and
 prove that the pinned symbol returns a located error with zero output files.
 This completes existing diagnostics without changing fields or supported membership.
+
+## API layering follow-up — coordinator review, 2026-11-02
+
+The accumulated fast gate found three forbidden API-to-importer edges introduced
+by source BOM discovery. Reusing `importer.bom_only.preserve` is deliberate: it
+uses the same complete Source/Hierarchy instance traversal as import and avoids
+misidentifying repeated modules. Approve only this exact module at the existing
+two API boundaries, only inside function bodies. Keep the general allowed table
+and all other package boundaries unchanged. Add independent positive/negative
+AST controls and a fresh-process no-importer assertion before recording proof.
+Coordinator fast audit requested the separate narrow adjacent-contract follow-up: document the existing Altium refusal, retain the exact appended Component field order in its regression, and reserve the actual Part.bom_only name against device interfaces. No field or ordering is changed.

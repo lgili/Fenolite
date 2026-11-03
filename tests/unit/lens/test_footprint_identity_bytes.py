@@ -1,6 +1,10 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
-"""Complete ordinary build bytes from immutable 96d687d1 before c0318's optional field."""
+"""Ordinary build bytes:96d687d1 baseline, reviewed c0344 identity-cache-only refresh.
+
+The complete maps prove only .pro and its paired manifest changed; every physical
+file and all Altium files retain their immutable baseline bytes.
+"""
 
 from __future__ import annotations
 
@@ -18,10 +22,10 @@ ROOT = Path(__file__).resolve().parents[3]
 @pytest.mark.parametrize(
     "example,target,expected",
     (
-        ("blink_2layer", 9, "9f5f2dd1fed3870bd5def864192e44bbb0cab4ecdccdd0939438460ff0590bab"),
-        ("blink_2layer", 10, "7cabb64df1465cbd606bad0afadaf6030b33efbaafb947abc10959be46accaf0"),
-        ("blink_routed", 9, "7d1b7f91e066e55cc088e39e8de1dc8ef00a856f7d2bd4d085c0af3624cedb69"),
-        ("blink_routed", 10, "c46c8f8861592f811a337be699065b06ca1e99947d490d56bfbccf2a5ab704fe"),
+        ("blink_2layer", 9, "a9ebec6035e6be6c530e2754482225dac71eea11ea7c1b3a96b9e971d87df413"),
+        ("blink_2layer", 10, "cf761b2bd534acd7cd819a29c53abed470ca50ee99fcef289d55d1dfa3ae94f0"),
+        ("blink_routed", 9, "2e7d755f1107dd887cc1d300c2ef011d5eafbadc29a0e7ab7a14aef9a4ba2f85"),
+        ("blink_routed", 10, "1e9d7244200e79eb87e7ebba0210da7cb45b840a524bcb4883a7c1380f280343"),
         ("blink_2layer", "altium", "3a1e39ac04eb48f4cbad82d49570ba3b02ee769e2d7f02655d79483df879373f"),
         ("blink_routed", "altium", "3e0554d61440dc1573dee7bbc505c93710b3223b08ac89775193a311acef20f1"),
     ),

@@ -113,3 +113,23 @@ strict OpenSpec and generated-guide checks pass. The first expanded run exposed
 two new-test documentation mistakes; both are corrected and its 186-pass/2-fail
 log remains preserved. Final fast and exact-head CI are still coordinator gates,
 and no census or acceptance record is changed.
+
+## Exact lazy source boundary
+
+Integration source52134c17 plus the reviewed AST boundary change: import-graph
+and project-curve API suites passed74 tests in3.94s. Independent controls reject
+module-level, ImportError-only, other-API-file and other-importer-target edges;
+fresh-process API import loads no importer. Ruff and generated guide check pass.
+## Adjacent contracts from the combined fast audit
+
+The coordinator's next fast audit identified three adjacent contracts not yet
+updated for the appended field. An isolated focused reproduction fails exactly
+all three: Altium unsupported-field documentation, Component suffix-order
+regression and the closed device Part attribute set. Documenting the existing
+Altium refusal, asserting all four unchanged suffix fields and reserving the
+actual bom_only attribute fixes those contracts. A new authored device interface
+named bom_only is genuinely refused as a Part attribute. No model field, field
+order, Altium scope or device tolerance is altered. The four complete focused
+modules (Altium round-trip, value ranges, device ports and BOM-only model) pass
+168 tests in 0.92 seconds. A first selector typo collected no tests and is
+retained separately; it is not used as validation.

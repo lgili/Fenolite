@@ -21,6 +21,11 @@
 - [x] 2.6 Complete the existing public equivalence/build/model issue contract, including the registered severity and no-files pinned-symbol guard: add the real BOM-only kind to the independent test ledger, document its CLI issue and explanation, teach the guide and prove an actual changed-membership CLI scenario. Preserve closed-table and exact-message assertions. Proof: the four reported equivalence-ledger failures, CLI scenario/explain and guide checks pass. Coordinator approved this metadata follow-up before floor work; no new model field.
 
 
+- [x] 2.7 Enforce the reviewed exact lazy BOM-source API boundary with independent
+  top-level/guarded/wrong-module negatives and a fresh-process no-importer check.
+  Proof: `uv run pytest tests/unit/test_import_graph.py -q` and focused API/BOM tests.
+- [x] 2.8 Complete adjacent closed contracts identified by the coordinator fast audit: Altium round-trip unsupported-field documentation, the exact appended Component field-order regression and device-interface reserved Part attributes. Prove all three failures before correction and the genuine bom_only name collision afterward; no runtime model/order changes.
+
 ## 3. Combined proof
 
 - [ ] 3.1 Recapture complete 75 plans and the final model-0 inventory/schemas; coordinate and prove c0217/c0218 transition from that exact source. Proof: complete file maps, field/default/type review and migration/native-byte comparisons.

@@ -1513,6 +1513,7 @@ Fields of these kinds that the scope leaves out, and why:
 | `component` | `pins` | the writer writes a fixed value: the pins of the body it draws, whose ids and, for a generic body, names are its own |
 | `component` | `value_range` | the writer does not write it (it stays in `.fenolite/circuit.json`, change c0246) |
 | `component` | `board_only` | the writer does not write it: a board-only part (change c0277) is written as any other component, and the KiCad attribute has no Altium record |
+| `component` | `bom_only` | the writer does not write it: Altium has no supported typed off-board purchasing representation; writing such a component refuses before staging, including with allow-lossy (c0334) |
 | `component` | `footprint_definition_ref` | the writer does not write it: this selects a KiCad geometry definition (c0318); an Altium build refuses a nonempty override before writing |
 | `net` | `netclass_id` | the reader maps it elsewhere: a class is a record of the PCB document, and a schematic reading holds none |
 | `netclass` | `clearance`, `track_width`, `via_diameter`, `via_drill` | the reader maps it elsewhere: the values are written as design rules and read as rules |

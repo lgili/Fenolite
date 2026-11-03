@@ -209,8 +209,24 @@ def test_skipping_the_schematic() -> None:
         "lib/Mini.kicad_sym",
         "lib/fenolite.kicad_sym",
     }
-    for path in ("blink.kicad_pro", "blink.kicad_dru", "fp-lib-table"):
+    for path in ("blink.kicad_dru", "fp-lib-table"):
         assert written.files[path] == output.files[path]
+    skipped_project = json.loads(output.files["blink.kicad_pro"])
+    written_project = json.loads(written.files["blink.kicad_pro"])
+    root_uuid = parse(text(written, "blink.kicad_sch")).find("uuid")
+    assert root_uuid is not None
+    root_id = root_uuid.atoms()[0].value
+    assert written_project.pop("sheets") == [[root_id, "blink"]]
+    written_settings = written_project["schematic"]
+    assert written_settings.pop("top_level_sheets") == [
+        {"filename": "blink.kicad_sch", "name": "blink", "uuid": root_id}
+    ]
+    skipped_sheets = skipped_project.pop("sheets")
+    skipped_settings = skipped_project["schematic"]
+    skipped_top = skipped_settings.pop("top_level_sheets")
+    assert skipped_top[0]["filename"] == "empty_10.kicad_sch"
+    assert skipped_sheets[0][0] == skipped_top[0]["uuid"] != root_id
+    assert skipped_project == written_project
 
 
 def test_unknown_mode() -> None:

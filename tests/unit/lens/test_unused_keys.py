@@ -17,6 +17,8 @@ Change c0102 signs the edge uuids of the outline, so the board file, and with it
 ``build.json``, were recorded again on 2026-10-08; the fifteen other digests of each build are unchanged.
 Change c0250 adds the base record ``fenolite-base.json`` to every build, so it and ``build.json``, which
 holds its hash, were recorded on 2026-10-29; every other digest is unchanged.
+Change c0344 binds project identities to emitted sheets; only the .pro and paired build manifest
+were refreshed after complete-file-map review. Other hashes and omitted-key checks remain exact.
 """
 
 from __future__ import annotations
@@ -39,7 +41,7 @@ PRINT_VARIABLE = "FENOLITE_UNUSED_KEYS_PRINT"
 RECORDED: dict[str, dict[str, str]] = {
     "blink_2layer-9": {
         ".fenolite/board.json": "2dc46f96901d3bfd791cd08d8a71bac4eedcc1d05dbee9158ebccc289191ed0e",
-        ".fenolite/build.json": "4f9373af61af4fa04241a0f15f790ced083b7be326fea7aec56db04a8d214ef7",
+        ".fenolite/build.json": "7ca23ce9f6b7d1c4654c1e527dc6d3ec025a70fa115833d88f10656a68834769",
         ".fenolite/circuit.json": "705da4a0b455069c68bf620b8079af5b8becda9800ae71c1fe3633a77f2696a3",
         ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
         ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
@@ -47,7 +49,7 @@ RECORDED: dict[str, dict[str, str]] = {
         ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
         "blink.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
         "blink.kicad_pcb": "a6a99c747690b2620a47c3efe3edfc416492206daccbdde4a66217be273a6851",
-        "blink.kicad_pro": "826f307baffa180c68a76ab55d84daf64f4d1ce764128338c8614d18ead41057",
+        "blink.kicad_pro": "ec50c23f4e48927f32fa8a9977d144df081088c9ee4269128dd6f7b075ca6067",
         "blink.kicad_sch": "57a34cc31eb2a70833f61c1fd7d14525d98896bc432405c69a5b234147887fb9",
         "fenolite-base.json": "9b9e954be113f09d52c87c6839295bb7eaf8f6d17159eaa20a484cc00bf74b83",
         "fp-lib-table": "e4c69c740f1d92eda60fb1e81aa65b1606b492a1e691af1fdb0f2cf540eee2bc",
@@ -66,7 +68,7 @@ RECORDED: dict[str, dict[str, str]] = {
     },
     "blink_2layer-10": {
         ".fenolite/board.json": "03c5e887a4c54cd5186aa4676fb554280a8167a5c2f90a2c7a32242e403ce4c6",
-        ".fenolite/build.json": "a0d92015229433d8338d3c1c67e345d3ce3e84763c98a3e9f28fa529c79b67d1",
+        ".fenolite/build.json": "0c0338cacf49fb95f7feed6f94cc35542af9227fb47e45a5cd70ab59ca06cefd",
         ".fenolite/circuit.json": "705da4a0b455069c68bf620b8079af5b8becda9800ae71c1fe3633a77f2696a3",
         ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
         ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
@@ -74,7 +76,7 @@ RECORDED: dict[str, dict[str, str]] = {
         ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
         "blink.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
         "blink.kicad_pcb": "4a0471f6a5ef386fa4ddc671ce8fe6697ccd794ded23ca29c420f4994ed1d275",
-        "blink.kicad_pro": "77f6a58edf1defbbfb779e406ca6a957724ec8db4b9f877e70dafbbc57777e85",
+        "blink.kicad_pro": "3f93fa5e971df829519f77540279a665183212b0566df2347769a2e21a10cc59",
         "blink.kicad_sch": "ef23e4cc87c4b38a285da43980ba646aa8a496c5e3eabe77127bdbaaaa43a5e7",
         "fenolite-base.json": "9b9e954be113f09d52c87c6839295bb7eaf8f6d17159eaa20a484cc00bf74b83",
         "fp-lib-table": "4f062e901cb3495d31f831532c4ba5978d07b5a1423e870db006f919ab92d001",
@@ -93,7 +95,7 @@ RECORDED: dict[str, dict[str, str]] = {
     },
     "blink_routed-9": {
         ".fenolite/board.json": "a60130debc5afd3c178a83ed5b941e300ea15a8d2d707f9dbf0e1cdc9625b547",
-        ".fenolite/build.json": "b1542cae6a6cde77db8f4d89f49d6cecd1a09351cfd509b27c11fcb44b64eb78",
+        ".fenolite/build.json": "0828adc25ed192736f592e49297ce31a4c9e7976e85685c4f4a331d14a2727ee",
         ".fenolite/circuit.json": "705da4a0b455069c68bf620b8079af5b8becda9800ae71c1fe3633a77f2696a3",
         ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
         ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
@@ -101,7 +103,7 @@ RECORDED: dict[str, dict[str, str]] = {
         ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
         "blink_routed.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
         "blink_routed.kicad_pcb": "e2de906207dcb0c083531cec53f02fc16077988a2051af5c25f98f9badc8ad06",
-        "blink_routed.kicad_pro": "c2a078c5bf8b4193fea929bb1193a741fae887276b0232c47a6e15bc2d9990bb",
+        "blink_routed.kicad_pro": "495dda9da85ac0a955591a224a1dac80934042463dd7df513055736da75e4214",
         "blink_routed.kicad_sch": "0be2684b76bfcf88d70ac24b61d0d8d758a1787c32088abf8a4b7f8e6ff9c460",
         "fenolite-base.json": "9b9e954be113f09d52c87c6839295bb7eaf8f6d17159eaa20a484cc00bf74b83",
         "fp-lib-table": "e4c69c740f1d92eda60fb1e81aa65b1606b492a1e691af1fdb0f2cf540eee2bc",
@@ -120,7 +122,7 @@ RECORDED: dict[str, dict[str, str]] = {
     },
     "blink_routed-10": {
         ".fenolite/board.json": "c7f00ebcba76d3ec5e349955fd611555f29bdb7a908c55c94753e2e3dfce770a",
-        ".fenolite/build.json": "1ab97e586f99a9960a3ad8c006a43fc6ebc0a858b1e100f70616502b934ce6a1",
+        ".fenolite/build.json": "d1ae1c160f31cc8b87293f4a5a21432bb3f9016740334b1d0d540325ac5a5051",
         ".fenolite/circuit.json": "705da4a0b455069c68bf620b8079af5b8becda9800ae71c1fe3633a77f2696a3",
         ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
         ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
@@ -128,7 +130,7 @@ RECORDED: dict[str, dict[str, str]] = {
         ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
         "blink_routed.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
         "blink_routed.kicad_pcb": "db659fcc223d5ec56f7650dbdacfde1889bd6a6d16f94ccd78d6d31fd820a9a7",
-        "blink_routed.kicad_pro": "54cf3550b2eedf65891f47f809504e6d9e1cb9fabc25ea34a316b56edd6c6d96",
+        "blink_routed.kicad_pro": "e7629061eae42d14156de7b0a34ae9f322292243458b3166697c0d8792fa84bb",
         "blink_routed.kicad_sch": "9c40acdf6a2253c3701466b5af672758858e067a53a482e15fae53033c8ddf76",
         "fenolite-base.json": "9b9e954be113f09d52c87c6839295bb7eaf8f6d17159eaa20a484cc00bf74b83",
         "fp-lib-table": "4f062e901cb3495d31f831532c4ba5978d07b5a1423e870db006f919ab92d001",

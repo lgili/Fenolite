@@ -383,7 +383,8 @@ PART_ATTRIBUTES: frozenset[str] = frozenset(
         # the part queries of change c0254
         "call_query", "query",
         # assembly flags and exact native edits; actual Part attributes cannot be device interfaces
-        "board_only", "dnp", "edit_pad", "model", "model_refs", "override", "overrides", "pad_edits",
+        "board_only", "bom_only", "dnp", "edit_pad", "model", "model_refs", "override", "overrides",
+        "pad_edits",
         "verbatim", "verbatim_items",
     }
 )  # fmt: skip

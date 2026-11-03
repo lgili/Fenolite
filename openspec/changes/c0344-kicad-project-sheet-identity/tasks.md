@@ -4,6 +4,11 @@
 - [x] 1.1 Bind identity caches to emitted root/child bytes only; preserve unmanaged JSON and no-schematic behavior. Proof: authored flat/hierarchy/rebuild9/10 and no-schematic controls.
 - [x] 1.2 Generate fresh sensor v4 from the actual fixed pipeline with explicit GND shape; prove native distinct R2/R3 and strict1–8+S before GUI. Preserve v1 failure.
 - [x] 1.3 Re-measure pinned KiCad file digests only after proving each build differs solely in project identity caches; netlist/parity/BOM/PNP and Altium stay invariant. Record the deliberate writer effect beside the pins.
+- [x] 1.4 Refresh the remaining derived authored import/sync examples and independent
+  blink digest ledgers only after exact changed-file and project-cache delta review.
+  Strengthen schematic-skip controls to distinguish deliberate written identity caches
+  from untouched skip templates while comparing every unrelated project field.
+  Proof: source-bound per-file receipts and the complete affected focused modules.
 ## 2. Native and integration gates
 - [x] 2.1 Root real GUI-save then verify actual post-GUI identity/partition and strict levels; capture only five allowed source files and source-bound hashes/evidence after success.
 - [ ] 2.2 Focused tests, types/lint, private residue and strict validation; root serialized fast and exact-head CI remain required before archive.
@@ -36,3 +41,12 @@ build outputs on9/10 were measured with clean bffa03fd source and the same
 refreshed fixture, then compared file-by-file with the alias worker: every SHA
 matches exactly. Stale96d687d1 aggregate pins are reanchored to this source-bound
 combined baseline, with complete metadata/manifest guards retained.
+
+Remaining derived-cache refresh:63 tests across the complete build-schematic,
+unused-keys, optional-definition-byte and sync-command modules pass in9.88s.
+All four complete blink file maps change only their .pro and paired build
+manifest. Minimal sync changes only schematic.top_level_sheets and sheets;
+import-example provenance changes only the refreshed source .pro digest.
+Source-bound aggregate proof:docs/evidence/project-sheet-identity-derived-refresh.json.
+The explicit blank title intent in the derived schematic belongs separately
+to c0339 and its source/freeze validation. Combined fast/CI remains open.

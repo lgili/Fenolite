@@ -680,9 +680,9 @@
     "subpart_id_separator": 0,
     "top_level_sheets": [
       {
-        "filename": "empty_10.kicad_sch",
-        "name": "",
-        "uuid": "f5a6a7c7-8304-471a-a7a0-3f368669c59d"
+        "filename": "minimal.kicad_sch",
+        "name": "minimal",
+        "uuid": "a171a999-34fc-5ba4-a4ab-4ba222dd56ee"
       }
     ],
     "used_designators": "",
@@ -690,8 +690,8 @@
   },
   "sheets": [
     [
-      "f5a6a7c7-8304-471a-a7a0-3f368669c59d",
-      ""
+      "a171a999-34fc-5ba4-a4ab-4ba222dd56ee",
+      "minimal"
     ]
   ],
   "text_variables": {},

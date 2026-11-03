@@ -253,7 +253,12 @@ def _violations() -> list[str]:
                 }
                 allowed = target in {"dsl", "core", "root"} if starter else _allowed(source, target)
                 preparation = _drawing_preparation(path.relative_to(SRC).as_posix(), edge.target)
-                if not allowed and not (edge.lazy and _lazy(source, target)) and not preparation:
+                if (
+                    not allowed
+                    and not (edge.lazy and _lazy(source, target))
+                    and not preparation
+                    and not _bom_source_read(path.relative_to(SRC).as_posix(), edge)
+                ):
                     lazily = " (only inside a function)" if _lazy(source, target) else ""
                     problems.append(f"{rel}:{edge.line}: {source} → {target} is not allowed{lazily}")
             elif top not in sys.stdlib_module_names:
@@ -262,6 +267,47 @@ def _violations() -> list[str]:
                 elif not edge.guarded:
                     problems.append(f"{rel}:{edge.line}: unguarded third-party import {top}")
     return problems
+
+
+def _bom_source_read(source: str, edge: Edge) -> bool:
+    """C0334: reuse the exact source hierarchy traversal only when explicitly reading a side."""
+    return (
+        source in {"api/_drawn.py", "api/sides.py"}
+        and edge.target == "fenolite.importer.bom_only"
+        and edge.lazy
+    )
+
+
+@pytest.mark.parametrize("source", ["api/_drawn.py", "api/sides.py"])
+def test_bom_source_preservation_is_a_narrow_lazy_edge(
+    source: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fake = _fake_tree(tmp_path, source, "def read():\n    from fenolite.importer.bom_only import preserve\n")
+    monkeypatch.setattr(sys.modules[__name__], "SRC", fake)
+    assert _violations() == []
+    for code in (
+        "from fenolite.importer.bom_only import preserve\n",
+        "try:\n    from fenolite.importer.bom_only import preserve\nexcept ImportError:\n    pass\n",
+        "def read():\n    from fenolite.importer.emit.sheets import instances\n",
+    ):
+        (fake / source).write_text(code, encoding="utf-8")
+        assert any("api → importer is not allowed" in item for item in _violations())
+    (fake / source).write_text("", encoding="utf-8")
+    (fake / "api/other.py").write_text(
+        "def read():\n    from fenolite.importer.bom_only import preserve\n", encoding="utf-8"
+    )
+    assert any("api → importer is not allowed" in item for item in _violations())
+
+
+def test_importing_the_api_loads_no_importer() -> None:
+    import subprocess
+
+    code = (
+        "import sys, fenolite.api; print(sorted(m for m in sys.modules if m.startswith('fenolite.importer')))"
+    )
+    result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=False)
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "[]"
 
 
 def _drawing_preparation(source: str, target: str) -> bool:

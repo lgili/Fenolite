@@ -64,11 +64,12 @@ def test_decimal_values() -> None:
 
 
 def test_value_range_precedes_the_appended_component_fields() -> None:
-    """The c0246 value range precedes board-only (c0277) and definition identity (c0318)."""
-    assert [f.name for f in dataclasses.fields(Component)][-3:] == [
+    """Value range precedes board-only (c0277), definition identity (c0318) and BOM-only (c0334)."""
+    assert [f.name for f in dataclasses.fields(Component)][-4:] == [
         "value_range",
         "board_only",
         "footprint_definition_ref",
+        "bom_only",
     ]
     assert Component(id="cmp_x", ref="R1").value_range is None
 

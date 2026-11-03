@@ -6,6 +6,13 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- **Derived project identity guards** (c0344): refresh the authored sync project,
+  import provenance and independent blink digests after exact cache-only review;
+  verify skip-mode templates and every unrelated project setting independently.
+
+- **Source BOM API boundary** (c0334): enforce the exact function-local source
+  purchasing traversal without permitting general API-to-importer imports.
+
 - **Exact cyclic text orientation** (c0346): level7 compares text and footprint
   field rotations using the existing angular metric, so-90deg/270deg and full
   turns agree exactly. True rotations remain visible; length tolerances cannot
@@ -26,7 +33,7 @@ All notable changes to Fenolite are documented here. The format follows
   supported font through board-to-code import. Refuse unrepresentable poses
   before staging. Native 9/10 SVG controls and the complete Multichannel proof
   retain the custom fields without relaxing geometry or rendering checks.
-- **BOM-only diagnostics** (c0334): complete the closed issue ledgers, CLI explanations and guide teaching. Invalid pinned purchasing items now return the intended located build error before producing files.
+- **BOM-only diagnostics** (c0334): complete the closed issue ledgers, CLI explanations and guide teaching. Invalid pinned purchasing items now return the intended located build error before producing files. The existing Altium refusal, appended-field order and reserved device-interface name are covered by their adjacent contracts.
 
 - **Reviewed licence registry** (c0333): synchronize the three explicitly
   approved original licence-text digests with the library, preserving all
