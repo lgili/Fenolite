@@ -1,0 +1,100 @@
+{
+  "version": 1,
+  "source_base_commit": "250041e75b77ab795fd8c2cbbc777271acab3b97",
+  "failed_fast_source": "b1e9349a1de97a2597eae3eb788c3308fb745983",
+  "failed_fast_log_sha256": "0a7bd93fb7bb7987ba61aafac75ff91a454d2c653d0dc3a5b35144a9936e07db",
+  "failed_fast_status": "7failed22399passed52skipped;clean_after/head_unchangedtrue;exit2",
+  "diagnosis": {
+    "case": "two unchanged authored shared-physical-sheet rebuild tests9/10",
+    "raw_default_names_only_trigger": true,
+    "assignments": null,
+    "patterns": "GND/Power,VIN/Power exact same as ordinary projection",
+    "raw_default_names": [
+      "/ch1/A",
+      "/ch2/A"
+    ],
+    "canonical_rebuild_differences_each": 286,
+    "normalization_or_baseline_update": false
+  },
+  "approved_fix": "Predicate-only ordinary DSL stored-name projection on model COPY; literal presence/values of assignments/patterns; nonempty/malformedlegacy shapes mandatory; preserved native-onlyDRU+rawdrift mandatory. No missing/null/empty/order normalization. No source model mutation.",
+  "checks": [
+    {
+      "command": "uv run pytest tests/unit/importer/test_footprint_identity.py -k one_physical_sheet -p drift_capture -q",
+      "phase": "unchanged runtime external read-only observation wrapper",
+      "result": "2failed14deselected2.09s; exact originalguard/model/returns unchanged",
+      "log": "focused-red.log"
+    },
+    {
+      "command": "uv run pytest tests/unit/importer/test_native_project_context.py -k 'activation or unreferenced_raw or stays_required or pattern_order_change or malformed_assignment or preserved_native_rule_context or actual_raw_default' -q",
+      "phase": "before production",
+      "result": "5failed10passed34deselected1.26s: actual rawDefaultordinary +3malformedshapes; planned privatekeywordabsent separately TypeError. Initial intJSONfixture error retained and corrected before this run.",
+      "log": "activation-red-corrected-fixture.log"
+    },
+    {
+      "command": "uv run pytest tests/unit/importer/test_native_project_context.py -k 'activation or unreferenced_raw or stays_required or pattern_order_change or malformed_assignment or preserved_native_rule_context or actual_raw_default' -q",
+      "result": "15passed34deselected1.31s",
+      "log": "activation-green.log"
+    },
+    {
+      "command": "uv run pytest tests/unit/importer/test_footprint_identity.py tests/unit/importer/test_native_project_context.py tests/unit/importer/test_native_rule_context.py tests/unit/lens/test_native_rule_context.py tests/unit/lens/test_native_rule_profile.py tests/unit/importer/test_project_template.py -q",
+      "result": "130passed33.33s; both originalfailednodes unchanged and allactualrawQuiet/nativeDRU/modelrefusalguardsincluded",
+      "log": "focused-green.log"
+    },
+    {
+      "command": "ruff check/format --check the3touchedPythonfiles;pyright the2productionfiles",
+      "result": "allcheckspass/3alreadyformatted/0typeerrors",
+      "logs": [
+        "lint-green.log",
+        "format-green.log",
+        "types-green.log"
+      ]
+    },
+    {
+      "command": "uv run pytest tests/unit/agent/test_pages.py::test_writing_rules_hold tests/unit/importer/test_native_project_context.py::test_guide_teaches_portable_private_context_without_extra_claims -q",
+      "result": "2passed0.45s",
+      "log": "guide-green.log"
+    }
+  ],
+  "runtime_tests_docs_sha256": {
+    "src/fenolite/lens/native_project_context.py": "24203f9550ab3066dca280daf21da0cc24d85457474d301e791be6d780a4af8b",
+    "src/fenolite/cli/cmd_import.py": "424345852330af536de2f818ec8ccb82d1c9b179e849e4fb81696a869cb78a3b",
+    "tests/unit/importer/test_native_project_context.py": "a00072499f1a608e0f06d18ab5c10a862d9226338d158fde6d3797cbbb08faef",
+    "docs/import.md": "cdf742f2e8781b9413e72959bd2504bcb6a9e1f3bd4338440b550c8a94c2101d",
+    "docs/cli-contract.md": "6988ee4a5502bc978be05071f6f371b1821b9692cf1e10cb51a3712e169c26f9",
+    "src/fenolite/agent/skill/references/equivalent-s.md": "7d66921a917c3a6c322a75d55116adaefd0811a94b118ac6bc8c1bdd8270ed7b"
+  },
+  "external_logs_sha256": {
+    "focused-red.log": "ff695ac8f5c306f55034adcb143aaa6ccc29c281b1f9dafc2fe8fc7c64dc595c",
+    "activation-red.log": "09380c67de7f89dd1a67b64b6b4f7c675db243dd8400e8567a19f7f3ce2069b4",
+    "activation-red-corrected-fixture.log": "2eb67db4a471966f9cdfef3b1a14fcdfb940287f95f5c27ed18c802683a9a3f7",
+    "activation-green.log": "e0858419f82708cd0945fcb36d4bc793af703c3dea864401a12cf9d899ca1300",
+    "focused-green.log": "a5b28f0fc46d6f1faea7bf4f86573a5e9928594c64bd632e2cb22287ec6cb3c0",
+    "lint-green.log": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+    "format-green.log": "eee76f865de5a9f2456950f710ae5d5f9b5bd0ea02aa54f614c5eed6642a0bfd",
+    "types-green.log": "6d88a1b220adb7a3d62092b6e38431f0b3fe8babe9864fab90e5849766260332",
+    "guide-green.log": "1de7af18a082aed8ed2db28a900eee55720e6fca28b21af9e1bac8ef498046d9"
+  },
+  "exact_critical_function_bodies_unchanged": {
+    "baseline": "b1e9349a1de97a2597eae3eb788c3308fb745983",
+    "exact_source_bodies_unchanged": {
+      "src/fenolite/lens/native_project_context.py:restore": "a0f2f5309b2677dd921d086ddacaac336268e9b5583ea370062109ad9cffbed6",
+      "src/fenolite/lens/native_project_context.py:before_write": "ca067e8d7e6396365070ee4d73b2a8a4efb91823dacb0c7d283ba2253ca5267f",
+      "src/fenolite/lens/native_project_context.py:read_binding": "5fd238b5057eeed86f3e0f423e435be91193a6f7a9ae8c676bf13746969a6804",
+      "src/fenolite/lens/native_rule_context.py:fingerprint": "3f5b64dc2e55bed28c8d2b02b90c445ec8afa63367d17164171ca669ae2cd9ac",
+      "src/fenolite/lens/native_rule_context.py:before_write": "ebb6c11b1d280be4de77ac7212a2e461fb936614f2fb0509b4a5c109db125f03",
+      "src/fenolite/lens/native_rule_context.py:after_write": "75485638f83d8244abd5a03ea95b49c2ffc096f1681057db5b8e82664e7d5163",
+      "src/fenolite/cli/_derived_cache.py:eligible": "c37eb47d032af03f2eaccb06a9492f6d9675187fa865ecf96b11e61b98ebe66f",
+      "src/fenolite/cli/_derived_cache.py:prove": "9938dc4b8b0743808abd48fca101ae93bb1054133386aa65082785c22ead1d6d",
+      "src/fenolite/cli/cmd_verify_source.py:_compare": "18ebfa8c50cd28716a2e451c7d0764b1942a7d70a61d608119d7eea35fca95f9"
+    }
+  },
+  "invariants": {
+    "source_model_canonical_bytes_IDs_names_unchanged_by_predicate": true,
+    "ordinary_shared_rebuilds_keep_footprint_identity_variant_geometry_and_exact_bytes": true,
+    "genuine_native_context_fingerprint_restore_target_class_member_unknown_stale_guards_unchanged": true,
+    "existing_selector_profile_not_expanded": true,
+    "literal_netname_or_netclass_native_predicates_remain_refused": true,
+    "no_Royal_CAD_eligibility_comparator_baseline_CHlog_commit_push_newfast": true
+  },
+  "remaining": "Root-owned one combinedfast15 on frozen source, exact-source CI and all genuine native/Royal/closure gates remain; fast14failure and Royal2L7remain unwaived."
+}

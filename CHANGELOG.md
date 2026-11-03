@@ -6,6 +6,16 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Keep ordinary imported projects editable when their native class representation needs no binding; qualify immutable context using the actual DSL spelling projection and preserved native rules, while retaining every genuine model/input guard (c0355).
+
+- Declare the shared native-net binding helper under the existing inferred PCB-reader evidence and regenerate its matrix row; retain the independent rebuild and native Royal failures (c0355).
+
+- Reconcile existing native evidence against the literal remaining c0215 acceptance criteria, preserving source/version boundaries and unfinished aggregate, graduation and CI gates.
+
+- Reconcile existing native evidence against the literal remaining c0168 acceptance criteria, preserving source/version boundaries and unfinished aggregate, graduation and CI gates.
+
+- Reconcile existing native evidence against the literal remaining c0166 acceptance criteria, preserving source/version boundaries and unfinished aggregate, graduation and CI gates.
+
 - Reconcile existing native evidence against the literal remaining c0160 acceptance criteria, preserving source/version boundaries and unfinished aggregate, graduation and CI gates.
 
 - Reconcile existing native evidence against the literal remaining c0092 acceptance criteria, preserving source/version boundaries and unfinished aggregate, graduation and CI gates.

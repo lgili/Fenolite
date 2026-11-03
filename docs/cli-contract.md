@@ -1489,15 +1489,17 @@ named like a verb is passed as `./audit`.
 
 ## import
 
-Verified import also retains a private `native/project.context.json` when an unchanged native project's
-net spellings or assignment/pattern representation would otherwise change. Its literal script digest,
+Verified import also retains a private `native/project.context.json` when the ordinary DSL names would
+change native assignment/pattern representation, or preserved native-only rules need original spellings. Its literal script digest,
 explicit project digest, complete physical net partitions, class values/membership, target and whole
 pre-restoration model fingerprint bind this portable read-only input. Keep it with the declared project;
 build includes it in the reviewed read-set and never opens/fetches the recorded source paths. Closed
 16 MiB decoding rejects missing, tampered, symlink, unknown, colliding or stale context. Model/target edits
 require reviewed re-import (`FEN-3004`); changing an input after planning remains `FEN-4002`. This private
 mechanism adds no public DSL/model field and is independent of `preserve_minimums`. Ordinary imports
-with unchanged representation retain their editable path; native-rule c0359 guards see the same model
+with unchanged representation retain their editable path, including unclassed raw names without a
+preserved native context. Missing/null/empty pattern representations remain literal. Native-rule c0359
+guards see the same model
 after restoration of existing stored-name metadata. Preservation alone grants no native geometry pass.
 
 `fenolite import PATH --to python --out DIR` turns a KiCad or Altium board into a Fenolite project folder (change

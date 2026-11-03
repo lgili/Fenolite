@@ -280,8 +280,9 @@ equal. The upgrade is measured with `kicad-cli` 10.0 in CI (`H-K-IMPORT-UPGRADE`
 
 ## Portable native project representation
 
-When an unchanged native project's net spellings or assignment/pattern representation would otherwise
-change, verified import additionally writes private `native/project.context.json` beside its declared
+When the ordinary DSL names would change a native project's assignment/pattern representation, or
+preserved native-only rules require its original spellings, verified import additionally writes
+private `native/project.context.json` beside its declared
 `native/project.kicad_pro`. Keep those files with the emitted Python when moving the folder. The script
 binds the context's exact digest; build includes it in the reviewed input set. The original project and
 source files stay read-only. The context records source hashes for provenance; build never opens or
@@ -293,5 +294,7 @@ only existing native stored-name metadata. Changed names, classes, connections, 
 other model fields require a new reviewed import; missing, edited, ambiguous or unsupported context
 refuses with `FEN-3004`, and a staged input change with `FEN-4002`. This is independent of
 `preserve_minimums` and composes with the existing immutable native-rule context. Ordinary imports whose
-representation is unchanged retain their existing editable path. No new DSL argument or native geometry,
+representation is unchanged retain their existing editable path, including unclassed raw names that
+no preserved native context needs. Missing/null/empty pattern representations are compared literally.
+No new DSL argument or native geometry,
 DRC or electrical correctness claim is introduced.

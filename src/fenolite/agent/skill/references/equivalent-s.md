@@ -40,7 +40,9 @@ records their matching rule ids. The drawing proof is **INFERRED**, with native 
 ## A declared KiCad project input
 
 An import with an `INFERRED` self-check may require private `native/project.context.json` to preserve original native net
-spellings and assignment/pattern representation. Keep the context with the declared project when moving
+spellings when required by native-only rules or assignment/pattern representation. Ordinary unclassed
+raw names without such context remain editable; missing/null/empty patterns stay literal.
+Keep the context with the declared project when moving
 the code: its exact digest and complete pre-restoration model are bound. Build never opens or fetches
 recorded source paths. Changed model/classes/membership/target require reviewed re-import, and a staged
 context edit invalidates confirmation. This is independent of `preserve_minimums`; ordinary identical

@@ -192,3 +192,22 @@ controls. This avoids a forbidden lens→API/checks dependency. The backend trav
 old empty NO_NET label, missing-component reference `""`, duplicate/conflicting terminals and duplicate
 net-name behavior; the carrier's stricter completeness check is separate. No comparator or proof gate
 is weakened by this refactor.
+
+
+### Approved activation repair after fast14
+
+The two authored shared-sheet rebuild failures arose because raw Default/unclassed names alone
+activated an immutable capsule although the source assignments(null) and exact GND/VIN Power
+patterns matched the ordinary DSL projection. The existing rebuild merges native readback
+metadata/outline representation and legitimately changes286canonical fields. No fingerprint field
+may be ignored/normalized, no guard moved and no baseline refreshed to accept those changes.
+
+Coordinator approved the narrower predicate before production: compare exact assignment/pattern
+presence and values against the existing writer using ordinary DSL stored spellings in a local
+model copy, with unchanged IDs/names/classes/members and no source mutation. Nonempty or malformed
+legacy assignment shapes always require the capsule; any literal array/order/presence change
+requires it too. Missing/null/empty forms are not normalized. Preserved native-only rules plus raw
+name drift remain mandatory via a private source fact, with the same bounded c0359 selector profile.
+An ordinary raw Default name with no affected native project/rule context stays on the established
+editable path. Genuine context restore/model/output/target/class/member/stale guards remain exact.
+No immutable-rebuild lifecycle extension is claimed; a genuinely changed final model still refuses.

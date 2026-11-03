@@ -113,3 +113,12 @@ Do not combine different versions/input digests into one fictional kit run.
 All existing acceptance criteria, facts-before-code rules and final CI remain.
 The kit form keeps its existing AD major.minor dialect: use AD 24.5; keep full
 build 24.5.2.23 in the separate native observation report, not a new form key.
+
+
+## Literal existing-native reconciliation —2026-11-03
+
+The source-bound per-criterion audit in [native-reconciliation.md](native-reconciliation.md) and
+its JSON proof hashes distinguishes completed native portions, historical observations, existing
+receipt mapping and genuinely unmatched criteria. Do not request an already measured subcase
+again merely because its parent task stays open. No whole aggregate task, current CI, writer gate,
+graduation or hypothesis promotion was inferred; all existing unchecked rows remain unchanged.

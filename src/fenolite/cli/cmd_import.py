@@ -300,7 +300,9 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     needs_context = (
         source.backend == "kicad"
         and source.project_text is not None
-        and project_context.required(source.design, source.project_text)
+        and project_context.required(
+            source.design, source.project_text, native_rules=source.native_rules_text is not None
+        )
     )
     if args.no_verify:
         if source.native_rules_text is not None or needs_context:

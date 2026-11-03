@@ -83,3 +83,12 @@ All three native inputs remain hash-exact after inspection. Current24 S1/S2/S5/S
 completed in this operator window; historical26.5 results remain separate. Keep5.2 unchecked,
 H-A-SLOT-KIT INFERRED and CUTOUT_REGIONS false. Actual receipts and focused verification metadata
 must pass; a click/Invoke return alone never counts as completed acceptance.
+
+
+## Literal existing-native reconciliation —2026-11-03
+
+The source-bound per-criterion audit in [native-reconciliation.md](native-reconciliation.md) and
+its JSON proof hashes distinguishes completed native portions, historical observations, existing
+receipt mapping and genuinely unmatched criteria. Do not request an already measured subcase
+again merely because its parent task stays open. No whole aggregate task, current CI, writer gate,
+graduation or hypothesis promotion was inferred; all existing unchecked rows remain unchanged.

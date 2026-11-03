@@ -102,3 +102,30 @@ Root explicitly allowed this independent native proof before the separately runn
 verdict, which remains required and unpresumed. Context mutation is resolved, but is not the sole
 Royal mismatch cause. Task4.4 and every final broader/CI gate remain UNCHECKED; this is no completion,
 archive, waiver, hypothesis promotion or permission for another Royal experiment.
+
+
+- [x] 4.3a Repair only the missing evidence declaration of the shared native_net_binding backend helper exposed by the completed fast14 on b1e9349a (7failed/22399passed/52skipped). Preserve an INFERRED level under an appropriate existing reader hypothesis, without any new/promotion/native-pass claim; regenerate matrices with the canonical tool and run the five failed declaration/page guards plus touched lint/format. The two independent rebuild-fingerprint failures and real Royal L7 failure remain open.
+
+
+Task4.3a proof: the completed fast14 remains failed atb1e9349a(7failed/22399passed/52skipped),
+logSHA0a7bd93fb7bb7987ba61aafac75ff91a454d2c653d0dc3a5b35144a9936e07db.
+The helper now declares onlyINFERRED under existingH-K-PCB-READ; no hypothesis row/format/
+capability level was promoted. Canonicalgen_evidence_matrix adds exactly its module row.
+All5failed declaration/page nodes passed27.98s; touchedruff/format pass. The2rebuildmodelSHA
+failures and realRoyalL7failure are independent and remain open; no newfast/CI/nativeclaim.
+
+- [x] 4.3b Repair only overbroad native-project-context activation exposed by the two unchanged shared-sheet footprint-identity rebuild tests. Before production, retain authored REDs for ordinary raw Default nets, native-only DRU Default references, Quiet scalar/list legacy assignments, literal pattern ordering/representation and malformed shapes. Simulate the actual ordinary DSL stored spellings only in a predicate-local model copy; compare assignment/pattern presence and values literally, with no missing/null/empty normalization. Nonempty legacy assignments or preserved native DRU plus raw-name drift stay mandatory. Preserve the source model byte/canonical identity and every real context fingerprint/restore/class/member/target/unknown/stale guard; do not normalize the286observed rebuild fields, move the guard or update its baseline. Prove the two original failed tests unchanged, affected carrier/context/c0359 modules and touched lint/types. No CAD/Royal/newfast/commit/push or promotion.
+
+
+Task4.3b local proof is activation-repair-proof.json. The original2shared-sheet failures replayed
+unchanged with a readonly external observer, then all6affectedmodules passed130tests33.33s after
+the approved activation-only repair. All15authored activation boundaries pass1.31s, including
+actual rawDefaultnativeDRU import with both privateguards; genuine Quietlegacy contexts remain
+required. The source model remains canonical-byte/ID/name-identical after the predicate.
+Assignment/pattern order and missing/null/empty states stay literal. Nine critical original
+function bodies (restore/read_binding/before_write/fingerprint/native-ruleguards/eligible/prove/
+_compare) are exact againstb1e9349a: no286field normalization or baseline change.
+Touchedruff/format/types,2guideguards and strictc0355/diffchecks pass. An initial authored int0
+project-JSON setup error and the planned absent-private-keyword RED are identified separately,
+not claimed as a geometry failure. Runtime is frozen for root's single combinedfast15; no
+newfast/CAD/Royal/CI/commit/push was performed, and no full or native pass is inferred.

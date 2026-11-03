@@ -1,0 +1,68 @@
+{
+  "version": 1,
+  "date": "2026-11-03",
+  "scope": "Literal read-only native coverage reconciliation; no new CAD/runtime/CI/grad/evidence claim",
+  "source_commits_not_interchangeable": [
+    "615c2814",
+    "b5f6c84ade0cd74690874143bc1de96605279522"
+  ],
+  "rows": [
+    {
+      "criterion": "5.2 S3",
+      "status": "current24covered",
+      "measured": "S1297: same original regionsPCBbe65d4\u2026 seen in planning/2D/actual3D with openings; completeNC3drilled slots+1roundNPTH, no milled/cutout hits.",
+      "proof": "docs/evidence/altium-slots-24-native.json",
+      "remaining_or_reconciliation": "The historical26blank3Dfailure is now superseded only for this same-input current24subcase; do not request S3again."
+    },
+    {
+      "criterion": "5.2 S4",
+      "status": "current24covered",
+      "measured": "One selected LRegion is BoardCutout with3rounded extremities, actual native Properties/source guard.",
+      "proof": "docs/evidence/altium-slots-24-native.json",
+      "remaining_or_reconciliation": "No need to repeat S4."
+    },
+    {
+      "criterion": "5.2 S5literal result",
+      "status": "current24covered",
+      "measured": "One hash-guarded clearance822d31\u2026 DRC:7complete stable rows/0waived/limit500notreached. TP1pad7.874mil<19.685mil, noTP2in BoardOutline category.",
+      "proof": "docs/evidence/altium-slots-24-native.json",
+      "remaining_or_reconciliation": "No additional independent TP2SDKcensus is a literal S5requirement; the bounded absence claim stays scoped to the complete result."
+    },
+    {
+      "criterion": "5.2 S2expected pair",
+      "status": "literal result already observed; reconcile identity",
+      "measured": "Same completeS5DRC has1HoleToHoleCollision between nativefreepads(1496.063mil,511.811mil) and(1692.913mil,314.961mil). These are the declared D2(38,13)mm/D3(43,8)mm centers at native displayed precision.",
+      "proof": "docs/evidence/altium-slots-24-native.json",
+      "remaining_or_reconciliation": "The original S2instruction asks that overlap be reported. Map existing unique authored centers to D2/D3before demanding another identical DRC; current report still labels full S2acceptance pending, no gate changed here."
+    },
+    {
+      "criterion": "5.2 S1/S2/S4\u2013S8history",
+      "status": "historical26coverage",
+      "measured": "S0812passed7cases; regionsbe65d4\u2026 matches currentregions, historicalclearance5d87\u2026 differs current822d31\u2026, savedS7SHA8ee118\u2026 retained.",
+      "proof": "docs/evidence/altium-part-s-slots-2026-10-17.md",
+      "remaining_or_reconciliation": "Retain per-case/version/input provenance. Do not combine26and24into a fictional complete current24run."
+    },
+    {
+      "criterion": "5.2 current24S1/S6/S7/S8",
+      "status": "not established by current24receipts",
+      "measured": "Native NC already covers S1drill-output portion; padProperties/mask-paste/DrillDrawing, currentclearanceRepourAll, nativeSaveAs+S7readback and gate-off visual/report remain unmatched on24.",
+      "proof": "docs/evidence/altium-part-s-slots-2026-11-03.md",
+      "remaining_or_reconciliation": "Request only these literal missing portions if a complete current24case set remains the closure contract; do not repeat NC/S3/S4/S5."
+    },
+    {
+      "criterion": "5.2 gate/hypothesis",
+      "status": "open aggregate",
+      "measured": "CurrentS3/S4/S5literal pass, but existing source reports explicitly keep full_gate_passed=false,CUTOUT_REGIONSfalse,evidence_promotedfalse.",
+      "proof": "openspec/changes/c0168-altium-slots-cutouts/tasks.md",
+      "remaining_or_reconciliation": "Do not enable writer/graduate/promote/check5.2from this audit; root owns any later gate judgement."
+    }
+  ],
+  "source_proof_sha256": {
+    "docs/evidence/altium-slots-24-native.json": "50caaf3512de0e8ad19fb6701a96cbb0a0f88bdc2d2ea59dfe88521cefcaa2e0",
+    "docs/evidence/altium-part-s-slots-2026-10-17.md": "28b51d77d7235d45e2eee753d3830f04fe48ce0dc5905cdb8ad0f1ce26cbbf6f",
+    "docs/evidence/altium-part-s-slots-2026-11-03.md": "76009696ec3e4b05af52b07861c8a435fd7569684c3d3aa3449dc156513b5939",
+    "openspec/changes/c0168-altium-slots-cutouts/tasks.md": "9f5d2a41ad4735ea593ea624b06a3c947123766ac5c99af8e2c436a7a42ba930"
+  },
+  "unchecked_tasks_changed": false,
+  "criteria_source_base_commit": "b1e9349a1de97a2597eae3eb788c3308fb745983"
+}

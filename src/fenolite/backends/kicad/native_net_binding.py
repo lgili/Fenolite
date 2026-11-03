@@ -8,7 +8,11 @@ from collections import defaultdict
 
 from fenolite.backends.kicad.derived_teardrops import native_net
 from fenolite.backends.kicad.sexpr import AtomKind, Node
+from fenolite.core.evidence import Evidence, Level
 from fenolite.model.design import Design
+
+EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-K-PCB-READ",))
+"""Structural consumption of existing PCB reader fields; no native equality/DRC claim."""
 
 
 def bindings(design: Design) -> dict[str, tuple[str, ...]]:

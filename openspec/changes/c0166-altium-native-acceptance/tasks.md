@@ -220,3 +220,12 @@ existing major.minor form field remain refused. These simulated controls create
 no native record or matrix scope. Historical PartS2026-10-17 bytes, claims.py
 and conformance.json are unchanged. Every previously unchecked native task
 stays unchecked; no runtime module, write gate or evidence label changes.
+
+
+## Literal existing-native reconciliation —2026-11-03
+
+The source-bound per-criterion audit in [native-reconciliation.md](native-reconciliation.md) and
+its JSON proof hashes distinguishes completed native portions, historical observations, existing
+receipt mapping and genuinely unmatched criteria. Do not request an already measured subcase
+again merely because its parent task stays open. No whole aggregate task, current CI, writer gate,
+graduation or hypothesis promotion was inferred; all existing unchecked rows remain unchanged.

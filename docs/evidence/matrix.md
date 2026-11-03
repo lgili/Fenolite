@@ -475,6 +475,7 @@ a claim), `see` (its code runs only inside the operations of the named modules o
 | `merge` | `EVIDENCE` INFERRED: `H-K-MERGE-ITEMS` |
 | `mod` | `AUTHORING_EVIDENCE` INFERRED: `H-K-DSL-FOOTPRINT`<br>`EVIDENCE` INFERRED: `H-K-LIB-READ` |
 | `models` | `EVIDENCE` KICAD-VERIFIED: `H-K-EXPORT-MODELS` |
+| `native_net_binding` | `EVIDENCE` INFERRED: `H-K-PCB-READ` |
 | `native_rule_profile` | `EVIDENCE` INFERRED: `H-K-DRU-IMMUTABLE-CONTEXT` |
 | `netlist` | `EVIDENCE` KICAD-VERIFIED: `H-K-NETLIST-SHAPE` |
 | `netnames` | see `pcb`, `schgen` |

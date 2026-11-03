@@ -420,3 +420,147 @@ def test_project_context_tool_version_is_neutral_but_native_output_bound(tmp_pat
 
     assert set(native(before)) == {".kicad_pcb", ".kicad_pro", ".kicad_dru"}
     assert native(before) == native(after)
+
+
+def _activation_case(*, raw_default=False, raw_quiet=False, assignment=None, patterns=()):
+    import dataclasses
+
+    from _prodesigns import design
+
+    from fenolite.backends.kicad import pro
+    from fenolite.backends.kicad._json import JsonNumber
+    from fenolite.model.base import ExtBag
+
+    name = "/AUTH/P" if raw_default or raw_quiet else "AUTH_P"
+    model = design({"Quiet": 203_200}, {name: "Quiet" if raw_quiet or assignment else None})
+    net = model.circuit.nets[0]
+    model = dataclasses.replace(
+        model,
+        circuit=dataclasses.replace(
+            model.circuit,
+            nets=(dataclasses.replace(net, ext={"kicad": ExtBag(payload=(("stored", name),))}),),
+        ),
+    )
+    data = pro.template(10)
+    quiet = dict(data["net_settings"]["classes"][0])
+    quiet.update(name="Quiet", clearance=JsonNumber("0.2032"))
+    data["net_settings"]["classes"].append(quiet)
+    data["net_settings"]["netclass_assignments"] = assignment
+    data["net_settings"]["netclass_patterns"] = list(patterns)
+    return model, data
+
+
+def test_unreferenced_raw_default_name_keeps_ordinary_editability():
+    from fenolite.backends.kicad import pro
+    from fenolite.lens.native_project_context import required
+    from fenolite.model import canonical
+
+    model, data = _activation_case(raw_default=True)
+    before = canonical.dumps(model)
+    assert not required(model, pro.write_project_text(data))
+    assert canonical.dumps(model) == before
+
+
+@pytest.mark.parametrize("assignment", [{"/AUTH/P": "Quiet"}, {"/AUTH/P": ["Quiet"]}])
+def test_scalar_list_legacy_native_representation_stays_required(assignment):
+    from fenolite.backends.kicad import pro
+    from fenolite.lens.native_project_context import required
+    from fenolite.model import canonical
+
+    model, data = _activation_case(raw_quiet=True, assignment=assignment)
+    before = canonical.dumps(model)
+    assert required(model, pro.write_project_text(data))
+    assert canonical.dumps(model) == before
+
+
+@pytest.mark.parametrize("pattern", ["/AUTH/P", "/AUTH/*"])
+def test_raw_name_referenced_by_exact_or_wildcard_class_pattern_stays_required(pattern):
+    from fenolite.backends.kicad import pro
+    from fenolite.lens.native_project_context import required
+    from fenolite.model import canonical
+
+    model, data = _activation_case(raw_quiet=True, patterns=({"netclass": "Quiet", "pattern": pattern},))
+    before = canonical.dumps(model)
+    assert required(model, pro.write_project_text(data))
+    assert canonical.dumps(model) == before
+
+
+def test_pattern_order_change_requires_context_even_when_class_memberships_equal():
+    from _prodesigns import design
+
+    from fenolite.backends.kicad import pro
+    from fenolite.lens.native_project_context import required
+    from fenolite.model import canonical
+
+    model, data = _activation_case()
+    model = design({"Quiet": 203_200}, {"AUTH_A": "Quiet", "AUTH_Z": "Quiet"})
+    data["net_settings"]["netclass_patterns"] = [
+        {"netclass": "Quiet", "pattern": "AUTH_Z"},
+        {"netclass": "Quiet", "pattern": "AUTH_A"},
+    ]
+    before = canonical.dumps(model)
+    assert required(model, pro.write_project_text(data))
+    assert canonical.dumps(model) == before
+
+
+@pytest.mark.parametrize("shape", [[], "", False, 0])
+def test_malformed_assignment_shapes_never_take_the_editable_shortcut(shape):
+    from fenolite.backends.kicad import pro
+    from fenolite.backends.kicad._json import JsonNumber
+    from fenolite.lens.native_project_context import required
+
+    assignment = JsonNumber("0") if type(shape) is int else shape
+    model, data = _activation_case(assignment=assignment)
+    assert required(model, pro.write_project_text(data))
+
+
+@pytest.mark.parametrize("form", ["missing", "null", "empty"])
+def test_activation_keeps_literal_missing_null_empty_pattern_distinction(form):
+    from fenolite.backends.kicad import pro
+    from fenolite.lens.native_project_context import required
+
+    model, data = _activation_case()
+    if form == "missing":
+        del data["net_settings"]["netclass_patterns"]
+    elif form == "null":
+        data["net_settings"]["netclass_patterns"] = None
+    assert required(model, pro.write_project_text(data)) is (form != "empty")
+
+
+def test_preserved_native_rule_context_requires_raw_default_spelling():
+    from fenolite.backends.kicad import pro
+    from fenolite.lens.native_project_context import required
+    from fenolite.model import canonical
+
+    model, data = _activation_case(raw_default=True)
+    before = canonical.dumps(model)
+    assert required(model, pro.write_project_text(data), native_rules=True)
+    assert canonical.dumps(model) == before
+
+
+def test_actual_raw_default_native_rules_keep_both_private_guards(tmp_path: Path):
+    from fenolite.backends.kicad import pro
+
+    source = board_only(tmp_path)
+    source.write_bytes(source.read_bytes().replace(b'"GND"', b'"/AUTH/P"'))
+    data = pro.read_project_text(PROJECT.read_text())
+    data["net_settings"]["netclass_patterns"] = [
+        row for row in data["net_settings"]["netclass_patterns"] if row["pattern"] != "GND"
+    ]
+    source.with_suffix(".kicad_pro").write_text(pro.write_project_text(data))
+    source.with_suffix(".kicad_dru").write_text(
+        '(version 1)\n(rule "Authored raw default physical reference"\n'
+        " # Keep the original native-only rule/comment.\n"
+        " (condition \"A.Type == 'pad' && A.Net != B.Net\")\n"
+        " (constraint clearance (min 0.127mm)))\n"
+    )
+    args = ("import", str(source), "--to", "python", "--out", "raw-code", "--licence", "CC0-1.0")
+    plan = api.run(*args, "--dry-run", cwd=tmp_path, timestamp=STAMP)
+    assert plan.exit_code == 0, plan.error
+    reply = api.run(*args, "--confirm", "--plan", plan.result["plan_id"], cwd=tmp_path, timestamp=STAMP)
+    assert reply.exit_code == 0, reply.error
+    code = tmp_path / "raw-code"
+    assert (code / "native/project.context.json").is_file()
+    assert (code / "native/project.rules-context.json").is_file()
+    fresh = build(tmp_path, code, out="raw-native-output")
+    assert fresh.exit_code == 0, fresh.error

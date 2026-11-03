@@ -27,15 +27,35 @@ from fenolite.model.design import Design
 CERTIFICATE = "project.context.json"
 
 
-def required(design: Design, project: str) -> bool:
-    """Ordinary editable imports do not acquire a new immutable context."""
+def required(design: Design, project: str, *, native_rules: bool = False) -> bool:
+    """Keep ordinary imports editable unless their native project/rules need the capsule."""
     settings = pro.read_project_text(project)["net_settings"]
-    if settings.get("netclass_assignments") or any(
-        stored_net_name(net) != netnames.stored_name(net.name) for net in design.circuit.nets
-    ):
-        return True
-    updated = pro.read_project_text(pro.update_project(project, design))
-    return settings.get("netclass_patterns") != updated["net_settings"].get("netclass_patterns")
+    assignments = settings.get("netclass_assignments")
+    if assignments is not None and assignments != {}:
+        return True  # Includes malformed shapes: none may silently qualify as ordinary/default.
+
+    # Predicate-only projection of the names emitted by Net(name), never a model/output rewrite.
+    # Reader-derived ids and stored bags otherwise make update_project simulate the source reader,
+    # rather than the ordinary DSL writer whose assignment/pattern representation we must compare.
+    nets: list[Net] = []
+    raw_drift = False
+    for net in design.circuit.nets:
+        ordinary = netnames.stored_name(net.name)
+        raw_drift |= stored_net_name(net) != ordinary
+        bag = net.ext.get("kicad", ExtBag())
+        payload = tuple((key, value) for key, value in bag.payload if key != "stored") + (
+            ("stored", ordinary),
+        )
+        nets.append(
+            dataclasses.replace(net, ext={**net.ext, "kicad": dataclasses.replace(bag, payload=payload)})
+        )
+    projected = dataclasses.replace(design, circuit=dataclasses.replace(design.circuit, nets=tuple(nets)))
+    common = pro.read_project_text(pro.update_project(project, projected))["net_settings"]
+    for key in ("netclass_assignments", "netclass_patterns"):
+        # Presence, null, empty arrays and list order remain literal; no equality normalization.
+        if (key in settings, settings.get(key)) != (key in common, common.get(key)):
+            return True
+    return native_rules and raw_drift
 
 
 @dataclass(frozen=True, slots=True)
