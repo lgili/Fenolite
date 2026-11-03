@@ -6,6 +6,8 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Archive c0253-electrical-contracts using its tested985 implementation, scoped unit/native CI evidence and existing proofs; preserve the authorized geometry deferral and pending later integration gates.
+
 - Archive c0252-parametric-interfaces using its tested985 implementation, scoped unit/native CI evidence and existing proofs; preserve the authorized geometry deferral and pending later integration gates.
 
 - Record verified evidence for the selected straight-clearance hypothesis and complete c0281.3.3; retain arc-parity limits, final integration and required archive ordering as open, without archiving c0281.

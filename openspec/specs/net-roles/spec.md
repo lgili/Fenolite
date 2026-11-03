@@ -2,9 +2,7 @@
 
 ## Purpose
 TBD - created by archiving change c0222-net-roles. Update Purpose after archive.
-
 ## Requirements
-
 ### Requirement: Role kinds
 `fenolite.roles.ROLE_KINDS` SHALL be the closed tuple `power`, `switch_node`, `ground`, `kelvin`, `gate`, `signal`, `high_voltage`. Each net of a design MUST get exactly one role: stored, declared or inferred. A role MAY carry `milliamps` and `working_mv` (integers) and `sensitive`. A `power` net whose `working_mv` is at or above the profile's `high_voltage_mv` MUST be judged for distances as a `high_voltage` net.
 
@@ -402,3 +400,23 @@ The KiCad builds of the six role-copper scripts, refilled by `kicad-cli`, SHALL 
 #### Scenario: DRC on the bench
 - **WHEN** `uv run pytest tests/kicad/roles/test_copper_drc.py` builds, refills and checks each script on KiCad 10
 - **THEN** no violation type has more entries than on the board without role copper
+
+### Requirement: Role rows in the requirement table
+The judge of `fenolite.roles` SHALL give one `RequirementRow` (`fenolite.core.requirement_table`) per role measure that it judges against a limit, in the `summary.requirements` of `roles.rules` and in `result.requirements` of `fenolite roles --check`. The role findings, their messages (`key=value (origin)`), their severities and the role profile MUST NOT change.
+
+#### Scenario: The bad buck's rows
+- **GIVEN** the `bad` variant of `examples/roles/buck_shunt` with its roles confirmed
+- **WHEN** `uv run pytest tests/unit/roles/test_table.py` runs `fenolite roles <board> --check --json`
+- **THEN** `result.requirements` holds a row whose `id` starts with `roles.loop-area:` and names the hot loop, with status `fail`, and the issues equal those of the same command before this change
+
+### Requirement: Sources of role rows
+A role row MUST attribute its sources as follows:
+- a limit of origin `profile` SHALL have source `policy`, with a basis naming its key and its `S-` or `H-G-ROLE-` id;
+- a limit of origin `override` SHALL have source `user`, with basis `role_limits`;
+- a limit of origin `requirements` SHALL have source `user`, with the row's `source` text or `requirements.toml` as basis;
+- a role's `milliamps` or `working_mv` used as a value SHALL have source `role`.
+
+#### Scenario: Profile and override sources
+- **GIVEN** the `bad` variant of `examples/roles/buck_shunt` with its roles confirmed, once as is and once with `design.role_limits(loop_max="60mm2")`
+- **WHEN** `uv run pytest tests/unit/roles/test_table.py -k sources` runs the check on both
+- **THEN** the hot loop's row has limit source `policy` with a basis naming `loop_ratio_max` and `H-G-ROLE-LOOP-RATIO` in the first, and in the second the hot loop's row for `loop_max` has limit source `user` with basis `role_limits`
