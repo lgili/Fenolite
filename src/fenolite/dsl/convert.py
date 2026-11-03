@@ -652,6 +652,7 @@ def _design_model(design: Design) -> ModelDesign:
             sheet=_sheet(design),
             title_block=design.block,
             via_protection=design.via_default[0] if design.via_default is not None else None,
+            max_curve_error=design.max_curve_error,
             groups=_groups(design),
             verbatim=_verbatim(design),
         ),

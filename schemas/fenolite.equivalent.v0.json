@@ -464,6 +464,13 @@
           "type": "integer",
           "minimum": 0,
           "description": "a schematic side's power symbols"
+        },
+        "files": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "exact board/project context inputs by unambiguous basename and SHA-256"
         }
       },
       "additionalProperties": false,

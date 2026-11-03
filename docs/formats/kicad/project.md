@@ -309,3 +309,21 @@ skipped with `kicad.project.unread-entry`. A profile that no class names stays i
 | fact | source | label | hypothesis |
 |---|---|---|---|
 | While an editor holds a file open, KiCad keeps a lock file in that file's folder named `~` + the file name + `.lck` (`~board.kicad_pcb.lck`); it holds a JSON object with `username`, `hostname` and `token`, and is removed on close, so a crash leaves it behind | S-0828, S-0829 | INFERRED | H-K-PRO-LOCK |
+
+## Project curve approximation control
+
+S-1207, ORACLE-VERIFIED(kicad-cli9.0.9|10.0.6):
+`/board/design_settings/rules/max_error` configures a project approximation
+length in millimetres. Original authored circular-pad controls export complete
+DXF geometry ENTITIES identically with the field omitted or set to0.005mm,
+while0.01mm changes those entities on both actual versions. Native10 refill
+also produces identical two-region teardrop geometry for missing/0.005mm, and
+different geometry at0.01mm. This is a measured setting, not a universal claim
+that every algorithm uses its bound. No third-party parser/grammar code is used.
+
+The model’s optional `Board.max_curve_error` stores exact positive integer
+nanometres. Canonical explicit presence is exact; the native adapter may
+normalize the proved effective5000nm default to absence. Nondefault10000nm
+must survive a fresh standalone build and level6 comparison. `None` retains
+legacy default bytes and an existing project’s setting. This is separate from
+comparison tolerances, DRC minimum rules and Fenolite kernel certificates.

@@ -90,3 +90,26 @@ An actual isolated official 9.0.9 CLI subsequently passed all eight native BOM/m
 explicit rebuild omitted its target major and wrote default-target-10 files, which native9 correctly
 refused. The oracle now passes the running major to build, matching the existing fidelity harness.
 No product refusal or version policy was changed; source-bound 9 evidence remains partial until CI.
+
+## Closed diagnostic-ledger follow-up
+
+The coordinator's independent 235-case equivalence/verify-source audit found four
+closed-ledger/documentation failures: the test table omitted the real bom-only
+kind and the equivalent CLI section omitted equiv.bom-only. The initial focused
+reproduction retained four failures and two passing controls. The correction
+keeps the closed table and exact-message assertions, adds an actual canonical
+changed-membership CLI scenario and actionable public explanation/guide tests.
+
+An independent authored blink/Mini_R Part(bom_only=True) then reproduced a real
+KeyError('build.bom-only') in the already-written rejection path. Registering its
+existing error severity makes the same control report build.bom-only at M1, with
+zero output files. The already-emitted model.bom-only guard is also registered
+and both have public explanations and tested teaching; model fields are unchanged.
+
+On combined base 24e63d06 plus this follow-up, the complete focused equivalence,
+verify-source, equivalent/explain CLI, guide, build-issue and BOM model group
+passes 392 tests in 30.77 seconds. Ruff check/format, focused typing (zero errors),
+strict OpenSpec and generated-guide checks pass. The first expanded run exposed
+two new-test documentation mistakes; both are corrected and its 186-pass/2-fail
+log remains preserved. Final fast and exact-head CI are still coordinator gates,
+and no census or acceptance record is changed.

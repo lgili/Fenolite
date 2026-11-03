@@ -210,7 +210,8 @@ TEACHES: Mapping[str, tuple[str, ...]] = {
     ),
     "board-schematic": (
         "One master", "pin sets", "net class", "single-pin nets", "DC rating", "test condition",
-        "fenolite parity", "bom_only=True", "BUS_{A}{D[0..3]}",
+        "fenolite parity", "bom_only=True", "equiv.bom-only", "build.bom-only", "model.bom-only",
+        "BUS_{A}{D[0..3]}",
     ),
     "board-emc": (
         "immunity", "surge", "raw side", "earth bond", "in stages", "Compare loop versions by inductance",

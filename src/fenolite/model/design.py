@@ -30,7 +30,9 @@ from fenolite.model.presentation import PAPER_SIZES, PARAM_NAME, US_SIZES, Sheet
 from fenolite.model.rules import RuleSet
 
 SCHEMA_VERSION = "0"
-MODEL_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType({"model.corner-ratio": "error"})
+MODEL_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
+    {"model.bom-only": "error", "model.corner-ratio": "error"}
+)
 """The codes of ``Design.validate`` that ``fenolite explain`` knows (``cli.explain.TABLES``): those added
 since change c0126. The older ``model.*`` codes are described in ``docs/cli-contract.md`` only."""
 

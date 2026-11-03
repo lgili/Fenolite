@@ -211,7 +211,12 @@ every field of their settings (`zone-field`); fills, the fill state and the lock
 (`H-K-FID-ZONE-OUTLINE`). Rule areas match by layers and outline (`keepout-field`). Texts match by layer and
 text and compare position, size, thickness, rotation and justification (`text-field`). For each footprint
 pair of level 3, its graphics and texts are compared in the footprint's frame, and its fields match by name
-(`field-pose` at `<REF>:<field name>`, for example `R1:Reference` with field `position`). `where` is
+(`field-pose` at `<REF>:<field name>`, for example `R1:Reference` with field `position`).
+Only the typed text/footprint-field `rotation` paths use the existing cyclic angle
+metric:0/360deg and-90/270deg are equal at zero tolerance;90/0 and180/0 differ.
+Angular tolerance applies to orientation, never length tolerance. This comparison
+does not rewrite model/JSON values or fold absent/None/false/zero presence;
+generic leaves and noncyclic sweeps/ranges retain their existing semantics. `where` is
 `board:<layer>:<points or text>`, `board:outline:<ring>` or `<REF>:<layer>:<points>`.
 
 ## Level 8: presentation

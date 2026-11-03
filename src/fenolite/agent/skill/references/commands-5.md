@@ -148,7 +148,7 @@ Back to [the command index](commands.md).
 `fenolite verify-source [OPTIONS] --against ORIGINAL SCRIPT`
 
 - `SCRIPT`: the design script (executed in-process, as build does)
-- `--against ORIGINAL`: the original: a KiCad project folder or .kicad_pro, or an Altium .PrjPcb
+- `--against ORIGINAL`: the original: a KiCad project folder or .kicad_pro or .kicad_pcb, or an Altium .PrjPcb
 - `--levels SPEC`: the levels to run, e.g. 1-7,S,8 (default: all)
 - `--tolerance-nm N` (integer): length tolerance per coordinate
 - `--tolerance-udeg N` (integer): angle tolerance in microdegrees

@@ -700,6 +700,8 @@ class Design(Container):
         """``board(locked=True)``: the script's outline replaces one edited in KiCad on a rebuild."""
         self.outline_width: Nm | None = None
         """Optional uniform stroke of generated root edges; footprint edges keep their own widths."""
+        self.max_curve_error: Nm | None = None
+        """Optional target-project curve approximation setting (c0340), not a universal bound."""
         self.technical_layer_names: tuple[str, ...] | None = None
         """Explicit standard non-copper rows of board(); None retains the full default table."""
         self.parts: dict[str, Part] = {}
@@ -1092,6 +1094,7 @@ class Design(Container):
         locked: bool = False,
         outline_width: object = None,
         technical_layers: Sequence[str] | None = None,
+        max_curve_error: object = None,
     ) -> BoardRef:
         """The board: a rectangle of ``width`` × ``height``, or the closed path ``outline`` (pairs of
         lengths and ``arc_to`` steps in the frame of ``place()``; ``fenolite.dsl.shape`` gives ``rect``,
@@ -1104,7 +1107,9 @@ class Design(Container):
         (``BoardRef``, change c0255): ``j1.place(left=board.left + mm(2), ...)``. ``outline_width`` is an
         optional nonnegative length for generated root edge strokes; footprint edges keep theirs.
         ``technical_layers`` selects standard non-copper rows, including ``Edge.Cuts``; ``None`` keeps
-        the full default table. Declared ``User.n`` layers remain independent."""
+        the full default table. Declared ``User.n`` layers remain independent.
+        ``max_curve_error`` is a positive target-project curve approximation length; ``None`` keeps
+        its default. It is not a universal guarantee about every geometry algorithm."""
         if self.outline_path is not None:
             raise DslError("board() is called once")
         if isinstance(copper, bool) or not isinstance(copper, int) or copper not in COPPER_COUNTS:  # pyright: ignore[reportUnnecessaryIsInstance]
@@ -1115,6 +1120,9 @@ class Design(Container):
         stroke = None if outline_width is None else as_nm(outline_width, name="outline_width")
         if stroke is not None and stroke < 0:
             raise DslError("board(): outline_width must be nonnegative")
+        curve_error = None if max_curve_error is None else as_nm(max_curve_error, name="max_curve_error")
+        if curve_error is not None and curve_error <= 0:
+            raise DslError("board(): max_curve_error must be positive")
         technical: tuple[str, ...] | None = None
         if technical_layers is not None:
             if isinstance(technical_layers, (str, bytes)) or not isinstance(technical_layers, Sequence):  # pyright: ignore[reportUnnecessaryIsInstance]
@@ -1155,6 +1163,7 @@ class Design(Container):
         self.outline_path = ring
         self.outline_locked = locked
         self.outline_width = stroke
+        self.max_curve_error = curve_error
         self.technical_layer_names = technical
         self.copper = copper
         self.planes = declared

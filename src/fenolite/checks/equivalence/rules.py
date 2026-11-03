@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import dataclasses
 from collections import defaultdict
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from enum import Enum
 
 from fenolite.checks.equivalence import norm
@@ -110,13 +110,20 @@ def leaves_equal(one: Leaf, other: Leaf, tolerances: Tolerances) -> bool:
 
 def field_differences(
     kind: str, where: str, one: Mapping[str, Leaf], other: Mapping[str, Leaf], tolerances: Tolerances,
-    level: int = LEVEL,
+    level: int = LEVEL, *, orientation_paths: Collection[str] = (),
 ) -> list[Difference]:  # fmt: skip
-    """One difference of ``kind`` per dotted path whose leaves differ, located at ``where``."""
+    """One difference per dotted leaf; explicitly typed orientations use the existing cyclic angle metric.
+
+    The empty default preserves generic/level6/sweep semantics and model presence.
+    """
     found: list[Difference] = []
     for path in sorted(set(one) | set(other)):
         left, right = one.get(path), other.get(path)
-        if not leaves_equal(left, right, tolerances):
+        if path in orientation_paths and type(left) is int and type(right) is int:
+            equal = norm.angles_equal(left, right, tolerances)
+        else:
+            equal = leaves_equal(left, right, tolerances)
+        if not equal:
             found.append(Difference(level, kind, where, path, text(left), text(right)))
     return found
 
@@ -288,6 +295,15 @@ def level_rules(a: Design, b: Design, tolerances: Tolerances = EXACT) -> LevelRe
     ):
         found += differences
         counts[name] = compared
+    if a.board.max_curve_error is not None or b.board.max_curve_error is not None:
+        found += field_differences(
+            "rule-field",
+            "board",
+            {"max_curve_error": a.board.max_curve_error},
+            {"max_curve_error": b.board.max_curve_error},
+            EXACT,
+        )
+        counts["project_geometry"] = 1
     return LevelResult(LEVEL, sum(counts.values()), _ordered(found), (), counts)
 
 

@@ -105,6 +105,17 @@ def test_an_issue_code_of_a_family(monkeypatch: pytest.MonkeyPatch, tmp_path: Pa
     assert env["result"]["family"] is None and env["result"]["severities"] == ["error", "warning", "info"]
 
 
+def test_bom_only_membership_issue_has_an_actionable_explanation(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    code, envelope, _, _ = run(monkeypatch, tmp_path, "explain", "equiv.bom-only")
+    assert code == 0
+    result = envelope["result"]
+    assert result["code"] == "equiv.bom-only" and result["severities"] == ["error"]
+    assert "canonical BOM membership" in result["meaning"]
+    assert "source BOM/board flags" in result["fix"] and result["see"] == "equivalent"
+
+
 def test_unknown_code(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     code, env, err, _ = run(monkeypatch, tmp_path, "explain", "check.read-refuse")
     assert code == 2 and err["code"] == "FEN-2001" and env["ok"] is False
@@ -142,3 +153,10 @@ def test_every_family_code_is_explained() -> None:
 
     entries = explain.entries()
     assert {code: entries[code]["see"] for code in FAMILY_CODES} == dict.fromkeys(FAMILY_CODES, "family")
+
+
+@pytest.mark.parametrize("code", ["build.bom-only", "model.bom-only"])
+def test_bom_only_guard_has_an_actionable_explanation(code: str) -> None:
+    found = explain.explain(code)
+    assert found is not None and "purchasing" in found.meaning
+    assert found.fix and found.see in {"build", "check"}

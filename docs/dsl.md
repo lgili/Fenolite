@@ -1049,11 +1049,12 @@ such as a part number or a supplier code, as text.
   part). Adding one moves no other uuid. KiCad 9.0.9 and 10.0.6 load them without a library mismatch,
   and a 10.0.6 re-save keeps names, values and visibility (`H-K-VENDOR-PROPS`). `Component.properties`
   holds what `read_board` reads back.
-- Position, layer, visibility and size of these fields cannot be set yet (field placement, c0030).
+- `Part.field` can set the presentation of an exactly named declared user property (c0345).
 
 ## Field placement
 
-`Part.field("Reference", …)` and `Part.field("Value", …)` place the two text fields of the part's footprint.
+`Part.field("Reference", …)`, `Part.field("Value", …)` and requests for exactly named properties
+declared on that part place the corresponding footprint text fields.
 Without a request a field stays where the footprint library puts it. A footprint of the built-in catalog
 or of `dsl.Footprint` has no library file: its two fields are generated 1 mm above and below the
 footprint ("Authored footprints"), and a request moves or hides them like any other. A library footprint
@@ -1066,8 +1067,10 @@ u1.field("Value", visible=False)
 r1.field("Reference", dx=mm(0), dy="-2.5mm", rot=0, justify="left", locked=True)
 ```
 
-- **Names.** Only `Reference` and `Value`. Every other property keeps the library's placement; user
-  properties are written hidden ("User properties").
+- **Names.** `Reference`, `Value`, or an exact key of that part's declared user properties, such as
+  `Part(..., properties={"MPN": "AUTHORED-1"})` followed by `part.field("MPN", visible=True)`.
+  Unknown names, a different letter case and other reserved library fields are refused. Without a
+  request user properties retain their default hidden presentation ("User properties").
 - **Frame.** `dx` and `dy` are lengths in the board frame, measured from the part's placement point (the
   point of `place()`, or the staging point), and are given together. `rot` is the angle of the text on the
   board in degrees. Both are independent of the part's own rotation: "2.5 mm above the part, horizontal"

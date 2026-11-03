@@ -49,7 +49,7 @@ two, the others are fields of the footprint library (``docs/dsl.md``, "User prop
 RESERVED_PREFIXES: tuple[str, ...] = ("fenolite.", "ki_")
 """Property-name prefixes a part cannot use: Fenolite's namespace and KiCad's own names."""
 FIELD_NAMES: tuple[str, ...] = ("Reference", "Value")
-"""The footprint fields a script can place (``docs/dsl.md``, "Field placement")."""
+"""Conventional placeable fields; declared user properties are also accepted (``docs/dsl.md``)."""
 FIELD_LAYERS: tuple[str, ...] = ("silk", "fab")
 FIELD_SIDES: tuple[str, ...] = ("top", "bottom", "left", "right")
 FIELD_JUSTIFY: tuple[str, ...] = (
@@ -879,7 +879,7 @@ class Part(Edges):
         italic: bool | None = None,
         face: str | None = None,
     ) -> None:
-        """Request a placement of the footprint field ``name`` (``Reference`` or ``Value``), once per name.
+        """Request placement of Reference, Value or a declared user property, once per name.
         ``bold``, ``italic`` and ``face`` set the field's font (change c0277); ``None`` keeps the footprint's.
 
         ``dx`` and ``dy`` are lengths in the board frame from the part's placement point and ``rot`` is the
@@ -888,8 +888,10 @@ class Part(Edges):
         distance. ``locked`` makes the request win over a field edited in KiCad (``docs/lens.md``).
         """
         what = f"part {self.label}: field {name!r}"
-        if name not in FIELD_NAMES:
-            raise DslError(f"{what}: only {' and '.join(FIELD_NAMES)} can be placed")
+        if not isinstance(name, str) or (name not in FIELD_NAMES and name not in self.properties):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(
+                f"{what}: only {' and '.join(FIELD_NAMES)} or a declared user property can be placed"
+            )
         if name in self.field_requests:
             raise DslError(f"part {self.label}: field {name} already has a placement request")
         for label, flag in (("bold", bold), ("italic", italic)):

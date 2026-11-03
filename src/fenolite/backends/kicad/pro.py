@@ -73,6 +73,8 @@ PATTERN_ENTRY_PATHS: frozenset[str] = frozenset(
 )
 """The key paths a pattern entry adds; the only paths synthesis may add to the template's."""
 DEFAULT_CLASS = "Default"
+DEFAULT_MAX_CURVE_ERROR = 5_000
+"""Effective missing max_error in authored native9.0.9/10.0.6 controls (c0340, S-1207)."""
 MINIMUM_POINTER = "/board/design_settings/rules"
 """Where the board-setup minimums live (``project.md``, "Board-setup minimums")."""
 REWRITE_HINT = "re-save the project in KiCad 9 or 10, or let Fenolite synthesise a new one"
@@ -161,6 +163,33 @@ def _object(data: JsonObject, key: str, file: str, where: str) -> JsonObject | N
     if not isinstance(value, dict):
         raise FormatError(f"{key!r} is not an object", file=file, locator=f"{where}/{key}")
     return cast(JsonObject, value)
+
+
+def project_curve_error(data: JsonObject, *, file: str = "") -> Nm:
+    """The effective target-project curve setting; S-1207 proves the supported native default."""
+    current = data
+    pointer = ""
+    for part in ("board", "design_settings", "rules"):
+        child = _object(current, part, file, pointer)
+        pointer += "/" + part
+        if child is None:
+            return DEFAULT_MAX_CURVE_ERROR
+        current = child
+    if "max_error" not in current:
+        return DEFAULT_MAX_CURVE_ERROR
+    where = pointer + "/max_error"
+    value = current["max_error"]
+    if not isinstance(value, JsonNumber):
+        raise FormatError(
+            "max_error must be a positive exact length in millimetres", file=file, locator=where
+        )
+    try:
+        result = parse_length(value.text, default_unit="mm")
+        if result <= 0:
+            raise ValueError("max_error must be positive")
+    except ValueError as error:
+        raise FormatError(str(error), file=file, locator=where) from error
+    return result
 
 
 def _version(meta: JsonObject | None, file: str, where: str) -> int | None:
@@ -355,6 +384,7 @@ def read_project(
     found = issues if issues is not None else []
     text, file = _source(source, file)
     data = _json.loads(text, file=file)
+    project_curve_error(data, file=file)
     meta_version, settings_version = _versions(data, file)
     status = classify_project(meta_version, settings_version)
     if status == VersionStatus.FUTURE:
@@ -538,7 +568,16 @@ def _apply_sheet(design: Design, info: ProjectInfo) -> Design:
         block = dataclasses.replace(block, params=params)
     elif params:
         block = TitleBlock(params=params)
-    return dataclasses.replace(design, board=dataclasses.replace(board, sheet=sheet, title_block=block))
+    curve_error = project_curve_error(info.data, file=info.file)
+    return dataclasses.replace(
+        design,
+        board=dataclasses.replace(
+            board,
+            sheet=sheet,
+            title_block=block,
+            max_curve_error=None if curve_error == DEFAULT_MAX_CURVE_ERROR else curve_error,
+        ),
+    )
 
 
 # --- writing --------------------------------------------------------------------------------------
@@ -728,6 +767,17 @@ def _write_minimums(
             )
 
 
+def _write_curve_error(data: JsonObject, design: Design) -> None:
+    board = design.board
+    if board is None or board.max_curve_error is None:
+        return
+    rules = _rules_object(data)
+    value = millimetres(board.max_curve_error)
+    old = rules.get("max_error")
+    if not isinstance(old, JsonNumber) or not _same_nm(old, value):
+        rules["max_error"] = value
+
+
 def _text(value: Any) -> str:
     return value.text if isinstance(value, JsonNumber) else repr(value)
 
@@ -863,6 +913,7 @@ def synthesize_project(
     data = template(target)
     cast(JsonObject, data.setdefault("meta", {}))["filename"] = f"{board_name}.kicad_pro"
     _write_minimums(data, design, target=target, update=False, issues=found)
+    _write_curve_error(data, design)
     _write_severities(data, design, target=target, allow_lossy=allow_lossy, issues=found)
     classes = _classes(data)
     base = cast(JsonObject, classes[0])
@@ -1055,6 +1106,7 @@ def update_project(
             data, design, pair, allow_lossy=allow_lossy, issues=found, downgrade=downgrade, edits=edits
         )
     _write_minimums(data, design, target=target, update=True, issues=found)
+    _write_curve_error(data, design)
     _write_severities(data, design, target=target, allow_lossy=allow_lossy, issues=found)
     classes = _classes(data)
     by_name = {cast(JsonObject, c).get("name"): i for i, c in enumerate(classes) if isinstance(c, dict)}
@@ -1152,6 +1204,7 @@ __all__ = [
     "read_project",
     "read_project_text",
     "bind_schematic_identity",
+    "project_curve_error",
     "synthesize_project",
     "template",
     "update_project",

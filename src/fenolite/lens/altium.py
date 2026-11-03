@@ -2186,6 +2186,9 @@ def build_altium(
     it that the Altium form cannot carry raises ``read.sheet.SheetLossError`` unless ``allow_lossy``.
     """
     lower.refuse_bom_only(design)
+    curve_loss = lower.curve_error_issue(design.board)
+    if curve_loss is not None and not allow_lossy:
+        raise lower.LossyWriteError((curve_loss,))
     if sheets not in ("flat", "modules"):
         raise ValueError(f"unknown sheet mode {sheets!r}")
     body_mode = pcbdoc.body_mode(bodies)
@@ -2222,6 +2225,8 @@ def build_altium(
     resolved = resolve_symbols(design, resolver, authored_symbols, extra=extra_symbols)
     design = _with_symbol_fields(design, resolved)
     issues = _check(design, name, placed, sheets, form)
+    if curve_loss is not None:
+        issues.append(curve_loss)
     if fiducial_info is not None:
         issues.append(fiducial_info)
     issues += impedance_layer_issues(design, copper)

@@ -83,7 +83,7 @@ def _component(design: Design, footprint: FootprintInstance) -> Component:
     )
 
 
-def _field_font(field: FootprintField) -> dict[str, bool | str]:
+def field_font(field: FootprintField) -> dict[str, bool | str]:
     """Supported font properties of a read field: the reader retains them in opaque effects."""
     found: dict[str, bool | str] = {}
     bag = field.ext.get("kicad")
@@ -155,7 +155,7 @@ def _replaced(
             else:
                 values = {name: getattr(was, name) for name in FIELD_VALUES}
                 values.update(
-                    {name: value for name, value in _field_font(was).items() if values[name] is None}
+                    {name: value for name, value in field_font(was).items() if values[name] is None}
                 )
                 carried.append(dataclasses.replace(field, **values))
         fields = tuple(carried)

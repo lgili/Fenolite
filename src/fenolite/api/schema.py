@@ -41,6 +41,14 @@ class ReplySide:
         metadata={"optional": True, "minimum": 0, "description": "a schematic side's power symbols"},
     )
 
+    files: dict[str, str] = dataclasses.field(
+        default_factory=lambda: {},
+        metadata={
+            "optional": True,
+            "description": "exact board/project context inputs by unambiguous basename and SHA-256",
+        },
+    )
+
 
 @dataclass(frozen=True)
 class ReplySides:
@@ -262,6 +270,13 @@ class VerifyBuild:
     files: int = dataclasses.field(metadata=_COUNT)
     copper_check: Literal["refuse", "warn"]
     copy: bool
+    read_files: dict[str, str] = dataclasses.field(
+        default_factory=lambda: {},
+        metadata={
+            "optional": True,
+            "description": "generated temporary build outputs read by the proof; never original inputs",
+        },
+    )
 
 
 @dataclass(frozen=True)

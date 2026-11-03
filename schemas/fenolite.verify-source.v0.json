@@ -246,6 +246,13 @@
         },
         "copy": {
           "type": "boolean"
+        },
+        "read_files": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "generated temporary build outputs read by the proof; never original inputs"
         }
       },
       "additionalProperties": false,

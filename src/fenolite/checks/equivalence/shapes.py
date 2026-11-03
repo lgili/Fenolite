@@ -304,7 +304,15 @@ def _text_pairs(
             continue
         other = held.pop(0)
         compared += 1
-        found += field_differences(kind, item.where, item.value or {}, other.value or {}, tolerances, LEVEL)
+        found += field_differences(
+            kind,
+            item.where,
+            item.value or {},
+            other.value or {},
+            tolerances,
+            LEVEL,
+            orientation_paths=("rotation",),
+        )
     for held in by_key.values():
         found += [Difference(LEVEL, "text-missing", s.where, "text", "", s.where) for s in held]
     return found, compared
@@ -352,7 +360,7 @@ def _field_pose(
             continue
         found += field_differences(
             "field-pose", where, fields(held_a[name], skip=("name",)), fields(held_b[name], skip=("name",)),
-            tolerances, LEVEL,
+            tolerances, LEVEL, orientation_paths=("rotation",),
         )  # fmt: skip
     return found
 

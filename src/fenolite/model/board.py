@@ -792,6 +792,18 @@ class Board(Entity):
     """The verbatim items a script declares, in key order (change c0277)."""
     images: tuple[Image, ...] = ()
     """The board images (change c0277): a script's in key order, a read board's in file order."""
+    max_curve_error: Nm | None = field(default=None, metadata={"minimum": 1})
+    """The target project's configured curve approximation error in nm; None keeps its default.
+
+    This does not promise that every target algorithm uses the bound (change c0340).
+    """
+
+    def __post_init__(self) -> None:
+        if self.max_curve_error is not None:
+            if isinstance(self.max_curve_error, bool) or not isinstance(self.max_curve_error, int):  # pyright: ignore[reportUnnecessaryIsInstance]
+                raise TypeError("max_curve_error is an exact integer number of nanometres")
+            if self.max_curve_error <= 0:
+                raise ValueError("max_curve_error must be positive")
 
 
 __all__ = [

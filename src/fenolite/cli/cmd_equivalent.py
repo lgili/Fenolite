@@ -24,7 +24,7 @@ from fenolite.checks.equivalence.model import FRAMES
 from fenolite.cli._examples import EXAMPLE_BOARD
 from fenolite.cli._kicadtool import DEFAULT_TIMEOUT
 from fenolite.cli._presentation import side_presentation
-from fenolite.cli.api import Command, Context, Result
+from fenolite.cli.api import Command, Context, Result, depends_on
 from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
 
@@ -197,6 +197,10 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         issues=found.issues,
         evidence=found.evidence,
         input=InputRef(path=found.a.name, sha256=found.a.sha256, kind=found.a.kind, format_version=None),
+        depends=depends_on(
+            ctx.cwd,
+            *(path for side in (found.a, found.b) if side is not None for path, _digest in side.source_files),
+        ),
     )
 
 

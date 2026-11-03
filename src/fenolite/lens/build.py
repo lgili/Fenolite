@@ -125,6 +125,7 @@ LAYOUT_HINT = (
 )
 BUILD_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
     {
+        "build.bom-only": "error",
         "build.unknown-pin": "error",
         "build.device-mismatch": "error",
         "build.pin-on-two-nets": "error",

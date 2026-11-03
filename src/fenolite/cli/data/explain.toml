@@ -1663,6 +1663,11 @@ meaning = "A component is marked do-not-populate on one side only."
 fix = "Make the two designs agree, or name the known difference in an exclusion profile (--exclusions with --profile)."
 see = "equivalent"
 
+["equiv.bom-only"]
+meaning = "A component is explicitly an off-board purchasing item on one side only; its canonical BOM membership differs."
+fix = "Inspect the source BOM/board flags and canonical bill, then correct the intended membership; a purchasing item must not disappear silently."
+see = "equivalent"
+
 ["equiv.excluded"]
 meaning = "A rule of the exclusion profile matched differences. They are listed under result.excluded and do not fail the comparison."
 fix = "Nothing to do; read the rule's reason in the message."
@@ -5433,3 +5438,13 @@ see = "library"
 meaning = "An exact cardinal symbol pin angle was canonicalized modulo360 without changing orientation."
 fix = "Review the original/normalized integer angle and source UUID/hash in the warning and provenance notice; noncardinal input is refused without rounding."
 see = "library"
+
+["build.bom-only"]
+meaning = "An off-board purchasing item has electrical pins, a power symbol, physical placement or a footprint instance."
+fix = "Use bom_only only for a pinless non-power purchasing item without physical placement; otherwise model a regular component."
+see = "build"
+
+["model.bom-only"]
+meaning = "A canonical BOM-only purchasing item also claims electrical or physical membership."
+fix = "Remove its pins, connections and placed footprint, or make it a regular component; preserve its purchasing identity."
+see = "check"

@@ -102,7 +102,13 @@ def test_authored_board_proves_itself(monkeypatch: pytest.MonkeyPatch, tmp_path:
     assert routing["summary"]["strict"]["vias"]["matched"] == 3
     assert result["build"] == {
         "target": "kicad-10", "files": result["build"]["files"], "copper_check": "refuse", "copy": False,
+        "read_files": result["build"]["read_files"],
     }  # fmt: skip
+    assert set(result["build"]["read_files"]) == {"sensor.kicad_pcb", "sensor.kicad_pro"}
+    assert all(
+        len(digest) == 64 and set(digest) <= set("0123456789abcdef")
+        for digest in result["build"]["read_files"].values()
+    )
     assert result["against"]["backend"] == "kicad" and "sensor.kicad_pcb" in result["against"]["files"]
     assert "fidelity.level-skipped" not in codes(env)
     drawn = next(level for level in result["levels"] if level["level"] == "S")

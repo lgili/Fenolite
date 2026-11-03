@@ -113,4 +113,17 @@ fenolite ready board --no-kicad --json
 fenolite render board -o board/views --svg --dry-run --json
 ```
 
+## Preserve configured geometry
+
+`board(max_curve_error=mm("0.01"))` configures the target project's curve approximation setting.
+It is a positive exact length, independent of comparison tolerances; `None` keeps the target default.
+It does not guarantee that every target geometry algorithm uses this bound.
+KiCad preserves it; Altium refuses the unsupported setting unless you explicitly accept its reported loss.
+
+```fenolite-design
+from fenolite.dsl import Design, mm
+design = Design("curve_configuration")
+design.board(mm(30), mm(20), max_curve_error=mm("0.01"))
+```
+
 Read next: `board-floorplan`, `board-review`, `board-workflow`.

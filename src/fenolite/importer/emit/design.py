@@ -32,6 +32,7 @@ from fenolite.dsl.items import BOARD_LAYER_KINDS
 from fenolite.importer import coverage
 from fenolite.importer.codes import issue
 from fenolite.importer.coverage import Ledger, Unexpressed
+from fenolite.importer.emit.fields import requests as field_requests
 from fenolite.importer.emit.printer import (
     Call,
     Dct,
@@ -319,6 +320,8 @@ def _board(design: Design, writer: _Writer, ledger: Ledger) -> tuple[list[list[s
     outline = _outline(design)
     out: list[list[str]] = []
     extra: list[tuple[str, Expr]] = [("copper", number(chosen))] if chosen != 2 else []
+    if board.max_curve_error is not None:
+        extra.append(("max_curve_error", length(board.max_curve_error)))
     technical = _technical_layers(board)
     if technical is not None and technical != tuple(BOARD_LAYER_KINDS):
         extra.append(("technical_layers", Tup(tuple(text(name) for name in technical))))
@@ -1568,6 +1571,14 @@ def emit(source: Source, options: Options) -> Emission:
             if hierarchy.instances and len(paths[ref]) > 1
             else Raw(part_vars[ref])
         )
+    field_lines: list[list[str]] = []
+    for footprint in footprints:
+        ref = refs[footprint.component_id]
+        props = _properties(components[footprint.component_id].properties)
+        if props is not None:
+            receiver = flat(Sub("design.parts", text("/".join(paths[ref]))))
+            for call in field_requests(footprint, [name for name, _ in props.items], receiver, ref):
+                field_lines.append(statement(call))
     zone_lines = _zones(board, names, net_vars, layers, ledger, grouped, writer)
     area_lines = _areas(board, layers, ledger, grouped)
     drawing_lines = _drawings(board, ledger, grouped, net_vars, numbers)
@@ -1617,8 +1628,9 @@ def emit(source: Source, options: Options) -> Emission:
         files["copper.py"] = _copper_file(kept_tables, header)
         mapping = Dct(tuple((net, Raw(var)) for net, var in sorted(net_vars.items())))
         copper_line.append(statement(Call("copper.apply", (Raw("design"), mapping))))
-    if any("mm(" in line for section in (board_lines, class_lines, place_lines, zone_lines, area_lines,
-                                         drawing_lines) for item in section for line in item):  # fmt: skip
+    if field_lines or any("mm(" in line for section in (board_lines, class_lines, place_lines, zone_lines,
+                                                       area_lines, drawing_lines)
+                          for item in section for line in item):  # fmt: skip
         writer.imports.add("mm")
     for block in (
         [statement(Call("Design", (text(options.name),)), target="design")],
@@ -1632,6 +1644,7 @@ def emit(source: Source, options: Options) -> Emission:
         class_lines if hierarchy.instances else [],
         connect_lines,
         place_lines,
+        field_lines,
         zone_lines,
         area_lines,
         drawing_lines,

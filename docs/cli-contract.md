@@ -866,6 +866,7 @@ a difference is a defect of the generator and stops the build (`build.schematic-
 | `build.schematic-netlist-differs` | error | the nets read back from the generated sheet are not those of the circuit; nothing is written |
 | `build.symbol-short` | error | two symbols placed by the placements file have a pin at one point |
 | `build.symbol-placement-invalid` | error | a placement is off the 1.27 mm grid, has an unknown key or a rotation or mirror that is not allowed |
+| `build.bom-only` | error | a typed off-board purchasing item has electrical or physical claims; remove those claims or use a regular component |
 | `build.reserved-library` | error | the design names or authors a symbol library `fenolite`, or needs a power flag and holds a symbol `PWR_FLAG` in the library that holds the flag |
 | `build.symbol-overlap` | warning | the cell of a placed symbol overlaps another cell |
 | `build.symbol-placement-unknown` | warning | the placements file names no unit of the design |
@@ -1913,7 +1914,7 @@ repeat.
 | `check.roundtrip-unjudged` | info | document input: a document whose level was not judged; the message names the reason |
 
 `model.*` findings and reader codes pass through unchanged; among them `model.no-connect-on-net`
-(error) names a pin that is marked as not connected and that a net lists, `model.duplicate-bus-index` (error) a bus that uses an index twice, `model.body-height` (error) a component body whose height is below its standoff (`docs/design-model.md`, change c0043), and `model.pin-pad-map` (error) a pin-to-pad map that holds a pair twice, an empty text, or a pad that two pins name (change c0123), and `model.corner-ratio` (error) a pad whose `corner_ratio` is outside 0 to 500 000 ppm of its shorter side or that is no rounded rectangle, with `where` the pad's id (change c0126). `model.stackup-order`, `model.stackup-copper` and `model.stackup-value` (errors) name a stack-up whose entries are out of order, whose copper entries are not the board's copper layers, or that holds a thickness or a decimal the model does not accept (`docs/design-model.md`, "Stack-up"; change c0101). Signed intervals are in the mounted-face frame, positive outwards and authoritative over height/standoff; `model.body-volume` (error) reports missing or reversed bounds. Unknown projection bypasses legacy height validation (change c0099). Exit codes: 0 without an error issue, 5
+(error) names a pin that is marked as not connected and that a net lists, `model.duplicate-bus-index` (error) a bus that uses an index twice, `model.body-height` (error) a component body whose height is below its standoff (`docs/design-model.md`, change c0043), and `model.pin-pad-map` (error) a pin-to-pad map that holds a pair twice, an empty text, or a pad that two pins name (change c0123), and `model.bom-only` (error) rejects electrical pins, connections or placed footprints on a typed off-board purchasing item, and `model.corner-ratio` (error) a pad whose `corner_ratio` is outside 0 to 500 000 ppm of its shorter side or that is no rounded rectangle, with `where` the pad's id (change c0126). `model.stackup-order`, `model.stackup-copper` and `model.stackup-value` (errors) name a stack-up whose entries are out of order, whose copper entries are not the board's copper layers, or that holds a thickness or a decimal the model does not accept (`docs/design-model.md`, "Stack-up"; change c0101). Signed intervals are in the mounted-face frame, positive outwards and authoritative over height/standoff; `model.body-volume` (error) reports missing or reversed bounds. Unknown projection bypasses legacy height validation (change c0099). Exit codes: 0 without an error issue, 5
 with one, 2 for a usage error (ambiguous folder, unknown stage), 3 for a missing path or a board that
 neither Fenolite nor KiCad reads (the envelope still holds the issues), and 6 when a stage that needs
 `kicad-cli` is selected and it is missing (`FEN-6001`; the hint names `--stages model.validate,roundtrip`),
@@ -4246,6 +4247,7 @@ The evidence is the lowest of the two readings (a built design counts as `INFERR
 | `equiv.component-missing` | error | a reference that only one side holds |
 | `equiv.ref-ambiguous` | error | a reference that a side holds more than once, or an empty reference |
 | `equiv.value`, `equiv.dnp` | error | the value or the do-not-populate flag of a component differs |
+| `equiv.bom-only` | error | typed off-board purchasing membership differs; inspect the canonical BOM and source flags |
 | `equiv.pin-missing` | error | a `REF-PIN` of a common component that only one side holds |
 | `netlist.assignment-differs` | error | a `REF-PIN` whose net block differs (the code of `check`'s assignment comparison) |
 | `equiv.footprint-missing` | error | a common component placed on one side only |

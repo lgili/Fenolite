@@ -1,0 +1,81 @@
+{
+  "common_tool_outlines_and_fills_equal_only_after_matching_max_error": true,
+  "core_source_commit": "ae4ef887",
+  "drc_is_not_claimed_as_a_safety_gate": true,
+  "generated_drc_violations": 0,
+  "native_tool_version": "10.0.6",
+  "raw_outcomes": {
+    "teardrop-exact-maxerror-outline-match.json": {
+      "different_fields": {
+        "net": 33,
+        "priority": 84
+      },
+      "matched_outlines": 167,
+      "sha256": "0eb889f0a6e270c663d6208a7693192ac9a87184fec24de1f0303c9cb46fd890",
+      "total": 167
+    },
+    "teardrop-native-maxerror-probe/receipt.json": {
+      "after": {
+        "normal": 1,
+        "sha256": "9490862d4aadf8be97b886881ecf7b16d271cfad5a0c69bd825ce055bb9ed918",
+        "teardrops": 167
+      },
+      "before": {
+        "normal": 1,
+        "sha256": "aacc842682bdb245ad39fe147c6b066a86158e601c866e18011123d11793d397",
+        "teardrops": 0
+      },
+      "exit": 0,
+      "sha256": "89369ad1a12e612ef230c1bac4e5132025b41c1fd9f8c52bc62e4fa68285f254",
+      "source_unchanged": true
+    },
+    "teardrop-native-probe/receipt.json": {
+      "after": {
+        "normal": 1,
+        "sha256": "10601e367b7d996d6ff92624327f8d67ef0cc3268c58a326de2582ac5ddf24bf",
+        "teardrops": 167
+      },
+      "before": {
+        "normal": 1,
+        "sha256": "aacc842682bdb245ad39fe147c6b066a86158e601c866e18011123d11793d397",
+        "teardrops": 0
+      },
+      "exit": 0,
+      "sha256": "e917dfee8d700fa7afb453f12a7f87c67b2d7d709843713720ff7032c7acd101",
+      "source_unchanged": true
+    },
+    "teardrop-native-source-fresh-probe/receipt.json": {
+      "after": {
+        "normal": 1,
+        "sha256": "b5fa785fc9fab382a7e8a47445640248c021cac20dfa8292c4d6a93cfc979540",
+        "teardrops": 167
+      },
+      "before": {
+        "normal": 1,
+        "sha256": "d5f4162d4c766448832723d139f9e0fcb88a17c82340f10f6f6dc6c2042f0d69",
+        "teardrops": 165
+      },
+      "exit": 0,
+      "sha256": "8c69f38189cd53fdd2cc5eac232b194bd135fa58275203cac377033751d59d27",
+      "source_unchanged": true
+    },
+    "teardrop-native-source-probe/receipt.json": {
+      "after": {
+        "normal": 1,
+        "sha256": "b5fa785fc9fab382a7e8a47445640248c021cac20dfa8292c4d6a93cfc979540",
+        "teardrops": 167
+      },
+      "before": {
+        "normal": 1,
+        "sha256": "d5f4162d4c766448832723d139f9e0fcb88a17c82340f10f6f6dc6c2042f0d69",
+        "teardrops": 165
+      },
+      "exit": 0,
+      "sha256": "0e32bbc633805aa06d860c7d9b875bb2c315b4558cc670e5dde1a06d5f9553b4",
+      "source_unchanged": true
+    }
+  },
+  "runtime_implementation": false,
+  "schema": "fenolite.project-geometry-diagnosis.v0",
+  "source_drc_library_footprint_issues": 68
+}

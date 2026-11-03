@@ -32,7 +32,7 @@ from types import MappingProxyType
 from typing import Any, cast
 
 import fenolite
-from fenolite.api.sides import ReadSide, SideError, read_side
+from fenolite.api.sides import ReadSide, SideError, read_side, source_hashes
 from fenolite.backends.kicad import versions
 from fenolite.backends.kicad.projectset import resolve_board
 from fenolite.checks.equivalence import (
@@ -110,7 +110,7 @@ def _register(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument(
         "--against", required=True, metavar="ORIGINAL", help="the original: a KiCad project folder or "
-        ".kicad_pro, or an Altium .PrjPcb"
+        ".kicad_pro or .kicad_pcb, or an Altium .PrjPcb"
     )  # fmt: skip
     parser.add_argument("--levels", metavar="SPEC", help="the levels to run, e.g. 1-7,S,8 (default: all)")
     parser.add_argument("--tolerance-nm", type=int, metavar="N", help="length tolerance per coordinate")
@@ -253,13 +253,13 @@ def _original(path: Path) -> Original:
     if path.is_file() and path.suffix.lower() == ALTIUM_PROJECT:
         files = [path, *(p for p in sorted(path.parent.iterdir()) if p.suffix.lower() in ALTIUM_DOCUMENTS)]
         return Original(path, path.parent, "altium", tuple(files))
-    if path.is_dir() or path.suffix == ".kicad_pro":
+    if path.is_dir() or path.suffix in (".kicad_pro", ".kicad_pcb"):
         root = path if path.is_dir() else path.parent
         return Original(path, root, "kicad", _project_files(path))
     raise _usage(
         f"{path.name} is not an original verify-source reads",
         where="--against",
-        hint="pass a KiCad project folder or .kicad_pro, or an Altium .PrjPcb",
+        hint="pass a KiCad project folder, .kicad_pro or .kicad_pcb, or an Altium .PrjPcb",
     )
 
 
@@ -653,6 +653,19 @@ def _verify(
     except SideError as error:
         where = OPTIONS.get(error.where, error.where)
         raise CliError(error.cli_code, error.message, where=where, hint=error.hint) from None
+    for path, digest in side_a.source_files:
+        key = path.relative_to(original.root).as_posix()
+        prior = base["against"]["files"].get(key)
+        if prior is not None and prior != digest:
+            raise CliError(
+                "FEN-4002",
+                f"{key} changed while reading the proof inputs",
+                where=key,
+                hint="review the source and run the proof again",
+            )
+        base["against"]["files"][key] = digest
+    if side_b.source_files:
+        base["build"]["read_files"] = source_hashes(side_b.source_files)
     return _compare(args, ctx, script, sha, original, out, side_a, side_b, wanted, provenance, tolerances,
                     pixel_ppm, pitch_um, frame, base, built, build_issues, notes)  # fmt: skip
 
@@ -793,7 +806,11 @@ def _compare(
         input=InputRef(path=script.name, sha256=sha, kind="design-script", format_version=None),
         writes=writes,
         depends=depends_on(
-            ctx.cwd, script, *original.files, *((provenance.path,) if provenance.path.is_file() else ())
+            ctx.cwd,
+            script,
+            *original.files,
+            *(path for path, _digest in side_a.source_files),
+            *((provenance.path,) if provenance.path.is_file() else ()),
         ),
     )
 
@@ -816,6 +833,8 @@ def _record(
         "tolerances": base["tolerances"],
         "levels": {str(row["level"]): row["status"] for row in levels},
     }
+    if base["build"].get("read_files"):
+        member["proof"]["generated_read_files"] = base["build"]["read_files"]
     skipped = {str(row["level"]): row["reason"] for row in levels if row["status"] == "skipped"}
     if skipped:
         member["proof"]["skipped"] = skipped  # why each skipped level was skipped (change c0281)

@@ -23,6 +23,8 @@ from fenolite.backends.kicad.pcb import read_board
 from fenolite.core.coords import Point
 from fenolite.core.ids import derived_id
 from fenolite.model.board import Board
+from fenolite.model.canonical import dump_dir
+from fenolite.model.circuit import Component
 from fenolite.model.design import Design
 
 DATA = Path(__file__).resolve().parents[2] / "data"
@@ -51,6 +53,33 @@ attribution = "undecided"
 reason = "an authored rule of the test"
 hypothesis = "H-G-EQ-ROT"
 """
+
+
+def test_bom_only_membership_change_has_a_located_public_issue(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    design = Design.new("purchasing", seed=1)
+    component = Component(id=derived_id("cmp", "authored", "accessory"), ref="M1", value="ACCESSORY")
+    before = dataclasses.replace(
+        design, circuit=dataclasses.replace(design.circuit, components=(component,)), board=None
+    )
+    after = dataclasses.replace(
+        before,
+        circuit=dataclasses.replace(
+            before.circuit, components=(dataclasses.replace(component, bom_only=True),)
+        ),
+    )
+    a, b = tmp_path / "a", tmp_path / "b"
+    dump_dir(before, a)
+    dump_dir(after, b)
+    code, envelope, _, _ = run(monkeypatch, tmp_path, "equivalent", str(a), str(b), "--level", "1")
+    assert code == 5
+    assert [(issue["code"], issue["severity"], issue["where"]) for issue in envelope["issues"]] == [
+        ("equiv.bom-only", "error", "M1")
+    ]
+    assert envelope["result"]["differences"] == [
+        {"level": 1, "kind": "bom-only", "where": "M1", "field": "bom_only", "a": "false", "b": "true"}
+    ]
 
 
 def _changed(tmp_path: Path, name: str = "copy.kicad_pcb", **moves: Any) -> Path:

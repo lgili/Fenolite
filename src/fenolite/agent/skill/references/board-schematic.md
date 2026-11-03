@@ -11,6 +11,7 @@ the board is lost at the next update. Many faults that a layout review finds wer
 
 `Part(..., bom_only=True)` retains a pinless purchasing item in the canonical BOM and KiCad schematic,
 with no board footprint, placement or electrical pins. DNP is independent; Altium output refuses it.
+`equiv.bom-only` reports changed purchasing membership: inspect the canonical BOM and source flags.
 
 Keep formatted bus prefixes literal: `BUS_{A}{D[0..3]}` contains `BUS_{A}.D0` through `BUS_{A}.D3`.
 Flattening the markup changes electrical names; malformed groups must not invent connections.
@@ -164,5 +165,7 @@ connect(agnd, j2[1])
   alone, which say nothing about breaking a DC fault.
 - **Line and neutral crossed in a part.** A pin-to-pad map that nobody tested crossed line and neutral
   through the windings of the choke.
+
+`build.bom-only` and `model.bom-only` reject electrical or physical claims on a typed purchasing item. Correct the source membership before retrying; retain the canonical BOM identity.
 
 Read next: `board-practice`, `board-emc`, `parts`.

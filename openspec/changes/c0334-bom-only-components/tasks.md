@@ -18,8 +18,10 @@
 
 - [x] 2.5 Before final freeze, author a pinless multi-unit same-flags positive and contradictory BOM/board/DNP controls; measure native behavior and reproduce the source/rebuild boundary before correction. If confirmed, refuse only unrepresentable flags before staging with an existing located code. Proof: authored native inputs, focused import/no-output tests and unchanged same-flags complete partitions. Coordinator approved this independent audit while full-census/freeze tasks remain open.
 
-## 3. Combined proof
+- [x] 2.6 Complete the existing public equivalence/build/model issue contract, including the registered severity and no-files pinned-symbol guard: add the real BOM-only kind to the independent test ledger, document its CLI issue and explanation, teach the guide and prove an actual changed-membership CLI scenario. Preserve closed-table and exact-message assertions. Proof: the four reported equivalence-ledger failures, CLI scenario/explain and guide checks pass. Coordinator approved this metadata follow-up before floor work; no new model field.
 
+
+## 3. Combined proof
 
 - [ ] 3.1 Recapture complete 75 plans and the final model-0 inventory/schemas; coordinate and prove c0217/c0218 transition from that exact source. Proof: complete file maps, field/default/type review and migration/native-byte comparisons.
 - [ ] 3.2 Run focused lint/format/types/generated checks/residue and the root-owned fast and exact-head CI gates; update CHANGELOG truthfully. Proof: source-bound successful logs. Archive only when all literal criteria pass.

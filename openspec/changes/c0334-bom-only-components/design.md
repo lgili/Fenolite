@@ -29,6 +29,11 @@ cannot preserve this item, refuse with located FEN-7001 before staging, includin
 
 ## Authored proof and rollout
 
+Metadata follow-up approved 2026-11-02: the implemented `bom-only` difference already produces the
+public `equiv.bom-only` issue. Keep the independent closed-kind ledger, CLI contract, explain table
+and tested guide in sync, with a real CLI membership-change scenario. This changes no model/schema
+or comparison semantics and must not weaken the closed-set assertions.
+
 Coordinator addendum, 2026-11-02: before freezing, independently measure pinless multi-unit source
 symbols whose instance BOM/board/DNP flags disagree. A confirmed unrepresentable flag combination
 must refuse with a located existing input error before staging; no unit may be silently normalized
@@ -54,3 +59,13 @@ source flags and planted failures are mandatory proofs. Opaque rules remain
 unchanged. Public DSL teaching/generation, legacy byte controls and new final-0
 inventory precede the c0218/model-1 freeze. Unsupported outputs must refuse
 before staging. No baseline, loss, tolerance or evidence waiver is authorized.
+
+## Existing diagnostic contract follow-up
+
+Coordinator review requested the independent equivalence ledger, actual CLI membership
+scenario, public explanation and guide teaching before floor work. The authored
+pinned Mini_R control additionally reproduced KeyError('build.bom-only') because
+the existing guard omitted the closed severity registry. Register that existing
+build guard and the existing model.bom-only guard, explain and teach both, and
+prove that the pinned symbol returns a located error with zero output files.
+This completes existing diagnostics without changing fields or supported membership.

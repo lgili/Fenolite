@@ -170,16 +170,16 @@ fenolite region blink/build --box 110mm,102mm,120mm,110mm --kinds footprint,pad 
 
 ## Text fields
 
-A footprint carries two texts, `Reference` on the silkscreen and `Value` on the fabrication layer.
-`part.field(name, ...)` places one, once per name:
+A footprint has `Reference` and `Value` fields. `part.field(name, ...)` places one, once per name:
 
 - `outside="top"` (or `bottom`, `left`, `right`) puts it beside the courtyard, `gap=` away;
 - `dx=` and `dy=` give its offset from the part's position in the board frame, with `rot=` for the
   angle of the text; they are given together and do not turn with the part;
 - `visible=False` hides it; `layer="silk"` or `"fab"`, `size=` and `justify=` set the rest.
 
-Only `Reference` and `Value` can be placed. On a rebuild a field moved in KiCad wins over the script
-unless the request says `locked=True`.
+Declared `Part(properties=...)` keys also work:
+`r1.field("MPN", visible=True, layer="fab", rot=0)` requires `MPN`.
+On rebuild KiCad's field wins unless `locked=True`. Unknown or reserved names fail.
 
 ## What the build refuses
 

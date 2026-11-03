@@ -114,6 +114,7 @@ MORE_KINDS: tuple[str, ...] = (
     "dnp",
     "pin-net",
     "schematic-text",
+    "project-curve-error",
 )
 """What a write of a model accounts for besides ``KINDS``: a net or a net class whose name no record
 holds, a filled shape on a copper layer (the model holds it as a graphic), the poured copper of a zone (a
@@ -169,6 +170,7 @@ LOSS_KINDS: frozenset[str] = frozenset(
         "copper-shape",
         "plane",
         "footprint-copper",
+        "project-curve-error",
     }
 )
 """The kinds whose loss changes the board that is made: a write refuses them without ``allow_lossy``."""
@@ -221,6 +223,18 @@ _INT32 = range(-(2**31), 2**31)
 _FINITE = (float("-inf"), float("inf"))
 _FP_NATIVE = re.compile(r"fp:([A-Z]{8})")
 _SIDE = re.compile(r"^([FB])(\.|&)")
+
+
+def curve_error_issue(board: Board | None) -> Issue | None:
+    """The explicit target loss of the project curve setting; no Altium equivalent is claimed."""
+    if board is None or board.max_curve_error is None:
+        return None
+    return Issue(
+        NOT_LOWERED,
+        "info",
+        f"max_curve_error={board.max_curve_error} nm is not lowered to an Altium project setting",
+        where="project-curve-error",
+    )
 
 
 class LossyWriteError(FenoliteError):
@@ -1509,6 +1523,9 @@ def from_design(
     account = _Account()
     name = options.name if options is not None else design_name(design)
     board = design.board
+    curve_loss = curve_error_issue(board)
+    if curve_loss is not None and board is not None:
+        account.skip(curve_loss.where, board.id, curve_loss.message)
     if rewrite and board is not None and BACKEND not in board.native_ids:
         raise ValueError(
             "rewrite=True is for the reading of an Altium document; this board was not read from one"

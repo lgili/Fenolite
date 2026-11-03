@@ -1018,3 +1018,12 @@ Fenolite's choices, not format facts:
 - **THEIRS keeps its bytes.** The text of each changed item of OURS is spliced in, with the line ends of
   THEIRS; an added item follows the nearest item before it in OURS. The result must parse to the merged
   items, or the merge fails as a bug.
+
+### Custom field import controls (c0345)
+
+`KICAD-VERIFIED` — On native9.0.9 and10.0.6, an authored visible custom
+`Author` property on a rotated footprint retains exactly the same complete SVG
+primitive/style multiset after import and fresh build, both plain and bold/italic.
+Moving that field produces a different native multiset in each control. This
+verifies the authored cases only, not arbitrary fonts or manufacturing quality.
+Source: S-1286; hashes and scope in `docs/evidence/custom-footprint-field-poses.json`.

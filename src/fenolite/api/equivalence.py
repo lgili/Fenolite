@@ -27,6 +27,7 @@ from fenolite.api.sides import (
     import_tool,
     imported,
     read_side,
+    source_hashes,
 )
 from fenolite.backends.kicad import altium_import
 from fenolite.checks.equivalence import (
@@ -78,6 +79,7 @@ class Side:
     footprints: int
     tool_version: str | None = None
     power_symbols: int | None = None
+    source_files: tuple[tuple[Path, str], ...] = ()
 
     def to_json(self) -> dict[str, Any]:
         row: dict[str, Any] = {
@@ -92,6 +94,8 @@ class Side:
             row["tool_version"] = self.tool_version
         if self.power_symbols is not None:
             row["power_symbols"] = self.power_symbols
+        if self.source_files:
+            row["files"] = source_hashes(self.source_files)
         return row
 
 
@@ -183,7 +187,7 @@ def public_side(side: ReadSide) -> Side:
     source = side.netlist_source or ("board" if footprints else "circuit")
     return Side(
         side.name, side.sha256, side.backend, side.kind, source, len(side.design.circuit.components),
-        footprints, side.tool_version, side.power_symbols,
+        footprints, side.tool_version, side.power_symbols, side.source_files,
     )  # fmt: skip
 
 

@@ -25,6 +25,7 @@ TABLE = (
     (1, "ref-ambiguous", "ref"),
     (1, "value", "value"),
     (1, "dnp", "dnp"),
+    (1, "bom-only", "bom_only"),
     (2, "pin-missing", "pin"),
     (2, "net", "net"),
     (3, "footprint-missing", "footprint"),
@@ -150,7 +151,8 @@ def test_every_kind_gives_an_issue_of_its_code() -> None:
     assert (
         issues[0].message == "R1-1: ref is 'x' on side a and nothing on side b (level 1, component-missing)"
     )
-    assert issues[5].message == "R1-1 is on x on side a and on  on side b"
+    net_issue = next(issue for issue in issues if issue.code == "netlist.assignment-differs")
+    assert net_issue.message == "R1-1 is on x on side a and on  on side b"
 
 
 def test_docs_list_every_kind() -> None:

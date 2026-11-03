@@ -6,6 +6,11 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- **Exact cyclic text orientation** (c0346): level7 compares text and footprint
+  field rotations using the existing angular metric, so-90deg/270deg and full
+  turns agree exactly. True rotations remain visible; length tolerances cannot
+  hide them, and models, presence, sweeps and unrelated geometry stay unchanged.
+
 - **Refresh authored project identity caches** (c0344): regenerate only the
   two-sheet import fixture project caches after the native identity fix; retain
   every other fixture byte and pin ordinary import/build outputs against the
@@ -16,6 +21,12 @@ All notable changes to Fenolite are documented here. The format follows
   locally. Explicit definition lookups preserve edited variants and field poses;
   conflicting lookup payloads and genuine basename mismatches refuse before
   staging, without relaxing physical or drawing comparisons.
+- **Custom footprint field poses** (c0345): allow field requests for exactly
+  declared user properties and preserve their source placement, visibility and
+  supported font through board-to-code import. Refuse unrepresentable poses
+  before staging. Native 9/10 SVG controls and the complete Multichannel proof
+  retain the custom fields without relaxing geometry or rendering checks.
+- **BOM-only diagnostics** (c0334): complete the closed issue ledgers, CLI explanations and guide teaching. Invalid pinned purchasing items now return the intended located build error before producing files.
 
 - **Reviewed licence registry** (c0333): synchronize the three explicitly
   approved original licence-text digests with the library, preserving all
@@ -54,6 +65,13 @@ All notable changes to Fenolite are documented here. The format follows
   names, numbers, geometry or electrical mappings. Exact signed cardinal pin
   rotations are canonicalized modulo360 with source-bound warnings; near-cardinal
   and noncardinal inputs are refused without rounding.
+- **Explicit project curve approximation** (c0340, in progress): preserve a
+  positive integer-nm `Board.max_curve_error` through the board DSL, imports
+  and KiCad project files; compare its effective setting at level6 and keep
+  unsupported Altium lowering strict. Trace project-context input hashes in
+  equivalence and verify-source plans. Actual KiCad9.0.9/10.0.6 sensitive
+  default controls pass. Derived-cache comparison and exact-head CI remain open.
+
 - **Preserve blank native title blocks** (c0339, in progress): keep imported
   empty sheet metadata explicitly blank instead of inheriting a dated board.
   Authored inheritance and all75 default plans remain unchanged. Authored

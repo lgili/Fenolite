@@ -15,6 +15,7 @@ from fenolite.backends.kicad import embed
 from fenolite.backends.kicad.mod import read_footprint
 from fenolite.core.evidence import Level
 from fenolite.core.ids import derived_id
+from fenolite.dsl import Part
 from fenolite.dsl.lock import LOCK_CODES
 from fenolite.lens.altium_schematic import ISSUE_CODES as ALTIUM_ISSUE_CODES
 from fenolite.lens.build import BUILD_EVIDENCE, BUILD_ISSUE_CODES, plane_issues
@@ -31,6 +32,7 @@ TESTS = ROOT / "tests" / "unit" / "lens"
 
 def test_closed_set() -> None:
     table = {
+        "build.bom-only": "error",
         "build.unknown-pin": "error", "build.pin-on-two-nets": "error", "build.pin-without-pad": "error",
         "build.pin-pad-map-invalid": "error",
         "build.unattached": "warning",
@@ -199,3 +201,14 @@ def test_plane_issues() -> None:
     assert "KiCad" not in first.hint and 'layers=("In2.Cu",)' in second.hint
     assert second.where == "In2.Cu" and "VIN" in second.message
     assert "build.plane-not-lowered" not in BUILD_ISSUE_CODES
+
+
+def test_bom_only_pinned_symbol_is_a_located_error_without_files() -> None:
+    design = blink()
+    design.add(Part("M1", "Mini:Mini_R", bom_only=True))
+    output = build(design)
+    found = [item for item in output.issues if item.code == "build.bom-only"]
+    assert len(found) == 1
+    assert found[0].severity == "error" and found[0].where == "M1"
+    assert "pinless and non-power" in found[0].message
+    assert not output.files

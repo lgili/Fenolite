@@ -164,6 +164,17 @@
       "items": {
         "$ref": "#/$defs/Image"
       }
+    },
+    "max_curve_error": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 1
+        },
+        {
+          "type": "null"
+        }
+      ]
     }
   },
   "additionalProperties": false,
