@@ -56,3 +56,36 @@ The four `H-A-CONV-*` rows stay `INFERRED`, and c0160 task 5.3 and c0166 task 2.
 
 No native file, screenshot or saved document enters the repository. They stay in the agent's kit folder
 outside it, and nothing was saved in Altium.
+
+## Rerun on the current source, 2026-11-04 evening (source S-1578)
+
+The same agent reran Part T at the maintainer's request (via the coordinating session) after the branch
+was rebased on `cac/lote-13` (`3479f126`), where the exact cut of c0332 is switched off. The Altium
+Designer in the VM is still 24.5.2.23 (Trial); no Altium Designer 26 is installed there. The inputs were
+converted with the same command at `0207378b`:
+
+| case | conversion | files |
+|---|---|---|
+| SCHEMATIC | written, exit 0 (the `FEN-3005` refusal is gone with the exact cut) | `complex_hierarchy.PcbDoc` `6f794440…`, `.SchDoc` `1c8fc161…`, `_ampli_ht_horizontal.SchDoc` `3047fd9c…`, `_ampli_ht_vertical.SchDoc` `3e8c3420…`, `.SchLib` `5e841237…`, `.PcbLib` `7d012756…`, `.PrjPcb` `9dceff67…` |
+| PADSTACK | written, exit 0 | the same bytes as at `d155b258` (`cecd53b1…`, `c9255baa…`), so the T1 to T6 results above stand for the current source |
+| DIFAT | refused | at `0207378b` still `FEN-1001`; at `8bbba776` exit 7, `FEN-7001`, naming the 75-mil pin of `IND_10UH_20%_TDK_VLCF5020-1` |
+
+**Cause of `FEN-1001`.** `convert/schematic.py` called `altsym.from_symbol_def` without handling its
+`ValueError` for a pin off Altium's 10-mil grid; `lens/altium.py` already reports the same case as
+`altium.symbol-off-grid`. Commit `8bbba776` turns it into a target-limit refusal (`FEN-7001`) with a
+regression test. It reproduces with `fenolite convert vme-wren.kicad_pro --to altium --allow-lossy --dry-run`
+on the registered public project. DIFAT therefore has no current bytes, and its T1 to T5 were not rerun.
+
+SCHEMATIC on the current bytes:
+
+| step | observation |
+|---|---|
+| T1 open | the project opens its three sheets, PCB, PcbLib and SchLib; no message |
+| T2 compile | three physical sheets (10, 29 and 29 components), flattened 68 components and 56 nets; `Compile successful, no errors found.` with 18 warnings: four duplicate pins in `U201`/`U301` and 14 nets without a driving source. The 2026-10-12 bytes gave 3 errors |
+| T3 repour | `GND_L02_P000` (Bottom, `GND`) already holds 1 region as written; after Repour All it holds 1 |
+| T4 DRC | 221 violations: SilkToSilkClearance 60, SilkToSolderMaskClearance 152, MinimumSolderMaskSliver 9; no clearance violation (the older bytes had Clearance 17 and Clearance_power 6) |
+| T5 ECO | no component-link dialog; the ECO lists Remove Nets (2), `unconnected-(U102-LV-Pad6)` and `unconnected-(U102-OSC-Pad7)`, and Remove Net Classes (2), `Default` and `power`, from the PCB; no footprint change; closed without executing |
+| T6 | not part of SCHEMATIC |
+
+The rows stay `INFERRED` and task 5.3 stays open: this is an agent run on 24.5, DIFAT has no current
+bytes, T6 used a scripted placement and connector masks are not exercised. Nothing was saved in Altium.

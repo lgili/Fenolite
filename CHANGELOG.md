@@ -7,6 +7,8 @@ All notable changes to Fenolite are documented here. The format follows
 ## [Unreleased]
 
 - Archive c0323-build-byte-diagnostics (the per-platform byte mismatch is recorded as accepted, not resolved; CI 41853235387) and c0305-viewer-roles (viewer job green in CI 41853235387).
+- Record a current Altium 24.5.2.23 rerun of Part T (c0160, S-1578). A Claude agent ran it at the maintainer's request. SCHEMATIC now converts and compiles with no error. Its DRC finds 221 silk and mask violations and no clearance violation. The ECO removes only two unconnected nets and two net classes. PADSTACK bytes are unchanged, and DIFAT is refused with `FEN-7001`. Levels are unchanged, and task 5.3 stays open.
+
 - Refuse a KiCad-to-Altium conversion whose schematic symbol has a pin off Altium's 10-mil grid with `FEN-7001` (exit 7), naming the pin and the grid, instead of the internal error `FEN-1001` (c0160). The registered public `vme-wren` project, whose inductor pin is 75 mil long, reproduces it.
 
 - Record a current Altium 24.5.2.23 Part J phase A run (c0241, S-1577). A Claude agent ran J1 to J22 at the maintainer's request. All 21 files were saved, and their record diffs are recorded. A second resave still changes records in seven streams. J9's scripted layer change moves `D1`'s origin, and J12's paste joins `GND`. Each saved file holds its own VM path, so the folder cannot be published. Every `H-A-EDIT-*` and `H-A-INTEG-*` level is unchanged, and task 1.2 stays open.
