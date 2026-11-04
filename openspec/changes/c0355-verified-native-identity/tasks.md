@@ -112,6 +112,18 @@ verdict, which remains required and unpresumed. Context mutation is resolved, bu
 Royal mismatch cause. Task4.4 and every final broader/CI gate remain UNCHECKED; this is no completion,
 archive, waiver, hypothesis promotion or permission for another Royal experiment.
 
+Task4.4 public replay on 2026-11-04 (resumed by the maintainer; no new Royal experiment): the ordinary
+public import/verify replay of the unchanged corpus row kicad-demo-10-0-6-pcb-13 (board535dbe21...,
+source tree d9bcf1ae..., 50 files) on head468d8a61 with kicad-cli10.0.6, recorded in
+docs/evidence/public-replays-20261104.json, reproduces the retained result exactly: import dry/confirm
+exit0, verify-source exit5 with L1-6,S,8 equal and only the two L7 findings, source289/a562fa79... versus
+generated293/4b439125... and teardrop263->0. Source files stay byte-identical (kicad-cli only adds a
+.kicad_prl to the copy). No COPY/renumber/UUID/cache edit, acceptance, src change or private board.
+The branch codex/cac-royal-identity-copy (tip12450fc6) was read and left untouched: its c0355 proof
+JSONs are byte-identical on this head; its other files belong to the pre-rewrite history. Tasks0.4,
+1.0-1.3, 2.1-2.3, 3.1 and 4.4 stay UNCHECKED: each needs a new coordinator-approved descriptor, and
+4.4 still fails on the same exact geometry.
+
 
 - [x] 4.3a Repair only the missing evidence declaration of the shared native_net_binding backend helper exposed by the completed fast14 on b1e9349a (7failed/22399passed/52skipped). Preserve an INFERRED level under an appropriate existing reader hypothesis, without any new/promotion/native-pass claim; regenerate matrices with the canonical tool and run the five failed declaration/page guards plus touched lint/format. The two independent rebuild-fingerprint failures and real Royal L7 failure remain open.
 

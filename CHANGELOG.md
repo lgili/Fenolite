@@ -161,6 +161,7 @@ All notable changes to Fenolite are documented here. The format follows
 - Keep ordinary imported projects editable when their native class representation needs no binding; qualify immutable context using the actual DSL spelling projection and preserved native rules, while retaining every genuine model/input guard (c0355).
 
 - Declare the shared native-net binding helper under the existing inferred PCB-reader evidence and regenerate its matrix row; retain the independent rebuild and native Royal failures (c0355).
+- Record that the 2026-11-04 public RoyalBlue replay on the current head reproduces the retained level-7 result exactly (289/a562fa79 versus 293/4b439125, teardrop 263 to 0); levels 1–6, S and 8 stay equal and every identity task stays open for new approvals (c0355).
 
 - Reconcile existing native evidence against the literal remaining c0215 acceptance criteria, preserving source/version boundaries and unfinished aggregate, graduation and CI gates.
 
