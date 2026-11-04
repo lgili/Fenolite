@@ -1,6 +1,6 @@
 # Part T: actual Altium 24.5.2.23 T1 to T6
 
-Source S-1310, 2026-11-04. A Claude agent ran these steps at the maintainer's request of 2026-11-04,
+Source S-1571, 2026-11-04. A Claude agent ran these steps at the maintainer's request of 2026-11-04,
 operating the Altium Designer installed in the maintainer's Parallels Windows VM. This is not the
 maintainer's own review. The tool reports `Client.GetProductVersion` 24.5.2.23, and `X2.exe` has
 FileVersion 24.5.2.23 (Trial licence, not signed in). [The measured recap](altium-part-t-convert-24-native.json)

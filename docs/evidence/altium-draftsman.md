@@ -236,7 +236,7 @@ reports. Nothing on this page or in `docs/formats/altium/draftsman.md` is `ALTIU
 F0 saves, FP outcomes, F1-F8 and the native gates remain open. Public corpus read-back and authored
 candidate kits are mechanical preparation only; they are not author reports or application saves.
 
-### 2026-11-04, actual `AD 24.5.2.23`, rounds F0 and FP (sources S-1313 and S-1314)
+### 2026-11-04, actual `AD 24.5.2.23`, rounds F0 and FP (sources S-1574 and S-1575)
 
 A Claude agent ran these rounds at the maintainer's request of 2026-11-04. It operated the Altium
 Designer installed in the maintainer's Parallels Windows VM. This is not the maintainer's own review.

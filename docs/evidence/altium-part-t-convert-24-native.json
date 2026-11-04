@@ -1,6 +1,6 @@
 {
   "schema": "fenolite.altium-part-t-scoped-observation.v1",
-  "source": "S-1310",
+  "source": "S-1571",
   "scope": "c0160 Part T steps T1-T6 (c0166 task 2.1) on PADSTACK at d155b258 and on the 2026-10-12 SCHEMATIC and DIFAT bytes",
   "operator": "Claude agent at the maintainer's request of 2026-11-04; not the maintainer's own review",
   "date": "2026-11-04",

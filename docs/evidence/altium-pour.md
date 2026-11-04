@@ -65,7 +65,7 @@ row `-03` took 36.6 s.
 
 ## Kit rounds
 
-### 2026-11-04, actual `AD24.5.2.23`, K6 (source S-1311)
+### 2026-11-04, actual `AD24.5.2.23`, K6 (source S-1572)
 
 A Claude agent ran group K6 at the maintainer's request of 2026-11-04. It operated the Altium Designer
 installed in the maintainer's Parallels Windows VM. This is not the maintainer's own review. The tool

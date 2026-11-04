@@ -172,7 +172,7 @@ digests and sizes are committed.
 
 No report of Part J has been received from the maintainer. The agent run below is not an author report.
 
-### 2026-11-04, actual `AD 24.5.2.23`, phase A J1 to J22 (source S-1316)
+### 2026-11-04, actual `AD 24.5.2.23`, phase A J1 to J22 (source S-1577)
 
 A Claude agent ran phase A at the maintainer's request of 2026-11-04, in the Altium Designer installed in
 the maintainer's Parallels Windows VM. This is not the maintainer's own review. `X2.exe` is 24.5.2.23

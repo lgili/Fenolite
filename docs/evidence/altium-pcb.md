@@ -729,7 +729,7 @@ are committed.
 
 ### 2026-11-04, actual `AD24.5.2.23`, Part Q
 
-Source S-1315. A Claude agent ran phase A at the maintainer's request of 2026-11-04 in the maintainer's
+Source S-1576. A Claude agent ran phase A at the maintainer's request of 2026-11-04 in the maintainer's
 Windows VM. This is not the maintainer's own review and not the author report the rows ask for.
 `Client.GetProductVersion` is 24.5.2.23 (Trial licence). The kit was built at `7074a68e` into the agent's
 folder `~/fenolite-altium-checks/claude-2026-11-04/c0173-Q` with `FENOLITE_ALTIUM_PART_Q=<that folder>
@@ -761,7 +761,7 @@ approved 24.5 scope. `H-A-PANEL-LAYERKIND` stays `UNKNOWN` (Q3 not run). Task 2.
 
 ### 2026-11-04, actual `AD24.5.2.23`, Part T
 
-Source S-1310: [T1–T6 report](altium-part-t-convert-2026-11-04.md) and
+Source S-1571: [T1–T6 report](altium-part-t-convert-2026-11-04.md) and
 [measured recap](altium-part-t-convert-24-native.json). Run by a Claude agent at the maintainer's
 request of 2026-11-04 in the maintainer's Windows VM, not the maintainer's own review. At source
 `d155b258` only PADSTACK converts: SCHEMATIC is refused with `FEN-3005` and DIFAT fails with `FEN-1001`.
@@ -779,7 +779,7 @@ Connector masks are not exercised: no source has a `connect` pad. The four `H-A-
 
 ### 2026-11-04, actual `AD24.5.2.23`, Part S
 
-Source S-1309: [S1/S2/S8 report](altium-part-s-slots-2026-11-04.md) and
+Source S-1570: [S1/S2/S8 report](altium-part-s-slots-2026-11-04.md) and
 [measured recap](altium-slots-s1-s2-s8-24-native.json). Run by a Claude agent at the maintainer's
 request of 2026-11-04 in the maintainer's Windows VM, not the maintainer's own review. It uses the same
 input digests as S-1297: regions `be65d4b9…`, clearance `822d31cf…`, gate-off `c798ec46…`. All inputs
