@@ -15,6 +15,7 @@ from fenolite.api import equivalent
 from fenolite.api.sides import read_schematic
 from fenolite.backends.altium.backend import AltiumBackend
 from fenolite.convert import convert_project, read_source
+from fenolite.convert.direction import TargetLimitError
 from fenolite.model.design import Design
 
 
@@ -67,3 +68,18 @@ def test_no_connect_marks_survive_conversion(tmp_path: Path, prepared: bool) -> 
     connected = {(refs[m.component_id], m.pin) for n in readback.circuit.nets for m in n.members}
     assert not marked & connected
     assert equivalent(source / "nested.kicad_sch", target / "nested.PrjPcb", level=2).equivalent
+
+
+def test_off_grid_symbol_pin_refused_as_target_limit(tmp_path: Path) -> None:
+    """A pin length off Altium's 10-mil grid is a target limit (FEN-7001), not an internal error (c0160)."""
+    source = tmp_path / "source"
+    source.mkdir()
+    write_files(built_nested(), source)
+    sch = source / "nested.kicad_sch"
+    text = sch.read_text(encoding="utf-8")
+    assert "(length 2.54)" in text
+    sch.write_text(text.replace("(length 2.54)", "(length 1.905)", 1), encoding="utf-8")
+    with pytest.raises(TargetLimitError, match=r"1905000 nm is not a multiple of 10 mil") as raised:
+        convert_project(source / "nested.kicad_pro", to="altium", allow_lossy=True)
+    assert raised.value.cli_code == "FEN-7001"
+    assert "10-mil grid" in raised.value.hint

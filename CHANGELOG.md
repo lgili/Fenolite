@@ -7,6 +7,8 @@ All notable changes to Fenolite are documented here. The format follows
 ## [Unreleased]
 
 - Archive c0323-build-byte-diagnostics (the per-platform byte mismatch is recorded as accepted, not resolved; CI 41853235387) and c0305-viewer-roles (viewer job green in CI 41853235387).
+- Refuse a KiCad-to-Altium conversion whose schematic symbol has a pin off Altium's 10-mil grid with `FEN-7001` (exit 7), naming the pin and the grid, instead of the internal error `FEN-1001` (c0160). The registered public `vme-wren` project, whose inductor pin is 75 mil long, reproduces it.
+
 - Record a current Altium 24.5.2.23 Part J phase A run (c0241, S-1316). A Claude agent ran J1 to J22 at the maintainer's request. All 21 files were saved, and their record diffs are recorded. A second resave still changes records in seven streams. J9's scripted layer change moves `D1`'s origin, and J12's paste joins `GND`. Each saved file holds its own VM path, so the folder cannot be published. Every `H-A-EDIT-*` and `H-A-INTEG-*` level is unchanged, and task 1.2 stays open.
 
 - Record a current Altium 24.5.2.23 Part Q phase A run (c0173, S-1315). A Claude agent ran it at the maintainer's request. Q1, Q2 and Q4 save with no message. Q5's Gerber and NC Drill outputs hold four copies. Q3 was not run. Each saved panel holds a VM home folder, so the folder cannot be published. `H-A-PANEL-RECORD` and `H-A-PANEL-LAYERKIND` keep their levels, and task 2.4 stays open.

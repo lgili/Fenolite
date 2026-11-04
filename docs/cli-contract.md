@@ -4447,7 +4447,7 @@ or none, with a `.bak` copy of each file it overwrites unless `--no-backup` is g
 | 3 | `FEN-3001`, the reader's code | `SRC` does not exist, or does not read |
 | 4 | `FEN-4001` | neither `--dry-run` nor `--confirm` |
 | 5 | `FEN-5001` | a `convert.unexplained` error; nothing is planned |
-| 7 | `FEN-7001` | a loss of a `refuse` kind without `--allow-lossy` (the issues name each kind), or a document too large for the Altium writer |
+| 7 | `FEN-7001` | a loss of a `refuse` kind without `--allow-lossy` (the issues name each kind), a document too large for the Altium writer, or a schematic symbol pin off Altium's 10-mil grid (the message names the pin) |
 
 ## panel
 

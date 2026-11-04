@@ -15,6 +15,7 @@ from fenolite.backends.altium import project
 from fenolite.backends.altium.altsym import AltiumSymbol, from_symbol_def
 from fenolite.backends.kicad import parity_inputs
 from fenolite.backends.kicad.netlist import NO_CONNECT_SUFFIX
+from fenolite.convert.direction import TargetLimitError
 from fenolite.convert.sources import SourceError, SourceProject
 from fenolite.core.evidence import Evidence, Level
 from fenolite.core.ids import derived_id
@@ -156,7 +157,16 @@ def inputs(
                 dnp=instance.dnp or component.dnp,
             )
         )
-        symbols[link] = from_symbol_def(definition, lib_ref=symbol_name, footprint=None, bodies="graphics")
+        try:
+            symbols[link] = from_symbol_def(
+                definition, lib_ref=symbol_name, footprint=None, bodies="graphics"
+            )
+        except ValueError as error:  # an off-grid pin: the SchLib holds pins on the 10-mil grid only
+            raise TargetLimitError(
+                f"the schematic of {root.name} cannot be written: {error}",
+                hint="Altium library pins lie on the 10-mil grid; move the pin onto it in KiCad "
+                "(KiCad's 50-mil grid is on it); nothing was converted",
+            ) from None
     nets = tuple(
         dataclasses.replace(n, members=tuple(PinRef(ids[m.component_id], m.pin) for m in n.members))
         for n in circuit.nets
