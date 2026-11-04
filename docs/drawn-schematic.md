@@ -291,6 +291,12 @@ strict assertions; the KiCad jobs retain the reports even on failure. Native-onl
 singletons stay in the comparison. No CAD payload, accepted-difference list or loss flag is added.
 Local measurements name their actual tool version and do not establish the other major's CI result.
 
+The first two fields compare resolver outputs with the original native export.
+`lowered_native_partition` instead compares the original native netlist with the
+rewritten native export; it does not compare lowered-resolver names. The
+[comparison subjects](evidence/drawn-schematic.md#comparison-subjects-retained-producer)
+explain this distinction without changing the measurements.
+
 ## Altium
 
 `build --target altium` writes drawn sheets in ASCII or binary native form and verifies the actual

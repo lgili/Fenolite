@@ -182,6 +182,32 @@ elsewhere in its selected geometry cases. The whole CI run remains **failure**.
 The 10 job used quiet output, so no unretained PASSED/stdout content or literal
 `-rA` invocation is invented. Its complete per-row JSON survives each assertion.
 
+### Comparison subjects (retained producer)
+
+The field names identify three different comparisons in
+`tests/_drawn_corpus.py::measure`; all retain complete pin partitions and record
+naming separately for `drawn-named-nets`:
+
+| Field | Left subject | Right subject |
+|---|---|---|
+| `partition` | Resolver output extracted from the original drawing | Original native netlist export |
+| `lowered_partition` | Resolver output after lowering, writing and reading back | Original native netlist export |
+| `lowered_native_partition` | Netlist constructed from the original native export's names and groups | Native netlist export of the rewritten drawing |
+
+For the third field the producer constructs `original_netlist` from
+`original_groups`, which came from the original native export. It does **not**
+pass `lowered_own`, the readback resolver, to this comparison. Thus equal naming
+in `lowered_native_partition` proves preservation between the two native
+exports; it does not prove that the lowered resolver's names match either one.
+
+The source985 resolver/original and lowered-resolver/original naming differences
+remain in 57 of 87 contexts on 9 and 82 of 113 on 10. The native-original versus
+native-rewritten naming comparison is equal in all 87/113 successful contexts.
+These are the existing retained measurements, not new exports. Their different
+subjects must not be combined into universal resolver naming equality.
+`H-K-DRAWN-NAMES` retains its original statement and `INFERRED` label; no pending
+c0276 task, experimental writer or CI gate is closed by this clarification.
+
 | Native | Real declared rows | Equal complete partitions | Original reader-floor negatives | Incompatible tag, not executed | Raw JSONs | Byte-identical aliases |
 |---|---:|---:|---:|---:|---:|---:|
 | 9.0.9 | 130 | 87 | 5 | 38 | 262 | 132 |
@@ -232,7 +258,7 @@ refusals, with no generic-refusal allowance or accepted loss. Separate c0347
 upgraded-original qualification does not overwrite these original outcomes.
 
 Resolver/source and lowered/source naming warnings remain in **57/87** contexts
-on 9 and **82/113** on 10. Lowered-native/source names agree in all 87/113
+on 9 and **82/113** on 10. Original-native/rewritten-native names agree in all 87/113
 successful contexts. The raw warning sums 18,515/18,586 repeat owner graphs and
 are not unique net/defect counts. This is no universal H-K-DRAWN-NAMES claim.
 No comparator, pin domain, writer loss flag, baseline or hypothesis level was

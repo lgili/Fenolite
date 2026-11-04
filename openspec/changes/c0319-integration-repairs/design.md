@@ -251,3 +251,12 @@ layouts refuse before reading. Temporary active/archive copies under a controlle
 CP1252 default execute the original approval/scope checks and retain exact proof
 bytes. All 171 prior assertions and all native evidence remain unchanged. This
 prepares a later normal archive; it does not close c0276 or promote any hypothesis.
+
+## Drawn census comparison subjects (task2.20)
+
+The retained producer compares source-resolver/original-native and
+lowered-resolver/original-native separately from native-original/native-rewritten.
+The third field uses a netlist constructed from original native names and groups;
+it is not a lowered-resolver naming check. Documentation names these subjects
+explicitly and keeps every historical measurement, digest and task scope intact.
+The original H-K-DRAWN-NAMES statement and INFERRED label remain unchanged.

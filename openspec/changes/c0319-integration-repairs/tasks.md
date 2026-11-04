@@ -524,3 +524,24 @@ reader. Native proof bytes and production code are unchanged. Focused Ruff,
 format, OpenSpec 1.3 strict and diff pass; staged private residue is zero hits in
 five files, gate on. No real archive, hypothesis promotion, fast/full/native/CI
 or push.
+
+- [x] 2.20 Clarify the three drawn-census comparison subjects from the retained producer:
+  source resolver versus original native export, lowered/readback resolver versus original native
+  export, and original native export versus rewritten native export. Do not describe the third
+  field as lowered-resolver naming equivalence. Preserve all measured counts, hashes and sealed
+  receipts, the original H-K-DRAWN-NAMES statement/INFERRED label, and open c0276 gates.
+  Proof: read-only producer AST and retained-summary reconciliation; protected-byte comparisons;
+  strict c0319, diff and private residue. No native measurement, suite, CI or archive.
+
+Task2.20 proof: producer AST confirms that `partition` consumes `own/native`,
+`lowered_partition` consumes `lowered_own/native`, and `lowered_native_partition`
+consumes `original_netlist/lowered_native`. The third left subject is constructed
+from original native groups, not the lowered resolver. The retained source985
+summaries reconcile unchanged: resolver naming differences in 57/87 and 82/113
+contexts; original-native/rewritten-native names equal in 87/87 and 113/113.
+Twenty-three protected receipt, producer and contract files retain exact bytes.
+Removing only the declared documentation inserts and reversing one clarified
+label restores both original pages exactly. Runtime, tests, tools and normative
+specs are unchanged. OpenSpec 1.3 strict, diff and staged private residue pass
+with zero hits in six files, gate on. No new measurement, suite, CI, hypothesis
+promotion or c0276 closure occurred.

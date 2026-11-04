@@ -6,6 +6,9 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Clarify that the third drawn-census comparison measures original-native versus rewritten-native names; preserve resolver naming differences, sealed measurements and pending evidence gates (c0319).
+- **Local proof reconciliation** (c0350): bind the existing scoped local validation to fast18 and exact unchanged source paths; keep CI/native closure independent.
+
 - Keep the drawn native-proof check readable after a normal spec archive, rejecting missing or ambiguous locations while preserving UTF-8 and all evidence assertions (c0319).
 
 - Read and write the native-approval and temporary archive evidence as UTF-8 in documentary tests, preserving their assertions on Windows (c0319).
