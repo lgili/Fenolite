@@ -1139,6 +1139,7 @@ after the readers' own issues and before the `model.*` findings. An error issue 
 | `altium.import.extra-board` | info | a project lists more than one PCB document; only the first is read |
 | `altium.import.linked-by-designator` | info | count of PCB components linked to a schematic component by designator, not by unique-id path |
 | `altium.import.pcb-only-net` | info | count of nets of the PCB document that the sheets do not hold; they are added to the circuit |
+| `altium.import.pcb-net-conflict` | warning | pins that a sheet net holds and that the PCB document puts on another net; the circuit keeps the sheets' net, each pad its own (change c0373) |
 | `altium.import.rule-unmapped` | info | count of rule records of one rule kind that do not map, with the mapper's reasons |
 | `altium.import.unmapped` | info | counts, by kind, of the records that gave no model entity, and the storages kept as bytes |
 

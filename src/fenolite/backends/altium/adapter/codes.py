@@ -53,6 +53,7 @@ IMPORT_ISSUE_CODES: dict[str, Severity] = {
     "altium.import.extra-board": "info",
     "altium.import.linked-by-designator": "info",
     "altium.import.pcb-only-net": "info",
+    "altium.import.pcb-net-conflict": "warning",
     "altium.import.rule-unmapped": "info",
     "altium.import.unmapped": "info",
 }

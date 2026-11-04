@@ -10483,6 +10483,12 @@
         "warning"
       ]
     },
+    "altium.import.pcb-net-conflict": {
+      "experimental": false,
+      "severities": [
+        "warning"
+      ]
+    },
     "altium.import.pcb-only-component": {
       "experimental": false,
       "severities": [

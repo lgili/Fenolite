@@ -199,6 +199,9 @@ def link(circuit: Circuit, by_path: dict[str, str], repeated: set[str], parts: B
     pin_of_pad = {
         cid: {pad: pin for pin, pad in component.pin_pad_map} for cid, component in components.items()
     }
+    # change c0373: a pin that a sheet net holds keeps it; a PCB-only net does not take it too
+    sheet_net = {member: net.name for net in circuit.nets for member in net.members}
+    conflicts: list[str] = []
     for net in parts.nets:
         match = exact.get(net.name)
         if match is None and len(folded.get(net.name.casefold(), [])) == 1:
@@ -219,6 +222,11 @@ def link(circuit: Circuit, by_path: dict[str, str], repeated: set[str], parts: B
             if target in pins_of and pin not in pins_of[target]:
                 continue  # the sheets do not hold this pin; the pad keeps its net on the board
             ref = PinRef(target, pin)
+            held = sheet_net.get(ref)
+            if held is not None:
+                owner = components.get(target)
+                conflicts.append(f"{owner.ref if owner else target}-{pin}: sheets {held!r}, PCB {net.name!r}")
+                continue
             if ref not in members:
                 members.append(ref)
         extra_nets.append(dataclasses.replace(net, members=tuple(members)))
@@ -228,6 +236,16 @@ def link(circuit: Circuit, by_path: dict[str, str], repeated: set[str], parts: B
                 "altium.import.pcb-only-net",
                 f"{len(extra_nets)} net(s) of the PCB document are no net of the sheets; they are added to "
                 "the circuit",
+                parts.board.provenance.file if parts.board.provenance else "",
+            )
+        )
+    if conflicts:
+        shown = "; ".join(sorted(conflicts)[:5]) + ("; …" if len(conflicts) > 5 else "")
+        issues.append(
+            issue(
+                "altium.import.pcb-net-conflict",
+                f"{len(conflicts)} pin(s) are on a net of the sheets and on another net of the PCB document; "
+                f"the circuit keeps the sheets' net and the pad keeps its own on the board: {shown}",
                 parts.board.provenance.file if parts.board.provenance else "",
             )
         )

@@ -107,13 +107,23 @@ def with_other_net(document: PcbDocument) -> PcbDocument:
 
 
 def test_net_only_on_the_board_keeps_the_pad_net() -> None:
+    """The pad keeps its PCB net on the board; its pin, which a sheet net holds, stays on that net only
+    and the disagreement is reported (change c0373: it used to be a member of both nets)."""
     issues: list[Issue] = []
     design = blink(with_other_net, issues)
     shield = design.nets_by_name["SHIELD"]
     assert design.board is not None
     assert any(pad.net_id == shield.id for fp in design.board.footprints for pad in fp.pads)
     (found,) = [i for i in issues if i.code == "altium.import.pcb-only-net"]
-    assert found.message.startswith("1 net(s)") and len(shield.members) == 1
+    assert found.message.startswith("1 net(s)") and shield.members == ()
+    (conflict,) = [i for i in issues if i.code == "altium.import.pcb-net-conflict"]
+    assert (
+        conflict.severity == "warning"
+        and conflict.message.startswith("1 pin(s)")
+        and "'SHIELD'" in conflict.message
+    )
+    pins = [(m.component_id, m.pin) for net in design.circuit.nets for m in net.members]
+    assert len(pins) == len(set(pins))  # no pin is on two nets
     assert [i for i in design.validate() if i.severity == "error"] == []
 
 

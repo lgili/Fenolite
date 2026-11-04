@@ -379,6 +379,11 @@ meaning = "Count of nets of the PCB document that the sheets do not hold; they a
 fix = "Update the board from the schematic in Altium, or accept the nets as they are on the board."
 see = "Altium import"
 
+["altium.import.pcb-net-conflict"]
+meaning = "Pins that a net of the sheets holds and that the PCB document puts on another net: the schematic and the board are out of sync. The circuit keeps the sheets' net; each pad keeps its own net on the board."
+fix = "Update the board from the schematic in Altium (or the schematic from the board), then import again."
+see = "Altium import"
+
 ["altium.import.repeated-sheet"]
 meaning = "A `Repeat(` statement of a sheet symbol that is not instantiated: it has not the form `Repeat(NAME, first, last)`, its first index is above its last, or its channels would bring the project above 256 sheet instances. One instance of its sheet is read; the other channels are missing from the circuit."
 fix = "Correct the statement in Altium, or split the project so that it stays within 256 instances."

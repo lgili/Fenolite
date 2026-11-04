@@ -102,6 +102,10 @@ All notable changes to Fenolite are documented here. The format follows
   The roadmap reconciles the original phases 0–4; no router runtime behavior changes here.
 
 - Archive c0170-convert-slots-obstacles: slots and cut-outs in conversions, slotted drills to Altium, generated hole footprints and slot obstacles, with `H-K-CONV-SLOTS` proved in CI (task 3.3).
+- **PCB net conflicts** (c0373): a pin that a net of the Altium sheets holds is no longer also added to a
+  net that only the PCB document holds; the pad keeps its own net on the board and the new warning
+  `altium.import.pcb-net-conflict` names each such pin with both nets (schematic and board out of sync).
+
 - **Generated schematic limit** (c0372): when the schematic generator cannot lay an Altium circuit out on
   one A0 page, `convert --to kicad` still writes the board and declares the schematic lost (exit 7 without
   `--allow-lossy`) instead of planning no write; the lost schematic explains schematic-only components.
