@@ -35,6 +35,7 @@
 
 - [x] 5.1 Lower proven whole-net delays and differential protocol skews as `length`/`skew` rules, and report `rules.topology-not-lowered` otherwise; record the rows in `docs/formats/kicad/rules.md` with their labels (scenario "One-net delay lowered"). Proof: `uv run pytest tests/unit/backends/kicad/test_lowering.py -k topology -q`.
 - [ ] 5.2 Prove one lowered topology `length` rule with `kicad-cli` on 9.0.9 and 10.0.6 (KiCad job in CI, not on the maintainer's PC). Proof: `uv run pytest tests/kicad/rules/test_topology_lowering.py -q` in the KiCad CI jobs.
+  - 2026-11-04, local KiCad 10.0.6 (macOS `kicad-cli`): the over-budget case (`max_fs=100000`, 20 mm on F.Cu = 118000 fs) failed. KiCad reported `length_out_of_range` of `fenolite_0_topology_clk_delay` (max 16.9492 mm, actual 20.0000 mm) on the net's two pads, and the test looked only at the track's uuid. The test now matches any track or pad of CLK, as `_lengthbench.net_uuids` does for the length kind, and requires the lowered rule's name in the violation. Both cases pass with the canary fired (2 passed, 3.19 s). The 9.0.9 run and the two CI jobs are still owed, so the task stays open.
 
 ## 6. Example, docs and guide
 
