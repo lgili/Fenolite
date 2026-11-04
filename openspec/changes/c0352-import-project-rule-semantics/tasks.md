@@ -8,7 +8,21 @@
 - [x] 2.3 Prove floor tampering below all classes on both source paths, ambiguous/malformed inputs, stale plans, and no hidden side inputs.
 - [x] 2.6 Keep the agent guide navigation contract after appending native-context/cache explanations: move Read next to the final line without removing any content. Proof: `uv run pytest tests/unit/agent/test_pages.py -q`, 105 passed (2026-11-03).
 - [ ] 3.1 Run focused import/API/rules and native controls, default regressions, guide generation if needed, lint/types and private residue checks. Root coordinates combined fast/CI.
-- [ ] 3.2 Re-run Royal strict full proof honestly, record remaining geometry findings without waivers, and update changelog/evidence.
+  Local part 2026-11-04 on clean 468d8a61: focused native-context/rule/import/emit/verify-source/
+  derived-cache/minimum/preserve/schema group 498 passed. Actual kicad-cli 10.0.6 `tests/kicad/rules`:
+  104 passed, 1 failed — `test_topology_length_budget[100000-True]` (c0258 topology lowering, outside
+  this change, failing on the unmodified base). Default regressions: 22 scenes and 75 plans as recorded in
+  `project-geometry-default-compat.json`; byte guard 77 passed. Guide generation, ruff, pyright and the
+  residue scan run in the batch's check-fast; the private residue gate is not configured in this
+  environment, so private names were checked by hand. Root combined fast/CI stays open.
+- [x] 3.2 Re-run Royal strict full proof honestly, record remaining geometry findings without waivers, and update changelog/evidence.
+  Passed 2026-11-04 (`docs/evidence/public-replays-20261104.json`): fresh import of the 10.0.6 Royal demo
+  (board digest 535dbe21, equal to corpus row kicad-demo-10-0-6-pcb-13) and strict `verify-source` with
+  kicad-cli 10.0.6, no `--accept`: exit 5. Levels 1–6, S and 8 equal (level 6 keeps the supported native
+  class/floor comparison). Level 7 records two real findings: regenerated padvia geometry a562fa79 (raw
+  263 caches, 289 regenerated) versus 4b439125 (0 raw, 293 regenerated; the 2026-11-03 checkpoint had
+  cc159325 for that side) and opaque teardrop count 263/0. accepted [] and no waiver. The geometry finding
+  belongs to c0340/c0355; CHANGELOG records the rerun.
 
 Task1 proof: native five-case controls pass on actual10.0.6 (5.78s) and9.0.9 (5.22s), before runtime. Canary and measured UUID outcomes plus all input/native-report hashes are in docs/evidence/import-rule-semantics-proof.json. Census uses immutable6d464cd3, actual dry/confirm build, importer Source, ReadSide, emitted canonical model and native Pro/DRU; distinctions remain explicit. Parent accepted option B with conservative ambiguity/unbound handling, no model field and exact trace/keys/counts before runtime.
 
