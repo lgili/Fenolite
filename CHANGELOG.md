@@ -7,6 +7,8 @@ All notable changes to Fenolite are documented here. The format follows
 ## [Unreleased]
 
 - Archive c0323-build-byte-diagnostics (the per-platform byte mismatch is recorded as accepted, not resolved; CI 41853235387) and c0305-viewer-roles (viewer job green in CI 41853235387).
+- Record a current Altium 24.5.2.23 inspection of the acceptance_v03 OutJob and drawing frames (c0092, S-1312). A Claude agent ran it at the maintainer's request on the prepared-v2 files. The OutJob lists six outputs and two containers. Each sheet's 36 labels and 27 polylines equal the written records. Task 5.3 stays open (whole-tree record, graduation, CI).
+
 - Record a current Altium 24.5.2.23 K6 round (c0215, S-1311). A Claude agent ran it at the maintainer's request. Seven steps pass. K6.2 and K6.7 fail `pour-match` M2 at probes P3 and P8, K6.6 counts one DRC finding on the netless polygon `P5_NONET`, and 24.5 lists no `PCB.Polygon.AdvancedPour` (K6.8). `kit verify` exits 5, no kit record is made, the `H-A-POUR-*` levels stay unchanged and task 7.4 stays open.
 
 - Record current Altium 24.5.2.23 Part T steps T1–T6 (c0160, c0166, S-1310). A Claude agent ran them at the maintainer's request. At `d155b258` the SCHEMATIC case is refused (`FEN-3005`) and the DIFAT case fails (`FEN-1001`), so both were observed on the 2026-10-12 bundle; PADSTACK used current bytes. All three open and compile, T5 shows no footprint change, and T6 reads equal Full Stack pads in the PCB, the PcbLib and a placed copy. The four `H-A-CONV-*` rows stay `INFERRED`.
