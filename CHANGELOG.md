@@ -693,6 +693,8 @@ All notable changes to Fenolite are documented here. The format follows
   levels without acceptance; ECC83/sonde findings and Coldfire's explicit bold
   rendering refusal remain separate. That diagnostic phase retained library payloads;
   the later c0330 replay permits the separately proved Video/Sonde refresh.
+  Reconcile the local gate against the exact fast22 source (22616 passed,52 skipped),
+  retaining native receipt limits and independent final-model/CI tasks.
 
 - **Contextual symbol metadata** (c0327): retain complete per-sheet native property snapshots through
   digest-bound assets/indexes and scoped cache selection, with unchanged model/S fields. Reviewed

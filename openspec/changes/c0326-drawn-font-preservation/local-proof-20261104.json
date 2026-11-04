@@ -1,0 +1,153 @@
+{
+  "schema": "fenolite.local-documentary-proof.v1",
+  "date": "2026-11-04",
+  "change": "c0326-drawn-font-preservation",
+  "completed_local_task": "5.1",
+  "candidate_base": "13ff795e73b1406c7d2021ef06b66081f9848c07",
+  "fast22": {
+    "source_commit": "13ff795e73b1406c7d2021ef06b66081f9848c07",
+    "command": "make check-fast PYTEST_MAX_WORKERS=4",
+    "exit": 0,
+    "log_sha256": "c91de791225d0d2c164d0a2c4714dfd063b4b2bb4d6dec99f764767b9cbd6d52",
+    "driver_sha256": "c38616212c2c796e5d1ccf17001501165f5d698fa9ef00c3d0df6dc455de6fe4",
+    "clean_after": true,
+    "head_unchanged": true,
+    "private_gate_configured": true,
+    "seconds": 1031.1000071669696,
+    "passed": 22616,
+    "skipped": 52,
+    "pytest_seconds": "938.82",
+    "receipt_sha256": "83dcd1e0c08e5559b80da60d8617e20c9b321db5161de75d220beb17f483a452",
+    "artifact_reference": "fenolite-cac-next-integration-20261102/fast-batch22",
+    "static": "Ruff check/format, pyright src, guide, graduation generator and private-list residue passed on exact base"
+  },
+  "source_scope": {
+    "unmodified_paths": [
+      "src",
+      "tests",
+      "tools",
+      "viewer",
+      "schemas",
+      "pyproject.toml",
+      "uv.lock",
+      "Makefile"
+    ],
+    "runtime_test_tool_config_diff": [],
+    "selected_local_sources": {
+      "tests/consistency/test_drawn_schema.py": "e4a830d65eb8b0a713cdad3daf8559dba2637cf7076792f1294dd62364c994aa",
+      "tests/fidelity/test_drawn_fonts.py": "ce10aa1625b7dda0aaed4ed3e61ad730474f5f481f08e2e75b5c9d28e5b7ebed",
+      "tests/residue/test_library_items.py": "6614466ef0be0afd40d3d0c8805d74e9e2509aba1c184b8178f9039c9ce7860e",
+      "tests/unit/agent/test_pages.py": "f438dda1be8408fb8bf4005cd81c51c499c68a671c9a9d15d777481abef4be6c",
+      "tests/unit/backends/altium/test_drawn_altium.py": "250cfc9eb2e15179adbe3e21d652748d6e1069fcc4fba2ae077c57803b59dce5",
+      "tests/unit/backends/altium/test_drawn_fonts.py": "a470dfa32565e1b0bc2e1392187ac6b507bedddfc48e4517f35732cd3694aad3",
+      "tests/unit/backends/kicad/test_drawn_extract.py": "d1e444e9f36e5695bfb2b0094e60858e423ceeb68ce8ab143f561be97156cd76",
+      "tests/unit/backends/kicad/test_drawn_font_ext.py": "8408253f02b6eb362269926d44f0ef833c4e9ddd7747056497dab10cffe2db11",
+      "tests/unit/backends/kicad/test_drawn_fonts.py": "2cb80e29e93a9bde4b0b112ae9e4228ea9c2c55c58e1faf9645a327f6496fb76",
+      "tests/unit/backends/kicad/test_sch_write_drawn.py": "4279e7be4d0230861245a4156a40791b997f15b9560328385937ff20dc62876c",
+      "tests/unit/cli/test_verify_source_drawn.py": "8b58e63fff8226aa11198a5e55389b6a871b832f8c01b35c4f15187525b76445",
+      "tests/unit/importer/test_drawn_fonts.py": "44bac6fb835f8a8fa5dc30ebbe68d0078cc0d3b952cf165028eb760d1e6642b3",
+      "tests/unit/lens/test_drawn_file.py": "fbd1afd7d46bf23948e93938012a89401411110b53df6508a7b49d980f6d40ce",
+      "tests/unit/lens/test_drawn_fonts.py": "cb1010bc13b9ba4bede8ec36ae7e2b0b9a848477c0e2d04c55dd430f06178da6",
+      "tests/unit/model/test_drawn_compare.py": "ca43b18aff53c24f652f21df8f5bd0579c7db555cb090c88d7241b727670f458",
+      "tests/unit/model/test_drawn_font_compare.py": "088c582365f91057135420c027f0a45c5e08eb3a170e0bcaa3594eefda3c60c4",
+      "tests/unit/model/test_drawn_fonts.py": "61889ec904b1fbad74c623f756fe46c4581f456479a96c11e9a91ce1f520e26a",
+      "tests/unit/model/test_drawn_value.py": "900778b57237d741b2568aae11b156297e192c4dcee6ccd6a4753e2cf9fde2f5",
+      "tests/unit/test_build_bytes.py": "45babfa43533106a722931954ff0df9a0f3172bac4013d2de63229bd3398ed27",
+      "tests/unit/test_schema_drift.py": "9684b76f25b9af122eb2feaf9463a2fd9584982f61136db17b1b91e8f2246c71",
+      "tests/unit/view/test_fidelity_masks.py": "0c06423c1bf88daf0a5892ba5bc876adfcc8c7fadfd4d8d4e97077704d9334ce",
+      "tests/unit/view/test_schematic_fonts.py": "d1357ade9d1dab4f2162a3db1de60397f0cbb7d5ecc6fce76ab2907509766ce8"
+    },
+    "module_count": 22,
+    "none_in_complete_skip_list": true,
+    "recorded_fast_skip_lines": [
+      "SKIPPED [1] tests/unit/mcp/test_sdk_oracle.py:29: the official MCP SDK is in the oracles extra",
+      "SKIPPED [42] tests/consistency/test_cli_consistency.py:354: mutating",
+      "SKIPPED [1] tests/unit/lens/test_altium_bodies.py:295: set FENOLITE_ALTIUM_BODY2_SAVED=<the PcbDoc that Altium saved> (step X8.6)",
+      "SKIPPED [1] tests/unit/lens/test_build_board_items.py:176: dru-cond-area is recorded for 9.0: the rule is written for target 9",
+      "SKIPPED [1] tests/unit/backends/altium/read/test_load_project.py:130: the file system ignores case",
+      "SKIPPED [1] tests/unit/backends/altium/test_draftsman_read.py:186: set FENOLITE_DWF_F0 to the maintainer's F0 folder",
+      "SKIPPED [1] tests/unit/library/test_licences.py:69: FENOLITE_LIBRARY_CHECKOUT is not set",
+      "SKIPPED [1] tests/unit/backends/altium/test_part_f.py:410: a real native F8 save has not been supplied",
+      "SKIPPED [1] tests/unit/cli/test_library_symbol.py:124: got empty parameter set for (action)",
+      "SKIPPED [1] tests/unit/backends/altium/test_part_s.py:179: set FENOLITE_ALTIUM_S7 to the path of the document Altium saved (kit case S7)",
+      "SKIPPED [1] tests/unit/backends/kicad/test_throughput.py:51: a measurement: set FENOLITE_CENSUS_OUT to a file to run it"
+    ],
+    "claim": "Whole quiet fast selection completed; coverage of selected unchanged sources follows collection/completion and the exhaustive skip summary, not individually printed PASSED node receipts."
+  },
+  "retained_native": {
+    "source": "985f59a1d01a612b2eac0219243199896c24075a",
+    "run": 41708879698,
+    "job": 126171394740,
+    "version": "9.0.9",
+    "module": "tests/kicad/schematic/test_drawn_fonts_oracle.py",
+    "nominal_passed_cases": 32,
+    "log_sha256": "3ac138d8cafad5c225d11d9bd22774c872f9369925c7d892d271be0401ab8d94",
+    "artifact_reference": "fenolite-cac-ci-41708879698-20261103/kicad9-126171394740-completed.log",
+    "unchanged_font_paths_985_to_candidate": {
+      "tests/kicad/schematic/test_drawn_fonts_oracle.py": "a1918872855791ea3c833d133e4a641d680f0f8dac84bfe40758ceced81ecd2f",
+      "tests/_drawn.py": "9a5bf6790d4849adc02270c93f2f3b9515065f95c9cb00e88d4f6d6d28de67d6",
+      "tests/_drawn_fonts.py": "cb1d81efba57e72fa588f4ae34b1120a7138bbc9a00bb0eeb48c1825d43313c3",
+      "src/fenolite/model/drawn.py": "a41de70ccb90685d8ff25210c63e5ab95003d79590a89fd0f58ec8a59c7ea460",
+      "src/fenolite/model/_drawn_text.py": "4708f70a6166f925cb962c2b92afcf0034629319496c0e1127267abf94a9fa0b",
+      "src/fenolite/backends/kicad/sch.py": "e17f74d8e2b155758be4902f18f07c5b75941bc0b8ae4bbc46339334e4a73c79",
+      "src/fenolite/backends/kicad/drawn.py": "b7162e6bc079caf38521907110dee5e458e6570813f16ab8c66d0bf19cd6215a",
+      "src/fenolite/lens/drawn.py": "c229c54958e649c016283c7b53fe2705c35da561eac8613684482cef98c3a1c3"
+    },
+    "scope": "Historical native observations retained at their actual source/version. The 32 cases include the later four c0337 stroke cases. This is not a new exact-candidate native/CI or global-run success.",
+    "older_native10_record": "docs/evidence/drawn-fonts.md and c0319 task1.22 retain the earlier28-case10.0.6 font export receipt; no remeasurement or GUI claim."
+  },
+  "freshness_checks": [
+    {
+      "command": "uv run python tools/gen_agent_guide.py --check",
+      "exit": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "command": "uv run python tools/gen_schemas.py --check",
+      "exit": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "command": "uv run python tools/gen_evidence_matrix.py --check",
+      "environment": "locked dev+geo",
+      "exit": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "command": "openspec validate c0326-drawn-font-preservation --strict",
+      "environment": "locked dev+geo",
+      "exit": 0,
+      "log_sha256": "f18ab25f90b8330345f2e0e8178d3f24c4d1e12363c7244f3d992a7bb91891d2"
+    }
+  ],
+  "environment_preflight": "The additional matrix check initially stopped because the fresh dev-only venv lacked optional pyclipper. Frozen dev+geo preparation resolved the environment; the subsequent unchanged matrix check passed. No generated file was rewritten.",
+  "strict_openspec_version": "1.3.0",
+  "residue_and_diff": {
+    "checks": [
+      {
+        "command": "uv run python tools/residue/scan.py",
+        "exit": 0,
+        "log_sha256": "eea1f41081f2de00ab26f4462f7fa2bee0df27098b9f1cd022fe4be7ad09e7c0"
+      },
+      {
+        "command": "uv run python tools/residue/scan.py --staged",
+        "exit": 0,
+        "log_sha256": "ad45dbc609fa8dcb7d81813c99eaef02bf7fb8e7ab86810147804a5e99467193"
+      },
+      {
+        "command": "git diff --cached --check",
+        "exit": 0,
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    ],
+    "private_gate": "on",
+    "scope": "Complete documentary tree and staged files; final strict/staged/diff checks repeated on the final documents before the DCO commit."
+  },
+  "new_test_suite_native_ci_calls": false,
+  "independent_open_gates": [
+    "4.2 actual combined final-model0 capture and1.0 transition",
+    "4.3 serialized root-owned full gate and exact-head required9.0.9/10.0.6 CI",
+    "change archive and release",
+    "other native/manual evidence and Royal/geometry findings"
+  ]
+}

@@ -223,7 +223,13 @@
 
 ## 5. Close only proved work
 
-- [ ] 5.1 Run focused tests, static/format/types, generated checks, strict OpenSpec and residue.
+- [x] 5.1 Run focused tests, static/format/types, generated checks, strict OpenSpec and residue.
+  Reconciliation plan (2026-11-04): bind the unchanged selected sources to the
+  retained successful fast22 on signed13ff795e; retain native observations at
+  their recorded sources and versions. Run missing generated freshness, strict
+  OpenSpec and private-list residue checks only. Do not rerun tests/CAD or close
+  the separate final-model transition (4.2), exact-head CI/full gate (4.3), or
+  archive this change.
   Proof: affected pytest selectors above; `uv run ruff check .`;
   `uv run ruff format --check .`; `uv run pyright src`;
   `uv run python tools/residue/scan.py`;
@@ -270,3 +276,27 @@ passes with zero hits in 6397 files and sixteen existing waivers. The complete
 fast gate on clean de6c6f2f has two failures: the known Mac byte discrepancy
 and the older root-filename witness, now reconciled by 25 focused passing
 font/root/fidelity cases. Task 5.1 and complete required gates remain open.
+
+
+Local gate reconciliation — 2026-11-04: task5.1 is complete in its local
+scope on signed13ff795e plus this documentary receipt. The retained exact-source
+fast22 passed22616 tests,52 explicitly recorded skips and every Ruff/format/types/
+private-residue stage. Its completed quiet collection includes all22 local
+pytest modules above; none appears in the complete skip summary. This is coverage
+by collection/completion, not individually printed PASSED node receipts. No test
+was repeated for this reconciliation. Current runtime/tests/tools/configuration
+remain unchanged from that exact source.
+
+Fresh guide, schema and evidence-matrix checks pass without rewriting generated
+files; OpenSpec1.3.0 strict and both complete-tree/staged private-list residue
+checks pass. The matrix initially stopped for the new dev-only environment's
+missing optional pyclipper; frozen dev+geo preparation resolved that environment,
+then the unchanged check passed. Retained native9.0.9 observations have32 nominal
+font-oracle PASSED cases at985f59a1 (including four later c0337 stroke controls);
+font drivers and the listed font/model/codec paths are unchanged through13ff795e.
+The historical10.0.6/28-case export receipt remains separately scoped. No native
+call, GUI-save claim, evidence promotion or exact-current CI result is inferred.
+
+See local-proof-20261104.json for source, selected-file and retained-log seals.
+Tasks4.2 and4.3 remain open, and this change is not archived. The older failed
+gates and independent external findings above are preserved as historical facts.
