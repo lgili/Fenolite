@@ -148,3 +148,26 @@ ready=false, persist=[], cache=none and the absence of an affirmative positive c
 The Nexar raw fetch returned 403; its body is error evidence, not API terms. Task 0.2 remains open for
 the missing primary Nexar terms body and unresolved permitted identity scope. JLC and full/CI tasks
 remain open. No network permission, auth, API key, bypass, readiness or evidence-level promotion is used.
+
+## Found on 2026-11-04
+
+**JLC is cut from this change (maintainer decision, 2026-11-04).** A JLC plugin needs the maintainer's
+own approved API access, documentation and terms; no session can supply them. c0267 now covers only the
+four public suppliers. Task 5.1 leaves this change unimplemented, no JLC plugin, entry point, policy or
+fixture is registered, and the "JLC remains unregistered" statements of the supplier pages stay true.
+The work moves to a separate follow-up change, proposed below; its id is assigned by the coordinator.
+
+Follow-up proposal (JLC supplier lookup): after the maintainer records the approved JLC API
+documentation and terms in `docs/formats/suppliers/jlc.md` (endpoints, parameters, response keys,
+limits, cache rule, attribution, each with a source and label), add `jlc.py` on the existing c0267
+machinery with its policy, authored fake responses and entry point, gated exactly like the four public
+suppliers (`ready=false` until rights are established). Proof: `tests/unit/suppliers/test_jlc.py` and
+`tests/unit/suppliers/test_policy.py`.
+
+The four public terms pages were reread for task 0.2. DigiKey (S-1221, S-1102) and Farnell (S-1109,
+S-1108) were readable and unchanged in substance. Octopart/Nexar (S-1107) now serves its APIs section
+body, which closes the 2026-11-01 missing-body gap without granting cache or identity-storage rights.
+Mouser (S-1222, S-1103) blocked every automated and browser read with an automation-denial page or
+403; the gate was not bypassed and its facts rest on the SHA-bound 2026-11-01 body. No policy value,
+readiness, cache, persistence or evidence level changes: missing rights are a policy outcome
+(`ready=false`, `persist=[]`, `cache="none"`), not a gap in the source register.

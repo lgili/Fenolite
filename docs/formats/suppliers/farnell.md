@@ -19,6 +19,17 @@ No regional terms are substituted for those partner terms. Therefore production 
 cache is disabled, and persistence is empty. The one request/minute rate is a conservative client choice,
 not a published quota. Authored mapping tests do not establish permission.
 
+## Reread 2026-11-04
+
+S-1109 was read again (HTTP 200, "API Terms of Use", July 2019, version 1.1). Section 2 requires an
+accepted enrollment and issued keys; section 4(A) prohibits caching, recording, prefetching or storing
+any Farnell content and bulk download; 4(B) prohibits creating/updating a business-listing database;
+section 5 requires conspicuous source attribution without prescribed wording; 6(d) limits queries to
+the number Farnell assigns, with no number published; section 7 requires deleting Farnell content on
+termination (`INFERRED`). S-1108 was read again for limits: its readable part states no call or rate
+limit and no maximum `numberOfResults`; the remainder of that page was read only through a summary, so
+the absence of a limit there is `UNVERIFIED`. The policy below is unchanged.
+
 ## Runtime policy
 
 The following values are executable metadata, compared with this page by the offline policy proof.

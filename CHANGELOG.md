@@ -536,8 +536,10 @@ All notable changes to Fenolite are documented here. The format follows
 
 - **Same-sheet power aliases** (c0336): KiCad drawn connectivity joins a global power declaration to the identical local scalar name in that sheet. Authored native controls retain every pin and isolate other names and sheets; generic/Altium defaults and power-output behavior remain unchanged. Exact-head 9/10 CI remains required.
 
-- **Supplier lookup scope** (c0267): defer remaining JLC work at the
-  maintainer's request; keep its evidence and completion gates open.
+- **Supplier lookup scope** (c0267): JLC is cut from this change (maintainer decision 2026-11-04) and
+  moves to a follow-up change; no JLC plugin is registered. All four public terms pages were reread:
+  the Nexar/Octopart API section is now readable, Mouser's page blocks automated reads and keeps its
+  2026-11-01 primary read. Every production policy stays unavailable, with no cache or persistence.
 
 - **Nested device review** (c0341): resolve sibling symbol and footprint
   records for a directly selected nested library device with a valid matching

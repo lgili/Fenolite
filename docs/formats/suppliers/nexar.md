@@ -27,6 +27,20 @@ evidence, not read as API terms. It does not resolve the missing terms body.
 The one request/minute policy remains a conservative client choice, not a provider quota or an account
 entitlement. All production requests remain gated before credentials or transport.
 
+## Reread 2026-11-04
+
+A plain public fetch of S-1107 returned HTTP 200 (1901527 bytes, SHA-256
+`dfa4bfa15add189c18e53e7798d6f3dcf404b7bf0f61b9db19dafa0427a5bdb5`); the "APIs" section body is now
+present in the page's embedded content, though not in its visible HTML. It requires accurate access
+information, use under the general website terms and for the APIs' intended purpose, no overburdening,
+and allows access to be disabled at any time. The general terms forbid, without written permission,
+automated access to Octopart content for anything other than internal use or search indexing, and
+standalone commercialization of obtained content; copies must keep proprietary notices (`INFERRED`).
+The page states no API cache duration, rate limit or prescribed attribution wording, and grants no
+permission to store identity drafts. The missing-body gap of 2026-11-01 is closed; the rights gap is
+not, so the policy below stays unavailable with no cache or persistence. `nexar.com/legal` answered 404
+and the Nexar homepage links no separate API terms.
+
 ## Runtime policy
 
 The following values are executable metadata, compared with this page by the offline policy proof.

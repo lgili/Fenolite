@@ -27,6 +27,16 @@ The reviewed HTTP-200 body was 128331 bytes with SHA-256
 `e59c7416f2e979658091c098b838cebccd9844f56eb7ac644a02082466073b7f`.
 Only source facts and this receipt metadata are recorded here; the HTML remains outside the repository.
 
+## Reread attempt 2026-11-04
+
+S-1222 and S-1103 could not be read again. A documentation fetch timed out twice; a plain public fetch
+returned an 18684-byte "Access Denied" automation page (SHA-256
+`35b75badca50d2f5e795e348fd1d5862f186badf5d17c29083c20c9afad6f88f`), and an ordinary browser received
+HTTP 403. The bot gate was not bypassed. That error page is not terms evidence. The facts above therefore
+rest on the 2026-11-01 primary body bound to its SHA-256; a later revision of the terms would not be
+seen here, so their currency after 2026-11-01 is `UNVERIFIED`. The policy below is unchanged and stays
+unavailable.
+
 ## Runtime policy
 
 The following values are executable metadata, compared with this page by the offline policy proof.

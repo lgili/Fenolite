@@ -23,6 +23,18 @@ Fenolite's durable identity drafts. `ready=false`, no cache and empty persistenc
 The acknowledgement below does not establish compliance with every applicable approval/mark obligation.
 Authored protocol tests do not grant production permission.
 
+## Reread 2026-11-04
+
+S-1221 was read again (HTTP 200, complete body, no revision date; section 12 says revisions take effect
+on posting). The earlier facts still hold: section 2 requires an account, a registered application and a
+token, and email approval for enhanced feeds or downstream display; 3.1.4 requires conspicuous DigiKey
+source attribution without prescribed wording; 5.1(d)/(e) prohibit bulk download and creating/updating
+an information database; section 9 requires deleting DigiKey data on termination. Section 6 adds no
+number: requests per second are limited at DigiKey's discretion, and exceeding them suspends access for
+ten minutes (`INFERRED`). S-1102 was read again: Product Information stays 120/minute and 1000/day,
+an exceeded limit answers 429, and `X-RateLimit-Limit` (daily) and `X-BurstLimit-Limit` (per minute)
+report the limits (`INFERRED`). No durable identity permission follows; the policy below is unchanged.
+
 ## Runtime policy
 
 The following values are executable metadata, compared with this page by the offline policy proof.

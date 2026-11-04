@@ -26,7 +26,15 @@ not completion or authorization to register a guessed plugin.
   added without removing those packages. Reserved source ids are S-1100..1119; FEN-6005 is free in src.
   Recommended decisions are accepted 2026-11-01. Public terms/readiness remains gated on evidence.
 
-- [ ] 0.2 Register the public sources per supplier (API documentation, terms of use, rate limits, attribution rules), re-reading each terms page, and write `docs/formats/suppliers/{digikey,mouser,nexar,farnell}.md` with every endpoint, parameter, response key, limit, cache rule and attribution, each with its source and label (`UNVERIFIED` for anything read second-hand). Proof: `uv run pytest tests/unit/test_provenance.py -q`.
+- [x] 0.2 Register the public sources per supplier (API documentation, terms of use, rate limits, attribution rules), re-reading each terms page, and write `docs/formats/suppliers/{digikey,mouser,nexar,farnell}.md` with every endpoint, parameter, response key, limit, cache rule and attribution, each with its source and label (`UNVERIFIED` for anything read second-hand). Proof: `uv run pytest tests/unit/test_provenance.py -q`.
+
+  Passed 2026-11-04 on base 468d8a61: every terms page was reread. DigiKey S-1221/S-1102 and Farnell
+  S-1109/S-1108 are readable and unchanged in substance; Octopart/Nexar S-1107 now serves its APIs section
+  body (SHA-256 dfa4bfa1…), closing the missing-body gap without granting cache or identity-storage rights.
+  Mouser S-1222/S-1103 blocked every read (automation-denial page SHA-256 35b75bad…, browser 403); the gate
+  was not bypassed, so its facts rest on the SHA-bound 2026-11-01 body and their currency is UNVERIFIED.
+  The four pages record each reread with labels; no policy, readiness, cache or level changed.
+  Proof: `uv run pytest tests/unit/test_provenance.py tests/unit/suppliers -q`, 127 passed.
 
 ## 1. Package and shared machinery
 
@@ -57,9 +65,10 @@ not completion or authorization to register a guessed plugin.
 - [x] 4.1 `docs/suppliers.md` (setup per source with the user's own account, what is sent, cached and written, attribution, no shared keys), `docs/cli-contract.md` (`FEN-6005`, `result.suppliers`) and `docs/picking.md` ("Supplier proposals"). Proof: `uv run pytest tests/consistency -q`.
 - [x] 4.2 Agent guide: a focused `supplier-lookup` page with tested proposal flags and `FEN-6005`/`supplier.*` lines, linked from `parts` and `recovery` because both are at their budgets; then `uv run python tools/gen_agent_guide.py`. Proof: `uv run pytest tests/unit/agent -q`; `uv run python tools/gen_agent_guide.py --check`.
 
-## 5. JLC (gated)
+## 5. JLC (cut on 2026-11-04)
 
-- [ ] 5.1 Only after the maintainer, with approved access, has recorded the JLC API documentation and terms in `docs/formats/suppliers/jlc.md`: `jlc.py`, its policy and fake responses, and its entry point. Until then this task stays open and the plugin is not registered. Proof: `uv run pytest tests/unit/suppliers/test_jlc.py tests/unit/suppliers/test_policy.py -q`.
+- [x] 5.1 Cut from this change by the maintainer on 2026-11-04: JLC needs the maintainer's own approved API access. Record the cut in design.md ("Found on 2026-11-04") and propose the JLC plugin as a follow-up change; register no JLC plugin, policy, fixture or entry point here. Proof: design section recorded; `uv run pytest tests/unit/suppliers -q` passes with no `jlc` entry point or module (127 passed with the provenance tests, 2026-11-04).
+  The former task text ("`jlc.py`, its policy and fake responses, and its entry point, after the maintainer records the JLC documentation and terms") moves unchanged to the follow-up change.
 
 ## 6. Closing
 

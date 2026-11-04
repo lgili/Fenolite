@@ -10,7 +10,7 @@ unavailable policies while preserving those evidence gates. No supplier product 
 
 - **Optional extra `fenolite[suppliers]`** (adds `keyring` only; HTTP and JSON use the standard library)
   and the package `fenolite.suppliers` with plugins for DigiKey, Mouser, Nexar and Farnell, registered in
-  the `fenolite.suppliers` group. A JLC plugin follows once its approved API documentation is read.
+  the `fenolite.suppliers` group. JLC is cut from this change (maintainer decision 2026-11-04) and moves to a follow-up change.
 - **The user's own credentials**, from environment variables or the system keyring, never from project
   files, never logged, never shipped; no Fenolite key exists.
 - **Policy as data in each plugin**: attribution text, terms source, cache scope and age (never above the
