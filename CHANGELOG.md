@@ -7,6 +7,8 @@ All notable changes to Fenolite are documented here. The format follows
 ## [Unreleased]
 
 - Archive c0323-build-byte-diagnostics (the per-platform byte mismatch is recorded as accepted, not resolved; CI 41853235387) and c0305-viewer-roles (viewer job green in CI 41853235387).
+- Record a current Altium 24.5.2.23 Part Q phase A run (c0173, S-1315). A Claude agent ran it at the maintainer's request. Q1, Q2 and Q4 save with no message. Q5's Gerber and NC Drill outputs hold four copies. Q3 was not run. Each saved panel holds a VM home folder, so the folder cannot be published. `H-A-PANEL-RECORD` and `H-A-PANEL-LAYERKIND` keep their levels, and task 2.4 stays open.
+
 - Record current Altium 24.5.2.23 Draftsman rounds F0 and FP (c0172, S-1313, S-1314). A Claude agent ran them at the maintainer's request. All fourteen F0 files were saved. F0.9's BOM table has no rows, and F0.13 warns that saving as a template deletes the dimensions. The observation intake refuses the folder, because Altium writes the absolute path of the source PCB into every Draftsman document. FP1 and FP2 cannot be built. FP3 and FP4 do not open (`Value cannot be null`), and FP5 was not run as written. Tasks 1.4, 3.2 and 3.3 stay open, and every level is unchanged.
 
 - Record a current Altium 24.5.2.23 inspection of the acceptance_v03 OutJob and drawing frames (c0092, S-1312). A Claude agent ran it at the maintainer's request on the prepared-v2 files. The OutJob lists six outputs and two containers. Each sheet's 36 labels and 27 polylines equal the written records. Task 5.3 stays open (whole-tree record, graduation, CI).

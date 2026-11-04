@@ -727,6 +727,38 @@ are committed.
 
 ## Reports
 
+### 2026-11-04, actual `AD24.5.2.23`, Part Q
+
+Source S-1315. A Claude agent ran phase A at the maintainer's request of 2026-11-04 in the maintainer's
+Windows VM. This is not the maintainer's own review and not the author report the rows ask for.
+`Client.GetProductVersion` is 24.5.2.23 (Trial licence). The kit was built at `7074a68e` into the agent's
+folder `~/fenolite-altium-checks/claude-2026-11-04/c0173-Q` with `FENOLITE_ALTIUM_PART_Q=<that folder>
+uv run pytest tests/unit/backends/altium/test_part_q.py -k phase_a` (2 passed). The agent worked on a copy
+of `board/` in the VM. Menu commands ran through UI Automation, and the Properties fields were set by
+their automation ids. After the run, every kit input still matches `SHA256SUMS`: `board.PcbDoc`
+`fd478b3a…`, `board.PrjPcb` `0c74499f…`, `board.PcbLib` `2005c279…`, `board.SchDoc` `9d59eedd…`,
+`board.SchLib` `799ee1d2…`, `board.OutJob` `adfeb5f1…`.
+
+| date | version | case | file (SHA-256) | step | expected | observed |
+|---|---|---|---|---|---|---|
+| 2026-11-04 | AD 24.5 | Q1 | `panel-a.PcbDoc` `83999080…` | new PCB, Place » Embedded Board Array/Panelize, `board.PcbDoc` through the PCB Document "…" button, X 5, Y 5, 2 × 2, spacing 42/32 | four boards with 2 mm gaps; note any synchronize dialog | four boards with gaps; the margin fields show 2 mm. No synchronize dialog appeared, and the save showed no message. The project file was not saved: `board.PrjPcb` is unchanged, and the output reports name the panel a free document |
+| 2026-11-04 | AD 24.5 | Q2 | `panel-cols4` `a89373ac…`, `panel-rows3` `01cda5ef…`, `panel-spacing` `02f131b0…`, `panel-margin` `cc7e29c6…`, `panel-rot90` `f4f78485…`, `panel-mirror` `0c9b26b8…`, `panel-link` `c23a57e9…`, `panel-move` `32910ced…` | one change on a reopened `panel-a`, then Save As | each saves; note other fields that change | each saves with no message. Spacing 45/35 sets the margins to 5 mm. Margin 3 sets the spacings to 43/33 mm. No other field changed |
+| 2026-11-04 | AD 24.5 | Q3 | none | mechanical layers V Cut and Route Tool Path | `panel-layers` saves; note the layer numbers | not run. View » Panels » View Configuration opened as a floating panel over the Projects panel, and a right-click reached another project's document. The agent dismissed that menu with Esc, chose nothing, and stopped the case |
+| 2026-11-04 | AD 24.5 | Q4 | `panel-two.PcbDoc` `1552077e…` | second array at X 100, Y 5, 1 × 1 | two arrays | two arrays: 2 × 2 at (5, 5) and 1 × 1 at (100, 5). The new array starts with spacings 1500/2500 mil |
+| 2026-11-04 | AD 24.5 | Q5 | `panel-a.GTL` `cf0afc72…`, `panel-a.GBL` `1a5504c0…`, `panel-a.TXT` `476dcc4b…` | File » Fabrication Outputs » Gerber Files (Apply) and NC Drill Files (OK), defaults | four copies in copper and drill; list of files | four copies. The top copper has 28 flashes and the bottom copper 12, which is 7 and 3 per copy. The drill file has 4 holes of 0.3 mm (vias) and 8 of 0.9 mm (LED pads). The outline file `GM` holds one rectangle. Gerber opened a CAM document. For NC Drill, Import Drill Data was cancelled, and an `Error` box with OK followed (its text was not read). Neither CAM document was saved. Files: `panel-a.GTL`, `.GBL`, `.GTO`, `.GBO`, `.GTP`, `.GBP`, `.GTS`, `.GBS`, `.GM`, `.apr`, `panel-a-macro.APR_LIB`, `.EXTREP`, `.REP`, `.TXT`, `.LDP`, `.DRR`, `Status Report.Txt`. They were written in `board/`, not under `Project Outputs`. The drill status report advises a separate BOM per embedded board |
+| 2026-11-04 | AD 24.5 | Q6 | the ten saved panels above | copy without `History` and outputs; path scan before reading | the scan runs before anything is read | `fenolite kit verify` refuses the folder with `FEN-3001` (no `kit.json`). The kit privacy scan `privacy_scan`, called directly, finds two strings in each of the ten panels. One is a VM home folder in the Board record's `2DCONFIGFULLFILENAME`, the path of Altium's 2D view configuration. The other is the document's own VM path in its `FILENAME` header. Of the outputs, only `panel-a.LDP` holds a VM path. The folder cannot be published as it is. Only digests and the facts below were read from it |
+
+In each saved panel, one text record per array holds `DOCUMENTPATH=board.PcbDoc` (relative), `X`, `Y`,
+`COLCOUNT`, `ROWCOUNT`, `COLSPACING`, `ROWSPACING`, `MIRROR`, `ORIGINMODE` (1, and 0 with Link Location on),
+`TCOLOR` and `VISIBLELAYERS`. Between `panel-a` and each variant, that record changes only in the field the
+variant set, plus the spacings in `panel-margin`. No margin field is stored. `panel-rot90` has the same
+record as `panel-a`, so its rotation is stored elsewhere. Its file hash differs. The opaque
+`EmbeddedBoards6` stream was not read. The saved files stay in `c0173-Q/saved/board/` and the outputs in
+`c0173-Q/outputs/`, both outside the repository.
+
+`H-A-PANEL-RECORD` stays `UNKNOWN`: its row names 26.5, and these are agent observations under the
+approved 24.5 scope. `H-A-PANEL-LAYERKIND` stays `UNKNOWN` (Q3 not run). Task 2.4 stays open.
+
 ### 2026-11-04, actual `AD24.5.2.23`, Part T
 
 Source S-1310: [T1–T6 report](altium-part-t-convert-2026-11-04.md) and
