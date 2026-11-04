@@ -163,3 +163,14 @@ continues to refuse. Actual coloured10.0.6 SVG establishes effective red/gray,
 zero sentinel and alpha behaviour in the recorded controls. Level8 remains BW
 geometric ink and makes no RGB equality claim. No colour evidence promotion or
 source-byte/threshold concession follows.
+
+## Public style-board replays, 2026-11-04
+
+On clean 468d8a61 with kicad-cli 10.0.6, the styled public demos were imported and proved with
+`verify-source` against untouched copies whose digests match the corpus rows. Tiny Tapeout (33 explicit
+thicknesses, 33 bold, 2 italic, one href), interf_u, pic_programmer and Complex pass all nine levels with
+empty differences and accepted lists; Royal keeps levels S and 8 equal and differs only at level 7
+(derived padvia geometry). Coldfire does not reach the style levels: its import refuses because a KiCad 9
+board arrives with a project holding KiCad-10-only keys, an importer finding kept as measured. Authored
+native controls pass (40 cases). `drawn-font-styles-public-replays.json` holds the receipts. This claims
+no native glyph equality, no KiCad 9 replay and no CI result.

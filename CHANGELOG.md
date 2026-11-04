@@ -602,7 +602,9 @@ All notable changes to Fenolite are documented here. The format follows
   validated opaque free-text RGB and original RGBA nodes without expanding
   typed fonts; retain nonvisual opaque href metadata while keeping typed
   effects closed. Level8 remains a BW geometric comparison. Actual
-  KiCad10.0.6 authored lowering controls pass; exact-head CI remains required.
+  KiCad10.0.6 authored lowering controls pass; Public styled
+  demos Tiny Tapeout, interf_u, pic_programmer and Complex pass all nine levels
+  on 10.0.6 (2026-11-04); exact-head CI remains required.
 - **BOM-only purchasing items** (c0334, in progress): retain explicit off-board, pinless/non-power
   purchasing symbols as typed canonical components and DSL parts, including DNP, repeated instances
   and descriptive footprint names without physical geometry. KiCad project import/build keeps their

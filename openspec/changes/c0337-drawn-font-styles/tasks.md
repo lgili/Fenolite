@@ -12,8 +12,19 @@
 
 ## 2. Validation
 - [x] 2.1 Prove default scenes remain byte-identical and face/mirror/submicrometre still refuse. Proof: default scene census and focused regressions.
-- [ ] 2.2 Run authored native and remaining public style-board replays on the clean candidate; preserve actual outcomes. Proof: source-bound receipts and unchanged inputs.
+- [x] 2.2 Run authored native and remaining public style-board replays on the clean candidate; preserve actual outcomes. Proof: source-bound receipts and unchanged inputs.
+  Passed 2026-11-04 on clean 468d8a61 (`docs/evidence/drawn-font-styles-public-replays.json`, kicad-cli
+  10.0.6). Authored native: `tests/kicad/schematic/test_drawn_fonts_oracle.py` with
+  `tests/fidelity/test_drawn_fonts.py` 40 passed; font/view/mask unit group 204 passed. Styled public
+  demos, each imported (dry-run, confirm) and proved with `verify-source`, inputs unchanged: Tiny Tapeout
+  (33 thickness, 33 bold, 2 italic, 1 href), interf_u and pic_programmer pass all nine levels, exit 0,
+  accepted []; Complex passes all nine and Royal keeps S and 8 equal (level 7 only), see
+  `public-replays-20261104.json`. Coldfire (1 bold) does not reach the style levels: its import refuses
+  (exit 5) because a KiCad-9 board (20241229) arrives with a project holding KiCad-10-only keys; that
+  importer finding is preserved, not waived. Native 9.0.9 belongs to the required CI jobs.
 - [ ] 2.3 Update CHANGELOG and documentation, check-fast coordinated with root, required exact-head CI. Proof: actual gate records; no local full suite.
+  2026-11-04: CHANGELOG and `docs/evidence/drawn-fonts.md` record the replays. Root-coordinated fast
+  and exact-head CI stay open.
 
 Task0.1 passed 2026-11-02: strict proposal validation and real CLI10.0.6 probes. Sources S-1204/1205 and aggregate source/SVG digests recorded before implementation; all native input snapshots unchanged. Colour observed effective and awaits separate scope decision.
 
