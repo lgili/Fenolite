@@ -15,9 +15,9 @@ component linked to two footprints on the PCB), with no source diagnostic that e
 - Level 1 of the board comparison leaves out source components that have no footprint in the source
   board; the schematic comparison (`_schematic`) remains the check for them, and a component missing
   from the written schematic is still reported.
-- The Altium read reports a repeated designator and a component linked to several footprints as source
-  diagnostics (warnings) naming the references; `ref-ambiguous` differences that such a diagnostic
-  covers are explained, not unexplained.
+- The KiCad direction counts each footprint of a source component that several footprints link as a
+  changed `shared-footprint` item, and that row explains the matching `ref-ambiguous`; a repeated
+  designator that both sides hold equally is already explained (`source`, "same").
 - No tolerance or comparison is relaxed for placed components.
 
 ## Impact

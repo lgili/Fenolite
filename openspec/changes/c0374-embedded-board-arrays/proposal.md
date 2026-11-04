@@ -10,8 +10,10 @@ c0173); `pcbdoc.EMBEDDED_ARRAYS` stays false until the kit cases Q7 to Q9 pass.
 
 ## What Changes
 
-- Now: a source board whose `EmbeddedBoards6` holds records is reported with a dedicated warning, and
-  `convert`/`import` declare a `refuse` loss for the embedded boards, so no panel is called converted.
+- Now: a source board whose `EmbeddedBoards6` storage holds records (`backends/altium/read/cfb.py:
+  holds_embedded_boards`, from the storage header and data length only) is the report kind
+  `embedded-board`, lost with a reason that `REFUSE_REASONS` makes refused: `convert` and the Altium
+  `import` exit 7 without `--allow-lossy`, so no such board is called converted.
 - Later, after c0173's kit cases measure the records on maintainer-saved documents: resolve each
   instance (document, position, rotation, mirror, array steps) and read the embedded boards.
 

@@ -21,7 +21,7 @@ with ``allow_lossy``: the consent to a ``design`` loss is ``convert_project``'s,
 from __future__ import annotations
 
 import dataclasses
-from collections import defaultdict
+from collections import Counter, defaultdict
 from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING
 
@@ -37,6 +37,7 @@ from fenolite.convert.models import Placed, place_models
 from fenolite.convert.report import (
     DOWNGRADE_KINDS,
     DOWNGRADE_PREFIX,
+    EMBEDDED_BOARD_REASON,
     OVERLAP_NO_UNION,
     OVERLAP_NOT_ONE_RING,
     ConversionReport,
@@ -264,6 +265,9 @@ if TYPE_CHECKING:
 EDGE_LAYER = "Edge.Cuts"
 HOLE_KIND = "hole"
 CUTOUT_KIND = "cutout"
+EMBEDDED_BOARD_KIND = "embedded-board"
+SHARED_FOOTPRINT_KIND = "shared-footprint"
+SHARED_FOOTPRINT_REASON = "the source links several footprints to one component"
 PAD_MARGIN_KIND = "pad-margin"
 """The report kind of an imported pad whose margin is not certain (change c0223, ``convert.openings``)."""
 MODEL_KIND = "model"
@@ -421,7 +425,14 @@ def write_altium(source: SourceProject, options: Options) -> Written:
     """Altium to a coherent KiCad project and derived libraries (c0161). Overlapping cut-outs are merged
     (``merged_cutouts``), and each board hole is the generated footprint of ``design.hole``
     (``generated_holes``), its library written beside the board (change c0170)."""
-    from fenolite.convert.altium_to_kicad import Ledger, footprint_files, prepare, schematic_files
+    from fenolite.backends.altium.read.cfb import holds_embedded_boards
+    from fenolite.convert.altium_to_kicad import (
+        Ledger,
+        board_document,
+        footprint_files,
+        prepare,
+        schematic_files,
+    )
 
     ledger = Ledger()
     counts = census(source.design)
@@ -430,6 +441,17 @@ def write_altium(source: SourceProject, options: Options) -> Written:
         counts[PAD_MARGIN_KIND] = sum(len(fp.pads) for fp in source_board.footprints)
         bodies = [body for fp in source_board.footprints for body in fp.bodies]
         counts[MODEL_KIND] = sum(1 for body in bodies if body.kind == "model")
+        # change c0371: a component that several footprints link reads back as several components
+        linked = Counter(fp.component_id for fp in source_board.footprints)
+        shared = [fp.id for fp in source_board.footprints if linked[fp.component_id] > 1]
+        if shared:
+            counts[SHARED_FOOTPRINT_KIND] = len(shared)
+            for ident in shared:
+                ledger.change(SHARED_FOOTPRINT_KIND, ident, SHARED_FOOTPRINT_REASON)
+    document = board_document(source, source.design)
+    if document is not None and holds_embedded_boards(document.read_bytes()):  # change c0374
+        counts[EMBEDDED_BOARD_KIND] = 1
+        ledger.drop(EMBEDDED_BOARD_KIND, document.name, EMBEDDED_BOARD_REASON)
     merged, cutouts = merged_cutouts(source.design, ledger)
     if cutouts:
         counts[CUTOUT_KIND] = cutouts

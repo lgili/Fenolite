@@ -102,6 +102,16 @@ All notable changes to Fenolite are documented here. The format follows
   The roadmap reconciles the original phases 0–4; no router runtime behavior changes here.
 
 - Archive c0170-convert-slots-obstacles: slots and cut-outs in conversions, slotted drills to Altium, generated hole footprints and slot obstacles, with `H-K-CONV-SLOTS` proved in CI (task 3.3).
+- **Conversion verification scope** (c0371): when a conversion writes a schematic, the board comparison
+  covers the placed components only and the schematic comparison the others, so a schematic-only part is
+  no longer an unexplained `component-missing`; a component that several source footprints link is
+  counted under the new report kind `shared-footprint`, which explains its `ref-ambiguous`. The board
+  document of a project that keeps it in a subfolder is found again, so its rules, zone outlines and models
+  are converted (they were silently skipped), and a zone whose outline holds an arc keeps its outline instead
+  of being dropped.
+- **Embedded board arrays** (c0374): an Altium board that places other PCB documents is the refused loss
+  `embedded-board`; `convert` and the Altium `import` exit 7 without `--allow-lossy` instead of calling it
+  converted.
 - **Altium TAB properties** (c0379): an Altium parameter whose value holds a TAB is the unexpressed kind
   `property-tab` instead of refusing the whole `import --to python` (exit 3 since c0363).
 

@@ -57,7 +57,7 @@ KINDS: tuple[KindRow, ...] = (
     *_rows(
         "footprint",
         ("footprint", "pad", "footprint-copper"),
-        ("body", "footprint-graphic", "footprint-text", "net-tie", "pad-margin", "model"),
+        ("body", "footprint-graphic", "footprint-text", "net-tie", "pad-margin", "model", "shared-footprint"),
     ),
     *_rows(
         "copper",
@@ -68,6 +68,7 @@ KINDS: tuple[KindRow, ...] = (
         "board",
         (),
         (
+            "embedded-board",
             "outline",
             "cutout",
             "stackup",
@@ -109,8 +110,15 @@ OVERLAP_NOT_ONE_RING = (
     "the union of these overlapping cut-outs is not one ring without holes, and KiCad calls overlapping "
     "edge rings a malformed outline"
 )
+EMBEDDED_BOARD_REASON = (
+    "the board places other PCB documents (an Embedded Board Array), whose records are not read: their "
+    "components and copper are not converted"
+)
 REFUSE_REASONS: Mapping[str, frozenset[str]] = MappingProxyType(
-    {"cutout": frozenset({OVERLAP_NO_UNION, OVERLAP_NOT_ONE_RING})}
+    {
+        "cutout": frozenset({OVERLAP_NO_UNION, OVERLAP_NOT_ONE_RING}),
+        "embedded-board": frozenset({EMBEDDED_BOARD_REASON}),  # change c0374
+    }
 )
 """The reasons whose losses need consent in a kind of class ``report`` (change c0170): overlapping cut-outs
 that a conversion to KiCad cannot merge are not written, because KiCad would refuse the board's outline
@@ -368,6 +376,7 @@ EXPLAINS: tuple[Explains, ...] = (
     Explains("footprint-copper", LEVEL5, "footprint-nets"),
     Explains("net-tie", LEVEL5, "footprint-nets"),
     Explains(SOURCE, ("ref-ambiguous",), "same"),
+    Explains("shared-footprint", ("ref-ambiguous",), "ref"),
 )
 """The closed table of which differences a lost or changed item explains. A lost or changed pad explains
 only its own ``pad-missing``, ``pin-missing`` and ``pad-kind`` and the level-5 kinds of its net, not every
@@ -420,7 +429,13 @@ class Explainer:
             if not ids:
                 continue
             kind = row.kind
-            if kind in ("footprint", "net-tie"):
+            if kind == "shared-footprint":
+                self._add(
+                    kind,
+                    "ref",
+                    {refs.get(by_footprint[i].component_id, "") for i in ids if i in by_footprint},
+                )
+            elif kind in ("footprint", "net-tie"):
                 fps = [by_footprint[i] for i in ids if i in by_footprint]
                 self._add(kind, "ref", {refs.get(fp.component_id, "") for fp in fps})
                 self._add(kind, "footprint-nets", {net for fp in fps for net in fp_nets(fp.id)})
@@ -495,6 +510,7 @@ __all__ = [
     "OVERLAP_NOT_ONE_RING",
     "OVERLAP_NO_UNION",
     "REFUSE",
+    "EMBEDDED_BOARD_REASON",
     "REFUSE_REASONS",
     "SOURCE",
     "ConversionReport",

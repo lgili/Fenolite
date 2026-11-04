@@ -1,7 +1,8 @@
 ## 1. Explicit refusal
 
-- [ ] 1.1 Authored detection from the storage header/data length only (no record decoding).
-- [ ] 1.2 Warning plus `refuse` loss in convert and import; docs and CHANGELOG.
+- [x] 1.1 Detection from the storage header/data length only (no record decoding).
+- [x] 1.2 Refused `embedded-board` loss in convert and import; docs and CHANGELOG. Proof:
+      `uv run pytest tests/unit/api/test_conversion_scope.py tests/unit/convert -q`.
 
 ## 2. Resolution (after c0173 Q7-Q9)
 

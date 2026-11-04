@@ -103,6 +103,7 @@ The vocabulary is closed (`fenolite.convert.report.KINDS`), one table for every 
 | `net-tie` | footprint | report |
 | `pad-margin` | footprint | report |
 | `model` | footprint | report |
+| `shared-footprint` | footprint | report |
 | `track` | copper | refuse |
 | `arc` | copper | refuse |
 | `via` | copper | refuse |
@@ -112,6 +113,7 @@ The vocabulary is closed (`fenolite.convert.report.KINDS`), one table for every 
 | `zone-fill` | copper | report |
 | `via-pad-shape` | copper | report |
 | `via-protection` | copper | report |
+| `embedded-board` | board | report |
 | `outline` | board | report |
 | `cutout` | board | report |
 | `stackup` | board | report |
@@ -142,6 +144,14 @@ The vocabulary is closed (`fenolite.convert.report.KINDS`), one table for every 
   `geo` extra, or a union that is not one ring) is a `refuse` loss (`report.REFUSE_REASONS`): KiCad would
   call the outline malformed, so the rings are not written and the conversion exits 7 without
   `--allow-lossy`. The kind `outline` keeps only the losses of the board ring.
+- **Embedded boards and shared footprints (Altium to KiCad).** `embedded-board`: a PCB document whose
+  `EmbeddedBoards6` storage holds records places other PCB documents; the records are not read, so their
+  components and copper are not converted. The document counts once, `lost` with a reason of
+  `report.REFUSE_REASONS`: the conversion (and `import --to python` of the project) exits 7 without
+  `--allow-lossy` (change c0374). `shared-footprint`: each footprint of a source component that several
+  footprints link, `changed`; it explains the `ref-ambiguous` of that reference (change c0371). With a
+  written schematic, the board comparison covers placed components and the schematic comparison the
+  others (change c0371).
 - **Changes of KiCad to Altium.** `zone-fill`: with `--altium-pour computed` (the default since change
   c0215) the polygon is poured by Fenolite from the written document (experimental), and a polygon the engine
   refuses, or every polygon with `--altium-pour outline`, is written unpoured, and Altium fills it on a
@@ -193,6 +203,7 @@ these places. "Level 5" is `route-missing`, `route-connectivity`, `route-vias`, 
 | `dnp` | its reference | `dnp` |
 | `footprint-copper`, `net-tie` | a net of the pads of its footprint | level 5 |
 | `source` | a reference held as often on both sides | `ref-ambiguous` |
+| `shared-footprint` | the reference of a component that several source footprints link (change c0371) | `ref-ambiguous` |
 <!-- explains:end -->
 
 `source` is no kind of the report: several components of the source share a reference (an empty one, or a

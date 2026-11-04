@@ -279,6 +279,8 @@ def zone_outlines(source: SourceProject, design: Design, ledger: Ledger) -> Desi
 
     documents: dict[str, Any] = {}
     zones: list[Zone] = []
+    # a project may keep its board in a subfolder: the board document is found as for the rules (c0371)
+    found = board_document(source, design)
     for zone in board.zones:
         if zone.outline:
             zones.append(zone)
@@ -287,7 +289,13 @@ def zone_outlines(source: SourceProject, design: Design, ledger: Ledger) -> Desi
         match = re.fullmatch(r"Polygons6/Data#(\d+)", where.locator if where else "")
         ring: tuple[Any, ...] = ()
         if where is not None and match:
-            path = source.path if source.path.suffix.lower() == ".pcbdoc" else source.root / where.file
+            path = (
+                found
+                if found is not None and found.name == where.file
+                else source.path
+                if source.path.suffix.lower() == ".pcbdoc"
+                else source.root / where.file
+            )
             if where.file not in documents:
                 documents[where.file] = None
                 try:
@@ -352,7 +360,33 @@ def board_document(source: SourceProject, design: Design) -> Path | None:
     if where is None or not where.file:
         return None
     path = source.root / where.file
-    return path if path.is_file() else None
+    if path.is_file():
+        return path
+    # the provenance names the file alone; a project may keep it in a subfolder (``PCB/Board.PcbDoc``,
+    # change c0371): take the PCB document of that name that the project lists and whose bytes the
+    # provenance hashed
+    from fenolite.backends.altium.read.project import load_project
+    from fenolite.core.io import sha256_bytes
+
+    if source.path.suffix.lower() != ".prjpcb":
+        return None
+    try:
+        listed = load_project(source.path).documents
+    except (OSError, ValueError):
+        return None
+    found = [
+        item.file
+        for item in listed
+        if item.document.kind == "pcb"
+        and item.present
+        and item.file is not None
+        and item.file.name == where.file
+    ]
+    if where.file_sha256:
+        found = [
+            candidate for candidate in found if sha256_bytes(candidate.read_bytes()) == where.file_sha256
+        ]
+    return found[0] if len(found) == 1 else None
 
 
 def rule_records(source: SourceProject, design: Design) -> tuple[dict[str, str], ...]:
