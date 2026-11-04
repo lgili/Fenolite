@@ -7,6 +7,7 @@ All notable changes to Fenolite are documented here. The format follows
 ## [Unreleased]
 
 - Archive c0323-build-byte-diagnostics (the per-platform byte mismatch is recorded as accepted, not resolved; CI 41853235387) and c0305-viewer-roles (viewer job green in CI 41853235387).
+- Note that the evening Altium round of 2026-11-04 did not reach c0166 tasks 3.1 to 3.5. They stay open, with no observation recorded.
 - Record an evening attempt to redo six scripted Part J cases through the Altium Properties panel (c0241, S-1582). A Claude agent tried it at the maintainer's request in Altium 24.5.2.23. It stopped before any case, because UI Automation could not reach the Properties panel. Nothing was saved, levels are unchanged, and task 1.2 stays open.
 - Record an evening retry of Draftsman round FP in Altium 24.5.2.23 (c0172, S-1581). A Claude agent ran it at the maintainer's request. The rebuilt probes have unchanged bytes. FP3 and FP4 hold no absolute path, so their open error has another cause. FP1 and FP2 stay blocked by the source path that Altium writes into the F0.3 control. FP5 would need a template registered in Preferences and was not run. Levels are unchanged.
 - Record an evening retry of Part Q case Q3 in Altium 24.5.2.23 (c0173, S-1580). A Claude agent ran it at the maintainer's request. Q3 is still not run, because the View Configuration panel lies over the Projects panel. Q5's four copies are the expected outcome of Q1's 2 × 2 array, not a defect. Levels are unchanged, and task 2.4 stays open.
