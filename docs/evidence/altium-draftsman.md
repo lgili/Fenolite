@@ -321,6 +321,25 @@ The digests match the VM copy before and after the run.
 observations, and the rows name Altium Designer 26.5. The G2 and G3 decisions of c0172 Decision 9 are
 left to the maintainer. No native file, capture or saved document enters the repository.
 
+**Evening FP retry (source S-1581).** At the maintainer's second request of 2026-11-04 the agent rebuilt
+the probes at `0207378b` with the same command. The bytes are identical to the run above: `FP3.PCBDwf`
+`d29f5b1d…`, `FP4.PCBDwf` and `FP5.DwfDot` `992b5098…`, `status.json` `a3f7e522…`. So FP3 and FP4 were
+not opened again. The causes asked about are these:
+
+- FP1 and FP2 are not built because the F0.3 control fails the kit privacy scan. Altium itself writes the
+  absolute path of the source PCB into every saved Draftsman document (see F0 above). The generator
+  cannot choose a relative path there, because the path comes from the native control.
+- The error from FP3 and FP4 is not caused by a VM path. FP3 (975 bytes) holds no path, and FP4 names
+  the PCB only by its bare file name, `blink_routed.PcbDoc`, in `SourceDocumentName`. A string scan of
+  both files finds no drive or home folder. The cause lies in the minimal document itself and is not
+  known.
+- FP5: File » New » Draftsman Document lists four built-in templates (`[Default]`, two `Assy Drawing -
+  Main views` variants and `Default Fabrication Drawing`). Its "Templates ..." button opens Preferences,
+  which would register the `.DwfDot` there, a lasting change to the maintainer's installation. The agent
+  cancelled both dialogs. FP5 stays not run as written.
+
+`H-A-DWF-MINIMAL`, `H-A-DWF-IMPORT` and `H-A-DWF-TEMPLATE` keep their levels.
+
 ## Approved pending-native scope — 2026-11-03
 
 The maintainer explicitly authorized the pending Altium validations on the
