@@ -1,0 +1,40 @@
+{
+  "source_commit": "2c6e5997b2efb5985383818681d69007ead6430d",
+  "cause": "two INFERRED Viewer outcomes omitted the existing pending (author report) prefix",
+  "fast21": {
+    "status": "FAILED",
+    "failed": 1,
+    "passed": 22615,
+    "skipped": 52,
+    "log_sha256": "5f9fdd3b544639a53bb08fd6c87bf7fef40426c91bf0306785b5e9b0b9c9d34e"
+  },
+  "changed_hypotheses": [
+    "H-A-SCH-NC-VIEWER",
+    "H-A-PCB-CU-VIEWER"
+  ],
+  "only_prefixes_changed": true,
+  "restored_original_bytes_after_undo": true,
+  "observations_dates_levels_expected_results_unchanged": true,
+  "runtime_test_bytes_unchanged": true,
+  "focused": {
+    "passed": 102,
+    "exit": 0,
+    "seconds": 66.86,
+    "log_sha256": "af119efb5ed4b90d78b4520d528476b158faab3061112926373cbce08ff2f6d3",
+    "modules": [
+      "tests/unit/test_altium_rows.py",
+      "tests/unit/test_inferred_hypotheses.py",
+      "tests/unit/test_hypotheses_register.py",
+      "tests/unit/test_provenance.py",
+      "tests/unit/test_altium_verification_docs.py",
+      "tests/unit/importer/test_provenance.py",
+      "tests/unit/library/test_provenance.py"
+    ]
+  },
+  "strict_openspec_1_3_exit": 0,
+  "private_gate_required_for_commit": true,
+  "native_calls": 0,
+  "new_tests": 0,
+  "ci_runs_started": 0,
+  "acceptance_or_promotion": false
+}

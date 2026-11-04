@@ -165,6 +165,10 @@
 - [x] 3.6 Execute separate Viewer V2/N4/C5 requests if the app is available; record an access blocker otherwise. Proof: dated actual Viewer outcomes.
   - Request/report work complete, rendering BLOCKED (not passed): the actual2026-10-13 uploads each remained Processing the Design for five minutes; the independent native-saved SchDoc control for two minutes. App reached, stall cause unknown. The dated report in docs/evidence/altium-native-acceptance.md satisfies the execution/report obligation only; successful-render criteria and the three INFERRED Viewer hypotheses stay pending. No new upload, native operation, CI, writer defect or acceptance waiver. Reconciliation proof: viewer-attempt-reconciliation-proof.json;67 existing documentation/hypothesis/provenance tests passed.
 
+- [x] 3.6b Repair only the required `pending (author report)` prefix of the N4/C5 Viewer hypothesis outcomes exposed by fast21. Preserve each complete blocked observation, date, expected result and INFERRED level, every other row and all runtime/test bytes. Proof: the unchanged Altium row validator plus hypothesis, provenance and native-documentation modules; strict OpenSpec, diff and private residue. No new test, native call, acceptance or promotion.
+
+  - Prefix-only proof: fast21 retained its genuine1failure/22615passes/52skips. The unchanged row validator and six related modules now pass102tests; nominal OpenSpec1.3 strict passes. Undoing only the two prefixes restores the complete prior hypothesis file byte for byte. Runtime/tests, observations, dates, expected results and evidence levels remain unchanged; no native execution, acceptance or promotion. See viewer-pending-prefix-proof.json.
+
 ## 4. Closing
 
 
