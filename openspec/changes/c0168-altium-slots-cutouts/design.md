@@ -138,3 +138,20 @@ Do not combine different versions/input digests into one fictional kit run.
 All existing acceptance criteria, facts-before-code rules and final CI remain.
 The kit form keeps its existing AD major.minor dialect: use AD 24.5; keep full
 build 24.5.2.23 in the separate native observation report, not a new form key.
+
+
+## Functional gate continuation — 2026-11-03
+
+The retained S-1297 current24 report completes only the literal S3, S4 and S5
+criteria that authorize the functional cut-out default. The maintainer approved
+implementing this existing task5.2 substep separately from aggregate5.2 and the
+remaining current-input S6 repour. Record task5.1a before changing runtime.
+Preserve the complete native seven-finding report and all historical versions;
+its TP1-positive/TP2-absent scope is not DRC-clean or full-kit acceptance.
+
+The default shared design writes three cut-outs and one H1 hole. Preserve the
+explicit gate-off negative with three omissions, and preserve all fixture bytes.
+The native kit adds three drilled slots and therefore has four holes; it is a
+different count, not a new default expectation. H-A-SLOT-KIT stays INFERRED and
+all formal-kit/graduation/release gates remain independent. No new native
+operation or personal approval is inferred from this code change.

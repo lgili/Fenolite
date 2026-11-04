@@ -18,3 +18,26 @@ No whole unchecked aggregate task was proved complete by this audit, so no check
 changed. Existing-receipt mapping is deliberately separated from an actually unexecuted test;
 only literal unmatched criteria should trigger new native work. No waiver or source/version
 merger is implied.
+
+
+## Later functional gate continuation — 2026-11-03
+
+Task5.1a implements the already recorded current24 S3/S4/S5 functional gate.
+CUTOUT_REGIONS is now true; S6 and aggregate5.2 remain open in this change and
+H-A-SLOT-KIT remains INFERRED. The original table/JSON above describe their
+earlier audit and native-capture state, not a new current24 full run; their
+source hashes remain attributed to the recorded criteria base. Existing native
+observations and all seven findings are unchanged. See functional-gate-proof.json
+for RED/GREEN, preserved fixtures, explicit-False regression and the limited
+functional default, without a formal kit record or graduation claim.
+
+
+## Later literal S6 observation
+
+A later root-operated Repour All on the current822 scratch now passes only S6:
+Top Layer copper remains outside the three empty milled openings, no message
+was observed, and the scratch alone is dirty. The first attempt refused before
+repour. No save/reopen/DRC/SDK or additional case was performed. The new
+source-bound record is docs/evidence/altium-slots-s6-24-native.json; earlier
+current24 pending summaries above describe their original capture window.
+Aggregate5.2 and H-A-SLOT-KIT remain open/INFERRED; no graduation or archive.

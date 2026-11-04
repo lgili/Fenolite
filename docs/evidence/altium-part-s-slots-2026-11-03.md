@@ -51,3 +51,17 @@ The full/stable raw panel receipts have SHA-256
 S1 pad properties/Drill Drawings, complete S2 acceptance and S6/S7/S8 on24 remain pending.
 CUTOUT_REGIONS stays false and H-A-SLOT-KIT stays INFERRED. These observations do not enable the
 writer or close5.2.
+
+
+## Later literal S6 repour
+
+The [separate S6 record](altium-slots-s6-24-native.json) binds the actual later
+Altium24.5.2.23 operation (VM UTC2026-11-04T00:10:20Z) and root visual review
+(host UTC2026-11-04T00:11:02Z). On a new authored scratch822 copy, one public
+Repour All returned with Top Layer copper present outside and absent within
+S1, the merged L and cut-out1, with no observed message. The scratch remained
+dirty; no save, reopen, new DRC or SDK call was requested. The first refused
+attempt invoked no repour. All original inputs, seven S5 findings and earlier
+receipts remain intact. This completes only the literal S6 observation; it
+does not close aggregate5.2, promote H-A-SLOT-KIT or create formal-kit,
+graduation, Part T, CI, archive or release acceptance.

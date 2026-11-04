@@ -41,6 +41,10 @@
 
 - [x] 5.1 Build the kit files of Part S (the fixture with the gate on, written for the kit only, and the variant with a pad 0.2 mm from each slot and the two rules) into `~/fenolite-altium-checks/session-4/S-slots/` with a `README.md` and their SHA-256; write Part S, cases S1 to S8 with their expected outcomes, into `docs/evidence/altium-pcb.md`. Proof: `uv run pytest tests/unit/test_altium_verification_docs.py -k part_s -q`.
   - 2026-10-16: `tests/unit/backends/altium/test_part_s.py` builds the kit (`FENOLITE_ALTIUM_PART_S=~/fenolite-altium-checks/session-4/S-slots uv run pytest tests/unit/backends/altium/test_part_s.py`, needs the `geo` extra): `regions/` (the fixture `altium.py` with the gate on; its `slots.PcbDoc` is the committed `slots_altium.PcbDoc`, SHA-256 `be65d4b9884e1949abd162f64033f54b92167bf1cea5af535031d691467910f0`), `clearance/` (the same with `TP1` 0.2 mm from the milled `S2`, `TP2` 0.2 mm from the drilled `D2`, a `GND` pour and the rules Board Outline Clearance 0.5 mm and Hole To Hole Clearance 0.25 mm; `_altium_slotcases.clearance_variant`), `gate-off/` with `build-report.json` (the three `altium.not-lowered` infos), `expected.md` (every slot, hole and cut-out read back from the files, mm from the board's corner), `README.md` (Part S as written in the evidence page) and `SHA256SUMS`: 15 files, written to `~/fenolite-altium-checks/session-4/S-slots/` and zipped to the session's scratchpad (`c0168-part-s.zip`, integrity checked) for the maintainer. Case S7 has its own read-back, `FENOLITE_ALTIUM_S7=<saved file> uv run pytest tests/unit/backends/altium/test_part_s.py -k s7` (checked here on the written file itself). Part S in `docs/evidence/altium-pcb.md`: the files, a table of the items and their places, and the eight cases with menu steps for Altium Designer 26.5 and their expected outcomes, and what to send. `test_altium_verification_docs.py` gains two `part_s` tests: S1 to S8 each with an expected outcome, and the gate true only with a Part S report that records S3, S4 and S5 as expected (checked to fail with the gate forced on). Proof: `-k part_s` 2 passed; `test_part_s.py` 1 passed, 1 skipped (S7 without a saved file).
+- [x] 5.1a Enable only the functional cut-out default after the retained current24 S3/S4/S5 literal criteria passed (S-1297). Move the existing actual24 report into Reports, retain its complete seven-finding S5 scope, preserve an explicit gate-off regression, and verify three default-written cut-outs. Do not close S6 or aggregate5.2, promote H-A-SLOT-KIT, manufacture a formal kit record, or graduate the writer. The maintainer delegated native operation; no additional personal review is asserted. Proof: RED then GREEN `uv run pytest tests/unit/lens/test_altium_slots.py -k "native_accepted_default or gate_cutouts" -q`; `uv run pytest tests/unit/backends/altium/test_part_s.py tests/unit/backends/altium/test_cutout_regions.py tests/unit/lens/test_altium_slots.py tests/unit/test_altium_verification_docs.py tests/unit/test_hypotheses_register.py tests/unit/test_provenance.py tests/unit/test_format_facts.py -q`; the existing single-slot negative with an explicit False override; focused static and generated-page checks. The root owns subsequent integration validation; no native/full/fast/CI rerun in this task.
+
+- [x] 5.1b Record only the later native24 S6 literal repour result on input822: one actual public Repour All, filled Top Layer copper outside the three empty milled openings, no observed message. Bind original operation/PNG/visual receipts; preserve the refused first attempt and all earlier findings. Do not close aggregate5.2, promote H-A-SLOT-KIT, claim saved/reopened results or graduate/archive the writer. Proof: retained input/artifact SHA256 and `uv run pytest tests/unit/test_altium_verification_docs.py -k part_s -q`; strict OpenSpec and private staged scan.
+
 - [ ] 5.2 **Maintainer, in Altium Designer.** Run S1 to S8 and give the report; record it under "Reports" of `docs/evidence/altium-pcb.md` in the form of the native acceptance inventory, register its source, and set `H-A-SLOT-KIT`. Only when S3 to S5 pass, set `pcbdoc.CUTOUT_REGIONS = True` and update the scenario "Cut-outs while the gate is off" to the written counts. OPEN until Altium was run; nothing is marked `ALTIUM-VERIFIED` before. Proof: `uv run pytest tests/unit/test_altium_verification_docs.py -k part_s tests/unit/test_hypotheses_register.py -q`.
   - 2026-10-17, OPEN: native AD 26.5 run on the kit of `670f02d`, recorded in `docs/evidence/altium-part-s-slots-2026-10-17.md` (S-0812) and under "Reports" of `docs/evidence/altium-pcb.md`: S1, S2, S4, S5, S6, S7 and S8 as expected; S3 incomplete, because the 3D Layout Mode viewport stayed blank (Board Planning Mode showed the openings and the NC output held no milled hit). `H-A-SLOT-KIT` holds the result and stays `INFERRED`; `pcbdoc.CUTOUT_REGIONS` stays false until S3 is repeated (S4 and S5 passed). `uv run pytest tests/unit/test_altium_verification_docs.py -k part_s tests/unit/test_hypotheses_register.py -q` passes.
   - 2026-11-03, later S5 literal subtest (S-1297): one actual24.5.2.23 DRC on the unchanged authored clearance alias (`822d31cf…`) yields all7 native findings, read twice as a stable7×1 grid with `[All Rules]` selected, Normal display mode,0waived and cap500 not reached. Pad TP1 has Board Outline Clearance7.874mil<19.685mil; no TP2 occurs in that category. Four Hole Size findings, a TP1 overlay-text clearance collision and one Hole To Hole finding remain intact. TP2's negative is scoped to this complete result for the guarded input; no independent native SDK TP2 census or saved/reopened proof was executed. Record only this literal subtest; keep5.2 unchecked, CUTOUT_REGIONS false, H-A-SLOT-KIT INFERRED and remaining current24 cases open. Proof: the full/stable raw receipt digests and all seven descriptions are in `docs/evidence/altium-slots-24-native.json`; `env PYTHONPATH=src uv run --extra geo --extra dev python -m pytest tests/unit/test_altium_verification_docs.py tests/unit/test_hypotheses_register.py tests/unit/test_format_facts.py -q` passed77 tests; `openspec validate c0168-altium-slots-cutouts --strict --no-interactive` passed.
@@ -92,3 +96,45 @@ its JSON proof hashes distinguishes completed native portions, historical observ
 receipt mapping and genuinely unmatched criteria. Do not request an already measured subcase
 again merely because its parent task stays open. No whole aggregate task, current CI, writer gate,
 graduation or hypothesis promotion was inferred; all existing unchecked rows remain unchanged.
+
+
+## Functional gate proof — 2026-11-03
+
+Task5.1a passed on base baa033d2 plus this focused change. The native S-1297
+input-bound S3/S4/S5 report was already retained; no native operation ran here.
+The default regression first failed with zero written cut-outs instead of three,
+while its explicit-False counterpart passed (1failed/1passed). Changing only the
+runtime flag gave2passed. The focused PartS/lens/cutout/docs/register/provenance/
+facts and unchanged board6 golden proof passed100tests with1contracted S7skip.
+An older single-slot negative also needed an explicitFalse setup; its missing
+omission initially failed, then all its original assertions and the docs passed
+(16tests). No fixture or frozen expected finding was changed.
+
+Ruff/format, pyright src (zero errors/warnings), evidence-matrix and graduation
+snapshot --check, and nominal OpenSpec1.3 strict all passed. The13slot/board6
+fixture files,8native/label/generated evidence files and every other runtime
+byte match the base. The native report remains seven findings, not DRC-clean;
+the historical26failure and current24 limitations stay recorded.
+
+`functional-gate-proof.json` binds these logs/commands and invariants without
+local user paths. S6 and aggregate5.2 remain unchecked here; H-A-SLOT-KIT remains
+INFERRED, no formal kit record or writer graduation is created, and central
+post-change integration/CI remains the coordinator's separate responsibility.
+No full/fast/native/GUI/CI suite was run in this worktree.
+
+
+## Later S6 documentary proof
+
+Task5.1b records the root-operated actual native Repour All and independent
+root visual inspection on the unchanged822 authored scratch. One earlier
+attempt refused before any repour; the successful invocation count is one.
+The operation, unmodified PNG and visual receipt hashes are bound in
+docs/evidence/altium-slots-s6-24-native.json. No save/reopen, new DRC or SDK
+was requested. The only new native outcome is literalS6 as expected; no whole
+case set, current24 full run or saved-fill equivalence is inferred.
+
+The two focused PartS documentation checks pass (13deselected,0.23s). H-A-SLOT-KIT
+is unchanged INFERRED and aggregate5.2 is still unchecked. The earlier
+functional-gate-proof.json remains attributed to its pre-S6 code change.
+This documentation commit changes no runtime, fixture or baseline and runs
+no native, GUI, full/fast or CI operation.

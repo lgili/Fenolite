@@ -1105,12 +1105,13 @@ def test_an_outline_with_arcs_no_document(tmp_path: Path) -> None:
     assert "arcs" in found.message and output.summary["pcb_document"] is None
 
 
-def test_a_milled_slot_plans_the_document(tmp_path: Path) -> None:
+def test_a_milled_slot_plans_the_document(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Change c0168 (Decision 5): an outline with slots plans the PCB document; while
     ``pcbdoc.CUTOUT_REGIONS`` is false each slot is reported by name, in the build and in the lowering of
     a model."""
-    from fenolite.backends.altium import lower
+    from fenolite.backends.altium import lower, pcbdoc
 
+    monkeypatch.setattr(pcbdoc, "CUTOUT_REGIONS", False)
     slotted = (
         "design.board(mm(50), mm(30))\ndesign.slot(mm(40), mm(15), length=mm(8), width=mm(2), name='V')\n"
     )

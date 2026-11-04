@@ -1,40 +1,42 @@
 # Current CAC closure status —2026-11-03
 
-This is the current local snapshot, not a release or a passing whole-CI badge.
+This local candidate has42 actual scoped archives, not a release or a passing whole-CI badge.
 
 | State | Authoritative evidence | Remaining boundary |
 |---|---|---|
-|32 specs actually archived in CAC | archived-scoped-20261103.json:242 files equal their reviewed source commits; every archive commit carries the maintainer DCO | Does not certify post985 runtime changes |
-|All95 living specification files equal the reviewed archive chain |2d780d9e6e23d94899ee56cd7cc660c5e90aef06, complete file/byte comparison | Nominal OpenSpec1.3.0 strict95/95 passed |
-|Five viewer archives integrated |c0304,c0300,c0301,c0302,c0311; original104-case viewer CI and prior11-image review | c0303 and c0305 are not included |
-|c0303 native collection repaired locally |c8f82089;53 hermetic workflow cases and exactly3 original nodes collected | Actual export/tidy on9/10 and fill on10 await authorized CI;3.4/6.1 open |
-|c0275 corpus measurement4.3 complete on985 |18 complete imports, both heavy rows,19 retained artifact members with one byte-identical alias; five focused measurement controls | Original losses retained;5.5/later integration, higher fidelity levels and release remain independent |
-|Library static audit clean |5edffa69:20 items, zero audit findings; original payload/proof bytes retained | Fresh Royal L7 still has two findings; library CI/release/core pin still open |
-|Known geometry excluded from CAC closure |3d82fda4;27 source-bound cases reported DEFERRED_NOT_PASSED | c0332 stays open; main/dev/PR scope unchanged |
-|Failed run retained and deleted as authorized | docs/evidence/cac-ci-cleanup-41708879698.json | Deletion does not mean CI passed |
+|42 specs archived in CAC |archived-scoped-20261103.json:316 exact archived file hashes, reviewed source/CAC commits and individual maintainer DCO |Post985 integration requires its own CI |
+|101 living files reconciled |Complete tree equals reviewed chain1789432f;101/101 strict OpenSpec1.3.0 pass |Historical1.16 style diagnostic is retained separately |
+|Fast16 passed |Clean unchanged8635415a:22471passed/52skips, exit0; fast16-receipt.json |Later one-file documentary guard independently54passed; no exact-current wholeCI claim |
+|c0303 collection fixed and locally checked |Three original tests:2pass+fill-version-skip on9.0.9,3pass on10.0.6; native-local-preflight.json |CI3.4/6.1 remain open |
+|c0275 archived |18 complete retained imports including heavy06/18; original losses and source985 gates retained |No higher-fidelity/library-release/current-CI claim |
+|c0276 corpus7.2 documented |130 actual IDs per major;87/5floor/38tag on9 and113/1floor/16tag on10; naming warnings preserved |7.1/9.2 and formal writer evidence remain open |
+|Library static audit clean |5edffa69:20items, zero audit findings |RoyalL7 still2findings; library CI/release/core pin open |
+|Known geometry excluded |3d82fda4:27source-bound cases are DEFERRED_NOT_PASSED |c0332 open; main/dev/PR selection unchanged |
+|Failed/cancelled CI cleaned |Retained cleanup receipts, including unavailable macOS logs explicitly recorded |Deletion is not a passing verdict; last query found zero in both repos |
 
-Of the original37 prepared changes, these five are still active:
+Of the original37 prepared changes, four remain active:
 
 | Spec | Concrete remaining work |
 |---|---|
-|c0170 | c0160 must first complete and be archived; its real native gates remain |
-|c0281 | c0275/c0278/c0279 archive prerequisites; straight-item evidence does not certify arc parity |
-|c0282 | Reconcile its own literal proof/evidence gate; no completion inferred from neighboring archives |
-|c0303 | Run the newly collected three original native action cases in an authorized CI; preserve fill minimum10 |
-|c0305 | Retain and inspect all six real reference views; one bad-buck PNG is insufficient |
+|c0170 |c0160 native PartT completion/archive prerequisite |
+|c0281 |c0278/c0279 archive prerequisites; c0275 is archived; straight-item proof does not claim arc parity |
+|c0303 |Actual newly collected cases must run in an authorized exact-source CI |
+|c0305 |Six real unfilled product exports are prepared; all six still require recorded visual inspection |
 
-The original CAC and older acceptance work beyond those37 is still tracked in closure-queue.md.
-The four block-native gates are undergoing read-only reconciliation against existing CI results.
-The c0276 five missing authored probe records have a reviewed implementation checkpoint; a prerequisite
-failure before Docker/KiCad started is not a measured result. Its required current CI remains open.
-Maintainer-native comparisons c0177/c0180/c0181/c0186, earlier Altium gates and external library
-publication remain real pending work. The pending manual Mac unlock affects GUI work only.
-JLC/c0267 remains explicitly deferred; product1.0, routing and enclosure work are outside this closure.
+The original CAC and older acceptance beyond those37 remain in closure-queue.md. The42 archives
+include the four block contracts, c0275/c0282 and c0247/c0260/c0262/c0264, each source-bound.
+159 catalog entries remain unreviewed; the imported demonstration device remains UNVERIFIED.
+No native or human approval is inferred from these archival counts.
 
-No local full suite, geometry investigation, new push, release or CI run was performed for this snapshot.
+The independent c0168 functional gate and c0246 direct native-variant coverage are being prepared
+in isolated worktrees and are outside this ready candidate. The Mac was manually unlocked;
+actual Altium interface work has resumed. Older Altium acceptance, maintainer comparisons
+c0177/c0180/c0181/c0186 and external library publication remain pending. JLC/c0267 is explicitly
+deferred; product1.0, routing and enclosure work are outside this closure.
 
-Validation-tool scope: the nominal PATH OpenSpec1.3.0 used by the reviewed archive chain passes
-all95 living specifications and c0319 strict. An additional1.16.0 diagnostic fails78 items solely
-for new Purpose/long-requirement style warnings (no ERROR items); its original log is retained.
-No contract text or validator was weakened to hide it. All242 archived-file and95 living-file
-byte comparisons remain independent of that style diagnostic.
+All42 archival files and the101-file living tree were independently compared byte for byte.
+Nominal OpenSpec1.3.0 strict passes101/101 plus c0319/c0303. An additional historical1.16.0
+style diagnostic on the earlier32-archive snapshot reported17pass/78warning-fail/zeroERROR;
+it is preserved without rewriting unrelated contracts or altering validators.
+
+No local full suite, new CI, push, release or geometry investigation was performed for this candidate.

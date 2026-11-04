@@ -6,6 +6,10 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Record direct inspection of six authored role views with original JPEGs and portable hashes; preserve unfilled-board findings and keep exact-source CI closure pending (c0305).
+
+- Record42 verified scoped archives, fast16 with22471passed/52skipped and the later54-case documentary guard, plus five actual native viewer action passes; retain exact-source CI and pending functional gates (c0319,c0303).
+
 - Archive c0264-library-import with retained authored imported/plain native comparisons and shared dispatch/layering alignment; imported devices remain UNVERIFIED.
 
 - Archive c0262-library-rules with the retained 159-item checker/review-sheet artifact; preserve all 159 unreviewed states.
@@ -13,6 +17,9 @@ All notable changes to Fenolite are documented here. The format follows
 - Archive c0260-footprint-generators with retained three/eight-model STEP proofs and reconciled generator contracts; limit STEP verification to those measured scopes.
 
 - Archive c0247-connection-helpers with retained source985 blink/ERC and pinned-byte proofs; keep failed CI badges and deferred geometry explicit.
+- Record the literal Altium 24 S6 repour observation on the authored clearance input, preserving the earlier findings and pending aggregate acceptance.
+
+- Enable experimental Altium cut-out regions by default after the recorded native Part S3–S5 checks; retain explicit gate-off regression and keep aggregate slot acceptance and graduation pending.
 
 - Preserve the failed historical drawn-context evidence guard and permit measurement closure only with the complete source 985f59a1 CI receipt; resolve one active or archived spec, reject ambiguous locations and preserve receipt scope independently of later task closure; reject incomplete or altered rows, counts, timings, hashes, partitions, aliases, warnings and receipt bindings (c0276).
 

@@ -13,7 +13,7 @@ import pytest
 
 from fenolite.backends.altium import pcbrecords as rec
 from fenolite.backends.altium.cutouts import CUTOUT_TOL, cutout_items, item_where
-from fenolite.backends.altium.pcbdoc import CUTOUT_REGIONS, PcbDocSpec, write_pcbdoc
+from fenolite.backends.altium.pcbdoc import PcbDocSpec, write_pcbdoc
 from fenolite.backends.altium.read.pcb import read_pcbdoc
 from fenolite.backends.altium.read.pcbprims import RegionRecord
 from fenolite.core.coords import Point
@@ -41,10 +41,6 @@ def _read_rings(data: bytes) -> list[tuple[dict[str, str], int, list[Point]]]:
         points = [Point(round(v.x), round(v.y)) for v in region.outline]
         found.append((dict(region.properties.fields), region.prefix.layer, points))
     return found
-
-
-def test_the_gate_is_off_until_the_kit() -> None:
-    assert CUTOUT_REGIONS is False
 
 
 def test_the_keys_of_a_cut_out_region() -> None:

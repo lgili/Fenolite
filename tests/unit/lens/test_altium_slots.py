@@ -2,7 +2,7 @@
 # Copyright (c) 2026 Fenolite contributors
 """Slots and cut-outs in a script build for Altium (capability altium-build, "PCB document output"; change
 c0168): slotted hole parts become free slot pads, and the cut-outs and slots of the outline are reported
-while ``pcbdoc.CUTOUT_REGIONS`` is false."""
+when the native gate is explicitly disabled."""
 
 from __future__ import annotations
 
@@ -104,12 +104,12 @@ def build_slots(root: Path) -> BuildOutput:
     )
 
 
-def test_gate_cutouts_while_the_gate_is_off(tmp_path: Path) -> None:
+def test_gate_cutouts_while_the_gate_is_off(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Scenario "Cut-outs while the gate is off": the document is planned, three cut-outs are counted
     under ``cutout`` of ``not_lowered`` and named by three infos; the merged L is one."""
     from fenolite.backends.altium import pcbdoc
 
-    assert pcbdoc.CUTOUT_REGIONS is False
+    monkeypatch.setattr(pcbdoc, "CUTOUT_REGIONS", False)
     output = build_slots(tmp_path)
     assert not [i for i in output.issues if i.severity == "error"]
     assert "slots.PcbDoc" in output.files
@@ -129,13 +129,10 @@ def test_gate_cutouts_while_the_gate_is_off(tmp_path: Path) -> None:
     assert not read_document(output.files["slots.PcbDoc"]).regions
 
 
-def test_gate_on_writes_the_regions(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """With the gate on (the kit's form), the three cut-outs are written and counted under ``written``;
+def test_native_accepted_default_writes_the_regions(tmp_path: Path) -> None:
+    """The accepted native default writes all three cut-outs under ``written``;
     the merge of the L needs the ``geo`` extra."""
     pytest.importorskip("pyclipper")
-    from fenolite.backends.altium import pcbdoc
-
-    monkeypatch.setattr(pcbdoc, "CUTOUT_REGIONS", True)
     output = build_slots(tmp_path)
     pcb = output.summary["pcb"]
     assert pcb["written"]["cutout"] == 3 and "cutout" not in pcb["not_lowered"]  # type: ignore[index]

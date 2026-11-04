@@ -727,6 +727,41 @@ are committed.
 
 ## Reports
 
+### 2026-11-03, actual `AD24.5.2.23`, Part S
+
+Source S-1297: [current native report](altium-part-s-slots-2026-11-03.md) and
+[measured recap](altium-slots-24-native.json). S3/S4 and the S5 literal result subtest pass on current24; historical26.5
+observations are unchanged. All three native input hashes remain exact. No global settings changed.
+
+| Case | Measured observation | Result |
+|---|---|---|
+| S3 | Planning/2D/actual3D openings plus native NC3drilled slots/1round NPTH, no milled/cut-out hit | as expected |
+| S4 | One selected L Region, Kind Board Cutout, authored rounded extremities | as expected |
+| S5 | Complete stable7-row native DRC result: TP1 pad Board Outline Clearance7.874mil<19.685mil; no TP2 in that category. All Rules, Normal mode,0waived, cap500 not reached; all other findings retained. No independent native TP2 object census. | as expected |
+| S6 | Later actual Repour All once on scratch822, AD24.5.2.23; Top Layer copper remains outside S1, the merged L and cut-out1; no observed message. Scratch dirty, no save/reopen, new DRC or SDK. | as expected |
+
+At capture time, S1/S2/S6/S7/S8 current24 outcomes remained open, CUTOUT_REGIONS was false and
+H-A-SLOT-KIT was INFERRED. Those observation records and their input hashes are unchanged.
+
+Functional continuation, 2026-11-03: retained current24 S3/S4/S5 satisfy only the functional
+cut-out gate. Task5.1a enables CUTOUT_REGIONS and the default three written cut-outs, while
+preserving the explicit gate-off regression. S6 and aggregate5.2 remain open in this continuation;
+H-A-SLOT-KIT remains INFERRED. This does not declare a clean DRC, complete current24 kit, formal
+kit record, writer graduation or release approval.
+
+Later literal S6, observed at native VM UTC2026-11-04T00:10:20Z and reviewed at
+host UTC2026-11-04T00:11:02Z: [separate measured record](altium-slots-s6-24-native.json).
+The root operator invoked public Repour All once on a fresh scratch copy of
+input822d31cf. Actual red Top Layer copper remains and is absent inside S1,
+the merged L S2+S3 and the rounded cut-out1; no message was observed and the
+main returned enabled/foreground with only the scratch dirty. A previous
+attempt refused before expanding the menu or invoking repour. No Save, reopen,
+new DRC or SDK was requested; this does not alter the earlier seven findings
+or prove a saved fill. Only the S6 literal outcome is now as expected.
+Aggregate5.2 and H-A-SLOT-KIT remain open/INFERRED; no full kit, Part T,
+graduation, CI, archive or release result follows. VM/host clocks were not
+calibrated; their timestamps are retained separately.
+
 ### 2026-10-17, `AD 26.5`, Part S
 
 Native run on Windows of the kit built from `670f02d`, recorded in full in
@@ -1188,18 +1223,3 @@ Do not combine different versions/input digests into one fictional kit run.
 All existing acceptance criteria, facts-before-code rules and final CI remain.
 The kit form keeps its existing AD major.minor dialect: use AD 24.5; keep full
 build 24.5.2.23 in the separate native observation report, not a new form key.
-
-### 2026-11-03, actual `AD24.5.2.23`, Part S
-
-Source S-1297: [current native report](altium-part-s-slots-2026-11-03.md) and
-[measured recap](altium-slots-24-native.json). S3/S4 and the S5 literal result subtest pass on current24; historical26.5
-observations are unchanged. All three native input hashes remain exact. No global settings changed.
-
-| Case | Measured observation | Result |
-|---|---|---|
-| S3 | Planning/2D/actual3D openings plus native NC3drilled slots/1round NPTH, no milled/cut-out hit | as expected |
-| S4 | One selected L Region, Kind Board Cutout, authored rounded extremities | as expected |
-| S5 | Complete stable7-row native DRC result: TP1 pad Board Outline Clearance7.874mil<19.685mil; no TP2 in that category. All Rules, Normal mode,0waived, cap500 not reached; all other findings retained. No independent native TP2 object census. | literal subtest as expected |
-
-S1/S2/S6/S7/S8 current24 outcomes remain open; CUTOUT_REGIONS stays false and H-A-SLOT-KIT
-stays INFERRED pending the required remaining acceptance.

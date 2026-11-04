@@ -89,7 +89,7 @@ BOARD_OFFSET_MIL = 1000
 """The board's lower-left corner and ``ORIGINX``/``ORIGINY`` lie at (1000 mil, 1000 mil)."""
 _OFFSET_NM = BOARD_OFFSET_MIL * 25_400
 DEFAULT_FILENAME = "Fenolite.PcbDoc"
-CUTOUT_REGIONS: Final = False
+CUTOUT_REGIONS: Final = True
 """Whether a build or a write of a model writes the cut-outs and milled slots of the board outline as board
 cut-out regions (change c0168, Decision 5). False until the maintainer's kit cases S3 to S5 of Part S
 (``docs/evidence/altium-pcb.md``) are reported as passed: until then each cut-out is reported with

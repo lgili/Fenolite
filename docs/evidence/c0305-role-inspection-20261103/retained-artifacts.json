@@ -1,0 +1,244 @@
+{
+  "schema": "fenolite.c0305.retained-artifacts.v1",
+  "external_packet": "fenolite-c0305-six-live-inspection-20261103-v1",
+  "original_manifest": {
+    "file": "manifest.json",
+    "sha256": "e48820b0920c850d54da10779bc59e70b4662990be6780ca8031abb3c205404a",
+    "bytes": 10850
+  },
+  "count": 46,
+  "bytes": 1522995,
+  "files": [
+    {
+      "path": "RESULTADO.md",
+      "bytes": 7138,
+      "sha256": "d7e84cddcc520bb36bded4c402fa24d7e655b409e62d7abd7b77a29e7bb0115b"
+    },
+    {
+      "path": "bms-bad.ax.txt",
+      "bytes": 5244,
+      "sha256": "823df8f4d76c80addf4bb4841c4298474488cfb6d85864127c227125bdbe6dbe"
+    },
+    {
+      "path": "bms-bad.dom.txt",
+      "bytes": 9899,
+      "sha256": "5162c0e531fcaea2d82a128c6f018e5c7512e3d56393c25107ddbcfd54d864c8"
+    },
+    {
+      "path": "bms-bad.initial-ax.txt",
+      "bytes": 10365,
+      "sha256": "0cdb6b71c7b0d7102dcba7e00d036bf3d65bd2a2768135c5074e3126544b6909"
+    },
+    {
+      "path": "bms-bad.jpg",
+      "bytes": 133910,
+      "sha256": "73122df11e8fc707903cef15040dae1ac00409702fc2f28bf8ca045ab7b140a1"
+    },
+    {
+      "path": "bms-bad.notes-ax.txt",
+      "bytes": 1710,
+      "sha256": "a1c4b2c8ea4afdea9f7a0eb840b41de9ab9463be2f5fa10a4d35d63fd19cacfc"
+    },
+    {
+      "path": "bms-bad.stderr.log",
+      "bytes": 152,
+      "sha256": "8f7f7e2b3ae9481e694ff235041c2063a497ae3f199ec0b9b271336f3c7cde14"
+    },
+    {
+      "path": "bms-bad.stdout.json",
+      "bytes": 3474,
+      "sha256": "2f88aa0b843d64003c9cce3776be76cebfb72292fe9079a74ea051aafe07ae64"
+    },
+    {
+      "path": "bms-good.ax.txt",
+      "bytes": 5245,
+      "sha256": "289b1ce46444d71b6a8c486dc1f05935e580eef3b647c7ef5be664e7e34787eb"
+    },
+    {
+      "path": "bms-good.dom.txt",
+      "bytes": 9907,
+      "sha256": "72ba29440ccb24a8ef9bdae95696b462ae459463797d92985bc6b266c3d5ce09"
+    },
+    {
+      "path": "bms-good.initial-ax.txt",
+      "bytes": 10325,
+      "sha256": "2a139fc058a215081ac0e31646729c013a8f8797ca539b5f0fdd5afb50c5f4f5"
+    },
+    {
+      "path": "bms-good.jpg",
+      "bytes": 129481,
+      "sha256": "620eb2443a93fdf9c6cb50e336b80e53d83a13fae65984210276c3a2d6451b3f"
+    },
+    {
+      "path": "bms-good.notes-ax.txt",
+      "bytes": 1712,
+      "sha256": "04b1debb4708a148299541d771767b1311e2e52fbca8644cec5d5ac58f0257e4"
+    },
+    {
+      "path": "bms-good.stderr.log",
+      "bytes": 152,
+      "sha256": "659b320fb80e197dc22fbe97f259821574ef359357a4678f5b696c79d8387974"
+    },
+    {
+      "path": "bms-good.stdout.json",
+      "bytes": 3471,
+      "sha256": "ce9cd353ddf707fc588e304aca8f40bc4bf08c0ff23dee5c2a9b044bfc275af2"
+    },
+    {
+      "path": "buck_shunt-bad.ax.txt",
+      "bytes": 5251,
+      "sha256": "822c76f4eae97148573def982c5e0c14b0c00370a26ac4a42532feb28b90db46"
+    },
+    {
+      "path": "buck_shunt-bad.dom.txt",
+      "bytes": 11082,
+      "sha256": "961b7f05a13e079897d712c64b3cddb08f2533f2ca221ba0b86bc241fb12c7fe"
+    },
+    {
+      "path": "buck_shunt-bad.jpg",
+      "bytes": 158543,
+      "sha256": "f929dda1917317543b5eb70a9e049d312b031c4efa024171e45e1405f3d67ecf"
+    },
+    {
+      "path": "buck_shunt-bad.notes-ax.txt",
+      "bytes": 1728,
+      "sha256": "073a6c9e083edf5733f2b43a7aef4aec3dbd76e1c9c5a68991f5bb090f57758a"
+    },
+    {
+      "path": "buck_shunt-bad.stderr.log",
+      "bytes": 152,
+      "sha256": "8495d00f3a4d1750d77e2e9f20469c5aaf5011d72a574f0791c398ae4cf27079"
+    },
+    {
+      "path": "buck_shunt-bad.stdout.json",
+      "bytes": 3551,
+      "sha256": "c34c962b573e1bd1e4279feb61d618bba6e252947a5dc03c3b5cc89f99e67b36"
+    },
+    {
+      "path": "buck_shunt-good.dom.txt",
+      "bytes": 10562,
+      "sha256": "a07484fe64260a1b13ebc3ed331b617d0d83053d4c7d4c6ce0418205378e7519"
+    },
+    {
+      "path": "buck_shunt-good.jpg",
+      "bytes": 150965,
+      "sha256": "d50aac36742f30de98e04427a158067377dddb0e2b959b1af2178a30b4c5d845"
+    },
+    {
+      "path": "buck_shunt-good.stderr.log",
+      "bytes": 152,
+      "sha256": "e61fbc5a285f6f105a46998d7d9c2ce7b334fc888c761bdb065532eb74f2ebed"
+    },
+    {
+      "path": "buck_shunt-good.stdout.json",
+      "bytes": 3556,
+      "sha256": "afdf11a790098808a2d1be30b4b82cd590e4e8dff44cd2fb269e95e3af50c4f2"
+    },
+    {
+      "path": "captures.json",
+      "bytes": 6399,
+      "sha256": "ede8bb92c14287a1a96c1f556233c4ea2e1e158e4f91436b070683a53e61a2c5"
+    },
+    {
+      "path": "finalize_receipt.py",
+      "bytes": 9621,
+      "sha256": "b0ae7db8b4e041f3c10759e2ae3aee9380346ee6dfcf56c7da1f8f677ca77a2e"
+    },
+    {
+      "path": "half_bridge-bad.ax.txt",
+      "bytes": 5724,
+      "sha256": "ceae6c5a068b4f1bd040d93073e76ca07bc0f2d18e2b795ab44af0250abc733b"
+    },
+    {
+      "path": "half_bridge-bad.dom.txt",
+      "bytes": 11020,
+      "sha256": "82f4db9cf6f6728cc66449fbf429f544026e8781d84648b164d2e04680ff05b3"
+    },
+    {
+      "path": "half_bridge-bad.initial-ax.txt",
+      "bytes": 6567,
+      "sha256": "42ea6a354c8f02374314bb128e32bad2e26a3cb72964742d9ba0aaa0def76b0c"
+    },
+    {
+      "path": "half_bridge-bad.jpg",
+      "bytes": 169019,
+      "sha256": "02a604cd10f53db14ff60c3cdec170be62f74a062ffd9d962cbe6899e5dabc1f"
+    },
+    {
+      "path": "half_bridge-bad.notes-ax.txt",
+      "bytes": 1730,
+      "sha256": "28c4283f76e48227696ed1af2f814dda8b18fc93683033fa60231daf37505a7c"
+    },
+    {
+      "path": "half_bridge-bad.stderr.log",
+      "bytes": 152,
+      "sha256": "2f0f9357245cc808a206ba5a2ccd291bfa8b465bfcd3f1296c1df7a303663d19"
+    },
+    {
+      "path": "half_bridge-bad.stdout.json",
+      "bytes": 3577,
+      "sha256": "35f353656d3ed98d1eaf14cd9317755bbde7dacd17520dcf518eff58958c237e"
+    },
+    {
+      "path": "half_bridge-good.ax.txt",
+      "bytes": 5767,
+      "sha256": "b1baa1c44f16c534284d3fc6054cb5d3f2959005d9bb3207491fb8ade9aa9f7d"
+    },
+    {
+      "path": "half_bridge-good.dom.txt",
+      "bytes": 10638,
+      "sha256": "ef3da223b0e149ec9db0610f6de2b95a9a57d594bbd8d2d5d874488af88ced71"
+    },
+    {
+      "path": "half_bridge-good.initial-ax.txt",
+      "bytes": 10707,
+      "sha256": "94846876be0820eeff86ee4bccb7fafe915db613586b002bb34d42ff3e96d15a"
+    },
+    {
+      "path": "half_bridge-good.jpg",
+      "bytes": 167141,
+      "sha256": "ba6e7e8d5ff3b08a2c1ee3c04052f7a204f6d181b11548598ee8ab27b091f159"
+    },
+    {
+      "path": "half_bridge-good.notes-ax.txt",
+      "bytes": 1731,
+      "sha256": "44028a7a051feda5d119a2e4d8ec2414c77ae3481870c9d54e494c3c715b78fc"
+    },
+    {
+      "path": "half_bridge-good.stderr.log",
+      "bytes": 152,
+      "sha256": "8a7f6662a320ca5ce8a676b9e91b7da0c8384f142cd92d0b743a7daf015eda73"
+    },
+    {
+      "path": "half_bridge-good.stdout.json",
+      "bytes": 3581,
+      "sha256": "21fe153b3adec24d551ee70768a7a9dcedc20371efde35b225fa63a5bea6a3ef"
+    },
+    {
+      "path": "review-receipt.json",
+      "bytes": 81449,
+      "sha256": "c7644f1960fe39e702095ae7f8f4e0da6e37dc69e0ad96a58f955a6224b365c3"
+    },
+    {
+      "path": "runtime-after.json",
+      "bytes": 288980,
+      "sha256": "87b237cc9a4829bd77fb4d8c1b8d609ffbc9c913fea3c5a195c938f4040ae4f7"
+    },
+    {
+      "path": "server-stop-receipts.json",
+      "bytes": 41828,
+      "sha256": "ec281f62c81e659a0c4917c6f5a7f92213faa5ca8b33792ca9f211792e7f4d44"
+    },
+    {
+      "path": "servers.json",
+      "bytes": 16997,
+      "sha256": "0c3c869d5b8c96e382d3b3de78c9e07d9fcc1d020494a74236195cf3d9d64d31"
+    },
+    {
+      "path": "start_servers.py",
+      "bytes": 2488,
+      "sha256": "00b26c002eaff7d035e4ea3a4a7c71875c2074abfb651869a3ce181f9c440da0"
+    }
+  ],
+  "note": "Relative names identify the original retained external files. All 46 files, including the six authored unedited JPEG originals, remain in that external packet. No binary payload is included in this documentary commit; original external bytes were not rewritten."
+}

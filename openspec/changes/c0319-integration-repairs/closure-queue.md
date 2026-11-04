@@ -1,7 +1,7 @@
 # Bounded v0.7 closure queue — 2026-11-03
 
-Current authoritative closure snapshot: **32 actual scoped archives**, individually signed,
-with all242 archived files and all95 living specification files checked against the reviewed
+Current authoritative closure snapshot: **42 actual scoped archives**, individually signed,
+with all reviewed archived files and all101 living specification files checked against the reviewed
 archive chain. See [current status](closure-current-20261103.md) and
 [complete bindings](archived-scoped-20261103.json). The preparation and zero/fifteen-archive
 counts below are dated historical observations, superseded only for the current count.

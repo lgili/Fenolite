@@ -1,0 +1,219 @@
+{
+  "schema": "fenolite.c0168-functional-native-gate.v1",
+  "scope": "Only the existing functional S3-S5 cutout gate; S6 and aggregate5.2 remain independently open in this change.",
+  "base": "baa033d2548e38563d2878058cc609a05ea43803",
+  "runtime_change": "CUTOUT_REGIONS False to True only",
+  "native_evidence": {
+    "record": "docs/evidence/altium-slots-24-native.json",
+    "sha256": "50caaf3512de0e8ad19fb6701a96cbb0a0f88bdc2d2ea59dfe88521cefcaa2e0",
+    "version": "24.5.2.23",
+    "source": "S-1297",
+    "S3_input_sha256": "be65d4b9884e1949abd162f64033f54b92167bf1cea5af535031d691467910f0",
+    "S5_input_sha256": "822d31cf5ee269e44b573db595388c0532008523ff4d0d93d103c7a528a8ec3e",
+    "S3": true,
+    "S4": true,
+    "S5_literal_TP1_positive_TP2_absent": true,
+    "S5_all_seven_findings_preserved": true,
+    "clean_DRC_claimed": false,
+    "record_at_capture_CUTOUT_REGIONS_changed": false,
+    "new_native_or_GUI_execution": false
+  },
+  "RED": {
+    "command": [
+      "uv",
+      "run",
+      "pytest",
+      "tests/unit/lens/test_altium_slots.py",
+      "-k",
+      "native_accepted_default or gate_cutouts",
+      "-q"
+    ],
+    "exit": 1,
+    "expected_failure": "default has cutout0 instead of3; explicitFalse regression passes",
+    "log_sha256": "14bbec18aadeeda5f49a3733ef208dc6fcbfd67a830d5ca69370180df5a38a92",
+    "runtime_gate_still_false": true
+  },
+  "GREEN": {
+    "command": [
+      "uv",
+      "run",
+      "pytest",
+      "tests/unit/lens/test_altium_slots.py",
+      "-k",
+      "native_accepted_default or gate_cutouts",
+      "-q"
+    ],
+    "exit": 0,
+    "result": "2passed; explicitFalse retains omissions, default writes3cutouts",
+    "log_sha256": "e49de5cd004fb529d0975e5a1bbfddafe2a8411a128b9d79bb47c0194a453f60"
+  },
+  "focused_validation": {
+    "command": [
+      "uv",
+      "run",
+      "pytest",
+      "tests/unit/backends/altium/test_part_s.py",
+      "tests/unit/backends/altium/test_cutout_regions.py",
+      "tests/unit/lens/test_altium_slots.py",
+      "tests/unit/test_altium_verification_docs.py",
+      "tests/unit/test_hypotheses_register.py",
+      "tests/unit/test_provenance.py",
+      "tests/unit/test_format_facts.py",
+      "tests/unit/lens/test_altium_pcb_complete.py::test_board6_golden_files",
+      "-q"
+    ],
+    "exit": 0,
+    "log_sha256": "a83741bee0628ce6fee48cc5dc3f66171000f105a9d059ad54285677e9264047",
+    "external_handover_golden_write_env_disabled": true,
+    "native_GUI_commands": false
+  },
+  "focused_summary": "100passed,1contractedS7skip;16additional legacy-negative/docs cases passed; default RED0vs3 became GREEN2cases",
+  "additional_log_sha256": {
+    "legacy-negative-RED.log": "bff1630c244024259aa6356593c707cb18e92ca6ef3914b6a0a15bba9fffdcd6",
+    "legacy-negative-GREEN-and-docs.log": "c018e871956ec1c81b8d47f6b7e25524940d4be5325dfe6036f6a4594c785204"
+  },
+  "static_validation": [
+    {
+      "command": [
+        "uv",
+        "run",
+        "ruff",
+        "check",
+        "src/fenolite/backends/altium/pcbdoc.py",
+        "tests/unit/backends/altium/test_cutout_regions.py",
+        "tests/unit/lens/test_altium_slots.py",
+        "tests/unit/lens/test_altium_pcb.py"
+      ],
+      "exit": 0,
+      "log_sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "command": [
+        "uv",
+        "run",
+        "ruff",
+        "format",
+        "--check",
+        "src/fenolite/backends/altium/pcbdoc.py",
+        "tests/unit/backends/altium/test_cutout_regions.py",
+        "tests/unit/lens/test_altium_slots.py",
+        "tests/unit/lens/test_altium_pcb.py"
+      ],
+      "exit": 0,
+      "log_sha256": "177f260a5645724013185e4b140c7045cc39e56c0c97b120f5cb23599f85f0de"
+    },
+    {
+      "command": [
+        "uv",
+        "run",
+        "pyright",
+        "src"
+      ],
+      "exit": 0,
+      "log_sha256": "6d88a1b220adb7a3d62092b6e38431f0b3fe8babe9864fab90e5849766260332"
+    },
+    {
+      "command": [
+        "uv",
+        "run",
+        "python",
+        "tools/gen_evidence_matrix.py",
+        "--check"
+      ],
+      "exit": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "command": [
+        "uv",
+        "run",
+        "python",
+        "tools/gen_altium_graduation.py",
+        "--check"
+      ],
+      "exit": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "command": [
+        "openspec",
+        "validate",
+        "c0168-altium-slots-cutouts",
+        "--strict",
+        "--no-interactive"
+      ],
+      "exit": 0,
+      "log_sha256": "ed4b8bfd3e000f0110aeee49c957c766706f5f9886658722f048151932ef5a79",
+      "tool_version": "1.3.0",
+      "tool_entry_sha256": "e3b9fa4fa46b747187aae7e5b08df70bc77e5208cf5c39fdce55fc2db9775c2f"
+    }
+  ],
+  "invariants": {
+    "base": "baa033d2548e38563d2878058cc609a05ea43803",
+    "runtime_change": "Only CUTOUT_REGIONS False->True; every other runtime byte preserved",
+    "fixtures_and_examples_unchanged": true,
+    "fixture_sha256": {
+      "tests/data/altium/board6/board6.PcbDoc": "9da3b8c4bd6f1c832251bccfc3eb02e93e714cb179f55af16c08a0ec21b83e8a",
+      "tests/data/altium/board6/board6.PcbLib": "9d09f5126ba6aad6026f4c85fa2899c908eaa363aeaec1b58b59e64a11666e22",
+      "tests/data/altium/board6/board6.PrjPcb": "75e7078fdb8fc79b606ad0c0a3acf30103faada43dc440a7fb01e5daad2f7219",
+      "tests/data/altium/board6/board6.SchDoc": "36e9850be729dd5e91e14c9b0adab1fb9ac7ef036154839f94d279a12ffc2118",
+      "tests/data/altium/board6/board6.SchLib": "66b31ae040cb6f0de2584efe732182a9a230e040c4459a1d3aa58f3e34698ae7",
+      "tests/data/slots/altium.py": "7d78de3c8366ae76fc86f582dc8b1761570bf6036c985ff99334fe8d58129f4a",
+      "tests/data/slots/convert.py": "7faf2f9cd6f74b4bf91e54dd34174d32311fb98306fcaa7f80629ce257501867",
+      "tests/data/slots/design.py": "671eb045a51bad4dfcaca168f62fabf6fd17219d7b82231ae995ebdc13ffc3cd",
+      "tests/data/slots/slots_altium.PcbDoc": "be65d4b9884e1949abd162f64033f54b92167bf1cea5af535031d691467910f0",
+      "tests/data/slots/slots_convert_t10.kicad_pcb": "a5ea42345f2beb03d4d48d51011fbae4317038b3acc8de88db84dee072097b29",
+      "tests/data/slots/slots_convert_t9.kicad_pcb": "baeac069cdf67e2b0b7f54b32bcb9490c4f9a2bee5ab7b94abc4ac5624993e27",
+      "tests/data/slots/slots_t10.kicad_pcb": "068bc09531da94512efecb9b9e8ec3aa91abc081c380d7a455c5714a4f4d13fc",
+      "tests/data/slots/slots_t9.kicad_pcb": "b697c332319a93a8ee99129ac291b3a0d8bb34cf1b3c40887c548b9ee166f187"
+    },
+    "frozen_native_reports_hypotheses_generated_evidence_unchanged": {
+      "docs/hypotheses.md": "e7214debe000772288e751b142023d164b3f06234f06a51d479bc7aec2d1ce59",
+      "docs/evidence/altium-slots-24-native.json": "50caaf3512de0e8ad19fb6701a96cbb0a0f88bdc2d2ea59dfe88521cefcaa2e0",
+      "docs/evidence/altium-part-s-slots-2026-10-17.md": "28b51d77d7235d45e2eee753d3830f04fe48ce0dc5905cdb8ad0f1ce26cbbf6f",
+      "docs/evidence/altium-part-s-slots-2026-11-03.md": "76009696ec3e4b05af52b07861c8a435fd7569684c3d3aa3449dc156513b5939",
+      "docs/evidence/matrix.md": "e5618e0d418190aff99fe0c6fdee122858f01ccfce1983cfb3c13e67be146304",
+      "docs/evidence/conformance.md": "dc32d20646bf25457a79e4b0b4c032b2ff016a79c0eda34ae0e6eaa127490210",
+      "docs/evidence/conformance.json": "d93278704fe4d7949145ff09307c08e2cfa8978ea50c2ecaa4d79b75ce0ef355",
+      "src/fenolite/backends/altium/graduation.json": "b0897724a6b175693bb1befab5c8f889af62899c495bb4c6fc08a2f325e2500c"
+    },
+    "tests_assertion_audit": [
+      {
+        "file": "tests/unit/backends/altium/test_cutout_regions.py",
+        "all_other_assertions_preserved": true,
+        "removed_obsolete_constant_check": [
+          {
+            "function": "test_the_gate_is_off_until_the_kit",
+            "reason": "Obsolete constant-False mirror; real negative fixture and default-positive behavior retained."
+          }
+        ],
+        "negative_branch_uses_explicit_False": false
+      },
+      {
+        "file": "tests/unit/lens/test_altium_slots.py",
+        "all_other_assertions_preserved": true,
+        "removed_obsolete_constant_check": [],
+        "negative_branch_uses_explicit_False": true
+      },
+      {
+        "file": "tests/unit/lens/test_altium_pcb.py",
+        "all_other_assertions_preserved": true,
+        "removed_obsolete_constant_check": [],
+        "negative_branch_uses_explicit_False": true
+      }
+    ],
+    "default_expected": "shared design.py writes3cutouts and1H1hole; explicitFalse writes0cutouts and3omission infos",
+    "native_kit_expected_distinct": "altium.py variant has4holes and3cutouts",
+    "S6_and_aggregate5_2_closed": false,
+    "H_A_SLOT_KIT": "INFERRED",
+    "formal_kit_record_created": false,
+    "graduation_claimed": false
+  },
+  "H_A_SLOT_KIT": "INFERRED",
+  "S6_closed": false,
+  "aggregate5_2_closed": false,
+  "formal_kit_record_created": false,
+  "writer_graduation_claimed": false,
+  "CI_or_full_or_fast_suite_run": false,
+  "subsequent_central_integration_required": true
+}

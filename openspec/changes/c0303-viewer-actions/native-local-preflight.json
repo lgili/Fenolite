@@ -1,0 +1,48 @@
+{
+  "CI_gate_3_4_completed": false,
+  "CI_run": false,
+  "clean_after": true,
+  "closing_gate_6_1_completed": false,
+  "driver_sha256": "9eca57fc896ada2e99aefea7a12e92986efbf1c34a6c0bc4d9129d0e16990d3a",
+  "external_receipt_sha256": "6e53942b62ab50e21ac58cc077fccdfc02475dfe02202baef7356964885b159e",
+  "full_suite": false,
+  "geometry_cases": false,
+  "head_unchanged": true,
+  "native_test_bodies_or_fixtures_changed": false,
+  "retry": false,
+  "runs": [
+    {
+      "exit": 0,
+      "image": "kicad/kicad:9.0.9@sha256:e638b79b0321f29395a5b783e94bb9f3c73303e8da15da27b8f5cb4b67a37729",
+      "junit_sha256": "5cda2c1f28cbd7d9d6c0706cc9aeb07c58ab75d9be5c530893a8497172eebb91",
+      "log_sha256": "00775c633eb37435d04717ce101ecb7158dd9134c4855a90b63328cb146d570b",
+      "major": 9,
+      "passed": 2,
+      "seconds": 14.553439499984961,
+      "skipped": [
+        "test_fill_plan"
+      ]
+    },
+    {
+      "exit": 0,
+      "image": "kicad/kicad:10.0.6@sha256:18693567392b80da435f9fa952ce3a3e534c66eb5a6033f5b9c80aa3b19dd3ec",
+      "junit_sha256": "e9adae1790545cf5d6ff6668ef8259352df9e59d5effc75b6661a0915f99db09",
+      "log_sha256": "06f639ee265e8dfc5a15261a8d18470133ad4fa5fae829728887bb5a1f120504",
+      "major": 10,
+      "passed": 3,
+      "seconds": 18.716309208015446,
+      "skipped": []
+    }
+  ],
+  "source": "e8b8cb8596eb81271ae17b32de17699fa3edd32b",
+  "source_files_after": {
+    ".github/workflows/ci.yml": "b496033595b6f69b35c6342a47146c6be2a82604725b67988d3f929f9bafdbff",
+    "tests/data/kicad/board/two_layer.kicad_pcb": "b7933826a36e88fb73f3fdb1684fb87f00be0f333b9d40bc6fbf0d696f7a3de6",
+    "tests/unit/cli/test_view_actions.py": "588216b360167038357301c69518355e76117161fa4093369d621a71936a8c1c"
+  },
+  "source_files_before": {
+    ".github/workflows/ci.yml": "b496033595b6f69b35c6342a47146c6be2a82604725b67988d3f929f9bafdbff",
+    "tests/data/kicad/board/two_layer.kicad_pcb": "b7933826a36e88fb73f3fdb1684fb87f00be0f333b9d40bc6fbf0d696f7a3de6",
+    "tests/unit/cli/test_view_actions.py": "588216b360167038357301c69518355e76117161fa4093369d621a71936a8c1c"
+  }
+}

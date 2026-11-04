@@ -39,8 +39,13 @@ The Altium build SHALL plan an experimental `<name>.PcbDoc` from `pcbdoc.write_p
 - **WHEN** it is built with `--target altium --dry-run --json`
 - **THEN** the exit code is 0, `B/blink.PcbDoc` is planned with `H3` and without `H2`, `result.pcb.not_lowered` holds `hole` with the count 1 and `result.pcb.written` holds `hole` with the count 1, and `issues` holds one `altium.not-lowered` info whose `where` starts with `hole/`, naming `H2`, its copper and the net `GND`
 
+#### Scenario: Cut-outs are written after native acceptance
+- **GIVEN** the shared fixture `tests/data/slots/design.py` and the native-accepted default `pcbdoc.CUTOUT_REGIONS` true
+- **WHEN** it is built with `--target altium --dry-run --json`
+- **THEN** `B/slots.PcbDoc` is planned, `result.pcb.written` holds `cutout` with the count 3 and `hole` with the count 1, `result.pcb.not_lowered` has no `cutout`, and no `altium.not-lowered` info names `slot/S1`, `slot/S2+slot/S3` or `cutout/1`
+
 #### Scenario: Cut-outs while the gate is off
-- **GIVEN** the shared fixture `tests/data/slots/design.py` and `pcbdoc.CUTOUT_REGIONS` false
+- **GIVEN** the shared fixture `tests/data/slots/design.py` and `pcbdoc.CUTOUT_REGIONS` explicitly overridden to false in the regression
 - **WHEN** it is built with `--target altium --dry-run --json`
 - **THEN** `B/slots.PcbDoc` is planned, `result.pcb.not_lowered` holds `cutout` with the count 3, and three `altium.not-lowered` infos have the `where` `slot/S1`, `slot/S2+slot/S3` and `cutout/1`
 

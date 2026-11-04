@@ -443,13 +443,15 @@ a hole part is not written: a free pad has none.
   `KIND=0` with `ISBOARDCUTOUT=TRUE` on the Keep-Out layer, each group of overlapping cut-outs and slots
   one region (the union of `lowered_outline`), its arcs polygonised within 1 µm. Board Outline Clearance
   measures copper to its edge; no drill file holds it.
-- **The gate.** The region form is measured with KiCad's importer only. Until the maintainer's kit
-  (Part S of `docs/evidence/altium-pcb.md`, cases S3 to S5) has shown it in Altium Designer,
-  `pcbdoc.CUTOUT_REGIONS` is false: the document is planned, no region is written, and each cut-out
-  gives one `altium.not-lowered` info whose `where` is `cutout/<k>`, `slot/<name>` or the items of a
-  merged group joined by `+` (`slot/S2+slot/S3`), counted under `cutout` of `result.pcb.not_lowered`. The
-  gate is a constant, not an option. An arc of a cut-out no longer refuses the document; an arc of the
-  board ring still does.
+- **The gate.** The recorded native Altium 24.5 checks of Part S3 to S5
+  (`docs/evidence/altium-pcb.md`) establish the functional region default: `pcbdoc.CUTOUT_REGIONS`
+  is true, so writable cut-outs are regions counted under `cutout` of `result.pcb.written`.
+  When a regression explicitly disables the gate, the document is still planned but no region is
+  written; each cut-out gives one `altium.not-lowered` info whose `where` is `cutout/<k>`, `slot/<name>`
+  or the items of a merged group joined by `+` (`slot/S2+slot/S3`), counted under `cutout` of
+  `result.pcb.not_lowered`. The gate is a constant, not an option. Aggregate Part S acceptance and
+  `H-A-SLOT-KIT` remain pending and `INFERRED`; this default does not graduate the experimental writer.
+  An arc of a cut-out no longer refuses the document; an arc of the board ring still does.
 - **Import.** Reading a PCB document, a region with `ISBOARDCUTOUT=TRUE` (and `KIND=0`) becomes one
   `Edge.Cuts` polygon of width 0, so `board_outline` and `edge_outline` take it as a cut-out, and a free
   pad on Multi-Layer without name, net or copper ring becomes a board `Hole` (with its slot) instead of a

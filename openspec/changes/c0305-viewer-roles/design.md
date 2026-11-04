@@ -113,3 +113,13 @@ None: new options and a new scene key; a page without roles is unchanged.
 ## Open Questions
 
 None.
+
+## Direct screenshot inspection (2026-11-03)
+
+The [portable inspection record](../../../docs/evidence/c0305-role-inspection-20261103/README.md)
+binds six externally retained authored ordinary-build JPEG originals and the 46-file
+external retention manifest. It binds the served viewer/roles bytes and the visual-test source to both
+985f59a1 and 723183a1 without rerunning tests. The observations preserve all INFERRED
+findings and the absence of saved zone fill, missing half-bridge distance requirements,
+open-loop/area-label and BMS caption limitations. They record delegated visual inspection,
+not human electrical acceptance or a later CI pass; task 6.2 stays open.

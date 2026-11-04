@@ -29,3 +29,19 @@
 - [ ] 6.2 Run the focused tests and the CI jobs of the branch. Proof: `make check-fast` on the maintainer's machine, then the CI jobs, `viewer` included.
 
 Open on the branch (2026-10-29): 6.2 waits for `make check-fast` on the maintainer's machine and the CI jobs of the branch, `viewer` included (only focused tests ran here: ruff, ruff format, pyright of the changed modules, `tests/unit/view`, `tests/unit/cli/test_view_cmd.py`, `tests/unit/roles`, `tests/unit/agent`, `tests/consistency`, the import graph, the release records, and `tests/visual` with `FENOLITE_REQUIRE=browser`).
+
+## Direct inspection receipt (2026-11-03)
+
+Task 6.1 was already checked historically. The direct dated inspection is now recorded in
+[`docs/evidence/c0305-role-inspection-20261103/README.md`](../../../docs/evidence/c0305-role-inspection-20261103/README.md)
+and its portable receipt: six externally retained original unedited JPEGs, all 46 artifact hashes,
+70 role rows, 57 findings and 36 zones without saved fill. The delegated agent inspected
+each screenshot; no maintainer electrical approval is inferred. The 57 product modules,
+`tests/visual`, `viewer/src` and built static trees are identical in source985 and
+723183a1; the retained source985 viewer job passed 104 visual tests. The overall
+source985 run failed. Open-loop/area-label, missing half-bridge requirements and BMS
+caption limitations remain explicit. No new tests, native CAD or fill were run.
+
+Task 6.2 remains open for exact-source CI run 41744987316 and applicable source-bound
+local fast evidence. This documentation does not archive the change or claim that
+that later run passed.

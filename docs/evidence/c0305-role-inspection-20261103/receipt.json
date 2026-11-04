@@ -1,0 +1,1220 @@
+{
+  "schema": "fenolite.c0305.portable-live-inspection.v1",
+  "recorded_at_utc": "2026-11-04T00:13:46.490413+00:00",
+  "scope": "Direct delegated agent visual inspection of six authored ordinary KiCad builds; not a human electrical acceptance.",
+  "product_source": "723183a11ebffe4bcdf5d6d0795420db57e2847e",
+  "prepared_build_source": "8437f0120a55b8487fbc90f224d0e09a545f02a1",
+  "original_external_receipt": {
+    "packet": "fenolite-c0305-six-live-inspection-20261103-v1",
+    "file": "review-receipt.json",
+    "bytes": 81449,
+    "sha256": "c7644f1960fe39e702095ae7f8f4e0da6e37dc69e0ad96a58f955a6224b365c3"
+  },
+  "module_and_visual_test_snapshot_binding": {
+    "modules": [
+      {
+        "file": "src/fenolite/cli/cmd_roles.py",
+        "bytes": 24381,
+        "sha256": "10d978ea3c0eb7f885e6645666a2de3a3e450c6b96556c5773578110b74b1ad8",
+        "same_as_prepared_build_product": true,
+        "snapshot_sha256": {
+          "985f59a1d01a612b2eac0219243199896c24075a": "10d978ea3c0eb7f885e6645666a2de3a3e450c6b96556c5773578110b74b1ad8",
+          "723183a11ebffe4bcdf5d6d0795420db57e2847e": "10d978ea3c0eb7f885e6645666a2de3a3e450c6b96556c5773578110b74b1ad8"
+        },
+        "all_same": true
+      },
+      {
+        "file": "src/fenolite/cli/cmd_view.py",
+        "bytes": 64751,
+        "sha256": "b224e1dd510e32b2cc9f3e3e40b8440b46212a10ab78fbd1e1395b7297f7a970",
+        "same_as_prepared_build_product": true,
+        "snapshot_sha256": {
+          "985f59a1d01a612b2eac0219243199896c24075a": "b224e1dd510e32b2cc9f3e3e40b8440b46212a10ab78fbd1e1395b7297f7a970",
+          "723183a11ebffe4bcdf5d6d0795420db57e2847e": "b224e1dd510e32b2cc9f3e3e40b8440b46212a10ab78fbd1e1395b7297f7a970"
+        },
+        "all_same": true
+      },
+      {
+        "file": "src/fenolite/roles/PROVENANCE.md",
+        "bytes": 5243,
+        "sha256": "b88c3371f12a10b5c27e2ba04bd0bda313f31a9cd4ed37d1676ba2ec0f0c6da6",
+        "same_as_prepared_build_product": true,
+        "snapshot_sha256": {
+          "985f59a1d01a612b2eac0219243199896c24075a": "b88c3371f12a10b5c27e2ba04bd0bda313f31a9cd4ed37d1676ba2ec0f0c6da6",
+          "723183a11ebffe4bcdf5d6d0795420db57e2847e": "b88c3371f12a10b5c27e2ba04bd0bda313f31a9cd4ed37d1676ba2ec0f0c6da6"
+        },
+        "all_same": true
+      },
+      {
+        "file": "src/fenolite/roles/__init__.py",
+        "bytes": 786,
+        "sha256": "fb8f406293bd1991e2384d920d900c18a82f6604093c5ce7d08355301f76cc94",
+        "same_as_prepared_build_product": true,
+        "snapshot_sha256": {
+          "985f59a1d01a612b2eac0219243199896c24075a": "fb8f406293bd1991e2384d920d900c18a82f6604093c5ce7d08355301f76cc94",
+          "723183a11ebffe4bcdf5d6d0795420db57e2847e": "fb8f406293bd1991e2384d920d900c18a82f6604093c5ce7d08355301f76cc94"
+        },
+        "all_same": true
+      },
+      {
+        "file": "src/fenolite/roles/checks.py",
+        "bytes": 30314,
+        "sha256": "b73d16e00beba7c22d4ce5c7582caa6bc3ee816f0935ba66f6342adc8eac80a7",
+        "same_as_prepared_build_product": true,
+        "snapshot_sha256": {
+          "985f59a1d01a612b2eac0219243199896c24075a": "b73d16e00beba7c22d4ce5c7582caa6bc3ee816f0935ba66f6342adc8eac80a7",
+          "723183a11ebffe4bcdf5d6d0795420db57e2847e": "b73d16e00beba7c22d4ce5c7582caa6bc3ee816f0935ba66f6342adc8eac80a7"
+        },
+        "all_same": true
+      },
+      {
+        "file": "src/fenolite/roles/classify.py",
+        "bytes": 12120,
+        "sha256": "5c95d97b44c9499a4d10037af0704d5c4f05cca5bd0adc8e331e69ce6ab1c917",
+        "same_as_prepared_build_product": true,
+        "snapshot_sha256": {
+          "985f59a1d01a612b2eac0219243199896c24075a": "5c95d97b44c9499a4d10037af0704d5c4f05cca5bd0adc8e331e69ce6ab1c917",
+          "723183a11ebffe4bcdf5d6d0795420db57e2847e": "5c95d97b44c9499a4d10037af0704d5c4f05cca5bd0adc8e331e69ce6ab1c917"
+        },
+        "all_same": true
+      },
+      {
+        "file": "src/fenolite/roles/codes.py",
+        "bytes": 3801,
+        "sha256": "e65e0d3e83aa70d1956aee50eb62fda0b6e8d6d81b0e3d0c176c80a815db2c88",
+        "same_as_prepared_build_product": true,
+        "snapshot_sha256": {
+          "985f59a1d01a612b2eac0219243199896c24075a": "e65e0d3e83aa70d1956aee50eb62fda0b6e8d6d81b0e3d0c176c80a815db2c88",
+          "723183a11ebffe4bcdf5d6d0795420db57e2847e": "e65e0d3e83aa70d1956aee50eb62fda0b6e8d6d81b0e3d0c176c80a815db2c88"
+        },
+        "all_same": true
+      },
+      {
+        "file": "src/fenolite/roles/copper.py",
+        "bytes": 112248,
+        "sha256": "4a4e76689eff06cbca64bcb507598ab806865bbcfddcfbb8f0e5cceb91831a01",
+        "same_as_prepared_build_product": true,
+        "snapshot_sha256": {
+          "985f59a1d01a612b2eac0219243199896c24075a": "4a4e76689eff06cbca64bcb507598ab806865bbcfddcfbb8f0e5cceb91831a01",
+          "723183a11ebffe4bcdf5d6d0795420db57e2847e": "4a4e76689eff06cbca64bcb507598ab806865bbcfddcfbb8f0e5cceb91831a01"
+        },
+        "all_same": true
+      },
+      {
+        "file": "src/fenolite/roles/infer.py",
+        "bytes": 26094,
+        "sha256": "130f3141e45c8cb02d1a97e1d44f173d12e4dcfee6522e266a74fc2d386d9d18",
+        "same_as_prepared_build_product": true,
+        "snapshot_sha256": {
+          "985f59a1d01a612b2eac0219243199896c24075a": "130f3141e45c8cb02d1a97e1d44f173d12e4dcfee6522e266a74fc2d386d9d18",
+          "723183a11ebffe4bcdf5d6d0795420db57e2847e": "130f3141e45c8cb02d1a97e1d44f173d12e4dcfee6522e266a74fc2d386d9d18"
+        },
+        "all_same": true
+      },
+      {
+        "file": "src/fenolite/roles/judge.py",
+        "bytes": 14585,
+        "sha256": "22d6c36fb0fd361d0b4486f7e83f1d8fd2b40daab3eb6295a726f829530db18a",
+        "same_as_prepared_build_product": true,
+        "snapshot_sha256": {
+          "985f59a1d01a612b2eac0219243199896c24075a": "22d6c36fb0fd361d0b4486f7e83f1d8fd2b40daab3eb6295a726f829530db18a",
+          "723183a11ebffe4bcdf5d6d0795420db57e2847e": "22d6c36fb0fd361d0b4486f7e83f1d8fd2b40daab3eb6295a726f829530db18a"
+        },
+        "all_same": true
+      },
+      {
+        "file": "src/fenolite/roles/kelvin.py",
+        "bytes": 13098,
+        "sha256": "0bef1b92dd53be896c860ef8d905b2b1c48d948d178263abb78b719ac31e7910",
+        "same_as_prepared_build_product": true,
+        "snapshot_sha256": {
+          "985f59a1d01a612b2eac0219243199896c24075a": "0bef1b92dd53be896c860ef8d905b2b1c48d948d178263abb78b719ac31e7910",
+          "723183a11ebffe4bcdf5d6d0795420db57e2847e": "0bef1b92dd53be896c860ef8d905b2b1c48d948d178263abb78b719ac31e7910"
+        },
+        "all_same": true
+      },
+      {
+        "file": "src/fenolite/roles/measure.py",
+        "bytes": 42499,
+        "sha256": "6fbe7ab1ec970bb71a0434d242c8d69b1486e84672cdbb606f9a845ffbe36760",
+        "same_as_prepared_build_product": true,
+        "snapshot_sha256": {
+          "985f59a1d01a612b2eac0219243199896c24075a": "6fbe7ab1ec970bb71a0434d242c8d69b1486e84672cdbb606f9a845ffbe36760",
+          "723183a11ebffe4bcdf5d6d0795420db57e2847e": "6fbe7ab1ec970bb71a0434d242c8d69b1486e84672cdbb606f9a845ffbe36760"
+        },
+        "all_same": true
+      },
+      {
+        "file": "src/fenolite/roles/profile.py",
+        "bytes": 7340,
+        "sha256": "5628f654f402727d80bdad6c229ed348ae6b98a0a72011eb18d176fddacea441",
+        "same_as_prepared_build_product": true,
+        "snapshot_sha256": {
+          "985f59a1d01a612b2eac0219243199896c24075a": "5628f654f402727d80bdad6c229ed348ae6b98a0a72011eb18d176fddacea441",
+          "723183a11ebffe4bcdf5d6d0795420db57e2847e": "5628f654f402727d80bdad6c229ed348ae6b98a0a72011eb18d176fddacea441"
+        },
+        "all_same": true
+      },
+      {
+        "file": "src/fenolite/roles/proposals.py",
+        "bytes": 29908,
+        "sha256": "f4bdb8dd33a6acb7a41779a96341c89bc2cab798df036ec12b73d16d12bb6011",
+        "same_as_prepared_build_product": true,
+        "snapshot_sha256": {
+          "985f59a1d01a612b2eac0219243199896c24075a": "f4bdb8dd33a6acb7a41779a96341c89bc2cab798df036ec12b73d16d12bb6011",
+          "723183a11ebffe4bcdf5d6d0795420db57e2847e": "f4bdb8dd33a6acb7a41779a96341c89bc2cab798df036ec12b73d16d12bb6011"
+        },
+        "all_same": true
+      },
+      {
+        "file": "src/fenolite/roles/rolemanifest.py",
+        "bytes": 9090,
+        "sha256": "3aa5ad4e2a2d9ee3dc2098c72092161a266729da25c4d68f0078aae9da42bb73",
+        "same_as_prepared_build_product": true,
+        "snapshot_sha256": {
+          "985f59a1d01a612b2eac0219243199896c24075a": "3aa5ad4e2a2d9ee3dc2098c72092161a266729da25c4d68f0078aae9da42bb73",
+          "723183a11ebffe4bcdf5d6d0795420db57e2847e": "3aa5ad4e2a2d9ee3dc2098c72092161a266729da25c4d68f0078aae9da42bb73"
+        },
+        "all_same": true
+      },
+      {
+        "file": "src/fenolite/roles/routes.py",
+        "bytes": 26851,
+        "sha256": "fb9df721b22ddbb79314e88fb594feb2f77961b5d0f55cecea601066c18421f6",
+        "same_as_prepared_build_product": true,
+        "snapshot_sha256": {
+          "985f59a1d01a612b2eac0219243199896c24075a": "fb9df721b22ddbb79314e88fb594feb2f77961b5d0f55cecea601066c18421f6",
+          "723183a11ebffe4bcdf5d6d0795420db57e2847e": "fb9df721b22ddbb79314e88fb594feb2f77961b5d0f55cecea601066c18421f6"
+        },
+        "all_same": true
+      },
+      {
+        "file": "src/fenolite/roles/spine.py",
+        "bytes": 20391,
+        "sha256": "73fbbf51b702d22cc4526ee6e46b3e7fe455cccd8cc53a4a7fa7b83f03345b5c",
+        "same_as_prepared_build_product": true,
+        "snapshot_sha256": {
+          "985f59a1d01a612b2eac0219243199896c24075a": "73fbbf51b702d22cc4526ee6e46b3e7fe455cccd8cc53a4a7fa7b83f03345b5c",
+          "723183a11ebffe4bcdf5d6d0795420db57e2847e": "73fbbf51b702d22cc4526ee6e46b3e7fe455cccd8cc53a4a7fa7b83f03345b5c"
+        },
+        "all_same": true
+      },
+      {
+        "file": "src/fenolite/roles/store.py",
+        "bytes": 9518,
+        "sha256": "5332f9840d646873933fcba8f39c9c448f9275c20fadfcb5e823b06d5fc5513f",
+        "same_as_prepared_build_product": true,
+        "snapshot_sha256": {
+          "985f59a1d01a612b2eac0219243199896c24075a": "5332f9840d646873933fcba8f39c9c448f9275c20fadfcb5e823b06d5fc5513f",
+          "723183a11ebffe4bcdf5d6d0795420db57e2847e": "5332f9840d646873933fcba8f39c9c448f9275c20fadfcb5e823b06d5fc5513f"
+        },
+        "all_same": true
+      },
+      {
+        "file": "src/fenolite/view/__init__.py",
+        "bytes": 493,
+        "sha256": "09f6761a3dff476eb72763c30967707e31d2ea0654ebad485879b739d2d54f26",
+        "same_as_prepared_build_product": true,
+        "snapshot_sha256": {
+          "985f59a1d01a612b2eac0219243199896c24075a": "09f6761a3dff476eb72763c30967707e31d2ea0654ebad485879b739d2d54f26",
+          "723183a11ebffe4bcdf5d6d0795420db57e2847e": "09f6761a3dff476eb72763c30967707e31d2ea0654ebad485879b739d2d54f26"
+        },
+        "all_same": true
+      },
+      {
+        "file": "src/fenolite/view/actions.py",
+        "bytes": 24611,
+        "sha256": "9a2511c9271dd1386d2312637c7ee8d9af17869165fa6190b4a5da7605ac6666",
+        "same_as_prepared_build_product": true,
+        "snapshot_sha256": {
+          "985f59a1d01a612b2eac0219243199896c24075a": "9a2511c9271dd1386d2312637c7ee8d9af17869165fa6190b4a5da7605ac6666",
+          "723183a11ebffe4bcdf5d6d0795420db57e2847e": "9a2511c9271dd1386d2312637c7ee8d9af17869165fa6190b4a5da7605ac6666"
+        },
+        "all_same": true
+      },
+      {
+        "file": "src/fenolite/view/altium_layers.py",
+        "bytes": 10723,
+        "sha256": "db58b5907617be38a2afdacf37ee484f1a69fd46e1309fe9bb094600a34541ae",
+        "same_as_prepared_build_product": true,
+        "snapshot_sha256": {
+          "985f59a1d01a612b2eac0219243199896c24075a": "db58b5907617be38a2afdacf37ee484f1a69fd46e1309fe9bb094600a34541ae",
+          "723183a11ebffe4bcdf5d6d0795420db57e2847e": "db58b5907617be38a2afdacf37ee484f1a69fd46e1309fe9bb094600a34541ae"
+        },
+        "all_same": true
+      },
+      {
+        "file": "src/fenolite/view/bom.py",
+        "bytes": 8023,
+        "sha256": "77799ca67ca4b9bfcd7df34f50525cc78a517562ebb5738a462835aac0b64549",
+        "same_as_prepared_build_product": true,
+        "snapshot_sha256": {
+          "985f59a1d01a612b2eac0219243199896c24075a": "77799ca67ca4b9bfcd7df34f50525cc78a517562ebb5738a462835aac0b64549",
+          "723183a11ebffe4bcdf5d6d0795420db57e2847e": "77799ca67ca4b9bfcd7df34f50525cc78a517562ebb5738a462835aac0b64549"
+        },
+        "all_same": true
+      },
+      {
+        "file": "src/fenolite/view/cache.py",
+        "bytes": 5023,
+        "sha256": "56731a93c176f7083903ec8c7f819b2a1e68fe594d1866ee4fcc70fa1337d1df",
+        "same_as_prepared_build_product": true,
+        "snapshot_sha256": {
+          "985f59a1d01a612b2eac0219243199896c24075a": "56731a93c176f7083903ec8c7f819b2a1e68fe594d1866ee4fcc70fa1337d1df",
+          "723183a11ebffe4bcdf5d6d0795420db57e2847e": "56731a93c176f7083903ec8c7f819b2a1e68fe594d1866ee4fcc70fa1337d1df"
+        },
+        "all_same": true
+      },
+      {
+        "file": "src/fenolite/view/catalog.py",
+        "bytes": 7830,
+        "sha256": "774ffb5e392190fb67b6248efa0be4fb175db2ec1dd716793e22d8cde861fdfe",
+        "same_as_prepared_build_product": true,
+        "snapshot_sha256": {
+          "985f59a1d01a612b2eac0219243199896c24075a": "774ffb5e392190fb67b6248efa0be4fb175db2ec1dd716793e22d8cde861fdfe",
+          "723183a11ebffe4bcdf5d6d0795420db57e2847e": "774ffb5e392190fb67b6248efa0be4fb175db2ec1dd716793e22d8cde861fdfe"
+        },
+        "all_same": true
+      },
+      {
+        "file": "src/fenolite/view/check_overlay.py",
+        "bytes": 18279,
+        "sha256": "7dfaefa732377b39f4effaa9bec273e3ce5f862d84db02bdffcfe1091faa95ce",
+        "same_as_prepared_build_product": true,
+        "snapshot_sha256": {
+          "985f59a1d01a612b2eac0219243199896c24075a": "7dfaefa732377b39f4effaa9bec273e3ce5f862d84db02bdffcfe1091faa95ce",
+          "723183a11ebffe4bcdf5d6d0795420db57e2847e": "7dfaefa732377b39f4effaa9bec273e3ce5f862d84db02bdffcfe1091faa95ce"
+        },
+        "all_same": true
+      },
+      {
+        "file": "src/fenolite/view/compact.py",
+        "bytes": 9321,
+        "sha256": "1871e2107ece921a272eddbcacc7a05fb38dfbb8db3e378d5d734451b9bbfd9f",
+        "same_as_prepared_build_product": true,
+        "snapshot_sha256": {
+          "985f59a1d01a612b2eac0219243199896c24075a": "1871e2107ece921a272eddbcacc7a05fb38dfbb8db3e378d5d734451b9bbfd9f",
+          "723183a11ebffe4bcdf5d6d0795420db57e2847e": "1871e2107ece921a272eddbcacc7a05fb38dfbb8db3e378d5d734451b9bbfd9f"
+        },
+        "all_same": true
+      },
+      {
+        "file": "src/fenolite/view/compare.py",
+        "bytes": 12219,
+        "sha256": "4b91ad9112ba4e98ab705f5750844ae5600438b99c964bbd0a4cafca9de6ab48",
+        "same_as_prepared_build_product": true,
+        "snapshot_sha256": {
+          "985f59a1d01a612b2eac0219243199896c24075a": "4b91ad9112ba4e98ab705f5750844ae5600438b99c964bbd0a4cafca9de6ab48",
+          "723183a11ebffe4bcdf5d6d0795420db57e2847e": "4b91ad9112ba4e98ab705f5750844ae5600438b99c964bbd0a4cafca9de6ab48"
+        },
+        "all_same": true
+      },
+      {
+        "file": "src/fenolite/view/conflicts.py",
+        "bytes": 7851,
+        "sha256": "81577578bdbb76edcb6e4d13a760c1a573e8ff750167967f2be87e394725f1ba",
+        "same_as_prepared_build_product": true,
+        "snapshot_sha256": {
+          "985f59a1d01a612b2eac0219243199896c24075a": "81577578bdbb76edcb6e4d13a760c1a573e8ff750167967f2be87e394725f1ba",
+          "723183a11ebffe4bcdf5d6d0795420db57e2847e": "81577578bdbb76edcb6e4d13a760c1a573e8ff750167967f2be87e394725f1ba"
+        },
+        "all_same": true
+      },
+      {
+        "file": "src/fenolite/view/drawing.py",
+        "bytes": 41440,
+        "sha256": "d02552ed626a83d3615b2a0b7e6ebc2d8589ebf3acc16f2603bb7ad92b5e9e64",
+        "same_as_prepared_build_product": true,
+        "snapshot_sha256": {
+          "985f59a1d01a612b2eac0219243199896c24075a": "d02552ed626a83d3615b2a0b7e6ebc2d8589ebf3acc16f2603bb7ad92b5e9e64",
+          "723183a11ebffe4bcdf5d6d0795420db57e2847e": "d02552ed626a83d3615b2a0b7e6ebc2d8589ebf3acc16f2603bb7ad92b5e9e64"
+        },
+        "all_same": true
+      },
+      {
+        "file": "src/fenolite/view/export.py",
+        "bytes": 3034,
+        "sha256": "6e29a1af938761f9fb3b9e292900457909a4a6518f600b217fc875889943fe48",
+        "same_as_prepared_build_product": true,
+        "snapshot_sha256": {
+          "985f59a1d01a612b2eac0219243199896c24075a": "6e29a1af938761f9fb3b9e292900457909a4a6518f600b217fc875889943fe48",
+          "723183a11ebffe4bcdf5d6d0795420db57e2847e": "6e29a1af938761f9fb3b9e292900457909a4a6518f600b217fc875889943fe48"
+        },
+        "all_same": true
+      },
+      {
+        "file": "src/fenolite/view/fidelity.py",
+        "bytes": 25665,
+        "sha256": "07b7168dc8ea2f480554355346d3e0585aece8db2dee04098dbf002cc306e420",
+        "same_as_prepared_build_product": true,
+        "snapshot_sha256": {
+          "985f59a1d01a612b2eac0219243199896c24075a": "07b7168dc8ea2f480554355346d3e0585aece8db2dee04098dbf002cc306e420",
+          "723183a11ebffe4bcdf5d6d0795420db57e2847e": "07b7168dc8ea2f480554355346d3e0585aece8db2dee04098dbf002cc306e420"
+        },
+        "all_same": true
+      },
+      {
+        "file": "src/fenolite/view/findings.py",
+        "bytes": 29115,
+        "sha256": "d412f6ab805bb21520ed3eeafd7d904acf726675efe7da727fc7e2050b4c8c06",
+        "same_as_prepared_build_product": true,
+        "snapshot_sha256": {
+          "985f59a1d01a612b2eac0219243199896c24075a": "d412f6ab805bb21520ed3eeafd7d904acf726675efe7da727fc7e2050b4c8c06",
+          "723183a11ebffe4bcdf5d6d0795420db57e2847e": "d412f6ab805bb21520ed3eeafd7d904acf726675efe7da727fc7e2050b4c8c06"
+        },
+        "all_same": true
+      },
+      {
+        "file": "src/fenolite/view/intersheet_bindings.py",
+        "bytes": 3985,
+        "sha256": "4de4002317eb4227f1accf867edbac122eb264ed02c861a7e09ff2a8e5804410",
+        "same_as_prepared_build_product": true,
+        "snapshot_sha256": {
+          "985f59a1d01a612b2eac0219243199896c24075a": "4de4002317eb4227f1accf867edbac122eb264ed02c861a7e09ff2a8e5804410",
+          "723183a11ebffe4bcdf5d6d0795420db57e2847e": "4de4002317eb4227f1accf867edbac122eb264ed02c861a7e09ff2a8e5804410"
+        },
+        "all_same": true
+      },
+      {
+        "file": "src/fenolite/view/jobs.py",
+        "bytes": 5578,
+        "sha256": "e94992a19f9ee24b7705bab922c86cff4fdb2dbe55af2ca8ebe27e2c389c9990",
+        "same_as_prepared_build_product": true,
+        "snapshot_sha256": {
+          "985f59a1d01a612b2eac0219243199896c24075a": "e94992a19f9ee24b7705bab922c86cff4fdb2dbe55af2ca8ebe27e2c389c9990",
+          "723183a11ebffe4bcdf5d6d0795420db57e2847e": "e94992a19f9ee24b7705bab922c86cff4fdb2dbe55af2ca8ebe27e2c389c9990"
+        },
+        "all_same": true
+      },
+      {
+        "file": "src/fenolite/view/kicad_intersheet.py",
+        "bytes": 13156,
+        "sha256": "02ed331e3d6dde4bd8445eb20e606f7f94b0be1dc949a70a2c57506199003294",
+        "same_as_prepared_build_product": true,
+        "snapshot_sha256": {
+          "985f59a1d01a612b2eac0219243199896c24075a": "02ed331e3d6dde4bd8445eb20e606f7f94b0be1dc949a70a2c57506199003294",
+          "723183a11ebffe4bcdf5d6d0795420db57e2847e": "02ed331e3d6dde4bd8445eb20e606f7f94b0be1dc949a70a2c57506199003294"
+        },
+        "all_same": true
+      },
+      {
+        "file": "src/fenolite/view/kicad_schematic.py",
+        "bytes": 57960,
+        "sha256": "e2949d0b6c7c802b13d1bb4557502453517a5f7d9f216a0260c25040e337cdcb",
+        "same_as_prepared_build_product": true,
+        "snapshot_sha256": {
+          "985f59a1d01a612b2eac0219243199896c24075a": "e2949d0b6c7c802b13d1bb4557502453517a5f7d9f216a0260c25040e337cdcb",
+          "723183a11ebffe4bcdf5d6d0795420db57e2847e": "e2949d0b6c7c802b13d1bb4557502453517a5f7d9f216a0260c25040e337cdcb"
+        },
+        "all_same": true
+      },
+      {
+        "file": "src/fenolite/view/library.py",
+        "bytes": 10824,
+        "sha256": "d160c2dbb94dd7389c3b4631986a63cbba47676c658948a26335a14b9c9efdba",
+        "same_as_prepared_build_product": true,
+        "snapshot_sha256": {
+          "985f59a1d01a612b2eac0219243199896c24075a": "d160c2dbb94dd7389c3b4631986a63cbba47676c658948a26335a14b9c9efdba",
+          "723183a11ebffe4bcdf5d6d0795420db57e2847e": "d160c2dbb94dd7389c3b4631986a63cbba47676c658948a26335a14b9c9efdba"
+        },
+        "all_same": true
+      },
+      {
+        "file": "src/fenolite/view/meshes.py",
+        "bytes": 9485,
+        "sha256": "c289cac5ec8815fe44515c1311ada5800940155e57a9b8aac760e44fa5a0b0bf",
+        "same_as_prepared_build_product": true,
+        "snapshot_sha256": {
+          "985f59a1d01a612b2eac0219243199896c24075a": "c289cac5ec8815fe44515c1311ada5800940155e57a9b8aac760e44fa5a0b0bf",
+          "723183a11ebffe4bcdf5d6d0795420db57e2847e": "c289cac5ec8815fe44515c1311ada5800940155e57a9b8aac760e44fa5a0b0bf"
+        },
+        "all_same": true
+      },
+      {
+        "file": "src/fenolite/view/models.py",
+        "bytes": 7996,
+        "sha256": "c6af0ab8266b68a482cca77253dbef54d5c810bfbfe316f1ab14b9f64da315ec",
+        "same_as_prepared_build_product": true,
+        "snapshot_sha256": {
+          "985f59a1d01a612b2eac0219243199896c24075a": "c6af0ab8266b68a482cca77253dbef54d5c810bfbfe316f1ab14b9f64da315ec",
+          "723183a11ebffe4bcdf5d6d0795420db57e2847e": "c6af0ab8266b68a482cca77253dbef54d5c810bfbfe316f1ab14b9f64da315ec"
+        },
+        "all_same": true
+      },
+      {
+        "file": "src/fenolite/view/outjob.py",
+        "bytes": 4533,
+        "sha256": "2a8304cac8c171f1cdb289ea1e4f40d163c41fccbea4d6a7175ce2f56623c205",
+        "same_as_prepared_build_product": true,
+        "snapshot_sha256": {
+          "985f59a1d01a612b2eac0219243199896c24075a": "2a8304cac8c171f1cdb289ea1e4f40d163c41fccbea4d6a7175ce2f56623c205",
+          "723183a11ebffe4bcdf5d6d0795420db57e2847e": "2a8304cac8c171f1cdb289ea1e4f40d163c41fccbea4d6a7175ce2f56623c205"
+        },
+        "all_same": true
+      },
+      {
+        "file": "src/fenolite/view/project.py",
+        "bytes": 10329,
+        "sha256": "54b22c4901c56099445d2bf43b970aca321a37506d9a4e5b37f331364ea88c95",
+        "same_as_prepared_build_product": true,
+        "snapshot_sha256": {
+          "985f59a1d01a612b2eac0219243199896c24075a": "54b22c4901c56099445d2bf43b970aca321a37506d9a4e5b37f331364ea88c95",
+          "723183a11ebffe4bcdf5d6d0795420db57e2847e": "54b22c4901c56099445d2bf43b970aca321a37506d9a4e5b37f331364ea88c95"
+        },
+        "all_same": true
+      },
+      {
+        "file": "src/fenolite/view/project_nets.py",
+        "bytes": 5085,
+        "sha256": "a9d7dfb640e6b1875d115a31fb4da280957cb99925ce76068e6b7ebc759a5703",
+        "same_as_prepared_build_product": true,
+        "snapshot_sha256": {
+          "985f59a1d01a612b2eac0219243199896c24075a": "a9d7dfb640e6b1875d115a31fb4da280957cb99925ce76068e6b7ebc759a5703",
+          "723183a11ebffe4bcdf5d6d0795420db57e2847e": "a9d7dfb640e6b1875d115a31fb4da280957cb99925ce76068e6b7ebc759a5703"
+        },
+        "all_same": true
+      },
+      {
+        "file": "src/fenolite/view/project_review.py",
+        "bytes": 12516,
+        "sha256": "a230cff488f4c9bf285fc5a06f95929c8883f21611efd7e40aeab478dc98d24f",
+        "same_as_prepared_build_product": true,
+        "snapshot_sha256": {
+          "985f59a1d01a612b2eac0219243199896c24075a": "a230cff488f4c9bf285fc5a06f95929c8883f21611efd7e40aeab478dc98d24f",
+          "723183a11ebffe4bcdf5d6d0795420db57e2847e": "a230cff488f4c9bf285fc5a06f95929c8883f21611efd7e40aeab478dc98d24f"
+        },
+        "all_same": true
+      },
+      {
+        "file": "src/fenolite/view/proposals.py",
+        "bytes": 7501,
+        "sha256": "80ed4ac252ac11e3de605df44d488979bafe08b7891f3dcbd81090130fd98b90",
+        "same_as_prepared_build_product": true,
+        "snapshot_sha256": {
+          "985f59a1d01a612b2eac0219243199896c24075a": "80ed4ac252ac11e3de605df44d488979bafe08b7891f3dcbd81090130fd98b90",
+          "723183a11ebffe4bcdf5d6d0795420db57e2847e": "80ed4ac252ac11e3de605df44d488979bafe08b7891f3dcbd81090130fd98b90"
+        },
+        "all_same": true
+      },
+      {
+        "file": "src/fenolite/view/review.py",
+        "bytes": 6614,
+        "sha256": "6b8e650d38f0a8144d0a3faa475ff29659a17fc6b17edaff6e92a480edc7cd0a",
+        "same_as_prepared_build_product": true,
+        "snapshot_sha256": {
+          "985f59a1d01a612b2eac0219243199896c24075a": "6b8e650d38f0a8144d0a3faa475ff29659a17fc6b17edaff6e92a480edc7cd0a",
+          "723183a11ebffe4bcdf5d6d0795420db57e2847e": "6b8e650d38f0a8144d0a3faa475ff29659a17fc6b17edaff6e92a480edc7cd0a"
+        },
+        "all_same": true
+      },
+      {
+        "file": "src/fenolite/view/review_sheet.py",
+        "bytes": 5887,
+        "sha256": "0ea8f89acaa60e2dbe782a99a7a81b2daf59044dcbcdf5c5db91db26ed03b6b4",
+        "same_as_prepared_build_product": true,
+        "snapshot_sha256": {
+          "985f59a1d01a612b2eac0219243199896c24075a": "0ea8f89acaa60e2dbe782a99a7a81b2daf59044dcbcdf5c5db91db26ed03b6b4",
+          "723183a11ebffe4bcdf5d6d0795420db57e2847e": "0ea8f89acaa60e2dbe782a99a7a81b2daf59044dcbcdf5c5db91db26ed03b6b4"
+        },
+        "all_same": true
+      },
+      {
+        "file": "src/fenolite/view/roles.py",
+        "bytes": 8726,
+        "sha256": "5eb565856aabc5ce1cd86991b06184c9fa9dfdfbd32cbd9bdd063cfe0b4e38ed",
+        "same_as_prepared_build_product": true,
+        "snapshot_sha256": {
+          "985f59a1d01a612b2eac0219243199896c24075a": "5eb565856aabc5ce1cd86991b06184c9fa9dfdfbd32cbd9bdd063cfe0b4e38ed",
+          "723183a11ebffe4bcdf5d6d0795420db57e2847e": "5eb565856aabc5ce1cd86991b06184c9fa9dfdfbd32cbd9bdd063cfe0b4e38ed"
+        },
+        "all_same": true
+      },
+      {
+        "file": "src/fenolite/view/runs.py",
+        "bytes": 12461,
+        "sha256": "48e2a8ca61b9cbbfe7998bc29b36007a79263fd156225800dd491ee5b5bf30da",
+        "same_as_prepared_build_product": true,
+        "snapshot_sha256": {
+          "985f59a1d01a612b2eac0219243199896c24075a": "48e2a8ca61b9cbbfe7998bc29b36007a79263fd156225800dd491ee5b5bf30da",
+          "723183a11ebffe4bcdf5d6d0795420db57e2847e": "48e2a8ca61b9cbbfe7998bc29b36007a79263fd156225800dd491ee5b5bf30da"
+        },
+        "all_same": true
+      },
+      {
+        "file": "src/fenolite/view/scene.py",
+        "bytes": 38005,
+        "sha256": "1b632e4795483a7061ae6d9a3634fee88d04b92be41489827f5d2ecb170c0acd",
+        "same_as_prepared_build_product": true,
+        "snapshot_sha256": {
+          "985f59a1d01a612b2eac0219243199896c24075a": "1b632e4795483a7061ae6d9a3634fee88d04b92be41489827f5d2ecb170c0acd",
+          "723183a11ebffe4bcdf5d6d0795420db57e2847e": "1b632e4795483a7061ae6d9a3634fee88d04b92be41489827f5d2ecb170c0acd"
+        },
+        "all_same": true
+      },
+      {
+        "file": "src/fenolite/view/schematic.py",
+        "bytes": 52265,
+        "sha256": "b89e2458eaeb28922812fc94203d37d015307a00e28915f64a7b45f1a0ccc99a",
+        "same_as_prepared_build_product": true,
+        "snapshot_sha256": {
+          "985f59a1d01a612b2eac0219243199896c24075a": "b89e2458eaeb28922812fc94203d37d015307a00e28915f64a7b45f1a0ccc99a",
+          "723183a11ebffe4bcdf5d6d0795420db57e2847e": "b89e2458eaeb28922812fc94203d37d015307a00e28915f64a7b45f1a0ccc99a"
+        },
+        "all_same": true
+      },
+      {
+        "file": "src/fenolite/view/server.py",
+        "bytes": 40299,
+        "sha256": "3bc362f386159b57ab438565f2f018252339e14b728890b6b499a30691172b13",
+        "same_as_prepared_build_product": true,
+        "snapshot_sha256": {
+          "985f59a1d01a612b2eac0219243199896c24075a": "3bc362f386159b57ab438565f2f018252339e14b728890b6b499a30691172b13",
+          "723183a11ebffe4bcdf5d6d0795420db57e2847e": "3bc362f386159b57ab438565f2f018252339e14b728890b6b499a30691172b13"
+        },
+        "all_same": true
+      },
+      {
+        "file": "src/fenolite/view/static/manifest.json",
+        "bytes": 493,
+        "sha256": "92f6a4f7e4f104486995cccd16a88976560ec4ac2af7583b7d267e4a5c481136",
+        "same_as_prepared_build_product": true,
+        "snapshot_sha256": {
+          "985f59a1d01a612b2eac0219243199896c24075a": "92f6a4f7e4f104486995cccd16a88976560ec4ac2af7583b7d267e4a5c481136",
+          "723183a11ebffe4bcdf5d6d0795420db57e2847e": "92f6a4f7e4f104486995cccd16a88976560ec4ac2af7583b7d267e4a5c481136"
+        },
+        "all_same": true
+      },
+      {
+        "file": "src/fenolite/view/static/page.html",
+        "bytes": 11711,
+        "sha256": "8e38904c2cd644457fa875e6ce406e06a9785e5e59c1d3e274ab8b54a28f77b1",
+        "same_as_prepared_build_product": true,
+        "snapshot_sha256": {
+          "985f59a1d01a612b2eac0219243199896c24075a": "8e38904c2cd644457fa875e6ce406e06a9785e5e59c1d3e274ab8b54a28f77b1",
+          "723183a11ebffe4bcdf5d6d0795420db57e2847e": "8e38904c2cd644457fa875e6ce406e06a9785e5e59c1d3e274ab8b54a28f77b1"
+        },
+        "all_same": true
+      },
+      {
+        "file": "src/fenolite/view/static/viewer.css",
+        "bytes": 58003,
+        "sha256": "fc22f0f5669c7a30e3b361892830ec622f0ee3dd4604c528dad78d0e262bb1bb",
+        "same_as_prepared_build_product": true,
+        "snapshot_sha256": {
+          "985f59a1d01a612b2eac0219243199896c24075a": "fc22f0f5669c7a30e3b361892830ec622f0ee3dd4604c528dad78d0e262bb1bb",
+          "723183a11ebffe4bcdf5d6d0795420db57e2847e": "fc22f0f5669c7a30e3b361892830ec622f0ee3dd4604c528dad78d0e262bb1bb"
+        },
+        "all_same": true
+      },
+      {
+        "file": "src/fenolite/view/static/viewer.js",
+        "bytes": 376168,
+        "sha256": "73423243985ce5a5836693c118da737d7240be4982ce9e1b4e34c6ac2fef4c53",
+        "same_as_prepared_build_product": true,
+        "snapshot_sha256": {
+          "985f59a1d01a612b2eac0219243199896c24075a": "73423243985ce5a5836693c118da737d7240be4982ce9e1b4e34c6ac2fef4c53",
+          "723183a11ebffe4bcdf5d6d0795420db57e2847e": "73423243985ce5a5836693c118da737d7240be4982ce9e1b4e34c6ac2fef4c53"
+        },
+        "all_same": true
+      },
+      {
+        "file": "src/fenolite/view/themes.py",
+        "bytes": 10342,
+        "sha256": "6ccdd197173c84d24b8bd8906975f1d6f395c548d16e5d82ce55271f0b8b11de",
+        "same_as_prepared_build_product": true,
+        "snapshot_sha256": {
+          "985f59a1d01a612b2eac0219243199896c24075a": "6ccdd197173c84d24b8bd8906975f1d6f395c548d16e5d82ce55271f0b8b11de",
+          "723183a11ebffe4bcdf5d6d0795420db57e2847e": "6ccdd197173c84d24b8bd8906975f1d6f395c548d16e5d82ce55271f0b8b11de"
+        },
+        "all_same": true
+      },
+      {
+        "file": "src/fenolite/view/variants.py",
+        "bytes": 2775,
+        "sha256": "b6069183f82e92def00b6b8d42c1c72e93cb0225205e2fb258499756c501540a",
+        "same_as_prepared_build_product": true,
+        "snapshot_sha256": {
+          "985f59a1d01a612b2eac0219243199896c24075a": "b6069183f82e92def00b6b8d42c1c72e93cb0225205e2fb258499756c501540a",
+          "723183a11ebffe4bcdf5d6d0795420db57e2847e": "b6069183f82e92def00b6b8d42c1c72e93cb0225205e2fb258499756c501540a"
+        },
+        "all_same": true
+      }
+    ],
+    "trees": [
+      {
+        "path": "tests/visual",
+        "git_trees": {
+          "985f59a1d01a612b2eac0219243199896c24075a": "b2b587be5ba5470082ce58ef53b18a5cb65eacc1",
+          "723183a11ebffe4bcdf5d6d0795420db57e2847e": "b2b587be5ba5470082ce58ef53b18a5cb65eacc1"
+        },
+        "all_same": true
+      },
+      {
+        "path": "viewer/src",
+        "git_trees": {
+          "985f59a1d01a612b2eac0219243199896c24075a": "9f02123594f5c09d1cfe08a062331faf6a7e516d",
+          "723183a11ebffe4bcdf5d6d0795420db57e2847e": "9f02123594f5c09d1cfe08a062331faf6a7e516d"
+        },
+        "all_same": true
+      },
+      {
+        "path": "src/fenolite/view/static",
+        "git_trees": {
+          "985f59a1d01a612b2eac0219243199896c24075a": "4ac2981568fffcf13b157f5450a6dd43bafaadb1",
+          "723183a11ebffe4bcdf5d6d0795420db57e2847e": "4ac2981568fffcf13b157f5450a6dd43bafaadb1"
+        },
+        "all_same": true
+      }
+    ]
+  },
+  "original_23_sources_and_copies_unchanged": true,
+  "prepared_runtime_1152_files_unchanged": true,
+  "boards_unchanged": 6,
+  "screenshots": [
+    {
+      "case": "buck_shunt-good",
+      "captured_at_utc": "2026-11-04T00:04:22.816Z",
+      "roles_count": 12,
+      "role_states": {
+        "declared": 4,
+        "confirmed": 0,
+        "inferred": 8
+      },
+      "groups": 4,
+      "finding_count": 10,
+      "finding_codes": {
+        "analysis.path-open": 4,
+        "roles.current-missing": 3,
+        "roles.loop-open": 2,
+        "roles.unconfirmed": 1
+      },
+      "unfilled_zones": 6,
+      "product_notes": [
+        "6 zone(s) hold no fill in the file and are drawn as outlines; refill them in their tool to see the copper.",
+        "The board holds no stack-up: the 3D view assumes a thickness of 1.6 mm.",
+        "Colours: Fenolite's palette in the manner of KiCad; pass --theme to use your own KiCad theme."
+      ],
+      "read_only_browser_inspection": "Full board fits; orange hot-loop hatch, purple gate loops and green Kelvin overlay visible. All role overlays enabled. The findings panel is scrollable; full ten findings retained in the DOM. Six zones are shown as unfilled outlines; INFERRED, no electrical approval.",
+      "canvas_four_overlays_enabled": true,
+      "complete_findings_preserved_in_DOM": true,
+      "all_findings_simultaneously_visible_in_screenshot": false,
+      "serve_additional_runs": {},
+      "serve_receipt": null,
+      "owned_server_stopped": true,
+      "evidence": "INFERRED",
+      "screenshot": {
+        "path": "buck_shunt-good.jpg",
+        "bytes": 150965,
+        "sha256": "d50aac36742f30de98e04427a158067377dddb0e2b959b1af2178a30b4c5d845",
+        "format": "JPEG",
+        "mime_type": "image/jpeg",
+        "width": 1512,
+        "height": 751,
+        "original_bytes_unedited": true
+      },
+      "DOM": {
+        "path": "buck_shunt-good.dom.txt",
+        "bytes": 10562,
+        "sha256": "a07484fe64260a1b13ebc3ed331b617d0d83053d4c7d4c6ce0418205378e7519"
+      },
+      "board": {
+        "path": "buck_shunt_good.kicad_pcb",
+        "bytes": 42266,
+        "sha256": "3a6e93c473517e101e1f194024453a50cce72308b0badb2baaf8c8e20b432847"
+      },
+      "role_data": {
+        "path": "buck_shunt-good.roles-embedded.json",
+        "bytes": 28749,
+        "sha256": "2747c0fbb6eb0167b7b9e5235a53947282119257aa6209c540bf52d065ff01a5"
+      },
+      "serve_reply": {
+        "path": "buck_shunt-good.stdout.json",
+        "bytes": 3556,
+        "sha256": "afdf11a790098808a2d1be30b4b82cd590e4e8dff44cd2fb269e95e3af50c4f2"
+      }
+    },
+    {
+      "case": "buck_shunt-bad",
+      "captured_at_utc": "2026-11-04T00:06:00.745Z",
+      "roles_count": 12,
+      "role_states": {
+        "declared": 4,
+        "confirmed": 0,
+        "inferred": 8
+      },
+      "groups": 4,
+      "finding_count": 13,
+      "finding_codes": {
+        "analysis.path-open": 4,
+        "roles.current-missing": 3,
+        "roles.kelvin-outer": 1,
+        "roles.loop-open": 4,
+        "roles.unconfirmed": 1
+      },
+      "unfilled_zones": 6,
+      "product_notes": [
+        "6 zone(s) hold no fill in the file and are drawn as outlines; refill them in their tool to see the copper.",
+        "The board holds no stack-up: the 3D view assumes a thickness of 1.6 mm.",
+        "Colours: Fenolite's palette in the manner of KiCad; pass --theme to use your own KiCad theme."
+      ],
+      "read_only_browser_inspection": "Hot-loop hatch is elongated toward the relocated C1; canvas label hot_SW shows46.126mm\u00b2 versus55.230mm\u00b2 in good. Both scenes retain open-loop findings saying area is not judged, so these labels are not treated as validated physical loop area. Kelvin outer-pad warning is visible; all thirteen findings remain unfiltered.",
+      "canvas_four_overlays_enabled": true,
+      "complete_findings_preserved_in_DOM": true,
+      "all_findings_simultaneously_visible_in_screenshot": false,
+      "serve_additional_runs": {},
+      "serve_receipt": null,
+      "owned_server_stopped": true,
+      "evidence": "INFERRED",
+      "screenshot": {
+        "path": "buck_shunt-bad.jpg",
+        "bytes": 158543,
+        "sha256": "f929dda1917317543b5eb70a9e049d312b031c4efa024171e45e1405f3d67ecf",
+        "format": "JPEG",
+        "mime_type": "image/jpeg",
+        "width": 1512,
+        "height": 751,
+        "original_bytes_unedited": true
+      },
+      "DOM": {
+        "path": "buck_shunt-bad.dom.txt",
+        "bytes": 11082,
+        "sha256": "961b7f05a13e079897d712c64b3cddb08f2533f2ca221ba0b86bc241fb12c7fe"
+      },
+      "board": {
+        "path": "buck_shunt_bad.kicad_pcb",
+        "bytes": 43074,
+        "sha256": "e4c8562650baa92327739bdd16cfea569abae0c79a2b3d8bdbeed959fb77dfc3"
+      },
+      "role_data": {
+        "path": "buck_shunt-bad.roles-embedded.json",
+        "bytes": 29329,
+        "sha256": "35494d1b6b827845a700ac35fdc2b4c68e999d357bd74198ea0901dab9c3a08c"
+      },
+      "serve_reply": {
+        "path": "buck_shunt-bad.stdout.json",
+        "bytes": 3551,
+        "sha256": "c34c962b573e1bd1e4279feb61d618bba6e252947a5dc03c3b5cc89f99e67b36"
+      }
+    },
+    {
+      "case": "half_bridge-good",
+      "captured_at_utc": "2026-11-04T00:07:28.063Z",
+      "roles_count": 11,
+      "role_states": {
+        "declared": 1,
+        "confirmed": 0,
+        "inferred": 10
+      },
+      "groups": 4,
+      "finding_count": 9,
+      "finding_codes": {
+        "analysis.path-open": 1,
+        "roles.current-missing": 5,
+        "roles.limit-missing": 1,
+        "roles.loop-open": 1,
+        "roles.unconfirmed": 1
+      },
+      "unfilled_zones": 5,
+      "product_notes": [
+        "5 zone(s) hold no fill in the file and are drawn as outlines; refill them in their tool to see the copper.",
+        "The board holds no stack-up: the 3D view assumes a thickness of 1.6 mm.",
+        "Colours: Fenolite's palette in the manner of KiCad; pass --theme to use your own KiCad theme."
+      ],
+      "read_only_browser_inspection": "All four role overlays enabled; nine real findings retained, including VBUS distance requirement absent and open hot loop. Five unfilled zones. No high-voltage distance or electrical approval claimed. Visual inspection: complete four-layer board fits; orange hot-loop hatch label92.933mm\u00b2, purple gate-loop labels9.881/9.429mm\u00b2 and green kelvin_R1 label are readable. VBUS limit-missing and loop-open warnings are visible; labels are not treated as routed-area proof.",
+      "canvas_four_overlays_enabled": true,
+      "complete_findings_preserved_in_DOM": true,
+      "all_findings_simultaneously_visible_in_screenshot": false,
+      "serve_additional_runs": {},
+      "serve_receipt": null,
+      "owned_server_stopped": true,
+      "evidence": "INFERRED",
+      "screenshot": {
+        "path": "half_bridge-good.jpg",
+        "bytes": 167141,
+        "sha256": "ba6e7e8d5ff3b08a2c1ee3c04052f7a204f6d181b11548598ee8ab27b091f159",
+        "format": "JPEG",
+        "mime_type": "image/jpeg",
+        "width": 1512,
+        "height": 751,
+        "original_bytes_unedited": true
+      },
+      "DOM": {
+        "path": "half_bridge-good.dom.txt",
+        "bytes": 10638,
+        "sha256": "ef3da223b0e149ec9db0610f6de2b95a9a57d594bbd8d2d5d874488af88ced71"
+      },
+      "board": {
+        "path": "half_bridge_good.kicad_pcb",
+        "bytes": 36840,
+        "sha256": "e0556badba1fc0362d27801029904929a9a56a52b9d29bf3a6f568a3737b7576"
+      },
+      "role_data": {
+        "path": "half_bridge-good.roles-embedded.json",
+        "bytes": 27392,
+        "sha256": "6171104dcf868047c333afb2757612660602526931e69ab1f8bea4022b8bfb43"
+      },
+      "serve_reply": {
+        "path": "half_bridge-good.stdout.json",
+        "bytes": 3581,
+        "sha256": "21fe153b3adec24d551ee70768a7a9dcedc20371efde35b225fa63a5bea6a3ef"
+      }
+    },
+    {
+      "case": "half_bridge-bad",
+      "captured_at_utc": "2026-11-04T00:08:05.894Z",
+      "roles_count": 11,
+      "role_states": {
+        "declared": 1,
+        "confirmed": 0,
+        "inferred": 10
+      },
+      "groups": 4,
+      "finding_count": 11,
+      "finding_codes": {
+        "analysis.path-open": 1,
+        "roles.current-missing": 5,
+        "roles.gate-loop": 1,
+        "roles.limit-missing": 1,
+        "roles.loop-open": 2,
+        "roles.unconfirmed": 1
+      },
+      "unfilled_zones": 6,
+      "product_notes": [
+        "6 zone(s) hold no fill in the file and are drawn as outlines; refill them in their tool to see the copper.",
+        "The board holds no stack-up: the 3D view assumes a thickness of 1.6 mm.",
+        "Colours: Fenolite's palette in the manner of KiCad; pass --theme to use your own KiCad theme."
+      ],
+      "read_only_browser_inspection": "All four overlays enabled. Eleven findings retained, including gate_Q2 loop116.05mm\u00b2/2922permille versus39.71mm\u00b2 bound as reported by the product, VBUS distance not judged and open loops. Six unfilled zones; no electrical or high-voltage approval. Visual inspection: purple gate_Q2 detour rectangle and116.046mm\u00b2 canvas label correspond to the rounded116.05mm\u00b2 warning; gate_Q1 displays38.065mm\u00b2 and hot_SW92.933mm\u00b2. Green Kelvin overlay remains visible. Left warning text is readable but scrollable; sidebar row captions truncate while complete names remain in DOM/tooltips.",
+      "canvas_four_overlays_enabled": true,
+      "complete_findings_preserved_in_DOM": true,
+      "all_findings_simultaneously_visible_in_screenshot": false,
+      "serve_additional_runs": {},
+      "serve_receipt": null,
+      "owned_server_stopped": true,
+      "evidence": "INFERRED",
+      "screenshot": {
+        "path": "half_bridge-bad.jpg",
+        "bytes": 169019,
+        "sha256": "02a604cd10f53db14ff60c3cdec170be62f74a062ffd9d962cbe6899e5dabc1f",
+        "format": "JPEG",
+        "mime_type": "image/jpeg",
+        "width": 1512,
+        "height": 751,
+        "original_bytes_unedited": true
+      },
+      "DOM": {
+        "path": "half_bridge-bad.dom.txt",
+        "bytes": 11020,
+        "sha256": "82f4db9cf6f6728cc66449fbf429f544026e8781d84648b164d2e04680ff05b3"
+      },
+      "board": {
+        "path": "half_bridge_bad.kicad_pcb",
+        "bytes": 38460,
+        "sha256": "37cba9bc80f61caf732bba431afa13a54359e855a96da8cc05486a9c998ccfc2"
+      },
+      "role_data": {
+        "path": "half_bridge-bad.roles-embedded.json",
+        "bytes": 27492,
+        "sha256": "aea04044cbf31c964e6cb3a776cccd240748d5f774b791712cb3434b34b9ff41"
+      },
+      "serve_reply": {
+        "path": "half_bridge-bad.stdout.json",
+        "bytes": 3577,
+        "sha256": "35f353656d3ed98d1eaf14cd9317755bbde7dacd17520dcf518eff58958c237e"
+      }
+    },
+    {
+      "case": "bms-good",
+      "captured_at_utc": "2026-11-04T00:08:48.781Z",
+      "roles_count": 13,
+      "role_states": {
+        "declared": 8,
+        "confirmed": 0,
+        "inferred": 5
+      },
+      "groups": 3,
+      "finding_count": 6,
+      "finding_codes": {
+        "analysis.path-open": 4,
+        "roles.current-missing": 1,
+        "roles.unconfirmed": 1
+      },
+      "unfilled_zones": 6,
+      "product_notes": [
+        "6 zone(s) hold no fill in the file and are drawn as outlines; refill them in their tool to see the copper.",
+        "The board holds no stack-up: the 3D view assumes a thickness of 1.6 mm.",
+        "Colours: Fenolite's palette in the manner of KiCad; pass --theme to use your own KiCad theme."
+      ],
+      "read_only_browser_inspection": "Thirteen role rows, three groups and six findings retained. Four overlays enabled. Six unfilled zones; path-open/current-missing/unconfirmed findings remain; no electrical approval. Visual inspection: complete board fits; purple gate hatches and green Kelvin branches are visible. No numerical gate-area labels or black group captions are visible on the BMS canvas; group names remain in the sidebar. Some authored reference text is rotated. No area is inferred from this image.",
+      "canvas_four_overlays_enabled": true,
+      "complete_findings_preserved_in_DOM": true,
+      "all_findings_simultaneously_visible_in_screenshot": false,
+      "serve_additional_runs": {},
+      "serve_receipt": null,
+      "owned_server_stopped": true,
+      "evidence": "INFERRED",
+      "screenshot": {
+        "path": "bms-good.jpg",
+        "bytes": 129481,
+        "sha256": "620eb2443a93fdf9c6cb50e336b80e53d83a13fae65984210276c3a2d6451b3f",
+        "format": "JPEG",
+        "mime_type": "image/jpeg",
+        "width": 1512,
+        "height": 751,
+        "original_bytes_unedited": true
+      },
+      "DOM": {
+        "path": "bms-good.dom.txt",
+        "bytes": 9907,
+        "sha256": "72ba29440ccb24a8ef9bdae95696b462ae459463797d92985bc6b266c3d5ce09"
+      },
+      "board": {
+        "path": "bms_good.kicad_pcb",
+        "bytes": 29109,
+        "sha256": "19e337d2c3a21bbde987306a99f19bd09e6e33c53baf33fcc921b6b751d0c75a"
+      },
+      "role_data": {
+        "path": "bms-good.roles-embedded.json",
+        "bytes": 25467,
+        "sha256": "ba71619baf3344a584c76b373746cd3e9c374bba3eba243a0665513768b85667"
+      },
+      "serve_reply": {
+        "path": "bms-good.stdout.json",
+        "bytes": 3471,
+        "sha256": "ce9cd353ddf707fc588e304aca8f40bc4bf08c0ff23dee5c2a9b044bfc275af2"
+      }
+    },
+    {
+      "case": "bms-bad",
+      "captured_at_utc": "2026-11-04T00:11:05.954Z",
+      "roles_count": 11,
+      "role_states": {
+        "declared": 8,
+        "confirmed": 0,
+        "inferred": 3
+      },
+      "groups": 3,
+      "finding_count": 8,
+      "finding_codes": {
+        "analysis.path-open": 3,
+        "roles.current-missing": 1,
+        "roles.kelvin-shared": 2,
+        "roles.unconfirmed": 1,
+        "roles.width-current": 1
+      },
+      "unfilled_zones": 7,
+      "product_notes": [
+        "7 zone(s) hold no fill in the file and are drawn as outlines; refill them in their tool to see the copper.",
+        "The board holds no stack-up: the 3D view assumes a thickness of 1.6 mm.",
+        "Colours: Fenolite's palette in the manner of KiCad; pass --theme to use your own KiCad theme."
+      ],
+      "read_only_browser_inspection": "Eleven role rows (8 declared/0 confirmed/3 inferred), three groups and eight findings retained. Four overlays enabled. Seven unfilled zones; three path-open, two Kelvin-shared, one width-current, one current-missing and one unconfirmed finding. No electrical approval. Visual inspection: full board fits. Two purple diagonal gate hatches are visible; warning markers identify the shared Kelvin connection and narrow PACK_N track. The Kelvin-shared and width-current warning text is visible. No green dashed sense branches or numerical loop-area captions are visible on this canvas; group names remain in the sidebar. No invented area values or electrical judgment.",
+      "canvas_four_overlays_enabled": true,
+      "complete_findings_preserved_in_DOM": true,
+      "all_findings_simultaneously_visible_in_screenshot": false,
+      "serve_additional_runs": {},
+      "serve_receipt": null,
+      "owned_server_stopped": true,
+      "evidence": "INFERRED",
+      "screenshot": {
+        "path": "bms-bad.jpg",
+        "bytes": 133910,
+        "sha256": "73122df11e8fc707903cef15040dae1ac00409702fc2f28bf8ca045ab7b140a1",
+        "format": "JPEG",
+        "mime_type": "image/jpeg",
+        "width": 1512,
+        "height": 751,
+        "original_bytes_unedited": true
+      },
+      "DOM": {
+        "path": "bms-bad.dom.txt",
+        "bytes": 9899,
+        "sha256": "5162c0e531fcaea2d82a128c6f018e5c7512e3d56393c25107ddbcfd54d864c8"
+      },
+      "board": {
+        "path": "bms_bad.kicad_pcb",
+        "bytes": 29732,
+        "sha256": "d570a3f6fbb6c1c40364dcef86ea2c1844f8a7cbb00d8917f09ca672942c182a"
+      },
+      "role_data": {
+        "path": "bms-bad.roles-embedded.json",
+        "bytes": 26924,
+        "sha256": "93010c4c1851d2b32d06f01531bd1a6f38ed41ccb7f352868ac441cd000d98a1"
+      },
+      "serve_reply": {
+        "path": "bms-bad.stdout.json",
+        "bytes": 3474,
+        "sha256": "2f88aa0b843d64003c9cce3776be76cebfb72292fe9079a74ea051aafe07ae64"
+      }
+    }
+  ],
+  "totals": {
+    "original_JPEGs": 6,
+    "roles": 70,
+    "findings": 57,
+    "unfilled_zones": 36,
+    "new_CAD_runs": 0,
+    "new_test_runs": 0,
+    "new_CI_runs": 0,
+    "additional_serve_runs": 0,
+    "role_acceptances": 0,
+    "fills": 0
+  },
+  "limitations": [
+    "All six boards contain no saved zone fill (36 unfilled zones total). They are ordinary authored builds, not filled fixtures. No fill, route, role-copper, CAD, tests, CI, role acceptance or geometry investigation was executed in this inspection.",
+    "Roles and the read backend remain INFERRED; all six contain zero confirmed roles. The read-card passed state means document reading only, not electrical validation; nine other review cards remain not-run.",
+    "Open paths/loops and current-missing findings remain visible/preserved. Buck hot_SW labels 55.230 mm\u00b2 (good) and 46.126 mm\u00b2 (bad) coexist with loop-open/area-not-judged warnings. These numerical canvas labels are observations, not validated routed loop area or a good/bad area ordering.",
+    "Both half-bridge outputs lack requirements.toml adjacent to the built board and show VBUS roles.limit-missing. The authored source requirements file exists but was not copied into the outputs, so no 400 V spacing/distances were judged. No requirements were added retrospectively.",
+    "BMS views show gate hatches but no visible numerical canvas area captions; group names remain available in the sidebar. BMS good shows green Kelvin branches; BMS bad does not show green dashed branches and reports two Kelvin-shared findings. This is a visual observation only; no absent area value was invented.",
+    "The fixed normal browser viewport is 1512\u00d7751. Role rows can truncate and findings require sidebar scrolling; all actual rows, full messages and codes are preserved in each DOM file. A single screenshot does not simultaneously show every finding.",
+    "JPEG is the browser capturer native format; the six originals were saved unchanged and no PNG conversions, reference/golden updates or image edits were made.",
+    "No native input, OS automation or Windows/Altium input was used. Only the self-created Chrome localhost tab was used and closed. IAB was unavailable; Chrome fallback was expressly authorized. No file URL, denied URL, re-hosted HTML, personal tabs or JLC session was used."
+  ],
+  "retained_visual_CI": {
+    "run_id": 41708879698,
+    "run_overall_conclusion": "failure",
+    "job_id": 126171394431,
+    "job_name": "viewer (visual tests)",
+    "job_status": "completed",
+    "job_conclusion": "success",
+    "head_sha": "985f59a1d01a612b2eac0219243199896c24075a",
+    "command": "uv run pytest tests/visual -q --basetemp \"$RUNNER_TEMP/visual\"",
+    "required_environment": {
+      "FENOLITE_REQUIRE": "browser"
+    },
+    "result": "104 passed in 146.41s (0:02:26)",
+    "log": {
+      "packet": "fenolite-cac-ci-41708879698-20261103",
+      "file": "viewer-126171394431-completed.log",
+      "bytes": 44730,
+      "sha256": "28caec4c9eec401ec73bf1a4b22aaf587d215007265a1d9c2757e2a4c80149ec",
+      "command_lines": [
+        462,
+        469
+      ],
+      "result_line": 473
+    },
+    "jobs_metadata": {
+      "file": "retention/jobs-final.json",
+      "bytes": 45357,
+      "sha256": "5773952f150d091bc0abf87cbc80be48a64d23d9d20206c686e711347d130e6c"
+    },
+    "later_run_41744987316_success_claim": false
+  },
+  "task_state": {
+    "6.1": "Historical checked state retained; this receipt adds direct dated inspection. It does not invent maintainer approval.",
+    "6.2": "OPEN: exact-commit CI41744987316 and source-bound local fast evidence still required.",
+    "archived": false
+  },
+  "no_new_tests_or_native_or_CI": true,
+  "no_repo_runtime_or_tests_changed": true,
+  "current_visual_CI_metadata": {
+    "run_id": 41744987316,
+    "job_id": 126295612259,
+    "job_name": "viewer (visual tests)",
+    "head_sha": "723183a11ebffe4bcdf5d6d0795420db57e2847e",
+    "status": "completed",
+    "conclusion": "success",
+    "completed_at": "2026-11-04T00:15:14Z",
+    "steps": [
+      {
+        "number": 1,
+        "name": "Set up job",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "number": 2,
+        "name": "Run actions/checkout@v4",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "number": 3,
+        "name": "Run actions/setup-node@v4",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "number": 4,
+        "name": "Run astral-sh/setup-uv@v6",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "number": 5,
+        "name": "Sync (locked)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "number": 6,
+        "name": "The viewer bundle is a fresh build of viewer/src (c0304)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "number": 7,
+        "name": "Playwright and its Chromium",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "number": 8,
+        "name": "Fonts",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "number": 9,
+        "name": "Visual tests",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "number": 10,
+        "name": "Keep the screenshots and difference images",
+        "status": "completed",
+        "conclusion": "skipped"
+      },
+      {
+        "number": 18,
+        "name": "Post Run astral-sh/setup-uv@v6",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "number": 19,
+        "name": "Post Run actions/setup-node@v4",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "number": 20,
+        "name": "Post Run actions/checkout@v4",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "number": 21,
+        "name": "Complete job",
+        "status": "completed",
+        "conclusion": "success"
+      }
+    ],
+    "retained_metadata": {
+      "packet": "fenolite-c0305-six-live-inspection-20261103-v1",
+      "file": "current-viewer-job-126295612259.json",
+      "bytes": 3194,
+      "sha256": "625ffbb7712e1c0e454d0e863dda669ba5684fbe326780b3ce4c07ec542d3910"
+    },
+    "log_not_yet_available_during_run": true,
+    "new_test_count_claim": null,
+    "overall_run_success_claim": false
+  },
+  "artifact_storage": {
+    "external_packet": "fenolite-c0305-six-live-inspection-20261103-v1",
+    "original_six_JPEGs": "Retained externally unchanged; no binary payload is committed. Screenshot paths are relative to that packet.",
+    "other_retained_artifacts": "All 46 original external files remain size/SHA-256 bound by retained-artifacts.json."
+  }
+}
