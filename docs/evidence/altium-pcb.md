@@ -727,6 +727,23 @@ are committed.
 
 ## Reports
 
+### 2026-11-04, actual `AD24.5.2.23`, Part S
+
+Source S-1309: [S1/S2/S8 report](altium-part-s-slots-2026-11-04.md) and
+[measured recap](altium-slots-s1-s2-s8-24-native.json). Run by a Claude agent at the maintainer's
+request of 2026-11-04 in the maintainer's Windows VM, not the maintainer's own review. It uses the same
+input digests as S-1297: regions `be65d4b9…`, clearance `822d31cf…`, gate-off `c798ec46…`. All inputs
+are unchanged after the run, and nothing was saved.
+
+| Case | Measured observation | Result |
+|---|---|---|
+| S1 | Opens with no message. `D1` is a free Multi Layer pad with no designator, a 2 × 12 mm unplated slot, no ring and mask/paste mode 1 (rule values 4 mil/0). NC Drill defaults put it in the NON_PLATED slot file at 30° about (27, 7). Drill Drawings show only the T1 slot symbol, with no slot outline and no legend | as expected for the pad and NC Drill; drill drawing by symbol only |
+| S2 | DRC (existing options) reports Hole To Hole `Pad/Via Touching Holes` for `D2`–`D3`, with the same 7 findings as S5 | as expected |
+| S8 | Four holes and no cut-out region; the report names `cutout/1`, `slot/S1`, `slot/S2+slot/S3` | as expected |
+
+Every case S1–S8 now has a current24 observation on these digests, but from separate operator
+sessions and with no formal record. `H-A-SLOT-KIT` stays `INFERRED`, and task 5.2 stays open.
+
 ### 2026-11-03, actual `AD24.5.2.23`, Part S
 
 Source S-1297: [current native report](altium-part-s-slots-2026-11-03.md) and
