@@ -727,6 +727,24 @@ are committed.
 
 ## Reports
 
+### 2026-11-04, actual `AD24.5.2.23`, Part T
+
+Source S-1310: [T1–T6 report](altium-part-t-convert-2026-11-04.md) and
+[measured recap](altium-part-t-convert-24-native.json). Run by a Claude agent at the maintainer's
+request of 2026-11-04 in the maintainer's Windows VM, not the maintainer's own review. At source
+`d155b258` only PADSTACK converts: SCHEMATIC is refused with `FEN-3005` and DIFAT fails with `FEN-1001`.
+These two cases were observed on the 2026-10-12 bundle (`complex_hierarchy.PcbDoc` `23a77447…`,
+`vme-wren.PcbDoc` `62d026e1…`). Inputs are unchanged after the run, and nothing was saved.
+
+| case | T1–T2 | T3–T4 | T5 | T6 |
+|---|---|---|---|---|
+| PADSTACK (current) | opens and compiles with no error; 1 component, 1 net | no polygon; 0 violations | no differences | PCB pad, PcbLib pad and the pad of the placed copy are equal: Full Stack, In1 1.2 × 1.2 mm shape 1, In2 1.4 × 1.1 mm shape 2 |
+| SCHEMATIC (2026-10-12) | opens; three sheets, 68 components, 56 nets; 3 errors and 20 warnings | the one polygon pours; 217 violations, 194 of them silk | 2 of 68 components unmatched by unique id; ECO removes 2 net classes, no footprint change | not run |
+| DIFAT (2026-10-12) | opens; 1508 components, 1847 nets; at least 976 messages (469 one-pin-net errors) | 92 of 134 polygons pour; DRC stops at 500 | parameter changes and 2 pins added to nets on `L1`; no footprint change | not run |
+
+Connector masks are not exercised: no source has a `connect` pad. The four `H-A-CONV-*` rows stay
+`INFERRED`, and c0160 5.3 and c0166 2.1 stay open.
+
 ### 2026-11-04, actual `AD24.5.2.23`, Part S
 
 Source S-1309: [S1/S2/S8 report](altium-part-s-slots-2026-11-04.md) and

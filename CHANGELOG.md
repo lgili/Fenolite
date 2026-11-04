@@ -7,6 +7,8 @@ All notable changes to Fenolite are documented here. The format follows
 ## [Unreleased]
 
 - Archive c0323-build-byte-diagnostics (the per-platform byte mismatch is recorded as accepted, not resolved; CI 41853235387) and c0305-viewer-roles (viewer job green in CI 41853235387).
+- Record current Altium 24.5.2.23 Part T steps T1–T6 (c0160, c0166, S-1310). A Claude agent ran them at the maintainer's request. At `d155b258` the SCHEMATIC case is refused (`FEN-3005`) and the DIFAT case fails (`FEN-1001`), so both were observed on the 2026-10-12 bundle; PADSTACK used current bytes. All three open and compile, T5 shows no footprint change, and T6 reads equal Full Stack pads in the PCB, the PcbLib and a placed copy. The four `H-A-CONV-*` rows stay `INFERRED`.
+
 - Record current Altium 24.5.2.23 Part S cases S1, S2 and S8 (c0168, S-1309). A Claude agent ran them at the maintainer's request on the S-1297 input digests. S2 and S8 are as expected. In S1 the pad and NC Drill are as expected, and Drill Drawings show the slot only by its tool symbol. `H-A-SLOT-KIT` stays `INFERRED` and task 5.2 stays open.
 
 - Archive c0170-convert-slots-obstacles: slots and cut-outs in conversions, slotted drills to Altium, generated hole footprints and slot obstacles, with `H-K-CONV-SLOTS` proved in CI (task 3.3).

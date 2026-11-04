@@ -1,0 +1,232 @@
+{
+  "schema": "fenolite.altium-part-t-scoped-observation.v1",
+  "source": "S-1310",
+  "scope": "c0160 Part T steps T1-T6 (c0166 task 2.1) on PADSTACK at d155b258 and on the 2026-10-12 SCHEMATIC and DIFAT bytes",
+  "operator": "Claude agent at the maintainer's request of 2026-11-04; not the maintainer's own review",
+  "date": "2026-11-04",
+  "native_version": "24.5.2.23",
+  "native_licence": "Trial, not signed in",
+  "host": "maintainer's Parallels Windows 11 VM, interactive session 1",
+  "method": "public menu commands through Windows UI Automation; authored read-only DelphiScript procedures through File > Run Script; no save",
+  "conversion_at_source": {
+    "commit": "d155b258",
+    "PADSTACK": {
+      "exit": 0,
+      "result": "written"
+    },
+    "SCHEMATIC": {
+      "exit": 3,
+      "code": "FEN-3005",
+      "message": "geometry.degenerate: exact geometry implicated enumeration-node budget exceeded"
+    },
+    "DIFAT": {
+      "exit": 1,
+      "code": "FEN-1001",
+      "message": "ValueError: Inductors SMD:IND_10UH_20%_TDK_VLCF5020-1 pin 1 length: 1905000 nm is not a multiple of 10 mil (254000 nm)"
+    }
+  },
+  "inputs_sha256": {
+    "cur/PADSTACK/full-stack.PcbDoc": "cecd53b125cad144d46f0f5ad77d658a9099652304cc56e6c5f9ccb994dd37db",
+    "cur/PADSTACK/full-stack.PcbLib": "c9255baad97e7eba38bf9a64c85a44e0e6ff410dc93628d37d0b87bb1336c378",
+    "cur/PADSTACK/full-stack.PrjPcb": "b1aba93a13d31d25d627c80fb704d84b4ee26731aaecd072a57aa2a38709a9ac",
+    "cur/PADSTACK/full-stack.SchDoc": "d870a3ad38c9dd73064d065c854c53b5111127810526623ba3189a489b615627",
+    "cur/PADSTACK/full-stack.SchLib": "b39aa91c3547ea5ef46a4be1e54ce7fb67425393da921b1f32b9a9afc2351457",
+    "hist/DIFAT/conversion-report.json": "ad0fb03b0fc2825fa0d7199f8202f51c734f4a6a75f1440ec1e321c27ecc88ce",
+    "hist/DIFAT/vme-wren.PcbDoc": "62d026e149b52f961cb28266e73e2978045ff52558690c6cabe9042249785f44",
+    "hist/DIFAT/vme-wren.PcbLib": "2a7c52d023187a91fafea446065ad1758ee4e741f97cc62ade1261dac9a48e93",
+    "hist/DIFAT/vme-wren.PrjPcb": "1000223c0966a8ce8dfe5766d0fb9fd16f29619bd35a7fa1d45f7657fe456f0b",
+    "hist/DIFAT/vme-wren.SchDoc": "82b123f2652cb96cca89ede5306294979cba28c7233982273ac9cf740839d87b",
+    "hist/DIFAT/vme-wren.SchLib": "e5e2f2477b4487f70e0faa2aad858f658549d1b2d3611d514d5188065e60693f",
+    "hist/SCHEMATIC/complex_hierarchy.PcbDoc": "23a77447f0ddf5c4a84e9499d3c12c63d53dbd2b4e84a2b5ab2ddf7d4d61373d",
+    "hist/SCHEMATIC/complex_hierarchy.PcbLib": "f1f7e15fb73f0e320b902c53c494689c512821979767c77eaedc81ace78a83f8",
+    "hist/SCHEMATIC/complex_hierarchy.PrjPcb": "9dceff67f350177ae90faf783575193781caf6e8421bd989f1c0654f73616fd6",
+    "hist/SCHEMATIC/complex_hierarchy.SchDoc": "be4d178f6e35555b2732fde01dd602fabe817ca4efccdbea299b8238ed9beaa2",
+    "hist/SCHEMATIC/complex_hierarchy.SchLib": "1735cd39978b1a7ee7c6a7a1ba3eea02249813b9d02e59e8f23105e5accfb54e",
+    "hist/SCHEMATIC/complex_hierarchy_ampli_ht_horizontal.SchDoc": "bc0b7430e5635684519df950c845e77452ea56709797185b9060ed1cfd706c0e",
+    "hist/SCHEMATIC/complex_hierarchy_ampli_ht_vertical.SchDoc": "bcd550c614f277a0d924aa2c7f8959703df5cb535f8594dc9fadf5c90094b86e",
+    "hist/SCHEMATIC/conversion-report.json": "bea4937e88ae235957e47547fe34c1491a3e97943e540482e47c27a535b694b2"
+  },
+  "inputs_unchanged_after_run": true,
+  "cases": {
+    "PADSTACK": {
+      "bytes": "current d155b258",
+      "T1": {
+        "documents_open": 5,
+        "messages": 0
+      },
+      "T2": {
+        "messages": [
+          "Info: Compile successful, no errors found."
+        ],
+        "components": 1,
+        "nets": 1
+      },
+      "T3": {
+        "polygons": 0
+      },
+      "T4": {
+        "violations": 0
+      },
+      "T5": {
+        "dialog": "Comparator Results (No Differences)",
+        "eco": null
+      },
+      "T6": {
+        "placement": "PCBServer.LoadCompFromLibrary + AddPCBObject into an unsaved scratch copy of the four-layer board",
+        "report_line_error": "Undeclared identifier: Pattern",
+        "pads_read": [
+          "generated PCB pad 1",
+          "PcbLib Mini_Padstack pad 1",
+          "placed pad 1"
+        ],
+        "all_equal": true,
+        "pad": {
+          "mode": 2,
+          "top": {
+            "shape": 1,
+            "x_mm": 1.7,
+            "y_mm": 1.7
+          },
+          "mid1": {
+            "shape": 1,
+            "x_mm": 1.2,
+            "y_mm": 1.2
+          },
+          "mid2": {
+            "shape": 2,
+            "x_mm": 1.4,
+            "y_mm": 1.1
+          },
+          "bottom": {
+            "shape": 2,
+            "x_mm": 1.5,
+            "y_mm": 1.5
+          },
+          "hole": {
+            "type": 0,
+            "size_mm": 1.0,
+            "plated": true
+          },
+          "solder_mask": {
+            "mode": 1,
+            "expansion_mil": 4
+          },
+          "paste": {
+            "mode": 1,
+            "expansion_mil": 0
+          }
+        }
+      },
+      "connector_masks": "not exercised: no source has a KiCad connect pad"
+    },
+    "SCHEMATIC": {
+      "bytes": "2026-10-12 bundle",
+      "T1": {
+        "documents_open": 6,
+        "messages": 0
+      },
+      "T2": {
+        "physical_sheets": {
+          "complex_hierarchy.SchDoc": 10,
+          "complex_hierarchy_ampli_ht_horizontal.SchDoc": 29,
+          "complex_hierarchy_ampli_ht_vertical.SchDoc": 29
+        },
+        "components": 68,
+        "nets": 56,
+        "errors": 3,
+        "warnings": 20
+      },
+      "T3": {
+        "polygons": 1,
+        "regions_before": 0,
+        "regions_after": 1
+      },
+      "T4": {
+        "violations": 217,
+        "by_rule": {
+          "Clearance": 17,
+          "Clearance_power": 6,
+          "SilkToSilkClearance": 60,
+          "SilkToSolderMaskClearance": 134
+        }
+      },
+      "T5": {
+        "link_dialog": "Failed to match 2 of 68 Components using Unique identifiers",
+        "links_modified_in_memory": 68,
+        "eco_groups": {
+          "Remove Net Classes": [
+            "Default",
+            "power"
+          ]
+        },
+        "footprint_changes": 0,
+        "executed": false
+      }
+    },
+    "DIFAT": {
+      "bytes": "2026-10-12 bundle",
+      "T1": {
+        "documents_open": 4,
+        "messages": 0
+      },
+      "T2": {
+        "physical_sheets": 1,
+        "components": 1508,
+        "nets": 1847,
+        "panel_limit_reached": 1000,
+        "from_compile": 976,
+        "errors_only_one_pin": 469,
+        "warnings_off_sheet": 395,
+        "warnings_off_grid": 112
+      },
+      "T3": {
+        "polygons": 134,
+        "regions_before": 0,
+        "polygons_with_copper_after": 92,
+        "regions_after": 112,
+        "polygons_without_copper_after": {
+          "Top Layer": 28,
+          "Bottom Layer": 14,
+          "net": "GND"
+        }
+      },
+      "T4": {
+        "violation_limit": 500,
+        "by_rule": {
+          "Clearance": 157,
+          "HoleSize": 7,
+          "UnRoutedNet": 336
+        }
+      },
+      "T5": {
+        "link_dialog": null,
+        "eco_groups": {
+          "Change Component Parameters": "1495... (truncated on screen)",
+          "Add Pins To Nets": [
+            "L1-1 to Net-(IC32-SW)",
+            "L1-2 to 5VREG"
+          ]
+        },
+        "footprint_changes": 0,
+        "executed": false
+      }
+    }
+  },
+  "read_only_scripts_sha256": {
+    "project.pas": "825adac10ba2a928fcc619a474bc13a9da1d96a1f5802d86af3c027cbd085241",
+    "msgs.pas": "cede486b9a8dff51a107c7c5ca86482c4eb964714dc431d066f590930d15bbf4",
+    "poly.pas": "43d03b97be4f8e0291ad84eef04e6014dd1d1f102eff52df43fbd00c536ffa4b",
+    "viol.pas": "793c00df16c6fae6d50242384cb4c9a366634b4d8d286ecea9daecf8cf7ac51d",
+    "padstack.pas": "34c687581c9ea4ca60b5617c8be26cdec188eaa5b0922a91088759a47be12fb8"
+  },
+  "hypotheses_unchanged": [
+    "H-A-CONV-DIFAT",
+    "H-A-CONV-PADSTACK",
+    "H-A-CONV-LIBRARY",
+    "H-A-CONV-SCHEMATIC"
+  ],
+  "tasks_open": [
+    "c0160 5.3",
+    "c0166 2.1"
+  ]
+}
