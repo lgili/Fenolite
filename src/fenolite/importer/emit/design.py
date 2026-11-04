@@ -1363,9 +1363,13 @@ def emit(source: Source, options: Options) -> Emission:
         # Native TAB values have no printable Part declaration. Validate their
         # complete measured pose/font profile before retaining them natively;
         # discard these private validation calls, never emit them (c0363).
+        if tab_names and source.backend != "kicad":
+            # no native field of another backend carries the measured TAB profile: the property is a
+            # declared loss, never a refusal of the whole import (change c0379)
+            for name in tab_names:
+                ledger.add("property-tab", f"{component.ref}:{name}")
+            continue
         if tab_names:
-            if source.backend != "kicad":
-                raise FormatError("native TAB preservation requires a KiCad source", locator=component.ref)
             if any(sum(field.name == name for field in footprint.fields) != 1 for name in tab_names):
                 raise FormatError(
                     "native TAB property requires exactly one field pose", locator=component.ref

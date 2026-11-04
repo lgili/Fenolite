@@ -102,6 +102,9 @@ All notable changes to Fenolite are documented here. The format follows
   The roadmap reconciles the original phases 0–4; no router runtime behavior changes here.
 
 - Archive c0170-convert-slots-obstacles: slots and cut-outs in conversions, slotted drills to Altium, generated hole footprints and slot obstacles, with `H-K-CONV-SLOTS` proved in CI (task 3.3).
+- **Altium TAB properties** (c0379): an Altium parameter whose value holds a TAB is the unexpressed kind
+  `property-tab` instead of refusing the whole `import --to python` (exit 3 since c0363).
+
 - **Import failures on real boards** (c0364): `check` no longer fails with `FEN-1001` on a non-plated hole
   whose pad has no copper (the model-only pad geometry gives an `np_thru_hole` pad no copper, as the
   backends do); `convert` refuses a project whose declared PCB document is missing with `FEN-3001` naming

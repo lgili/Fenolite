@@ -173,7 +173,7 @@ def test_tab_native_malformed_or_unknown_shape_refuses(extra: str):
         library_footprint(native)
 
 
-@pytest.mark.parametrize("defect", ["source-backend", "missing-pose"])
+@pytest.mark.parametrize("defect", ["missing-pose"])
 def test_tab_requires_measured_source_and_single_pose(tmp_path: Path, defect: str):
     from dataclasses import replace
 
@@ -195,3 +195,21 @@ def test_tab_requires_measured_source_and_single_pose(tmp_path: Path, defect: st
         )
     with pytest.raises(FormatError, match="native TAB"):
         emit(source, Options(source.name, Provenance(licence="CC0-1.0"), target=10))
+
+
+def test_tab_of_another_backend_is_a_declared_loss(tmp_path: Path):
+    """change c0379: a TAB value read from a non-KiCad source no longer refuses the whole import."""
+    from dataclasses import replace
+
+    from fenolite.importer.emit import Options, emit
+    from fenolite.importer.provenance import Provenance
+    from fenolite.importer.source import read_kicad
+
+    source = replace(
+        read_kicad(tab_project(tmp_path / "source", 10, "top", 180, True, True)), backend="altium"
+    )
+    emission = emit(source, Options(source.name, Provenance(licence="CC0-1.0"), target=10))
+    lost = {row.kind: row for row in emission.unexpressed}
+    assert lost["property-tab"].count == 1 and lost["property-tab"].examples[0].endswith(":Author")
+    code = "".join(data.decode("utf-8") for name, data in emission.files.items() if name.endswith(".py"))
+    assert "\t" not in code and "Author" not in code

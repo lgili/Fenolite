@@ -9,9 +9,8 @@ blocked even though the TAB carries no electrical meaning.
 
 ## What Changes
 
-- An Altium source with a TAB in a property value imports again: the value is emitted with an escaped
-  TAB in the `properties` mapping, or, if the DSL cannot print it, kept as a declared loss of that one
-  property, never a refusal of the whole import.
+- An Altium source with a TAB in a property value imports again: that one property is a declared loss
+  (`property-tab`), never a refusal of the whole import; `Part.properties` stays printable (c0363).
 - The KiCad native TAB ownership of c0363 is unchanged.
 
 ## Impact
