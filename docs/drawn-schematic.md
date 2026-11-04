@@ -9,7 +9,7 @@ a person editing TOML.
 **Code owns the nets, CAD owns the drawing.** The drawing never holds a value, a reference, a footprint or
 a net. Every build and `fenolite check` prove, without any tool, that the drawing means exactly the
 netlist of the script. Change c0276 adds the file; the normative text is the capability `drawn-schematic`
-of `openspec/changes/c0276-drawn-schematic/`.
+of `openspec/changes/archive/2026-11-04-c0276-drawn-schematic/`.
 
 ```python
 from fenolite.dsl import Design, Net, Part, connect

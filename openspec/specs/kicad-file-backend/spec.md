@@ -2595,3 +2595,55 @@ A build that places a chamfered definition on the bottom SHALL include inferred 
 - **WHEN** `uv run pytest tests/unit/convert/test_convert_slots.py -k holes` builds the first and converts the second
 - **THEN** both boards hold the footprint `Fenolite_Holes:NPTH_Slot_1x3mm` at the same place with equal pads
 
+### Requirement: Generated outline stroke width
+The KiCad writer SHALL use `Outline.stroke_width` for every generated root line and arc, including lowered cut-outs and slots, or the existing 100000 nm default when absent. It MUST retain the existing geometry, deterministic identifiers and suppression of edges already drawn by footprints. Reading the result MUST preserve the written graphic widths.
+
+#### Scenario: Native line and arc
+- **GIVEN** an authored outline with a nondefault width and both line and arc edges
+- **WHEN** it is written for targets 9 and 10 and read back
+- **THEN** each root edge graphic has the chosen width and the footprint edges keep theirs
+
+### Requirement: Moved footprint field font preservation
+Re-placing a footprint on the same side SHALL retain its existing field `bold`, `italic` and `face` values beside the other placement/appearance fields. Native write/read MUST retain those values. A side change MUST keep the existing library-default policy. Default fields and native byte pins MUST remain unchanged.
+
+#### Scenario: Rotate a manually styled field
+- **GIVEN** an authored board with a manually styled reference field
+- **WHEN** the footprint rotates on the same side and is written and read
+- **THEN** its field position, visibility and font values survive, while a flip retains the existing definition policy
+
+### Requirement: Explicit physical root edges with a logical outline
+
+The writer SHALL accept Board.outline with explicit root edge lines/arcs only when complete deterministic reconstruction from those root edges and the existing footprint edges exactly matches the logical outline's complete edge-text multiset. It SHALL then emit only the explicit root graphics and existing footprint graphics, preserving their geometry and multiplicity without emitting synthetic outline copies. An incomplete, ambiguous, branching or inconsistent reconstruction SHALL be refused.
+
+#### Scenario: Nanometre joins in a footprint notch
+
+- GIVEN explicit authored root lines/arcs closed by footprint edges whose adjacent endpoints differ by nanometres
+- WHEN their complete reconstructed outline exactly matches the logical outline and the board is written for target 9 or 10
+- THEN all original root and footprint graphics retain their exact geometry and there are no synthetic root duplicates
+
+#### Scenario: Nearby edges do not prove ownership
+
+- GIVEN an explicit root line one nanometre from an intentionally distinct footprint line
+- WHEN the writer considers the complete physical geometry
+- THEN it preserves the root line or refuses inconsistent geometry and never erases it through cluster coincidence
+
+### Requirement: Checked native project worksheet resources
+A digest-bound declared project SHALL preserve supported portable worksheet resources
+as exact transitive inputs and output bytes. Both native page-layout scopes SHALL
+remain independent. Every input SHALL be tracked in source provenance and reviewed
+plan dependencies. Unsafe, ambiguous, missing or unsupported resources SHALL refuse
+without output changes; ambient resource discovery SHALL NOT occur.
+
+#### Scenario: PCB-only worksheet survives import
+- **GIVEN** an authored project whose PCB frame names a worksheet and whose schematic frame is empty
+- **WHEN** its complete checked inputs are imported and rebuilt
+- **THEN** the worksheet bytes and PCB reference survive while the schematic reference stays empty
+
+#### Scenario: A reviewed resource changes
+- **WHEN** a worksheet changes after a dry-run plan
+- **THEN** confirmation refuses as stale and writes nothing
+
+#### Scenario: An explicit managed frame replaces native resources
+- **WHEN** design.sheet explicitly supplies the frame
+- **THEN** existing typed precedence remains authoritative without loading obsolete native references
+

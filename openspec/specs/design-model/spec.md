@@ -1434,3 +1434,132 @@ c0246's `RangeUnit` SHALL gain `kelvin`. A `ValueRange` of unit `kelvin` holds a
 #### Scenario: Refused shape
 - **WHEN** a `SheetPin` with `shape="clock"` is built
 - **THEN** `ValueError` is raised naming the shape
+
+### Requirement: Value range object in the model
+`fenolite.model.circuit` SHALL define the frozen value objects `Decimal10(m, e)`, the exact value m·10^e, and `ValueRange(unit, low=None, nominal=None, high=None)`, with no id and no entity header. `unit` MUST be a unit of the DSL's `Quantity` (`ohm`, `farad`, `henry`, `volt`, `ampere`, `hertz`, `watt`, `second`); `low`, `nominal` and `high` MUST be `Decimal10` or `None`. At least one bound MUST be given, `low <= high`, and a nominal MUST lie within the bounds; otherwise `ValueError`.
+
+#### Scenario: Refused ranges
+- **WHEN** `ValueRange("ohm")`, `ValueRange("ohm", low=Decimal10(2, 0), high=Decimal10(1, 0))`, `ValueRange("ohm", low=Decimal10(1, 0), nominal=Decimal10(5, 0), high=Decimal10(2, 0))` and `ValueRange("uohm", low=Decimal10(1, 0))` are built
+- **THEN** each raises `ValueError`
+
+### Requirement: Canonical exact decimals
+A `Decimal10` SHALL hold integers with `|m| <= 10^15 − 1` and `−30 <= e <= 30`, `m` without a trailing zero digit, and zero as `Decimal10(0, 0)`; any other pair MUST raise `ValueError`. One value thus has one form, every integer stays below 2⁵³, and `docs/design-model.md` MUST describe the form and the table of quantity ranges it covers (0.1 mΩ to 10 TΩ, 0.1 pF to 3 000 F, 1 pA to 10 kA, 1 µV to 50 kV, 0.1 nH to 10 H, 1 mHz to 100 GHz, 1 nW to 100 kW, 1 fs to 10⁶ s).
+
+#### Scenario: Refused pairs
+- **WHEN** `Decimal10(10, 0)`, `Decimal10(0, 3)`, `Decimal10(10**15, 0)` and `Decimal10(1, 31)` are built
+- **THEN** each raises `ValueError`
+
+#### Scenario: Extreme realistic values are exact
+- **WHEN** `to_model` lowers part values `ohm("0.1m").pct(1)`, `ohm("10000G").pct(10)`, `farad("0.1p").pct(10)` and `farad(3000).pct(-10, 20)`
+- **THEN** the stored nominals are `Decimal10(1, -4)`, `Decimal10(1, 13)`, `Decimal10(1, -13)` and `Decimal10(3, 3)`, and every bound equals its exact value
+
+### Requirement: Outward rounding of value ranges
+Lowering a DSL `Range` to a `ValueRange` SHALL store every value with at most 15 significant digits exactly, and SHALL round any other value to 15 significant digits: `low` down, `high` up, the nominal to nearest with ties to even, so the stored interval contains the exact one. A value whose exponent would leave −30..30 MUST raise `DslError`.
+
+#### Scenario: Outward rounding
+- **GIVEN** a part whose value is `between(ohm("1"), ohm("2"), nominal=ohm("1.5")) / 3`
+- **WHEN** `to_model` lowers it
+- **THEN** the stored range is `ValueRange("ohm", Decimal10(333333333333333, -15), Decimal10(5, -1), Decimal10(666666666666667, -15))`
+
+### Requirement: Value ranges on components
+`Component` SHALL gain `value_range: ValueRange | None = None` as its last field. The change MUST be additive: `canonical` omits `None`, a `circuit.json` without the key MUST load with `None`, `SCHEMA_VERSION` stays `"0"`, and `schemas/fenolite.model.v0/circuit.json` MUST be regenerated with `tools/gen_schemas.py`, `value_range` optional.
+
+#### Scenario: Ranges survive the canonical round trip
+- **GIVEN** a design whose component `R1` has `value_range == ValueRange("ohm", Decimal10(99, 2), Decimal10(1, 4), Decimal10(101, 2))`
+- **WHEN** it is written with `canonical.dump_dir`, loaded with `canonical.load_dir` and its `circuit.json` validated against the regenerated schema
+- **THEN** the loaded range equals the original, validation passes, and `circuit.json` holds it under the key `value_range` of `R1`
+
+#### Scenario: Circuits without ranges are unchanged
+- **GIVEN** a `circuit.json` written before this change, and the same design dumped after it
+- **WHEN** the old file is loaded and the two texts are compared
+- **THEN** loading succeeds with every `value_range` `None`, and the texts are equal byte for byte
+
+#### Scenario: Schema is regenerated
+- **WHEN** `uv run python tools/gen_schemas.py --check` and `uv run pytest tests/unit/test_schema_drift.py` run
+- **THEN** both pass, and `schemas/fenolite.model.v0/circuit.json` names `value_range` outside the `required` list of a component
+
+### Requirement: Value ranges stay out of backend files
+No backend SHALL write or read `Component.value_range`. A KiCad or Altium build MUST keep it in `.fenolite/circuit.json` only, and every written file outside `.fenolite/` MUST be byte for byte that of the same design with the nominal given as a `Quantity`.
+
+#### Scenario: Written KiCad files do not change
+- **GIVEN** the blink with `R1` given `value=ohm("330").pct(5)`, and the blink with `value=ohm("330")`
+- **WHEN** both are built with the same `--seed` and `--timestamp`
+- **THEN** every planned file outside `.fenolite/` has the same SHA-256 in both receipts, and only `.fenolite/circuit.json` differs, by the `value_range` of `R1`
+
+### Requirement: Drawn schematic entities
+`fenolite.model.schematic` SHALL define `Junction(position, diameter=0)`, `BusWire(start, end)`, `BusEntry(position, size)` and `BusAlias(name, members)`, entities with the common header, and `SchematicSheet` SHALL gain `junctions`, `buses`, `bus_entries` and `bus_aliases`, ordered tuples omitted when empty. Only created sheets hold them; a read sheet keeps them as opaque slots.
+
+#### Scenario: Older sheet data
+- **GIVEN** a canonical schematic text written before this change
+- **WHEN** it is loaded and written again
+- **THEN** the bytes are equal
+
+#### Scenario: Read sheets stay opaque
+- **WHEN** `tests/data/kicad/schematic/flat.kicad_sch` is read
+- **THEN** `sheet.junctions` is empty and its `junction` children are opaque slots
+
+#### Scenario: No float
+- **WHEN** a `Junction` with a float diameter is built
+- **THEN** `TypeError` or `ValueError` is raised
+
+### Requirement: Drawn schematic value
+`fenolite.model.drawn` SHALL define the frozen value of a drawn schematic: `DrawnSchematic(root, sheets)`, `DrawnSheet`, `DrawnSymbol`, `DrawnField`, `DrawnPower`, `DrawnLabel`, `DrawnSheetRef`, `DrawnPin` and `DrawnOpaque`, with positions in integer nm and angles in integer µdeg. A drawn symbol MUST name its component by path relative to its instance's module and never by reference.
+
+#### Scenario: Equality and hashing
+- **WHEN** `uv run pytest tests/unit/model/test_drawn_value.py` builds two equal drawn values
+- **THEN** they are equal, hash equally, and no field holds a float
+
+#### Scenario: Instances from paths
+- **GIVEN** the repeated drawn fixture
+- **WHEN** `DrawnSchematic.instances()` is called
+- **THEN** it gives `("", "root")`, `("ch0", "channel")` and `("ch1", "channel")` in page order
+
+### Requirement: Optional outline stroke width
+`Outline.stroke_width` SHALL be an optional nonnegative integer nanometre value, default `None`, for generated root outline strokes. Canonical JSON MUST omit the default and retain an explicit zero. Existing outlines without the field MUST retain their bytes.
+
+#### Scenario: Default and explicit zero
+- **WHEN** outlines with an omitted width and with zero width are serialized and read back
+- **THEN** the former omits `stroke_width` and the latter preserves zero
+
+### Requirement: Optional drawn font value
+The model SHALL provide a frozen `DrawnFont` with optional size, thickness, bold, italic and face. Size axes MUST be positive integer nm and thickness nonnegative integer nm; booleans MUST retain presence. Empty fonts, floats, invalid names and bool-as-length values MUST refuse.
+
+#### Scenario: Exact asymmetric font
+- **GIVEN** an authored font with distinct positive width and height, zero thickness and explicit false bold
+- **WHEN** it is constructed and serialized
+- **THEN** each value and its presence remain exact
+
+#### Scenario: Invalid model input
+- **WHEN** a font contains zero size, a fractional nm, a control character in its face or no attributes
+- **THEN** construction refuses before changing any model
+
+### Requirement: Drawn text style surfaces
+Drawn fields, labels and sheet pins SHALL carry optional fonts. Labels and pins SHALL carry optional explicit justification. Sheet references SHALL carry optional unique `Sheetname` and `Sheetfile` field poses. Defaults MUST retain the previous model meaning; field poses MUST NOT supply text overrides.
+
+#### Scenario: Sheet property style
+- **GIVEN** a sheet reference with an explicitly styled `Sheetname` pose
+- **WHEN** it is lowered
+- **THEN** its typed sheet name supplies the text and the pose supplies only placement and effects
+
+### Requirement: Explicit BOM-only components
+A canonical component MAY be explicitly BOM-only without a board footprint instance. It SHALL retain purchasing identity, reference, value, properties, DNP state and source instance BOM inclusion. The neutral model BOM SHALL include it. The default false marker SHALL preserve existing canonical bytes. This narrow path SHALL reject pinned, power, board-only and physical-placement contradictions instead of hiding them in opaque graphics.
+
+#### Scenario: Purchasing accessory without a footprint instance
+- **GIVEN** an authored pinless, non-power source accessory included in the BOM and excluded from the board
+- **WHEN** it is strictly imported and rebuilt
+- **THEN** the canonical model and neutral/native BOM retain the same item, the electrical pin partition is unchanged, and no physical footprint is invented
+
+#### Scenario: A purchasing item disappears
+- **WHEN** the accessory is removed or its BOM inclusion changes in one side of a comparison
+- **THEN** the applicable canonical/BOM guard reports the change and cannot claim equivalent purchasing content
+
+#### Scenario: Electrical lookalike
+- **WHEN** a source instance has pins, a power role or contradictory physical flags
+- **THEN** this narrow BOM-only path refuses it before staging and cannot treat it as an opaque graphic
+
+#### Scenario: Incompatible flags between purchasing units
+- **GIVEN** pinless units of one source reference have board or DNP flags that one canonical component cannot preserve
+- **WHEN** strict import or source comparison reads them
+- **THEN** a located existing input error refuses before a write plan, even with loss acceptance
+- **AND** equal flags and independently preserved both-excluded opaque units retain their existing behavior
+

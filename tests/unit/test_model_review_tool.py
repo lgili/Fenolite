@@ -82,7 +82,8 @@ def test_pending_review_check_is_repeatable(tmp_path: Path, monkeypatch, capsys)
 
 def test_actual_approved_model0_shapes_are_preserved_by_migration_candidate():
     root = Path(__file__).resolve().parents[2]
-    approved = json.loads((root / "openspec/changes/c0218-model-schema-1-0/model0-approved.json").read_text())
+    review = root / "openspec/changes/archive/2026-11-04-c0218-model-schema-1-0"
+    approved = json.loads((review / "model0-approved.json").read_text())
     actual = tool().inventory()
     shapes = {
         c["class"]: {

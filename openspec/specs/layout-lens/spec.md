@@ -1120,3 +1120,45 @@ A rebuild whose only change to a part is its reference designator, assigned or r
 - **GIVEN** `kicad-cli` 9.0.9 or 10.0.6 and the adopted board of the authored project
 - **WHEN** `pcb drc --format json` runs on it and on the source
 - **THEN** both reports parse and hold the same violations and unconnected items
+
+### Requirement: Drawn schematic in the source tree
+For a design that loads a drawn schematic, `fenolite sync DESIGN --out DIR --to-source` SHALL extract the built project's sheets and plan the drawn file beside the script when its canonical text differs. With `--freeze-schematic` it SHALL plan `schematic.toml` from a generated schematic, with `drawn.frozen` (info) and a hint to call `design.load_schematic`. The script is never rewritten.
+
+#### Scenario: Wire moved in KiCad
+- **GIVEN** a confirmed build of the drawn example whose sheet then gets one wire moved by token edit, its connectivity unchanged
+- **WHEN** `fenolite sync examples/drawn/design.py --out B --to-source --dry-run --json` runs
+- **THEN** `result.plan` lists `schematic.toml`, and after `--confirm --plan <id>` a new build writes the moved wire
+
+#### Scenario: Freeze the blink
+- **GIVEN** a confirmed build of the blink
+- **WHEN** `fenolite sync examples/blink_2layer/design.py --out B --to-source --freeze-schematic --dry-run --json` runs
+- **THEN** `result.plan` lists `schematic.toml` and `issues` holds `drawn.frozen`
+
+### Requirement: Drawn schematic sync refuses changed nets
+Before it plans a drawn file, sync SHALL resolve the extracted sheets and compare them with the recorded circuit. A connectivity difference MUST plan nothing and exit 5 with `drawn.netlist-differs`, because a sync never changes nets; value, footprint and reference edits keep the rules of `edits.toml` (c0250).
+
+#### Scenario: Net changed in KiCad
+- **GIVEN** the build whose sheet gets one wire end moved to another pin
+- **WHEN** sync runs with `--to-source`
+- **THEN** the exit code is 5, `result.plan` lists no `schematic.toml`, and one `drawn.netlist-differs` error names the pin
+
+### Requirement: Explicit outline strokes across rebuilds
+An explicit `Outline.stroke_width` SHALL participate in outline equality so a changed script width follows the existing signed/locked replacement policy. An absent width MUST retain the existing geometry-only equality behavior. Hand-edited outline geometry MUST retain its existing precedence unless the outline is locked.
+
+#### Scenario: New script stroke on an existing board
+- **GIVEN** a board built with an explicit outline width
+- **WHEN** the script changes that width and builds over its unchanged native board
+- **THEN** the native root strokes use the new width and another build keeps the same bytes
+
+### Requirement: Exact technical rows without hidden references
+A fresh build SHALL preserve explicit technical layer selections and refuse any modeled item referencing an undeclared layer. It MUST retain strict native layer-table checks, ordinary default bytes and existing model/schema definitions. It SHALL NOT drop or reassign items to satisfy a shorter table.
+
+#### Scenario: Referenced omitted layer
+- **GIVEN** a drawing, footprint field/pad or image references an omitted technical layer
+- **WHEN** the design is built
+- **THEN** the build refuses with the existing undeclared-layer error and writes no candidate
+
+#### Scenario: Default board
+- **WHEN** technical_layers is absent or None
+- **THEN** model defaults and all recorded ordinary native file bytes remain unchanged
+

@@ -21,16 +21,21 @@ Every `fenolite` command SHALL emit JSON on stdout when stdout is not a TTY and 
 - **THEN** stdout is a JSON document
 
 ### Requirement: Envelope
-Every JSON response MUST be an object with exactly the top-level keys `ok`, `command`, `schema`, `input`, `result`, `issues`, `evidence`, `receipt`, `elapsed_ms`, and MUST validate against `schemas/fenolite.envelope.v0.json`. `schema` MUST be `fenolite.<command>.v0`. `issues` MUST be a list of `{code, severity, message, where, hint, retryable}` objects with `severity` in `error | warning | info`. `evidence` MUST be `{level, oracle, hypotheses}`.
+Every JSON response MUST be an object with exactly the top-level keys `ok`, `command`, `schema`, `input`, `result`, `issues`, `evidence`, `receipt`, `elapsed_ms`, and MUST validate against `schemas/fenolite.envelope.<version>.json`, where `<version>` is `fenolite.cli.api.CONTRACT_VERSION` (`v0` until the release of `1.0.0`, `v1` from it). `schema` MUST be `fenolite.<command>.<version>`. `issues` MUST be a list of `{code, severity, message, where, hint, retryable}` objects with `severity` in `error | warning | info`. `evidence` MUST be `{level, oracle, hypotheses}`. The envelope and error schemas of every version that was released MUST stay in `schemas/` byte for byte.
 
 #### Scenario: Envelope validates
 - **WHEN** any registered command runs with `--json`
-- **THEN** the output validates against the envelope schema and `schema` equals `fenolite.<command>.v0`
+- **THEN** the output validates against the envelope schema of `CONTRACT_VERSION` and `schema` equals `fenolite.<command>.<CONTRACT_VERSION>`
 
 #### Scenario: Evidence defaults to UNVERIFIED
 - **GIVEN** a command that does not set an evidence level
 - **WHEN** it runs with `--json`
 - **THEN** `evidence.level` equals `UNVERIFIED`
+
+#### Scenario: The switch to v1 is one constant
+- **GIVEN** `CONTRACT_VERSION` set to `v1` in a test
+- **WHEN** the consistency suite runs every command's example
+- **THEN** every envelope validates against `schemas/fenolite.envelope.v1.json` and names `fenolite.<command>.v1`, and `schemas/fenolite.envelope.v0.json` is unchanged
 
 ### Requirement: Field projection
 The global flag `--fields a,b.c` SHALL restrict `result` to the listed dotted paths and SHALL always keep `ok`, `command`, `schema`, `issues`, `evidence` and `receipt` in the envelope.
@@ -153,12 +158,22 @@ The global flags `--seed INT` and `--timestamp ISO8601` SHALL be accepted by eve
 - **THEN** the exit code is 0 and `result.tools.kicad-cli` is `null`
 
 ### Requirement: Consistency test covers every command
-`tests/consistency/test_cli_consistency.py` SHALL enumerate all registered commands and verify `--help`, JSON envelope validity, text mode, `--fields`, error mapping and, for mutating commands, the mutation protocol.
+`tests/consistency/test_cli_consistency.py` SHALL enumerate all registered commands and verify `--help`, JSON envelope validity, text mode, `--fields`, error mapping and, for mutating commands, the mutation protocol. For every visible command it MUST also find a result schema ("Result schemas") and validate the `result` of the command's example against the closed form of that schema (`tests/_schema.closed`: no key that the schema does not name).
 
 #### Scenario: New command without envelope fails the suite
 - **GIVEN** a contributor registers `cmd_foo.py` whose `run` returns a plain dict
 - **WHEN** the consistency test runs
 - **THEN** it fails naming `foo`
+
+#### Scenario: New command without a result schema fails the suite
+- **GIVEN** a contributor registers a visible command `foo` with no entry in `fenolite.cli.results.RESULTS`
+- **WHEN** the consistency test runs
+- **THEN** it fails naming `foo` and the missing schema
+
+#### Scenario: An undocumented key fails the suite
+- **GIVEN** a command whose example result holds a key that its wire class does not name
+- **WHEN** the consistency test runs
+- **THEN** it fails naming the command and the key's path
 
 ### Requirement: Library errors map to registered codes
 The command dispatcher SHALL convert an exception raised inside a command as follows:
@@ -1574,33 +1589,17 @@ The registry of `fenolite.cli.errors` SHALL hold `FEN-6003` (exit 6, `retryable:
 - **THEN** for every command the option strings of its description and of `global_arguments()` equal the option strings found in its `--help` text, apart from `-h` and `--help`
 
 ### Requirement: Brief capabilities
-`fenolite capabilities --brief` SHALL answer the first question of an agent in a reply whose size is bounded: what is installed here, what can it do, and where to read more. The default result of `capabilities` MUST stay as it is.
-- With `--brief`, `result` MUST hold exactly the keys `fenolite_version`, `commands`, `targets`, `tools`, `routers`, `guide`, `starters` and `sends_data_offsite`.
-- `commands` MUST list every command that is not hidden, sorted by name, each with exactly `name`, `summary` and `mutates`, `summary` being the command's help line.
-- `targets` MUST hold exactly `build`, `kicad` and `default`: `build` is the sorted list of choices of `build --target` (`altium` and `kicad`), read from the command's description; `kicad` and `default` are the target majors and the default target of the `kicad` backend's entry in the default view. The brief view MUST NOT state an evidence level or the word `experimental` for a target: the status of each Altium write kind stays in the default view ("Backends in capabilities", "Experimental features in capabilities", "Evidence matrix in capabilities").
-- `tools` and `sends_data_offsite` MUST equal the default view's.
-- `routers` MUST list the registered routers sorted by name, each with exactly `name`, `available` and `reason`, from `Router.available()`; with `--no-tools`, `available()` MUST NOT be called and both values MUST be `null`.
-- `guide` MUST list `guide.pages()` with exactly `topic`, `title` and `summary`, and `starters` MUST list `guide.starters()` with exactly `name` and `summary`.
-- The JSON of the brief `result` with `--no-tools` MUST be under 300 bytes per listed command plus 2 000 bytes, and MUST hold none of the keys `backends`, `experimental`, `extras` and `matrix`; a test MUST check both.
-- `--brief` and `--command` MUST exclude each other (exit 2, `FEN-2001`). `--fields` MUST work on the brief result. `--format concise` MUST be accepted with `--brief` and MUST NOT change `result`: it folds issues, and the view chooses the result.
-- `docs/cli-contract.md` MUST describe the brief view under "Discovery".
+`fenolite capabilities --brief` SHALL provide a bounded discovery reply while preserving the default and full command views. The current result MUST retain `fenolite_version`, `commands`, `targets`, `tools`, `routers`, `guide`, `starters`, `suppliers`, `sends_data_offsite`, `contract` and `deprecated`.
+- Every non-hidden command MUST remain sorted by name and have exactly `name`, `summary`, `mutates` and `claims`.
+- The brief `summary` MAY be a reviewed curated discovery line for catalog, check, diff, library, parity and ready; other commands use their full help line. The full `Command.help`, default discovery and `--command` summary MUST NOT be changed by this compaction.
+- Check's curated summary MUST retain that writing a DRC exclusion is optional; mutability and claims booleans MUST remain unchanged.
+- Targets, tools, routers, guide, starters, suppliers and version/deprecation metadata MUST retain their current semantics and values; no tool may run under `--no-tools`.
+- The actual complete brief result JSON with `--no-tools` MUST remain under 300 bytes per listed command plus 2 000 bytes. No field may be omitted or subtracted from this assertion, and no size budget is increased.
 
-#### Scenario: Brief view
-- **WHEN** `uv run fenolite capabilities --brief --no-tools --json` runs
-- **THEN** the exit code is 0, `result` has exactly the eight keys, `result.commands` names `build` with a non-empty `summary` and `mutates` true and holds no `_echo`, `result.targets.build` is `["altium", "kicad"]`, `result.routers` names `direct` with `available` `null`, `result.guide[0].topic` is `start`, and `result.starters` names `blink`
-
-#### Scenario: Router availability
-- **GIVEN** no Freerouting jar and no `FENOLITE_KRT`
-- **WHEN** `uv run pytest tests/unit/cli/test_capabilities_brief.py -k routers` runs `capabilities --brief --json`
-- **THEN** `direct` has `available` true and a `null` reason, and `freerouting` has `available` false and a reason
-
-#### Scenario: Size bound
-- **WHEN** `uv run pytest tests/unit/cli/test_capabilities_brief.py -k size` measures the brief result
-- **THEN** it is under 300 bytes per listed command plus 2 000 bytes, and holds no `experimental` key
-
-#### Scenario: Default view unchanged
-- **WHEN** `uv run fenolite capabilities --json --no-tools` runs
-- **THEN** `result` holds the keys it held before this requirement, with `backends`, `experimental` and `matrix` unchanged
+#### Scenario: Claims metadata fits the original budget
+- **WHEN** the actual current `capabilities --brief --no-tools --json` reply is serialized
+- **THEN** all 57 visible commands and required fields remain, its result is 18 961 bytes on the captured source, below the unchanged 19 100-byte cap
+- **AND** separate command views retain their original full help summaries
 
 ### Requirement: Command view of capabilities
 `fenolite capabilities --command NAME` SHALL return the description of one command.
@@ -2760,3 +2759,206 @@ The first positional argument of `fenolite library` SHALL select a subcommand wh
 #### Scenario: Consistency suite covers the import
 - **WHEN** `uv run pytest tests/consistency -q` runs
 - **THEN** `library import` is planned with its example arguments, its dry run exits 0, and the confirmed plan writes only under the temporary project
+
+### Requirement: Evidence of every reply
+Every reply SHALL follow two rules: an `evidence.level` other than `UNVERIFIED` and `UNKNOWN` MUST name at least one hypothesis in `evidence.hypotheses`, and an `UNVERIFIED` level MUST come from a command of `fenolite.cli.api.NO_CLAIM` (the commands whose replies state nothing about a design or a file) or from a reply that names an experimental feature in its issues, or from a supported incomplete report whose closed command-specific structured state/count and corresponding existing issue both substantiate the limitation; an `UNKNOWN` level MUST come only from the detection of a file that no backend knows. `fenolite capabilities` MUST mark each command's entry with `claims` (`false` for the commands of `NO_CLAIM`). With `FENOLITE_CONTRACT_CHECK=1` a reply that breaks a rule MUST end in `FEN-1001`; without it the reply MUST be written with one more issue `cli.evidence-unsound` (warning) that names the rule. The consistency suite MUST run every command's example with `FENOLITE_CONTRACT_CHECK=1`.
+
+#### Scenario: Every example follows the rules
+- **WHEN** `uv run pytest tests/consistency` runs every command's example with `FENOLITE_CONTRACT_CHECK=1`
+- **THEN** no reply ends in `FEN-1001`
+
+#### Scenario: INFERRED without a hypothesis is caught
+- **GIVEN** `_echo` set in a test to answer `INFERRED` with no hypothesis
+- **WHEN** it runs with `FENOLITE_CONTRACT_CHECK=1`
+- **THEN** the exit code is 1 and the error is `FEN-1001`; without the variable the exit code is 0 and `issues` holds one `cli.evidence-unsound`
+
+#### Scenario: A no-claim command may be UNVERIFIED
+- **WHEN** `uv run fenolite explain FEN-2001 --json` runs with `FENOLITE_CONTRACT_CHECK=1`
+- **THEN** the exit code is 0 and `evidence.level` is `UNVERIFIED`
+
+#### Scenario: Incomplete state and issue are both required
+- **GIVEN** an UNVERIFIED incomplete analysis or routing report with its actual positive missing/open count and corresponding existing issue
+- **WHEN** the strict reply guard runs
+- **THEN** its lower label and incomplete result are retained unchanged
+- **AND** marker-only, state-only, generic-boolean, completed-state and arbitrary-command controls fail with FEN-1001
+
+#### Scenario: Hidden mutation fixture is bounded
+- **WHEN** strict mutation-protocol tests run hidden `_echo` with no design/file claim
+- **THEN** that exact existing hidden fixture is exempt separately from the public NO_CLAIM list
+- **AND** an arbitrary private command or visible command called `_echo` is not exempt
+
+#### Scenario: Unsound replay writes nothing
+- **GIVEN** staged bytes whose metadata is altered to an unsupported evidence claim
+- **WHEN** confirm replays the plan in strict mode
+- **THEN** FEN-1001 is returned before any target or backup is written
+
+### Requirement: Contract surface
+`docs/cli-surface.json` SHALL hold the contract surface, generated by `tools/gen_cli_surface.py` from the registered commands and the code registries: each visible command with its `mutates` flag and its paged list, each option of each command and of the global parser with its type, choices, default, `nargs` and whether it is required, the exit codes, each `FEN-` code with its exit code, and each issue code of `fenolite.cli.explain.TABLES` with its severity; and, in a section `library`, every name of `fenolite.dsl.__all__` and `fenolite.api.__all__` with the parameters of each function (kind and default) and the public fields and methods of each class. No other module of `fenolite` is part of the contract. An item that belongs to an experimental feature (`result.experimental` of `capabilities`) MUST be marked `experimental`, and a deprecated item `deprecated` with the release that replaced it. Hidden commands MUST NOT be listed. `tools/gen_cli_surface.py --check` MUST exit 1 when the committed file differs from a fresh generation.
+
+#### Scenario: Surface drift detected
+- **GIVEN** a contributor adds an option to `fenolite check` without regenerating the surface
+- **WHEN** `uv run pytest tests/unit/cli/test_cli_surface.py` runs
+- **THEN** it fails naming `check` and the option
+
+#### Scenario: Hidden command left out
+- **WHEN** the surface is generated
+- **THEN** it holds no entry `_echo`
+
+### Requirement: Stability of the 1.x contract
+After the release of `1.0.0`, a release of the `1.x` series SHALL change the contract surface only by additions: `fenolite.cli.surface.surface_changes` against the surface of the last release tag MUST report no breaking change, where a breaking change is a removed command, option, choice, exit code or issue code, a changed default or type, a new required option or a raised severity, and, for a name of the `library` section, its removal, a removed or renamed parameter, a new parameter without a default, or a removed field. An item marked `experimental`, and an item marked `deprecated` in a release before, MAY change. `docs/cli-contract.md` MUST say this under "Stability", and name a change of meaning under the same flag as breaking.
+
+#### Scenario: A removed option is breaking
+- **GIVEN** a surface without `--fields` of `inspect` against a baseline that holds it
+- **WHEN** `surface_changes` runs
+- **THEN** it reports one change of kind `removed` at `inspect --fields` with `breaking` true
+
+#### Scenario: An experimental option may change
+- **GIVEN** a surface in which `--altium-pour` of `build`, marked experimental, lost the choice `outline`
+- **WHEN** `surface_changes` runs
+- **THEN** it reports the change with `breaking` false
+
+#### Scenario: A library parameter removed is breaking
+- **GIVEN** a surface in which `fenolite.api.convert` lost its parameter `name`, against a baseline that holds it
+- **WHEN** `surface_changes` runs
+- **THEN** it reports one change of kind `removed` at `fenolite.api.convert(name)` with `breaking` true
+
+#### Scenario: An addition is not breaking
+- **GIVEN** a surface with a new option of `analyze`
+- **WHEN** `surface_changes` runs against the baseline
+- **THEN** it reports one change of kind `added` with `breaking` false
+
+### Requirement: Deprecated options and commands
+A command or an option MAY be marked deprecated with the release that replaced it and its replacement. Using it MUST give one `cli.deprecated` issue (warning) that names the replacement, and MUST otherwise behave as before. `fenolite capabilities` MUST list every deprecated item in `result.deprecated` with its release and its replacement, and `result.contract` MUST be `CONTRACT_VERSION`. A deprecated item MUST NOT be removed before `2.0.0`.
+
+#### Scenario: A deprecated option warns
+- **GIVEN** an option of `_echo` marked deprecated in a test, replaced by another
+- **WHEN** `_echo` runs with it and `--json`
+- **THEN** the exit code is 0 and `issues` holds one `cli.deprecated` warning that names the replacement
+
+#### Scenario: Capabilities names the contract
+- **WHEN** `uv run fenolite capabilities --json --no-tools` runs
+- **THEN** `result.contract` equals `CONTRACT_VERSION` and `result.deprecated` is a list
+
+### Requirement: Result schemas
+Every visible command SHALL have a wire class in `fenolite.cli.results.RESULTS` that describes its `result`, and `tools/gen_schemas.py` SHALL write `schemas/fenolite.<command>.<CONTRACT_VERSION>.json` from it, with `additionalProperties: true` on every object (the published form). `tools/gen_schemas.py --check` MUST exit 1 when a committed schema differs from a fresh generation. After the release of `1.0.0`, a release of the `1.x` series MUST NOT remove a property of a result schema nor change its type: the drift test compares the property names and types of each schema with the file of the last release tag. `docs/cli-contract.md` MUST name each command's schema file in its section.
+
+#### Scenario: Every command has a schema
+- **WHEN** `uv run python tools/gen_schemas.py --check` runs
+- **THEN** it exits 0 and `schemas/` holds one result schema for each of the visible commands
+
+#### Scenario: A published schema accepts an added key
+- **GIVEN** the published schema of `check` and a result of `check` with one more key at its top level
+- **WHEN** the result is validated against the published schema
+- **THEN** it validates, and against the closed form it does not
+
+#### Scenario: A removed property is refused after 1.0
+- **GIVEN** a schema of `bom` without the property `rows` against a last release tag whose schema holds it
+- **WHEN** `uv run pytest tests/unit/test_schema_drift.py` runs
+- **THEN** it fails naming `bom` and `rows`
+
+### Requirement: File format schemas
+Each file format that Fenolite reads or writes beside a design and that is classified public (written by a user, or read by an agent as a command's output) SHALL have a standalone schema file `schemas/formats/fenolite.<name>.v1.json` generated from its dataclass, and its reader MUST accept a document of `fenolite.<name>.v0` and of `fenolite.<name>.v1`. `schemas/README.md` MUST list each format id found in `src/fenolite` with its class, `public` or `internal`; an internal format carries no promise between releases.
+
+#### Scenario: A v0 document is still read
+- **GIVEN** a `requirements` file of `fenolite.requirements.v0` that `fenolite analyze` read in `0.5.0`
+- **WHEN** `fenolite analyze --requirements FILE` runs
+- **THEN** it reads the file as before, with no issue about its version
+
+#### Scenario: Every format id is classified
+- **WHEN** `uv run python tools/gen_schemas.py --formats --check` runs
+- **THEN** it exits 0, and every `fenolite.<name>.v0` id of `src/fenolite` is listed in `schemas/README.md` as `public` or `internal`
+
+### Requirement: Route proposal mode
+`fenolite route` SHALL take the modes `--propose`, `--accept ID`/`--reject ID`, `--replay` and `--forget ID`, exclusive with each other (accept and reject may combine) and with `--roles`, `--rip`, `--escape`, `--order`, `--pairs-as-nets` and `--require-complete`, else `FEN-2001`. They MUST need a router with feature `propose`, else `FEN-2001`. `--propose` MUST write nothing and return no `plan_id`.
+
+#### Scenario: Wrong router
+- **WHEN** `fenolite route <board> --router direct --propose` runs
+- **THEN** the exit code is 2, stderr carries `FEN-2001`, and the hint names `octilinear`
+
+#### Scenario: Proposing writes nothing
+- **GIVEN** the `bad_roles` variant of `examples/roles/buck_shunt` built in `tmp_path`, after `route --roles critical --confirm`
+- **WHEN** `uv run pytest tests/unit/cli/test_route_propose.py -k writes_nothing` runs `fenolite route <board> --router octilinear --propose --json`
+- **THEN** the exit code is 0, `result.proposals` is not empty, the reply holds no `plan_id`, and every file of the folder keeps its SHA-256
+
+### Requirement: Proposal reply without a score
+In propose mode `result` SHALL hold `mode`, `order` (`generation`), `open`, `proposals`, `rejected`, `locked` and `next`. Each proposal MUST hold `id`, `subject`, `kind`, `net`, `ends`, `region`, `candidates`, `reason` and `alternatives`; each candidate `id`, `source`, `relaxed`, `items`, `geometry`, `facts` and `rejected`. No proposal or candidate MAY hold `score`, `rank`, `best`, `recommended` or `cost`.
+
+#### Scenario: Closed keys
+- **WHEN** `uv run pytest tests/unit/cli/test_route_propose.py -k keys` proposes on the three `bad_roles` variants
+- **THEN** every proposal and candidate has exactly the listed keys, and proposals are sorted by kind (`fanout`, `join`, `role-net`, `group`, `connection`) then subject
+
+### Requirement: Candidate facts
+Each candidate's `facts` SHALL hold `closes`, `open` (`before`, `after`), `copper_check` (`before`, `after`, `new`), `vias`, `length`, `layers`, `bends`, `conflicts`, `fill` and `not_evaluated`, and when measured `roles` (`before`, `after`, `new`, `cleared`), `drc` and `loop`. A fact not measured MUST be named in `not_evaluated` with a reason of the closed list `no-gate`, `no-role-loop`, `outside-role-reach`, `no-kicad-cli`, `budget`, `external-trial-failed`.
+
+#### Scenario: Facts of a fan-out
+- **GIVEN** the role-copper buck variant that holds the open pad `C3-2`, after phase 2
+- **WHEN** `uv run pytest tests/unit/cli/test_route_propose.py -k fanout_facts` proposes without `--gate drc`
+- **THEN** the `fanout:GND:C3-2` proposal has a candidate with one via, `open.after` one below `open.before`, no `new` copper-check finding, and `drc` named in `not_evaluated` with `no-gate`
+
+### Requirement: Proposals without a candidate
+A subject without a candidate SHALL be listed with `candidates` empty, one reason of `no-room`, `no-layer`, `too-long`, `near-switching`, `isolation`, `pads`, `all-rejected`, `budget`, and alternatives of `free-corridor`, `move-part`, `allow-via`, `raise-limit`, `power-copper`, `confirm`, `external-router`, `edit-script`, each with a command and a `render --region` command, and one `route.proposal-open`. No subject MAY be left out silently.
+
+#### Scenario: A blocked connection
+- **GIVEN** an authored bench whose connection is walled in by another net's copper on every layer
+- **WHEN** `uv run pytest tests/unit/cli/test_route_propose.py -k blocked` proposes
+- **THEN** the proposal has no candidate, reason `no-room`, the alternative `free-corridor` naming the wall, a `render --region` command, and the issues hold one `route.proposal-open`
+
+### Requirement: KiCad DRC of candidates
+With `--gate drc`, propose mode SHALL pack candidates, in reply order, into batches without two candidates of one subject or two that conflict, judge each batch once through `api.trial(..., gate=True)` with each candidate's items as one `together` set, and give each candidate the new violations naming its items as `drc.new` with `KICAD-VERIFIED` evidence. Without `kicad-cli` it MUST exit 6.
+
+#### Scenario: Batches of candidates
+- **GIVEN** a stand-in gate that reports a clearance violation on the items of one candidate
+- **WHEN** `uv run pytest tests/unit/cli/test_route_propose.py -k drc_batches` proposes with `--gate drc` on a bench of two subjects with three candidates each
+- **THEN** the gate runs three times, only that candidate has a `drc.new` entry, and the others have `drc.new` empty
+
+### Requirement: Accept and reject through a reviewed plan
+`--accept ID` SHALL recompute the candidates of the ids' subjects and plan, in one plan, the board with each candidate's items `locked` (group candidates with c0244's corridors) and the decision record; `--reject ID [--reason TEXT]` plans the record only. An unknown id MUST give `route.proposal-unknown` and two candidates of one subject or clashing copper `route.proposal-conflict` (errors, no write).
+
+#### Scenario: Accept, then confirm
+- **GIVEN** the buck role-copper variant and the id C of a candidate of `fanout:GND:C3-2`
+- **WHEN** `uv run pytest tests/unit/cli/test_route_propose.py -k accept` runs `--accept C --dry-run`, then `--confirm --plan <plan_id>`
+- **THEN** the dry run writes nothing; the confirm writes the board with a locked track and via and the record holding C, both in `receipt`
+
+#### Scenario: Unknown and conflicting ids
+- **WHEN** the same test runs `--accept c-0000000000000000 --dry-run`, then `--accept` with two candidates of one subject
+- **THEN** both exit 5 with `FEN-5001`, the first with `route.proposal-unknown` naming the id, the second with `route.proposal-conflict`, and nothing is planned
+
+#### Scenario: A rejected candidate stays out
+- **GIVEN** a candidate R rejected with `--reject R --reason "crosses the gate loop" --confirm`
+- **WHEN** `--propose` runs, then `--propose --show-rejected`
+- **THEN** the first lists no R and holds one `route.proposal-rejected`, the second lists R with `rejected` true
+
+### Requirement: Route decision record
+Accepted and rejected decisions SHALL be kept in `fenolite.route-decisions.v0`, canonical JSON with no clock, at `.fenolite/route-decisions.json` for a built project and `<board stem>.route-decisions.json` beside any other board: `locked` entries (candidate, proposal, subject, net, ends, items, corridors, relaxed, plan) and `rejected` entries (id, subject, reason), sorted. A malformed record MUST be `FEN-3004`.
+
+#### Scenario: A stable record
+- **WHEN** `uv run pytest tests/unit/routing/test_decisions.py` writes a record, reads it and writes it again, and reads a record with an unknown key
+- **THEN** the bytes are equal, and the second read raises the error that `route` maps to `FEN-3004`
+
+### Requirement: Replay and forget of decisions
+`--replay` SHALL plan the items of each locked entry missing from the board when its ends still land in copper of its net and the items pass the copper check; otherwise `route.proposal-stale` with `moved`, `blocked` or `net-gone`. `--forget ID` MUST plan removing the entry and, for a locked one, its items and corridors. A board holding every entry MUST plan no write.
+
+#### Scenario: Replay on a fresh build
+- **GIVEN** the accepted buck variant's record copied beside a fresh build of the same script into another folder
+- **WHEN** `uv run pytest tests/unit/cli/test_route_propose.py -k replay` runs `--replay --confirm` twice
+- **THEN** the first writes the accepted items with their ids, the board equals the accepted one byte for byte, and the second plans no write
+
+### Requirement: View command shows route proposals
+`fenolite view` SHALL take `--proposals run|FILE`: `run` runs `route BOARD --router octilinear --propose` read-only for each KiCad board shown, `FILE` reads a saved reply. `result.proposals` MUST count proposals and candidates, and the evidence MUST be the lower of the scene's and the reply's. A file that is not a propose reply MUST be `FEN-3004`; `run` on an Altium document `FEN-2001`.
+
+#### Scenario: Proposals joined to a view
+- **WHEN** `uv run pytest tests/unit/cli/test_view_cmd.py -k proposals` runs `fenolite view <buck role-copper board> --proposals run --export page.html --confirm --json`, then with a `check` reply as `--proposals`
+- **THEN** the first writes a page whose scene holds `proposals` and counts them in `result.proposals`, and the second exits 3 with `FEN-3004`
+
+### Requirement: View command allows writing actions
+`fenolite view --serve --allow-actions` SHALL serve the writing actions of `board-viewer`; without the option the server MUST refuse them. `--allow-actions` without `--serve` MUST be `FEN-2001`. The option's help MUST say that the page can then write the project's files through reviewed plans, and `result.serve.writes` MUST list the receipts of the session.
+
+#### Scenario: Option without serve
+- **WHEN** `uv run pytest tests/unit/cli/test_view_cmd.py -k allow_actions` runs `fenolite view <board> --allow-actions --json`
+- **THEN** the exit code is 2 with `FEN-2001` naming `--allow-actions`
+
+#### Scenario: Receipts in the reply
+- **GIVEN** a served view with actions allowed, stopped by the test's event after one confirmed `silk` action
+- **WHEN** `uv run pytest tests/unit/cli/test_view_actions.py -k reply` reads the reply
+- **THEN** `result.serve.writes` holds one receipt naming the board
+

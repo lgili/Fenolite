@@ -1711,3 +1711,148 @@ A requirement row id SHALL be built from references, port paths, net names, inte
 - **GIVEN** `examples/circuit/sensor/bad.py` and a copy whose part and connect statements are reordered, built with `--seed 1` and `--seed 2`
 - **WHEN** `uv run pytest tests/unit/checks/circuit/test_matrix.py -k stable` collects the row ids of `circuit.rules`
 - **THEN** the four sorted id lists are equal
+
+### Requirement: Drawn schematic stage
+`fenolite.checks.drawn.drawn_stage(netlist, circuit) -> StageResult` SHALL be the stage `schematic.drawn`, which compares an injected drawn netlist with the built circuit through `drawn_connect.compare`. `cmd_check` MUST compute the netlist from the sheets on disk for built input whose build record names a drawn schematic, and only then list the stage, in the default set. The stage MUST write nothing and run no tool.
+
+#### Scenario: Unchanged project passes
+- **GIVEN** a confirmed build of `examples/drawn/design.py` in `B`
+- **WHEN** `fenolite check B --json` runs
+- **THEN** `result.stages` holds `schematic.drawn` with status `ok` and no issue
+
+#### Scenario: Connectivity edited in KiCad
+- **GIVEN** the same build whose sheet then gets, by token edit, one wire end moved from `R1` pin 1 to `R1` pin 2
+- **WHEN** `fenolite check B --json` runs
+- **THEN** the exit code is 5 and one `drawn.netlist-differs` error names `R1-1`
+
+#### Scenario: Not listed elsewhere
+- **WHEN** `fenolite check tests/data/kicad/board/two_layer.kicad_pcb --json` runs
+- **THEN** `result.stages` holds no `schematic.drawn`
+
+### Requirement: Drawn schematic stage issue codes
+The stage `schematic.drawn` SHALL report the codes of `drawn_connect.ISSUE_CODES` with their severities, and `checks.codes.ISSUE_CODES` MUST gain them. An error makes the stage `failed` and the exit code 5; warnings leave it `ok`.
+
+#### Scenario: Warning only
+- **GIVEN** the build of the example whose label `SDA` is renamed by token edit
+- **WHEN** `fenolite check B --json` runs
+- **THEN** the exit code is 0 and the stage holds one `drawn.net-name-differs` warning
+
+### Requirement: Combined contract repairs
+The combined library/import/viewer/block batch MUST pass its focused contract
+proofs and the complete hermetic fast gate. Repairs SHALL preserve supported
+defaults, byte pins, evidence limits and strict comparison/refusal behavior.
+
+#### Scenario: Concrete integration failure
+- **GIVEN** a failure from the complete frozen-candidate run
+- **WHEN** its direct production or stale-contract cause is repaired
+- **THEN** the original assertion is satisfied by the specified behavior and its focused proof passes
+- **AND** integration closure waits for the repeated complete gate and exact published-head CI
+
+#### Scenario: Native check expectation drift
+- **GIVEN** an authored fixture checked with an actual installed KiCad CLI
+- **WHEN** a specified stage or device metadata info is absent from the old expectation
+- **THEN** the test retains the literal ordered stages and exact code/severity counts
+- **AND** error and warning comparisons, native gates and original CI receipts remain unchanged
+
+#### Scenario: Appended optional component field
+- **GIVEN** the native-identity selector appended after the historical value-range and board-only fields
+- **WHEN** the exact component-tail contract is checked
+- **THEN** all three names remain in their specified order and the absent value-range default stays None
+- **AND** model/schema bytes and ordinary build pins remain unchanged
+
+#### Scenario: Temporary-directory aliases
+- **GIVEN** two valid path spellings of the same actual temporary directory
+- **WHEN** a cleanup regression verifies that the private tree was removed
+- **THEN** identity is compared through resolved paths and deletion from inside that tree still fails
+- **AND** successful and exceptional bodies retain their isolation and original results
+
+### Requirement: Public registry agreement
+Issue explanations, severity tables, capability lists and reserved DSL attribute tables MUST agree with actual public behavior. A hermetic test SHALL declare external resource requirements truthfully rather than silently bypass its proof.
+
+#### Scenario: Existing public attribute or issue
+- **WHEN** the combined public interfaces are audited
+- **THEN** all actual reserved attributes and issue severities are represented and tested
+- **AND** unavailable resources are not reported as successful native verification
+
+### Requirement: Current comparisons preserve historical measurements
+Current corpus expectations SHALL reflect specified shared-reference pairing while preserving raw duplicate counts and dated historical tables. New measurements MUST bind source commit and input hashes, assert all remaining differences and writer-ledger rows, and retain actual native-version limits. Historical ambiguity counts MUST NOT justify new comparison exclusions.
+
+#### Scenario: A shared reference gains deterministic pairing
+- **WHEN** c0277 pairs equally repeated references by placement
+- **THEN** the current comparison omits only the obsolete ambiguity and preserves every other finding
+- **AND** historical counts and exact native CI receipts remain unchanged
+
+### Requirement: Supplier fixture names respect residue policy
+Authored supplier authentication fixtures SHALL use role names that pass existing residue filename
+policies. Their response bytes, source citations and provider access policies MUST remain unchanged;
+no detector waiver or production-readiness promotion is allowed.
+
+#### Scenario: Authentication response fixture renamed
+- **GIVEN** an authored authentication response and source sidecar rejected by the filename detector
+- **WHEN** both files and their references are renamed by role
+- **THEN** supplier and residue proofs pass with identical payload/sidecar hashes and unchanged detection
+
+### Requirement: Authored portability preserves exact inputs
+Authored proofs SHALL retain exact archive and member bytes across ZIP host defaults. Block upgrades SHALL find an available circuit cache with either native path separator. Candidate kits SHALL retain the same library sources across drives without weakening plan binding or native acceptance gates.
+
+#### Scenario: Windows planned cache path
+- **WHEN** a validated build returns a backslash-separated circuit cache path
+- **THEN** the upgrade shows the exact changed-part circuit difference
+
+#### Scenario: Windows ZIP creator default
+- **WHEN** authored fixtures are generated with the Windows ZIP creator default
+- **THEN** complete checked archive bytes and all member payloads remain identical
+
+#### Scenario: Candidate kit across drives
+- **WHEN** the authored kit and its source libraries have different drive roots
+- **THEN** library tables use the same rooted sources and changed input bytes still invalidate review
+- **AND** native outcomes remain unjudged
+
+### Requirement: Portable library checks and document proofs
+Library checks MUST accept read-only inputs on another Windows drive without an internal path error. UTF-8 legal, source, policy and review documents SHALL be decoded explicitly in their proof assertions. Findings, input digests and planned writes MUST retain their existing meaning; global encoding switches and content transliteration SHALL NOT substitute for portability proofs.
+
+#### Scenario: Windows default codec and cross-drive input
+- **GIVEN** UTF-8 public text that cp1252 cannot decode and a library input on another drive
+- **WHEN** its document proofs and library CLI run under those platform conditions
+- **THEN** the original assertions, finding thresholds and reviewed sheet/input contracts still hold
+- **AND** native Windows and exact-head CI results are claimed only after actual execution
+
+#### Scenario: Explicit drawn-coordinate rounding
+- **WHEN** the existing Altium coordinate-rounding warning is documented
+- **THEN** the CLI table names `drawn.coordinate-rounded` as a warning accepted only with explicit `--allow-lossy`
+- **AND** refusal without that option, coordinate behavior and native byte pins are unchanged
+
+#### Scenario: Drawn backend evidence ownership
+- **GIVEN** the existing inferred drawn-writer claim carried by Altium builds
+- **WHEN** backend declarations and imports are checked
+- **THEN** the writer declares that same claim and imports only the permitted pure module
+- **AND** the lens reuses its declaration without changing evidence grades, write gates or native bytes
+
+### Requirement: Portable private block cleanup
+The block-test runner MUST restore the caller's working directory before removing
+its private temporary tree, on both successful and exceptional exits. It SHALL
+retain import, argument, bytecode and random-state isolation and preserve an
+authored failure rather than replacing it with a cleanup error.
+
+#### Scenario: Windows-style directory lock
+- **GIVEN** a cleanup implementation that rejects deleting the active working directory
+- **WHEN** an authored block usage or test finishes
+- **THEN** cleanup runs outside that directory and the public runner reports the authored result
+
+#### Scenario: Authored failure
+- **WHEN** authored code raises while inside the private working directory
+- **THEN** the caller's directory is restored before deletion and the original exception is retained
+
+### Requirement: Authored block payload collection boundary
+Repository pytest discovery SHALL exclude only the authored self-test payload `tests/data/blocks/lib/tests/test_divider.py`. The actual block runner MUST still execute its functions. Ordinary and neighboring tests MUST remain collectable with bytecode enabled. The data-manifest validator MUST continue rejecting undeclared cache files; no global bytecode suppression may substitute for this proof.
+
+#### Scenario: Normal collection leaves the payload clean
+- **GIVEN** the actual repository pytest policy and authored block fixture in an isolated copy
+- **WHEN** pytest collects with bytecode enabled
+- **THEN** public controls collect and create normal bytecode, while the fixture does neither
+
+#### Scenario: Explicit execution and strict manifest
+- **WHEN** the block runner executes the fixture and a failing function is planted
+- **THEN** it reports the actual pass/failure, restores bytecode state and creates no fixture cache
+- **AND** the unchanged manifest validator rejects a separately injected undeclared bytecode file
+

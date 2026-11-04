@@ -2,12 +2,10 @@
 
 ## Purpose
 The bill of materials and the placement table of a board, written through a column template that the user supplies: the `bom` and `pnp` commands, their sources (`model` and `kicad`), grouping, units, rotation offsets and side names. No template of any assembly house ships with Fenolite.
-
 ## Requirements
-
 ### Requirement: Neutral BOM parts and lines
 `fenolite.exports.bom` SHALL define `BomPart(ref, value, footprint, description, datasheet, dnp, properties)`, `BomLine(refs, quantity, fields, key)`, `parts_from_model(design) -> tuple[BomPart, ...]` and `group(parts, template) -> tuple[BomLine, ...]`, where `template` is the `[bom]` table of an assembly template and `key` holds the line's values of the `group_by` fields (its reference when `group_by` is empty), with `DNP` after them for a line of DNP parts as said below.
-- `parts_from_model` MUST give one part per component that has a placed footprint, leaving out a component whose footprint has the attribute `board_only` or `exclude_from_bom` and a reference that starts with `#`. `footprint` MUST be `Component.lib_footprint_ref`; `dnp` MUST be true when `Component.dnp` is true or the footprint has the attribute `dnp`; `properties` MUST be the component's properties without `Reference`, `Value`, `Footprint`, `Datasheet` and `Description`; `description` and `datasheet` MUST be those two properties, or `""`.
+- `parts_from_model` MUST give one part per component that has a placed footprint and one part per explicitly marked `Component.bom_only` that has no footprint instance, leaving out a component whose footprint has the attribute `board_only` or `exclude_from_bom` and a reference that starts with `#`. `footprint` MUST be `Component.lib_footprint_ref`; `dnp` MUST be true when `Component.dnp` is true or the footprint has the attribute `dnp`; `properties` MUST be the component's properties without `Reference`, `Value`, `Footprint`, `Datasheet` and `Description`; `description` and `datasheet` MUST be those two properties, or `""`.
 - Parts MUST be sorted by the natural order of the reference (`R2` before `R10`).
 - `group` MUST first leave out DNP parts when the template's `exclude_dnp` is true, then put into one line the parts whose values are equal for every field of `group_by` and whose `dnp` flags are equal, with `refs` in natural order and `quantity` their count. Lines MUST be sorted by the natural order of their first reference. An empty `group_by` MUST give one line per part.
 - A DNP part MUST NOT share a line with a part that is not DNP, whether or not `group_by` names `dnp`: every line is all DNP or all fitted. A line of DNP parts has no place of its own in the order: it stands where its first reference puts it.
@@ -39,6 +37,11 @@ The bill of materials and the placement table of a board, written through a colu
 - **GIVEN** a model with a footprint `H1` that has `board_only`, and a component `R3` whose footprint has `exclude_from_bom`
 - **WHEN** `parts_from_model` runs
 - **THEN** neither `H1` nor `R3` is a part
+
+#### Scenario: Explicit BOM-only accessory
+- **GIVEN** an explicit pinless BOM-only component with a stable reference and no footprint instance
+- **WHEN** the neutral model BOM is generated
+- **THEN** it contributes one part with its actual value/properties/DNP state and footprint-name metadata, without inventing a placement
 
 ### Requirement: BOM difference
 `bom.difference(a, b) -> tuple[BomChange, ...]` SHALL compare two tuples of lines grouped under one template, matching lines by their `key` (the values of their `group_by` fields, and `DNP` after them for a line of DNP parts as "Neutral BOM parts and lines" says), and SHALL return `BomChange(key, change, a_refs, b_refs)` sorted by key: `added` for a key only in `b`, `removed` for a key only in `a`, and `changed` when the references differ. Equal BOMs MUST give `()`.
@@ -186,3 +189,4 @@ The bill of materials and the placement table of a board, written through a colu
 - **GIVEN** the same board and a template whose `[placement]` table holds `fiducials = false`
 - **WHEN** `fenolite pnp --template` runs with it
 - **THEN** the only row is `R1`; with `fiducials = true` and a column `{ name = "Fid", field = "fiducial" }`, the cell of `FID1` is `yes` and that of `R1` is empty
+

@@ -550,3 +550,78 @@ On a side whose source is `circuit`, level 2 SHALL take one element `REF-<pad>` 
 - **GIVEN** side `a` without a board, whose `U1` has `pin_pad_map == (("3", "3"), ("3", "EP"))` and pin `3` on `GND`, and side `b` with a board whose `U1` has the pads `3` and `EP` on `GND`
 - **WHEN** `uv run pytest tests/unit/checks/equivalence/test_levels.py -k several_pads` compares them at level 2
 - **THEN** there is no `pin-missing` and no `net` difference; and with the pad `EP` of side `b` on another net there is one `net` difference whose `where` names `U1` and `EP`
+
+### Requirement: Level 2 open nets of one element
+Level 2 SHALL read a net whose name starts with `unconnected-(` and whose pads are all pads of one `REF-PIN` element as no net, on both sides, so that a pad on no net equals a pad on the net KiCad derives for its unconnected pin, however many pads share that number.
+
+#### Scenario: Two pads of one number
+- **GIVEN** an authored side whose connector `J4` has two pads `0` on no net, and a copy where both are on `unconnected-(J4-0-Pad0)`
+- **WHEN** `uv run pytest tests/unit/checks/equivalence/test_c0281_levels.py -k open` runs level 2
+- **THEN** it reports no difference; a copy where the net also holds a pad of `J5` reports a `net` difference
+
+### Requirement: Level 6 pairs layers by name
+Level 6 SHALL match the board layers of the two sides by name. A name on one side only MUST give `layer-missing` with `where` `<kind>:<name>`; a matched layer of another kind MUST give `layer-field` with field `kind`; common layers in another relative order MUST give one `layer-field` with `where` `layers` and field `order`. Ordinals MUST NOT be compared.
+
+#### Scenario: Two user layers missing
+- **GIVEN** an authored board and a copy without `Eco1.User` and `Eco2.User`
+- **WHEN** `uv run pytest tests/unit/checks/equivalence/test_c0281_levels.py -k layers` runs level 6
+- **THEN** it reports exactly two `layer-missing` differences, one per missing layer
+
+### Requirement: Level 7 graphic widths
+Level 7 SHALL match graphics, of the board and of each footprint pair, by layer, kind, normalised geometry and fill, and a matched pair whose width differs MUST give one `graphic-field` difference with field `width`.
+
+#### Scenario: Outline drawn wider
+- **GIVEN** an authored board whose four `Edge.Cuts` lines are 0.2 mm wide and a copy with 0.1 mm lines
+- **WHEN** `uv run pytest tests/unit/checks/equivalence/test_c0281_levels.py -k width` runs level 7
+- **THEN** it reports four `graphic-field` differences with field `width`, `a` `200000`, `b` `100000`, and no `graphic-missing`
+
+### Requirement: Level 7 leaves out the lens property
+Level 7 SHALL leave the footprint field `fenolite.path` out of the field comparison (`shapes.LENS_FIELDS`): the build writes it as the lens key of each footprint.
+
+#### Scenario: Built board against an original
+- **GIVEN** an authored board and a copy whose footprints carry `fenolite.path`
+- **WHEN** `uv run pytest tests/unit/checks/equivalence/test_c0281_levels.py -k lens` runs level 7
+- **THEN** it reports no `field-pose` difference
+
+### Requirement: Opaque items counted at level 7
+The kinds table SHALL hold `(6, "layer-field", "field")`, `(7, "graphic-field", "field")` and `(7, "opaque-count", "item")`; an `opaque-count` difference names a kind of opaque root item in `field` and the counts of each side in `a` and `b`, and the package itself MUST NOT compute it (it names no backend).
+
+#### Scenario: Kinds and codes
+- **WHEN** `uv run pytest tests/unit/checks/equivalence/test_codes.py` runs
+- **THEN** the three kinds are in `KINDS`, their `equiv.*` codes are in `EQUIVALENCE_CODES` and `fenolite explain equiv.opaque-count` exits 0
+
+### Requirement: Drawn effects remain observable
+Level S SHALL compare target-probed effective fonts and text effects as drawn content. Scene extraction MUST preserve supported effects or report unsupported rendering, including positive sub-µm sizes that round to zero. It MUST NOT substitute default size or relax thresholds, sheet matching, geometry, junction checks or losses.
+
+#### Scenario: Planted font change
+- **GIVEN** equal authored drawings
+- **WHEN** one explicit font size changes
+- **THEN** level S reports the changed effect and level 8 retains its unchanged comparison rules
+
+#### Scenario: Redundant junction removed
+- **GIVEN** an authored drawing with an electrically redundant junction at a wire endpoint
+- **WHEN** that junction is removed
+- **THEN** the connectivity guard can pass but level S still reports the missing junction
+
+#### Scenario: Positive size below scene resolution
+- **GIVEN** an exact positive size below one micrometre
+- **WHEN** its scene is extracted
+- **THEN** a supported exact representation or explicit unsupported-render finding replaces silent default-size substitution
+
+### Requirement: Typed L7 orientation follows the existing cyclic angle metric
+L7 Text.rotation and FootprintField.rotation SHALL compare using the existing
+360degree angle distance and angular tolerance. This SHALL not normalize model
+values or erase canonical presence. Generic fields, noncyclic sweeps/ranges,
+level6 and S SHALL remain unchanged.
+
+#### Scenario: Exact equal cyclic orientation
+- **WHEN** a text/field rotation differs only by a full turn, including0/360 or-90/270
+- **THEN** L7 reports equal orientation at exact zero tolerance
+- **AND** both original model values and canonical encodings remain unchanged
+
+#### Scenario: True changes and noncyclic values remain visible
+- **WHEN** rotations are90vs0,180vs0 or1microdegreevs0 at exact tolerance
+- **THEN** L7 still reports a rotation difference regardless of length tolerance
+- **WHEN** a noncyclic sweep is0vs360, or a leaf differs between None/false/zero
+- **THEN** the new orientation path does not make it equal
+

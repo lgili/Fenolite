@@ -1668,7 +1668,7 @@ The maintainer-authorized operator inspected actual Altium Designer24.5.2.23 win
 already native-saved authored documents: EXAMPLE/FULL roots and children, and REPEAT roots and
 both local-net children, in each writer origin. The original PNGs and per-capture receipts are
 retained externally; their source/image hashes and observations are bound by
-[the visual proof](../../openspec/changes/c0276-drawn-schematic/native-visual-proof.json).
+[the visual proof](../../openspec/changes/archive/2026-11-04-c0276-drawn-schematic/native-visual-proof.json).
 A final Windows read confirms all14 disk hashes remain unchanged. No new compile, save or
 connectivity outcome is inferred from opening/inspecting these copies.
 

@@ -941,3 +941,97 @@ Instances of one block whose sheets hold the same unit keys relative to the inst
 - **GIVEN** the confirmed build of `examples/blocks/design.py` for the running major
 - **WHEN** the KiCad CI job exports its netlist with `kicad-cli sch export netlist` and runs ERC
 - **THEN** every net of the circuit is listed under its circuit name with its pins, and the ERC report holds no violation about sheet pins or hierarchical labels (`H-K-SCH-BLOCK-PINS`, `H-K-SCH-BLOCK-ERC`)
+
+### Requirement: Drawn sheets written
+`sch.write_schematic` SHALL write the junctions, buses, bus entries, bus aliases, local labels, power symbols and opaque items of a created sheet in the form of S-0367 for both targets, in the root order bus aliases, no-connect flags, junctions, bus entries, wires, buses, labels, symbols, sheet references, opaque items, `sheet_instances`. Opaque items MUST pass `versions.check_emittable` like every other node.
+
+#### Scenario: Every kind written
+- **WHEN** `uv run pytest tests/unit/backends/kicad/test_sch_write_drawn.py` writes the lowered full fixture for targets 9 and 10 and reads each text back
+- **THEN** the root holds one `junction`, `bus`, `bus_entry` and `bus_alias` per drawn item, and extraction of the read sheets gives the drawn value
+
+#### Scenario: Too-new opaque item
+- **GIVEN** an opaque item whose head the inventory dates after the 9.0 constant
+- **WHEN** the sheet is written for target 9
+- **THEN** `LossyWriteError` (`FEN-7001`) is raised naming the head, and with `allow_lossy=True` the item is dropped with one `kicad.sch.dropped-too-new` warning
+
+### Requirement: Drawn wires cut at junctions
+`lower_drawn` MUST cut each wire at the junctions on its inside and each bus at its junctions and bus entry ends, the form KiCad's editor keeps (9.0.9 does not join the uncut form; measured on 2026-10-29).
+
+#### Scenario: KiCad loads the drawn sheets
+- **WHEN** `uv run pytest tests/kicad/schematic/test_drawn_oracle.py -k kicad_loads_the_drawn_sheets -rA` runs with `kicad-cli` 9.0.9 or 10.0.6
+- **THEN** the netlist export of each written drawn fixture equals the resolver's nets, ERC reports no violation that the source lacks, and the probe `drawn-write` records `equal`
+
+### Requirement: Repeated sheets written
+A drawn sheet that several references name SHALL be written once, and each of its symbols MUST hold one `instances` path per reference with the reference and unit of that instance's component. Each reference MUST name the same file, and the board's footprint paths MUST use the sheet uuids of their instance (`H-K-SCH-HIER-PATH`).
+
+#### Scenario: Two channels
+- **WHEN** the repeated fixture is built for target 10
+- **THEN** one file `sheets/channel.kicad_sch` is written, its `R1` holds two instance paths with the references of `ch0/R1` and `ch1/R1`, and the two footprints' paths differ in their sheet uuid only
+
+### Requirement: Drawn content of a read sheet
+`sch.opaque_drawing(sheet) -> OpaqueDrawing` SHALL give, from the opaque root slots of a read sheet, the points of each `wire` and `bus`, the position and size of each `bus_entry`, the position and diameter of each `junction` and the name and members of each `bus_alias`, in file order, and the remaining slots verbatim. A slot whose numbers are not whole nanometres MUST stay among the remaining slots. The reader's slot rules are unchanged.
+
+#### Scenario: Junctions of a read sheet
+- **WHEN** `uv run pytest tests/unit/backends/kicad/test_sch_opaque_drawing.py` reads `tests/data/kicad/schematic/flat.kicad_sch`
+- **THEN** the junctions and wires equal the `junction` and `wire` children of the file, and `opaque_wires` gives the same wire points
+
+### Requirement: Drawn native font preservation
+KiCad extraction and writing SHALL preserve target-probed effective fonts and justification on typed drawn text. Native `(size HEIGHT WIDTH)` MUST map to `Size(w=WIDTH,h=HEIGHT)`. Canonical false/zero presence MUST NOT imply invented native tokens. Unknown effects MUST refuse; existing native text slots MUST remain preserved.
+
+#### Scenario: Small field survives
+- **GIVEN** an authored visible field with unchanged text and size 0.25 mm
+- **WHEN** it is extracted, lowered, written and read back
+- **THEN** its font remains 0.25 mm and the strict authored full proof is equal at all nine levels
+
+#### Scenario: Unsupported source effect
+- **WHEN** extraction encounters an unsupported effect on a typed drawn item
+- **THEN** it reports its source locator and strict conversion stages no output
+
+#### Scenario: Native effective style
+- **GIVEN** authored omitted, false/true style and zero/omitted thickness controls
+- **WHEN** the actual target loads and exports the schematic
+- **THEN** writing and level-S readback follow the measured effective style or refuse unsupported forms
+
+#### Scenario: Missing native justification
+- **WHEN** missing, empty and explicit native label/pin justification controls are extracted
+- **THEN** their measured native anchor is preserved rather than automatically selecting the legacy role anchor
+
+### Requirement: Legacy drawn pose bag compatibility
+The private drawn adapter SHALL retain every six-part legacy field payload byte-for-byte and append separately versioned font data only for explicit fonts. It MUST read old bags and reject malformed, duplicate, unknown or orphan style records. Default generated names and bytes MUST remain unchanged.
+
+#### Scenario: No explicit font
+- **WHEN** legacy field poses with absent fonts are lowered
+- **THEN** the complete private bag equals its old byte representation
+
+#### Scenario: Orphan font record
+- **WHEN** a versioned font record names no field pose
+- **THEN** decoding refuses rather than silently dropping it
+
+### Requirement: Native blank title intent
+KiCad extraction SHALL preserve empty native sheet title metadata as explicit blank drawn metadata rather than authored board inheritance. Nonempty values and existing authored inheritance SHALL remain unchanged.
+
+#### Scenario: Dated board with blank child
+- **GIVEN** an authored board and parent with a date and a native child with no title block
+- **WHEN** strict import, build and full fidelity proof run
+- **THEN** the child remains visibly blank, all nine levels are equal and the source remains byte-identical
+
+#### Scenario: Authored inheritance retained
+- **WHEN** an authored DrawnSheet omits title metadata
+- **THEN** its existing board-title inheritance and default writer bytes remain unchanged
+
+### Requirement: Embedding preserves empty native pin identities
+A checked native symbol's empty pin number SHALL remain empty on a newer target. Literal tilde
+numbers SHALL remain literal on a target that represents them; an unrepresentable old-target number
+SHALL refuse locally before emission unless explicit pad mapping supplies a representable number.
+Neither ambiguous raw-to-canonical association nor count mismatch SHALL select the first pin.
+
+#### Scenario: Native9 empty-marker pin embedded for10
+- **GIVEN** an authored native9 symbol with an empty-number pin and unrelated numbered pins
+- **WHEN** it is embedded into target10 and native tools export both sheets
+- **THEN** every pin, named partition and unrelated field agrees, including the empty-number identity
+
+#### Scenario: Literal tilde is distinct
+- **GIVEN** an authored native10 literal tilde pin number
+- **WHEN** target10 embeds it or target9 cannot represent it
+- **THEN** target10 preserves the literal identity and target9 refuses without dropping or renaming it
+

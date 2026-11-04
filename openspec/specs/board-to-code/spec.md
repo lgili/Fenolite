@@ -303,3 +303,95 @@ The corpus proof SHALL write an aggregate JSON measurement per temporary test ca
 #### Scenario: A stale census remains diagnosable
 - **WHEN** the corpus job finds an omission count unlike its recorded row
 - **THEN** the job fails and retains its measured counts for reviewed table regeneration
+
+### Requirement: Active schematic symbols beside native board-only metadata
+An import with a unique physical reference and an active matching source schematic symbol MUST retain that symbol as a normal code part while preserving the native PCB `board_only` attribute. The attribute alone MUST NOT erase the drawing. Unmatched, duplicate or invalid physical references MUST retain existing board-only/keyed behavior and strict electrical checks.
+
+#### Scenario: Native flag and actual source symbol
+- **WHEN** an authored project has a netted schematic symbol and its PCB footprint carries `board_only`
+- **THEN** strict import/build compares all nine levels equal, the symbol survives, the native attribute remains and duplicate/unmatched cases retain their guards
+
+### Requirement: Embedded source aliases
+An unqualified embedded `lib_name` alias SHALL be vendored under the namespace of its instance's original library id, using `_Source` only when that id is also unqualified. Its native body and poses MUST survive. Extraction and lowering MUST use the same canonical identity; conflicting bodies under that identity MUST still refuse before staging.
+
+#### Scenario: Local embedded copies
+- **WHEN** authored ordinary and power symbols use bare embedded aliases and are strictly imported and built
+- **THEN** the project libraries are valid, all nine fidelity levels compare equal, and every original input byte remains unchanged
+
+### Requirement: Source drawings in KiCad project imports
+A KiCad project import SHALL emit `schematic.toml` and `load_schematic`, preserving source drawing items, embedded symbol slots, power definitions and instance references. It MUST self-check the written drawing before staging. Conflicting definitions, missing symbols or unsupported poses MUST refuse explicitly. Board-only inputs MUST keep their bytes; source files MUST remain unchanged.
+
+#### Scenario: Drawn project survives import
+- **WHEN** an authored project with junctions, buses or repeated sheets is imported, confirmed and built
+- **THEN** the source drawing and symbol geometry survive, the drawn connectivity guard runs, and every input byte remains unchanged
+
+#### Scenario: Written connectivity defect
+- **GIVEN** the drawn writer is patched to move a connected wire
+- **WHEN** an import self-check builds the emitted project
+- **THEN** the import reports failure and plans no output writes
+
+#### Scenario: Source symbol conflict
+- **GIVEN** two source sheets embed different bodies under one library id
+- **WHEN** the project is imported
+- **THEN** the import refuses with the conflicting id and source sheet named, before any file is staged
+
+### Requirement: Import record marks a copy
+`PROVENANCE.json` written by the import SHALL hold `"copy": true`. `fenolite.importer.provenance.copy_mode(data)` SHALL return whether a provenance value marks a copy: an import record (`schema` `fenolite.import-provenance.v0`), or a record whose member `import` is one, whose `copy` is not `false`. A record without the member counts as a copy.
+
+#### Scenario: Written and read
+- **WHEN** `uv run pytest tests/unit/importer/test_copy_mode.py` imports the authored two-sheet project
+- **THEN** the planned `PROVENANCE.json` holds `copy` `true`, `copy_mode` of it is true, of a library record holding it as `import` true, of a record with `copy` `false` false, and of a provenance file without an import record false
+
+### Requirement: Pads on no net in the vendored symbols
+The symbol drawn for a vendored footprint SHALL have no pin for a pad number that is on no net in every instance of that footprint in the source, so the build leaves those pads on no net; a number on a net in any instance keeps its pin.
+
+#### Scenario: Shield pads stay on no net
+- **GIVEN** an authored board whose connector has two pads `0` on no net beside numbered pads on nets
+- **WHEN** `uv run pytest tests/unit/importer/test_no_net_pads.py` imports it and builds the emitted code with its schematic
+- **THEN** the symbol has no pin `0`, both pads `0` of the built board are on no net, and level 2 against the source reports no difference
+
+### Requirement: Outline width and layer table reported
+The import SHALL report `outline-width` for root `Edge.Cuts` strokes it cannot represent, and `layer-table` when the source's non-copper layer names differ from the created table. A uniform nonnegative width MUST be preserved through `outline_width=` (c0317); mixed or negative widths MUST remain reported. Strict import MUST refuse any remaining unexpressed content.
+
+#### Scenario: Mixed outline widths and short layer table
+- **GIVEN** an authored board whose outline uses two stroke widths and whose layer table has no `Eco1.User` and `Eco2.User`
+- **WHEN** `uv run pytest tests/unit/importer/test_unexpressed_c0281.py` imports it with `--allow-lossy --dry-run`
+- **THEN** `result.unexpressed` holds `outline-width` with the count of outline items and `layer-table` naming the missing layers, and without `--allow-lossy` the exit code is 7
+
+### Requirement: Uniform outline strokes in an import
+The import SHALL preserve a uniform nonnegative root `Edge.Cuts` width through `outline_width=` when it differs from the default. Mixed or negative root widths MUST remain `outline-width` findings and refuse strict import. `layer-table` MUST still report source non-copper names differing from the created table. Other unexpressed content MUST remain refused.
+
+#### Scenario: Wide outline and short layer table
+- **GIVEN** an authored board with one nondefault outline width and no `Eco1.User` or `Eco2.User`
+- **WHEN** it is imported
+- **THEN** the width is emitted, only the missing layers are reported, and strict import refuses them
+
+#### Scenario: Mixed stroke widths
+- **GIVEN** an authored board whose root edges use two widths
+- **WHEN** it is imported without lossy permission
+- **THEN** it exits 7 with located `outline-width` findings and writes nothing
+
+### Requirement: Import supported technical layer tables exactly
+Strict import SHALL emit technical_layers only when a supported source table differs from the default. Rebuilding the reviewed script MUST preserve the source technical names exactly. Unknown names, missing Edge.Cuts and unrelated unsupported content MUST remain explicit refusals; layer equivalence and acceptance policies MUST remain unchanged.
+
+#### Scenario: Source omits both Eco rows
+- **GIVEN** an authored source board omitting unused Eco1.User and Eco2.User
+- **WHEN** strict import-copy and an explicit build run
+- **THEN** no layer-table loss is reported and the rebuilt technical rows equal the source
+
+#### Scenario: Other unsupported source content
+- **WHEN** a source combines a supported short table with mixed outline widths or unknown layers
+- **THEN** only concretely represented rows leave the ledger and unsupported content still refuses import
+
+### Requirement: Strict imported drawn effects
+Import SHALL preserve supported drawn effects through the actual written-byte self-check and reviewed replay. Unrepresentable effects MUST refuse before staging. Original source bytes, existing loss policy and accepted-difference records MUST remain unchanged by the font repair.
+
+#### Scenario: Reviewed font conversion
+- **GIVEN** an original authored project with styled fields and routed copper
+- **WHEN** strict import, reviewed confirmation and verify-source run
+- **THEN** all nine levels are equal with zero accepted differences and unchanged source bytes
+
+#### Scenario: Unsupported font has no plan
+- **WHEN** a source typed item has an unsupported native effect
+- **THEN** strict import refuses before offering a write plan
+

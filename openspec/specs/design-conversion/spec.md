@@ -276,3 +276,32 @@ After writing, a conversion SHALL compare the edge rings of the source and of th
 - **WHEN** `uv run pytest tests/unit/convert/test_convert_slots.py -k verify` runs it
 - **THEN** the verification names that ring and the exit code is 5
 
+### Requirement: Bottom-side angles in a derived footprint
+A footprint derived from a bottom-side instance SHALL turn each stored angle of its pads, properties and texts back to `(θ − stored) mod 360°`, the inverse of the bottom placement `(−φ + θ) mod 360°`, so that placing the derived footprint where the instance was gives the instance's angles back.
+
+#### Scenario: Reference at 270° on the bottom
+- **GIVEN** the authored two-layer board with `R1` replaced by a footprint whose Reference and pad 1 stand at 90°, placed on the bottom side at 0°, 90° and 180° (at 0° the board stores the Reference at 270°)
+- **WHEN** `uv run pytest tests/unit/library/test_derive.py -k bottom` derives the library from each board
+- **THEN** the derived footprint holds the Reference and pad 1 at 90° again, as it was before placement
+
+### Requirement: Bounded variant signature work
+Board library derivation SHALL serialize each instance's normalized comparison signature at most once. It MUST preserve footprint variants, names, ordering, native text, issues, nickname filtering and preparation callbacks. This changes no public argument, format or evidence level.
+
+#### Scenario: Many variants and one repeated instance
+- **GIVEN** an authored board with twelve differing instances of one footprint and one repeated instance
+- **WHEN** library derivation runs for each supported target
+- **THEN** it retains the same twelve variants and reference memberships, with no more signature serializations than source instances
+
+#### Scenario: Existing native outputs remain unchanged
+- **WHEN** existing derivation and importer vendor regressions run
+- **THEN** their native bytes, diagnostics and nickname mappings remain equal to their existing expectations
+
+### Requirement: Derived footprints preserve safe interior spaces
+Altium-to-KiCad conversion SHALL preserve interior ASCII spaces in a portable derived footprint name. The board link, component link, library filename and footprint header MUST agree. Project/symbol sanitization, reserved-name and path guards, and case-insensitive collision allocation SHALL remain unchanged. Name comparison MUST detect a real rename.
+
+#### Scenario: Space and underscore are distinct names
+- **GIVEN** authored footprints named `M Mount` and `M_Mount`
+- **WHEN** their derived KiCad project is written and read
+- **THEN** both names retain distinct matching board links and library files
+- **AND** a deliberate rename still produces a footprint-name difference
+

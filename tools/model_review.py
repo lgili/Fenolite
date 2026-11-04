@@ -28,7 +28,7 @@ from pathlib import Path
 from typing import Any, cast
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT = ROOT / "openspec/changes/c0218-model-schema-1-0/review.json"
+DEFAULT = ROOT / "openspec/changes/archive/2026-11-04-c0218-model-schema-1-0/review.json"
 
 
 def _plain(value: Any) -> Any:
