@@ -285,8 +285,8 @@ fix = "Nothing."
 see = "Altium import"
 
 ["altium.import.copper-shape"]
-meaning = "Count of fills and regions on copper, imported as graphics with their net in the bag."
-fix = "Nothing to do; the shapes are graphics with their net in the bag."
+meaning = "Count of fills and regions on copper, imported as copper graphics of their net (net_id): the copper check judges them on that net and a KiCad conversion writes them on it."
+fix = "Nothing to do; the shapes are copper graphics of their net, not zones."
 see = "Altium import"
 
 ["altium.import.document-skipped"]

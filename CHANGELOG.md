@@ -102,6 +102,10 @@ All notable changes to Fenolite are documented here. The format follows
   The roadmap reconciles the original phases 0–4; no router runtime behavior changes here.
 
 - Archive c0170-convert-slots-obstacles: slots and cut-outs in conversions, slotted drills to Altium, generated hole footprints and slot obstacles, with `H-K-CONV-SLOTS` proved in CI (task 3.3).
+- **Altium copper shapes** (c0376): free fills and regions on an Altium copper layer are copper graphics of
+  their net (`Graphic.net_id`) instead of keeping the net only in the extension bag, so `convert --to kicad`
+  writes them on their net instead of as copper of no net.
+
 - **Import copper coverage** (c0375): `import --to python` writes tracks and arcs on no net as track and
   arc tables without `net=` (the DSL tables now take no net), an arc whose three points lie on one line as
   the straight track it draws (reported once as the new info `import.arc-as-track`), and repeated or padded

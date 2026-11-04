@@ -1130,7 +1130,7 @@ after the readers' own issues and before the `model.*` findings. An error issue 
 | `altium.import.inexact` | info | counts of lengths and angles that were rounded; the originals are in the entities' `altium` bags |
 | `altium.import.multi-class` | info | count of nets in more than one net class; the first class by name is kept |
 | `altium.import.zone-arc` | info | count of zones whose outline holds an arc vertex; their model outline is empty |
-| `altium.import.copper-shape` | info | count of fills and regions on copper, imported as graphics with their net in the bag |
+| `altium.import.copper-shape` | info | count of fills and regions on copper, imported as copper graphics of their net (`net_id`; change c0376) |
 | `altium.import.scope` | info | the net identifier scope that was used |
 | `altium.import.option-ignored` | info | a project option that the import does not apply (`AppendSheetNumberToLocalNets`) |
 | `altium.import.pin-map` | info | count of pin map records that name no pad, or a pad another pin holds: such a pad is left off the pin and the record is kept in the component's bag; a record of several pads is applied and not counted |

@@ -69,7 +69,8 @@ class ProjectInput:
 
 
 def _retarget(board: Board, components: dict[str, str], nets: dict[str, str]) -> Board:
-    """``board`` with the component ids of its footprints and every net id replaced by the maps."""
+    """``board`` with the component ids of its footprints and every net id replaced by the maps: of pads,
+    tracks, arcs, vias, zones and copper graphics (a free fill or region on copper, change c0376)."""
 
     def net(value: str | None) -> str | None:
         return None if value is None else nets.get(value, value)
@@ -77,11 +78,13 @@ def _retarget(board: Board, components: dict[str, str], nets: dict[str, str]) ->
     footprints: list[FootprintInstance] = []
     for footprint in board.footprints:
         pads = tuple(dataclasses.replace(pad, net_id=net(pad.net_id)) for pad in footprint.pads)
+        graphics = tuple(dataclasses.replace(g, net_id=net(g.net_id)) for g in footprint.graphics)
         footprints.append(
             dataclasses.replace(
                 footprint,
                 component_id=components.get(footprint.component_id, footprint.component_id),
                 pads=pads,
+                graphics=graphics,
             )
         )
     return dataclasses.replace(
@@ -91,6 +94,7 @@ def _retarget(board: Board, components: dict[str, str], nets: dict[str, str]) ->
         arcs=tuple(dataclasses.replace(item, net_id=net(item.net_id)) for item in board.arcs),
         vias=tuple(dataclasses.replace(item, net_id=net(item.net_id)) for item in board.vias),
         zones=tuple(dataclasses.replace(item, net_id=net(item.net_id)) for item in board.zones),
+        graphics=tuple(dataclasses.replace(item, net_id=net(item.net_id)) for item in board.graphics),
     )
 
 

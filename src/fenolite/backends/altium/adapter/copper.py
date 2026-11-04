@@ -116,6 +116,7 @@ def _graphic(
     locator: str,
     pairs: list[tuple[str, str]],
     section: str = "gfx",
+    net_id: str | None = None,
 ) -> Graphic:
     ident = ctx.ids.content(
         "gfx", section, kind, layer, [_xy(p) for p in points], width, filled, sorted(pairs)
@@ -129,6 +130,7 @@ def _graphic(
         points=tuple(points),
         width=width,
         filled=filled,
+        net_id=net_id,
     )
 
 
@@ -904,8 +906,9 @@ def is_board_cutout(item: RegionRecord) -> bool:
 def shapes(
     doc: PcbDocument, ctx: Context, fill_regions: set[int], owned: Collection[int] = ()
 ) -> list[Graphic]:
-    """The free fills and regions as filled graphics; one on a copper layer carries its net name in the
-    pair ``net`` and is counted by ``altium.import.copper-shape``. ``fill_regions`` are the polygon indexes
+    """The free fills and regions as filled graphics; one on a copper layer is copper of its net
+    (``net_id``, change c0376; the name also in the pair ``net``) and is counted by
+    ``altium.import.copper-shape``. ``fill_regions`` are the polygon indexes
     that became zones: their regions are fills, not graphics. The holes of a region that is a graphic are
     not in the model and are counted as ``region-holes``. A free fill or region on an internal plane is no
     shape of copper: it gives nothing."""
@@ -926,10 +929,16 @@ def shapes(
         kind, points = _fill_points(item, exact)
         layer = ctx.layers.name(item.prefix.layer)
         pairs = exact.pairs()
+        net_id: str | None = None
         if ctx.layers.is_copper(item.prefix.layer):
             pairs += _net_pair(ctx, item.prefix.net)
+            net_id = ctx.net(item.prefix.net)  # the copper of its net (change c0376)
             copper_shapes += 1
-        found.append(_graphic(ctx, kind, layer, points, width=0, filled=True, locator=locator, pairs=pairs))
+        found.append(
+            _graphic(
+                ctx, kind, layer, points, width=0, filled=True, locator=locator, pairs=pairs, net_id=net_id
+            )
+        )
         ctx.census.map("fills")
     for index, item in enumerate(doc.regions):
         locator = f"Regions6/Data#{index}"
@@ -966,11 +975,23 @@ def shapes(
             continue
         layer = ctx.layers.name(item.prefix.layer)
         pairs: list[tuple[str, str]] = []
+        region_net: str | None = None
         if ctx.layers.is_copper(item.prefix.layer):
             pairs += _net_pair(ctx, item.prefix.net)
+            region_net = ctx.net(item.prefix.net)  # the copper of its net (change c0376)
             copper_shapes += 1
         found.append(
-            _graphic(ctx, "polygon", layer, points, width=0, filled=True, locator=locator, pairs=pairs)
+            _graphic(
+                ctx,
+                "polygon",
+                layer,
+                points,
+                width=0,
+                filled=True,
+                locator=locator,
+                pairs=pairs,
+                net_id=region_net,
+            )  # fmt: skip
         )
         ctx.census.map("regions")
     ctx.census.skip("shape_regions", "shape-based-regions", len(doc.shape_regions))
@@ -978,8 +999,8 @@ def shapes(
         ctx.issues.append(
             issue(
                 "altium.import.copper-shape",
-                f"{copper_shapes} fill(s) and region(s) on copper are graphics with their net in the bag; "
-                "the model has no copper shape with a net",
+                f"{copper_shapes} fill(s) and region(s) on copper are copper graphics of their net (the net "
+                "also in the bag), not zones",
                 "Fills6/Data",
             )
         )

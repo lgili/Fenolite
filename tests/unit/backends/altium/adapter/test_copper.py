@@ -561,3 +561,19 @@ def test_free_text() -> None:
     (found,) = board.texts
     assert (found.text, found.position, found.layer) == ("REV A", Point(2_540_000, -1_270_000), "F.SilkS")
     assert (found.size, found.thickness, found.rotation) == (Size(1_524_000, 1_524_000), 152_400, 90_000_000)
+
+
+def test_copper_shapes_are_copper_of_their_net() -> None:
+    """change c0376: a fill or region on copper is a graphic of its net (``net_id``), so a conversion
+    writes it on that net and the copper check judges it there; off copper a shape has no net."""
+    square = ((0, 0), (9 * MIL, 9 * MIL))
+    board = board_of(
+        nets=["GND"],
+        regions=[rec.region([(0, 0), (100 * MIL, 0), (0, 100 * MIL)], layer=1, net=0)],
+        fills=[rec.fill(*square, layer=1, net=0), rec.fill(*square, layer=33)],
+    )
+    shapes = [g for g in board.graphics if g.layer != "Edge.Cuts"]
+    on_copper = [g for g in shapes if g.layer == "F.Cu"]
+    assert len(on_copper) == 2 and len({g.net_id for g in on_copper}) == 1
+    assert on_copper[0].net_id is not None
+    assert all(g.net_id is None for g in shapes if g.layer != "F.Cu")

@@ -147,3 +147,70 @@ def test_arc_zones_of_a_board_in_a_subfolder_keep_their_outline(tmp_path: Path) 
         for path in (project, document)
     ]
     assert [(row.source, row.lost, row.changed) for row in rows] == [(12, 0, 2)] * 2
+
+
+def test_a_copper_shape_keeps_its_net_in_kicad() -> None:
+    """change c0376: an Altium region on copper (here added to the blink, on the net of a pad) is written
+    to KiCad on its net, not as copper of no net."""
+    from fenolite.backends.kicad.sexpr import parse
+    from fenolite.core.coords import Point
+    from fenolite.model.base import ExtBag
+    from fenolite.model.board import Graphic
+
+    source = read_source(BLINK)
+    board = source.design.board
+    assert board is not None
+    net = source.design.circuit.nets[0]
+    region = Graphic(
+        id="gfx-c0376",
+        ext={"altium": ExtBag(payload=(("net", net.name),))},
+        kind="polygon",
+        layer="F.Cu",
+        points=(Point(0, 0), Point(1_000_000, 0), Point(0, 1_000_000)),
+        filled=True,
+        net_id=net.id,
+    )
+    design = dataclasses.replace(
+        source.design, board=dataclasses.replace(board, graphics=(*board.graphics, region))
+    )
+    conversion = convert_project(dataclasses.replace(source, design=design), to="kicad", allow_lossy=True)
+    root = parse(conversion.files[conversion.read_back].decode("utf-8"))
+    polygons = [node for node in root.nodes() if node.name == "gr_poly"]
+    named = [p for p in polygons if (found := p.find("net")) is not None and found.atoms()]
+    assert [p.find("net").atoms()[0].value for p in named] == [net.name]  # type: ignore[union-attr]
+    assert not verify_conversion(conversion).unexplained
+
+
+def test_a_copper_shape_of_a_project_takes_the_sheet_net(monkeypatch: pytest.MonkeyPatch) -> None:
+    """change c0376: in a project the board's nets are joined to the nets of the sheets, and a copper region
+    read on a net (here added to the blink's PCB document, on the net of its first pad) takes the sheet
+    net's id as the pads and tracks do; the conversion writes it on that net (it failed with a ``KeyError``
+    on a net id that the joined circuit does not hold)."""
+    import _altium_records as rec
+
+    import fenolite.backends.altium.read.pcb as pcb_reader
+    from fenolite.backends.kicad.sexpr import parse
+
+    original = pcb_reader.read_pcbdoc
+
+    def with_region(data: bytes, **kwargs: object) -> object:
+        document = original(data, **kwargs)  # type: ignore[arg-type]
+        pad = document.pads[0]
+        half = 50 * rec.MIL
+        square = [(pad.x - half, pad.y - half), (pad.x + half, pad.y - half), (pad.x + half, pad.y + half)]
+        region = rec.region(square, layer=1, net=pad.prefix.net)
+        return dataclasses.replace(document, regions=(*document.regions, region))
+
+    monkeypatch.setattr(pcb_reader, "read_pcbdoc", with_region)
+    source = read_source(BLINK)
+    net_ids = {net.id for net in source.design.circuit.nets}
+    board = source.design.board
+    assert board is not None
+    shaped = [g for g in board.graphics if g.net_id is not None]
+    assert shaped and all(g.net_id in net_ids for g in shaped)
+    conversion = convert_project(source, to="kicad", allow_lossy=True)
+    root = parse(conversion.files[conversion.read_back].decode("utf-8"))
+    polygons = [node for node in root.nodes() if node.name == "gr_poly"]
+    named = [p.find("net").atoms()[0].value for p in polygons if p.find("net") is not None]  # type: ignore[union-attr]
+    pad_net = next(net.name for net in source.design.circuit.nets if net.id == shaped[0].net_id)
+    assert named == [pad_net]
