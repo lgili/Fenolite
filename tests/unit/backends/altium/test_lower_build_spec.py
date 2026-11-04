@@ -36,6 +36,9 @@ from _altium_built import EXAMPLES, build_altium_example
 import fenolite.lens.altium as lens_altium
 from fenolite.backends.altium import pcbdoc, pcblib
 from fenolite.backends.altium import pcbrecords as rec
+from fenolite.backends.altium.read.pcb import read_pcbdoc
+from fenolite.backends.altium.read.pcbprims import RegionRecord
+from fenolite.core.coords import Point
 
 SCRIPTS = tuple(sorted(p for p in EXAMPLES.rglob("*.py") if not p.name.startswith("test_")))
 SHEET_MODES = ("flat", "modules")
@@ -116,6 +119,43 @@ def written_view(spec: pcbdoc.PcbDocSpec) -> dict[str, object]:
     return view
 
 
+def _assert_mechanical_regions(spec: pcbdoc.PcbDocSpec, components: object) -> None:
+    """Only the authored Part S board: complete source-bound physical geometry, no electronics."""
+    assert isinstance(components, list) and components == [] and spec.components == ()
+    assert sorted(
+        (h.position.x, h.position.y, h.drill, h.length, h.rotation, h.plated) for h in spec.holes
+    ) == [
+        (127_000_000, 133_000_000, 2_000_000, 12_000_000, 30_000_000, False),
+        (138_000_000, 127_000_000, 2_000_000, 10_000_000, 0, False),
+        (143_000_000, 132_000_000, 2_000_000, 10_000_000, 90_000_000, False),
+        (152_000_000, 132_000_000, 3_200_000, None, 0, False),
+    ]
+    # The DSL declares this authored board at its existing default origin (100mm,100mm).
+    assert spec.outline == (
+        Point(100_000_000, 100_000_000),
+        Point(160_000_000, 100_000_000),
+        Point(160_000_000, 140_000_000),
+        Point(100_000_000, 140_000_000),
+    )
+    # This is the already pinned Fenolite-authored writer input, never a native-saved file.
+    source = (EXAMPLES / "kit/slots/regions/slots.PcbDoc").read_bytes()
+    assert (
+        hashlib.sha256(source).hexdigest()
+        == "be65d4b9884e1949abd162f64033f54b92167bf1cea5af535031d691467910f0"
+    )
+    expected = []
+    for region in read_pcbdoc(source).regions:
+        assert isinstance(region, RegionRecord)
+        if dict(region.properties.fields).get("ISBOARDCUTOUT") == "TRUE":
+            expected.append(tuple((v.x, v.y) for v in region.outline))
+    frame = spec.frame or pcbdoc.Frame.of(spec.outline)
+    actual = [
+        tuple((rec.to_units(frame(p).x), rec.to_units(frame(p).y)) for p in ring) for ring in spec.cutouts
+    ]
+    # All vertices, their literal sequence and multiplicities remain exact; no ring normalization/tolerance.
+    assert len(actual) == len(expected) == 3 and sorted(actual) == sorted(expected)
+
+
 def built_document(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, script: Path, sheets: str
 ) -> tuple[Path | None, pcbdoc.PcbDocSpec | None, str]:
@@ -167,7 +207,10 @@ def test_the_lowering_writes_the_former_documents(
             assert hashlib.sha256(data).hexdigest() == expected, name
         assert pcbdoc.write_pcbdoc(spec, filename=document.name) == data, name
         components = written_view(spec)["components"]
-        assert isinstance(components, list) and len(components) == len(spec.components) > 0, name
+        if name == "kit/slots/design.py":
+            _assert_mechanical_regions(spec, components)
+        else:
+            assert isinstance(components, list) and len(components) == len(spec.components) > 0, name
         for placed, item in zip(spec.components, components, strict=True):
             assert item["refusal"] is None and len(item["pads"]) == len(placed.footprint.defn.pads), name
         compared += 1
@@ -177,3 +220,65 @@ def test_the_lowering_writes_the_former_documents(
         for line in lines:
             print("  " + line)
     assert compared, "no example build wrote a PCB document"
+
+
+@pytest.fixture
+def mechanical_spec(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> pcbdoc.PcbDocSpec:
+    document, spec, note = built_document(monkeypatch, tmp_path, EXAMPLES / "kit/slots/design.py", "flat")
+    assert document is not None and spec is not None, note
+    _assert_mechanical_regions(spec, written_view(spec)["components"])
+    return spec
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        "missing-hole",
+        "extra-hole",
+        "hole-position",
+        "hole-drill",
+        "slot-length",
+        "slot-rotation",
+        "plated",
+        "missing-cutout",
+        "extra-cutout",
+        "vertex",
+        "vertex-order",
+        "outline",
+        "components",
+    ],
+)
+def test_mechanical_regions_rejects_changed_geometry(mechanical_spec: pcbdoc.PcbDocSpec, change: str) -> None:
+    spec = mechanical_spec
+    if change == "missing-hole":
+        spec = dataclasses.replace(spec, holes=spec.holes[1:])
+    elif change == "extra-hole":
+        spec = dataclasses.replace(spec, holes=(*spec.holes, spec.holes[0]))
+    elif change in {"hole-position", "hole-drill", "slot-length", "slot-rotation", "plated"}:
+        index = next(i for i, h in enumerate(spec.holes) if h.length is not None)
+        h = spec.holes[index]
+        changes = {
+            "hole-position": {"position": Point(h.position.x + 1, h.position.y)},
+            "hole-drill": {"drill": h.drill + 1},
+            "slot-length": {"length": (h.length or 0) + 1},
+            "slot-rotation": {"rotation": h.rotation + 1},
+            "plated": {"plated": True},
+        }
+        holes = list(spec.holes)
+        holes[index] = dataclasses.replace(h, **changes[change])
+        spec = dataclasses.replace(spec, holes=tuple(holes))
+    elif change == "missing-cutout":
+        spec = dataclasses.replace(spec, cutouts=spec.cutouts[1:])
+    elif change == "extra-cutout":
+        spec = dataclasses.replace(spec, cutouts=(*spec.cutouts, spec.cutouts[0]))
+    elif change == "vertex":
+        ring = spec.cutouts[0]
+        spec = dataclasses.replace(
+            spec, cutouts=((Point(ring[0].x + 1000, ring[0].y), *ring[1:]), *spec.cutouts[1:])
+        )
+    elif change == "vertex-order":
+        spec = dataclasses.replace(spec, cutouts=(tuple(reversed(spec.cutouts[0])), *spec.cutouts[1:]))
+    elif change == "outline":
+        spec = dataclasses.replace(spec, outline=(Point(-1, 0), *spec.outline[1:]))
+    with pytest.raises(AssertionError):
+        _assert_mechanical_regions(spec, [{"not-an-empty-board": True}] if change == "components" else [])

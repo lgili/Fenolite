@@ -845,3 +845,29 @@ PCB remains hash-identical and all50original prepared files match. No layer
 edit or PCB Save was requested. This succeeds independently of the preserved
 FirstLayer script failure. Full physical kit, detailed rule coverage, remaining
 native acceptance, per-kind graduation and exact-source CI remain open.
+
+
+## Viewer request completion and blocked rendering —2026-11-03
+
+Task c0166.3.6's separate-request/report obligation is complete from the dated
+2026-10-13 attempt above. Its three rendering outcomes are **BLOCKED**, never
+passed: V2's authored binary-project ZIP, N4's authored binary No ERC SchDoc,
+and C5's authored routed PcbDoc each stayed at Processing the Design throughout
+five minutes. The separate native-Altium-saved flat SchDoc control stayed there
+for two minutes, not five. The official Viewer was reached; the cause of its
+processing stall remains unknown. No writer defect, access denial or current
+Viewer outage is inferred.
+
+The application names no Viewer build; A365 Viewer is the native tool name,
+with Edge155.0.4283.45 identified separately as the browser. The retained report
+names the source cases and says input hashes/screenshots/logs were retained in
+ignored storage. This documentation reconciliation does not reconstruct an
+unavailable raw-upload digest from today's fixture, repeat an upload or claim
+that the old payload bytes were rehashed now.
+
+Successful rendering is still needed for the corresponding H-A-SCHBIN-VIEWER,
+H-A-SCH-NC-VIEWER and H-A-PCB-CU-VIEWER pending criteria. Their INFERRED levels
+and prior historical observations remain. Completing the request/report task
+makes no native step pass, formal kit record, writer graduation, CI approval or
+whole c0166 completion. The portable task receipt is
+openspec/changes/c0166-altium-native-acceptance/viewer-attempt-reconciliation-proof.json.

@@ -188,3 +188,31 @@ def test_s7_refuses_an_unreadable_saved_document(tmp_path: Path) -> None:
     own, saved = _files(tmp_path, _spec())
     saved.write_bytes(b"not a compound PCB document")
     assert _module().slots_readback_problems(own, saved)
+
+
+def test_recipe_executes_original_regions_design_without_writes_or_gate_changes() -> None:
+    import ast
+
+    from fenolite.backends.altium import pcbdoc
+    from fenolite.cli._script import run_design_script
+    from fenolite.dsl import to_model
+    from fenolite.model import canonical
+
+    folder = ROOT / "examples/kit/slots"
+    before = {p.relative_to(folder).as_posix(): p.read_bytes() for p in folder.rglob("*") if p.is_file()}
+    gate = pcbdoc.CUTOUT_REGIONS
+    script = folder / "design.py"
+    # The example must stand alone through Fenolite helpers, with no test imports or runner.
+    imports = [
+        n for n in ast.walk(ast.parse(script.read_text(encoding="utf-8"))) if isinstance(n, ast.ImportFrom)
+    ]
+    assert imports and all(n.module == "fenolite.dsl" for n in imports)
+    assert not any(isinstance(n, ast.Import) for n in ast.walk(ast.parse(script.read_text(encoding="utf-8"))))
+    actual = to_model(run_design_script(script).design)
+    original = to_model(run_design_script(ROOT / "tests/data/slots/altium.py").design)
+    assert canonical.dump_texts(actual) == canonical.dump_texts(original)
+    assert pcbdoc.CUTOUT_REGIONS is gate
+    assert before == {
+        p.relative_to(folder).as_posix(): p.read_bytes() for p in folder.rglob("*") if p.is_file()
+    }
+    assert _module().part_s_sample(folder).files["recipe.py"] == script.read_bytes()

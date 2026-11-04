@@ -16,7 +16,7 @@ from fenolite.verify.kit.manifest import SampleFiles
 EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-A-SLOT-KIT",))
 MAX_ASSET = 4 * 1024 * 1024
 _ASSETS = {
-    "PROVENANCE.md": "c0245f0918c7294df71a78aa565bd91dbea3fbfedb9822c866f9a117f9eee43b",
+    "PROVENANCE.md": "b2f63ce2b8926e40088ed27a9e2230ad740630f71883201aae82ce85d2dedc4a",
     "clearance/slots.PcbDoc": "822d31cf5ee269e44b573db595388c0532008523ff4d0d93d103c7a528a8ec3e",
     "clearance/slots.PcbLib": "0cb1c97ecb3821808275b54ecd986cedf21acdb0ed4f4f6ee4546201f61eeb11",
     "clearance/slots.PrjPcb": "c1e0bb980352ed7bd7d01a1a584106883f7dc0f42db05dfbf3b49f7d59c320c1",

@@ -107,10 +107,10 @@
     },
     {
       "criterion": "3.6 ViewerV2/N4/C5",
-      "status": "actual attempted blocked outcome",
-      "measured": "All3authored uploads plus native-saved control remainedprocessing after5min; dated report retained. No rendered acceptance.",
+      "status": "request/report work complete; rendering BLOCKED, not passed",
+      "measured": "Three authored uploads each remained Processing the Design after five minutes on2026-10-13; separate native-saved control after two minutes. No rendered acceptance.",
       "proof": "docs/evidence/altium-native-acceptance.md",
-      "remaining_or_reconciliation": "This is an existing external Viewer blockage, not an unexecuted Altium24native test. No new upload or rendered pass claimed."
+      "remaining_or_reconciliation": "Task3.6 execution/report obligation satisfied by the actual dated requests. The three Viewer rendering criteria and INFERRED hypotheses remain pending; no new upload, access-denial cause, writer defect or rendered pass claimed."
     },
     {
       "criterion": "3.1\u20133.6 aggregates",
@@ -129,5 +129,14 @@
     "openspec/changes/c0166-altium-native-acceptance/tasks.md": "8abfe32ec0f05cbfec63b543a6e5a6d923b05a122b053a97ce9925fa726dd497"
   },
   "unchecked_tasks_changed": false,
-  "criteria_source_base_commit": "b1e9349a1de97a2597eae3eb788c3308fb745983"
+  "criteria_source_base_commit": "b1e9349a1de97a2597eae3eb788c3308fb745983",
+  "viewer_request_followup": {
+    "task": "3.6a",
+    "rendering_outcome": "BLOCKED",
+    "rendered_acceptance": false,
+    "new_native_uploads": 0,
+    "recording_date": "2026-11-03",
+    "observed_date": "2026-10-13",
+    "prior_audit_json_sha256": "6c8cd894121afcc16dcc49b0a4b8c409f170e696457ce35835a3dcfa1503930d"
+  }
 }

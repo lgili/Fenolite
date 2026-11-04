@@ -310,3 +310,5 @@ record, and an author report is never recorded as a kit run.
 - No JSON Schema file is generated for `kit.json` and for the run record: `schemas/` is generated from
   dataclasses, and both documents are built as plain mappings. `record.record_problems` and
   `results.form_problems` check their form.
+
+The slots/design.py example is an executable Fenolite DSL regions design. Its evaluation only declares that model; the kit producer reads the pinned historical eleven CAD inputs and does not execute this recipe or regenerate those files. The recipe and provenance remain part of the source fingerprint.

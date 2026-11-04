@@ -885,6 +885,12 @@ All notable changes to Fenolite are documented here. The format follows
 
 ### Changed
 
+- Keep the all-example Altium lowering corpus strict for populated boards while checking the new mechanical Part S example against all four holes and every vertex of its three pinned authored cut-outs (c0168).
+
+- Reconcile the completed V2/N4/C5 Viewer requests with their dated blocked processing outcomes; retain pending rendering hypotheses and distinguish the two-minute native-saved control (c0166).
+
+- Make the Part S regions recipe an executable authored DSL Design, preserving the migration example corpus and all eleven pinned CAD inputs (c0168).
+
 - **The viewer page is built from TypeScript modules** (c0304; the maintainer's decision of 2026-10-29, before
   the redesign of c0300 and c0301): the old single `src/fenolite/view/page.html` (188 KB of inline CSS, markup
   and vanilla JavaScript) is now about fifty modules under `viewer/src/` (`core`, `board`, `measure`, `three`,

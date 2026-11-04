@@ -160,7 +160,10 @@
   - Remote c0151 artefacts from 4958647d are available and were tested in an isolated runtime copy. Native result remains three errors/six missing-footprint warnings; channel outputs do not join OUT1/OUT2. No integration or passing R5 claim. Other naming/ECO/annotation criteria remain open.
 - [ ] 3.4 Execute remaining OutJob, template/custom-border, hierarchy-mode and rule-export requests. Proof: the report and focused documentation/provenance tests.
 - [ ] 3.5 Execute optional planted DRC and both clearance-matrix requests. Proof: the report names actual counts and selected rules, with focused regression tests for any repair.
-- [ ] 3.6 Execute separate Viewer V2/N4/C5 requests if the app is available; record an access blocker otherwise. Proof: dated actual Viewer outcomes.
+- [x] 3.6a Reconcile the already dated actual V2/N4/C5 Viewer attempts with3.6: record each request as executed with BLOCKED rendering outcome, preserving the five-minute observations and separate two-minute native-saved control. Complete only the request/report obligation, not Viewer acceptance or any hypothesis; preserve the unknown cause, source scope and historical failures. Update the inventory and pending hypothesis outcome text without changing levels, golden files, source hashes or closing other native/CI tasks. Proof: existing native documentation, hypothesis and provenance tests, strict OpenSpec, portable source/report bindings and PrivateGateON. No new native/browser/CI/full/fast execution or new test.
+
+- [x] 3.6 Execute separate Viewer V2/N4/C5 requests if the app is available; record an access blocker otherwise. Proof: dated actual Viewer outcomes.
+  - Request/report work complete, rendering BLOCKED (not passed): the actual2026-10-13 uploads each remained Processing the Design for five minutes; the independent native-saved SchDoc control for two minutes. App reached, stall cause unknown. The dated report in docs/evidence/altium-native-acceptance.md satisfies the execution/report obligation only; successful-render criteria and the three INFERRED Viewer hypotheses stay pending. No new upload, native operation, CI, writer defect or acceptance waiver. Reconciliation proof: viewer-attempt-reconciliation-proof.json;67 existing documentation/hypothesis/provenance tests passed.
 
 ## 4. Closing
 

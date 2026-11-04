@@ -58,3 +58,7 @@ Do not combine different versions/input digests into one fictional kit run.
 All existing acceptance criteria, facts-before-code rules and final CI remain.
 The kit form keeps its existing AD major.minor dialect: use AD 24.5; keep full
 build 24.5.2.23 in the separate native observation report, not a new form key.
+
+## Viewer request/report reconciliation — task3.6a
+
+Task3.6 asks for separate requests and dated actual outcomes, with a blocked alternative; it does not require a successful render to record an attempted request. The app was reachable and all three requests were actually uploaded on2026-10-13. Their BLOCKED processing outcomes satisfy only the execution/report work. A task checkbox for that obligation must not mean that the blocked Viewer steps passed. Render acceptance and all three related INFERRED hypotheses remain pending; the cause stays unknown, with no claim of an application defect, access denial or writer defect. The native-saved control observation was two minutes, separately from the five-minute authored-input attempts. No new upload, source remeasurement, evidence promotion or acceptance waiver follows.

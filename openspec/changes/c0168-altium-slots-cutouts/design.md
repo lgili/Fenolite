@@ -185,3 +185,11 @@ reader alias, all old values, IDs, fields and unknown-check refusal. This is the
 minimal serialization of the registered check, not a new schema or a looser S7.
 
 The authored clearance PcbLib retains libboard.VIEWPORT byte-for-byte. Its four numeric-code matches receive only an exact-file/pattern residue waiver, matching existing authored PcbLib precedents. Structural, private-token and known-blob checks remain active; controls must reject the same numeric bytes at another path.
+
+## Executable authored recipe repair — task5.1f
+
+The examples migration corpus executes every design.py. A commentary-only catalogue stub violates that existing contract. Replace it with an executable Fenolite-authored DSL Design reproducing the original regions model (the c0167 slot model plus the three c0168 drilled slots), using only current Fenolite DSL helpers. The catalogue producer continues reading its eleven pinned CAD files rather than executing or rebuilding this recipe. Retain all old kit fingerprints, source files, gates and native-result limits; only the recipe/provenance source binding changes. Prove the unchanged migration case and canonical model parity with the original authored recipe, and that evaluation creates no files or global gate changes.
+
+## Mechanical example corpus guard — task5.1g
+
+The original lowering corpus measures populated examples and asserts positive placed-component counts. The new executable regions recipe is a valid authored mechanical board: its four nonplated holes are free pads, not placed electronic components. Keep the recursive corpus and all previous assertions/golden hashes intact. Specialize only kit/slots/design.py to the independently bound complete authored four-hole/three-cut-out geometry, preserving byte parity and requiring zero placed components. Reject missing/extra/changed mechanical geometry with focused authored controls. No runtime, fixture, native proof or catalogue input changes are involved.

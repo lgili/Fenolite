@@ -1,0 +1,83 @@
+{
+  "version": 1,
+  "base": "91f4fb3894ab57dc791cf7a7fd779d5044d8fcba",
+  "scope": "c0166.3.6 execution/report obligation only; actual rendering outcomes remain BLOCKED",
+  "observation_date": "2026-10-13",
+  "reconciliation_date": "2026-11-03",
+  "tool": "A365 Viewer",
+  "tool_version": "not shown by Viewer",
+  "browser": "Edge155.0.4283.45",
+  "request_and_report_work_completed": true,
+  "render_acceptance_passed": false,
+  "outcome": "BLOCKED",
+  "cause": "Unknown: uploads remained Processing the Design throughout the observation window; analytics failures do not establish a document-request failure",
+  "cases": [
+    {
+      "step": "V2",
+      "source_case": "authored binary project ZIP, project plus binary SchDoc",
+      "expected": "binary sample renders as in V1",
+      "observed": "Processing the Design, no rendered result",
+      "observed_minutes": 5
+    },
+    {
+      "step": "N4",
+      "source_case": "authored binary altium_no_connect.SchDoc",
+      "expected": "three No ERC crosses at the marked pins",
+      "observed": "Processing the Design, no rendered result",
+      "observed_minutes": 5
+    },
+    {
+      "step": "C5",
+      "source_case": "authored routed.PcbDoc",
+      "expected": "tracks, vias and four copper layers visible",
+      "observed": "Processing the Design, no rendered result",
+      "observed_minutes": 5
+    }
+  ],
+  "separate_control": {
+    "case": "native-Altium-saved flat SchDoc",
+    "observed": "Processing the Design, no rendered result",
+    "observed_minutes": 2
+  },
+  "raw_upload_sha256_reconstructed": false,
+  "raw_upload_hash_limit": "Dated report states hashes/screenshots/logs retained in ignored storage; this documentary reconciliation does not invent missing raw digests or claim a new byte remeasurement. Source cases remain exactly those attributed by that report.",
+  "historical_report_before_sha256": "8c6a62210f3023b5f29940402f46a46d494bc7d51f466467aabcadd496234b5d",
+  "historical_report_excerpt_sha256": "d39a9c2c40d130d65ef417f4fd3a90add6eb870a81600a7b7035b2208f7c0189",
+  "historical_native_report_body_preserved_byte_exact": true,
+  "all_other_aggregate_checkboxes_unchanged": true,
+  "all_other_reconciliation_rows_unchanged": true,
+  "only_three_hypothesis_outcomes_and_dates_changed": [
+    "H-A-SCH-NC-VIEWER",
+    "H-A-SCHBIN-VIEWER",
+    "H-A-PCB-CU-VIEWER"
+  ],
+  "all_hypothesis_levels_preserved": true,
+  "focused_existing_tests": "67passed in79.35s",
+  "focused_log_sha256": "2c0053e1b4d3c5f1703ff264ac47b42efc89533578f987121a68bcc90b34b83b",
+  "new_tests": 0,
+  "new_native_browser_uploads_full_fast_CI_push": 0,
+  "formal_kit_record_created": false,
+  "writer_graduation_changed": false,
+  "whole_c0166_complete": false,
+  "CI_badge_changed": false,
+  "source_bindings_sha256": {
+    "docs/evidence/altium-native-acceptance.md": "f1e7ebe9cfe24f975b6cf211fd58801c4383a5b4157d7b9dec9fe3259d91046a",
+    "docs/hypotheses.md": "1e29ac5c3051613bc9345ca130ee71dbfaa6c7f2f7f307d3993dfbd54c3489de",
+    "openspec/changes/c0166-altium-native-acceptance/design.md": "33f79f82e976b9712100dd34df6d087d5bb2e35a01813980fa93b1e9d4f9d1f5",
+    "openspec/changes/c0166-altium-native-acceptance/tasks.md": "2d75274cbfe818fac58cff1a3d2a3e951b7949e036dbf79012522a97381f7219",
+    "openspec/changes/c0166-altium-native-acceptance/native-reconciliation.md": "062a833d56936c59406c1be01ffe9621c53c7b927f9090a6fe5fba1db88a2a3a",
+    "openspec/changes/c0166-altium-native-acceptance/native-reconciliation.json": "44f37159aafc5e186be21d076fc82a72841040b160a71a8c48586685ddc28f59"
+  },
+  "final_proofs": {
+    "strict.log": "cfd76c7f1029d9bf66c17829eebb2e3fd585920c2ac766b6c11aae384385372d",
+    "private-final.log": "6022c62f74b6ae08e5bae2bcc102fb2e03a0c2a84cc2fecd55d9e69badcd7619",
+    "source-and-scope-guards.json": "709630a429c833d756f57ab824af3e15bab12d16456162f63e162603f60363ac"
+  },
+  "private_scan": {
+    "gate": "on",
+    "hits": 0,
+    "staged_files": 8,
+    "exit_code": 0
+  },
+  "strict_OpenSpec": "passed"
+}
