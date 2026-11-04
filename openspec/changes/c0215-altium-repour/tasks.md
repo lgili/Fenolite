@@ -39,6 +39,7 @@
   - 2026-10-26: `pour.REASONS`, the dependency closure on a layer, and a Clearance record scoped `InPolygon('<name>')` (or `InPoly`, `IsNamedPolygon`) refuses only pairs with that polygon's copper; `PourSummary.issues` gives `altium.zone-unpoured` and `altium.zones-poured`. Proof passes (`test_pour_refusal.py`: 6, `test_pour_inputs.py`: 2).
 - [x] 3.6 Measure the time of a pour of every public PCB document and write it into `docs/evidence/altium-pour.md`; above 60 s for one document, stop and ask the maintainer. Proof: `uv run pytest tests/corpus/test_altium_pour_census.py -k time -rA`.
   - 2026-10-26: `test_pour_time` reads and pours each public document: the slowest, row `-03`, takes 7.5 s and the heavy row `-08` 5.1 s (36.6 s before the neck removal used one difference), within the 60 s of the task. Proof passes with `FENOLITE_HEAVY=1`.
+  - 2026-11-04: CI 41744987316 measured row `-03` at 90.14 s, above the 60 s of this task. The maintainer authorized one focused local profile: `pour_reading` of row `-03` takes 63.3 s on an Apple M-series Mac (82.2 s under cProfile), and `_certified_neck_cut` (c0332) holds 77.8 s of the 81.8 s profiled, mostly exact `Fraction` arithmetic in `geometry/boolean/_exact_*`. The maintainer chose to publish the batch with this known timing failure and to optimize the exact certification in a separate change; the 60 s limit is unchanged.
 
 ## 4. Written form and read-back
 
