@@ -29,7 +29,7 @@
 
 ## 2. Validate
 
-- [ ] 2.1 Update fidelity documentation and CHANGELOG; run affected tests,
+- [x] 2.1 Update fidelity documentation and CHANGELOG; run affected tests,
   static/types/residue/generation/strict checks and the local fast gate on the
   stable batch. Keep native/manual/exact-head CI gates independent.
 - [x] 2.2 Repeat the actual public sonde full proof on a clean signed source,
@@ -65,3 +65,20 @@ in 3.378 s, all nine levels equal, zero differences/acceptance, and original
 source hashes unchanged. Video/Sonde refreshed library items and portable
 replays are recorded separately in signed local library commit 08b464f.
 Native application and required exact-head CI gates remain independent.
+
+
+Local documentary reconciliation — 2026-11-03: task2.1 is complete only in its
+local scope. The existing clean fast18 on signed ad8cbf2e passed22516 tests,
+52 recorded skips and every static/private-residue stage. Relevant production,
+unit/fidelity and generator paths are byte-identical between that source and
+local integration0102716d; the later viewer UI and documentary-reader changes
+are independent. The complete quiet fast log establishes source/selection
+coverage, not individually printed PASSED node receipts. Retained focused/native
+observations keep their original sources, versions and limits. Schema, evidence
+and agent-guide generator --check commands were also executed successfully
+without new tests or native calls. See local-proof-20261103.json for exact
+log/driver/source digests and the six retained c0350 native log seals.
+
+This checks no CI/native/manual task and does not archive the change, promote
+a label, declare current integration green or repair any Royal/geometry finding.
+The independent exact-source CI boundary remains open.
