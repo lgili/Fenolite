@@ -174,3 +174,18 @@ Catalog bytes equal the incoming library candidate. All four generators reproduc
 11,993 bytes/154 lines, within the unchanged budget. Static source checks and residue pass. This
 candidate excludes the separately owned c0282 geometry and later CI census changes. Root still owns
 the complete local gate and exact-head CI; no external publication or human review is claimed.
+
+## 6. Cross-version corrections
+
+- [x] 6.1 Make review-sheet bytes independent of the Python version and host: `view.compact.pack` writes
+  its gzip member with a fixed RFC 1952 header (deflate, no flags, time 0, best compression, operating
+  system 255) instead of `gzip.compress(mtime=0)`, whose operating-system byte is zlib's host code (3 on
+  Unix, 10 on Windows) on Python 3.11 and 3.12 and 255 on 3.13. The bytes equal what 3.13 wrote, so sheets
+  accepted on 3.13 keep their hashes. Proof: `uv run pytest tests/unit/view/test_scene_v1.py -q` on Python
+  3.11, 3.12 and 3.13.
+
+  Found 2026-11-04 by the library's `records` job run locally (Python 3.12, the library CI's version): the
+  four LibrePCB reviews were `library.review-stale` with unchanged record digests. The approval-time core
+  99a972bb reproduces the four approved sheet hashes exactly on 3.13 and not on 3.12; the only byte that
+  differs in the embedded `gz:` scenes is header byte 9. Proof passed on 3.11, 3.12 and 3.13 (5 passed
+  each); the new `_gzip` equals `gzip.compress(data, mtime=0)` of 3.13 for empty, short and 128 KiB inputs.

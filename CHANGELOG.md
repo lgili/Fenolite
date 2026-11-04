@@ -6,6 +6,8 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Review sheets no longer change with the Python version (c0266, task 6.1): the packed scenes of a page are gzipped with a fixed header (operating system 255, as Python 3.13 writes it), so a `sheet_sha256` accepted on one interpreter stays fresh on 3.11, 3.12 and Windows.
+
 - Archive c0170-convert-slots-obstacles: slots and cut-outs in conversions, slotted drills to Altium, generated hole footprints and slot obstacles, with `H-K-CONV-SLOTS` proved in CI (task 3.3).
 
 - Reconcile c0334's complete retained native census with unchanged BOM/import producer sources, preserving all refusals, tag skips, naming warnings and the failed CI verdict. Reflow its existing layering paragraph for complete OpenSpec parsing without changing its words or scenarios.
