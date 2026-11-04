@@ -2,9 +2,7 @@
 
 ## Purpose
 Fenolite's own writer of Specctra design files and reader of Specctra session files: the exchange format that lets an external autorouter such as Freerouting route a board without Fenolite importing its code. The capability states which part of the format is written and read, how units and names map to the model, and what is refused.
-
 ## Requirements
-
 ### Requirement: Specctra codec package
 `fenolite.backends.specctra` SHALL be a codec package that writes Specctra design files and reads session files. It MUST NOT be registered in `fenolite.backends.registry`, MUST import only `core`, `model`, `geometry` and `backends.base`, and MUST hold a `PROVENANCE.md` naming each source and how it was used. No text, table, grammar production or example of S-0224 MUST appear in the repository.
 
@@ -284,3 +282,16 @@ The via list, the default rule, the components and every other part of the file 
 #### Scenario: Fact row
 - **WHEN** `uv run pytest tests/unit/test_format_facts.py` runs
 - **THEN** it passes with the row of the `pair` list in `docs/formats/specctra/dsn.md`, whose hypothesis is `H-G-DSN-PAIR`
+
+### Requirement: Slots in design files
+A Specctra design file written for a board with slots SHALL hold one `keepout` polygon per inner ring of `board_outline`, slots and merged groups included, and a Freerouting run on the shared fixture SHALL route no track across a slot (`H-G-DSN-SLOT`).
+
+#### Scenario: Keep-outs of the fixture
+- **WHEN** `uv run pytest tests/routing/test_slots_route.py -k keepouts` writes the design file of the shared fixture
+- **THEN** it holds three `keepout` polygons, one of them the merged L
+
+#### Scenario: Routed around the slot
+- **GIVEN** the fixture with two pads of one net on either side of `S1`
+- **WHEN** Freerouting routes it
+- **THEN** no routed segment crosses the ring of `S1`
+

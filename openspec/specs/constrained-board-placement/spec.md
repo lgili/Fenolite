@@ -2,9 +2,7 @@
 
 ## Purpose
 TBD - created by archiving change c0096-constrained-board-placement. Update Purpose after archive.
-
 ## Requirements
-
 ### Requirement: Mechanical authoring and coordinate contract
 The DSL SHALL record anchor constraints with `MechanicalIntent` (stable key, units, frame, tolerance, source and evidence) on `Part.place(..., locked=True, anchor=...)`, the fixed-anchor primitive, which MUST be respected. Holes and keep-outs are those of `Design.hole` (c0102) and `Design.rule_area` (c0103). Measured, estimated and proposed anchors MUST remain distinguishable; none implies qualified fit.
 
@@ -58,3 +56,12 @@ checks or analysis. Missing checking MUST remain incomplete. Electrical profiles
 - **GIVEN** a neutral proposal has no available body projection checker
 - **WHEN** the placement assessment is returned
 - **THEN** it names the missing check and does not claim mechanical success
+
+### Requirement: Slots are placement obstacles
+The constrained placer's hard checks and its preview, and the body-volume analysis, SHALL take the rings of `model.outline.outline_items`, so a slot is an obstacle as a cut-out is.
+
+#### Scenario: A footprint over a slot
+- **GIVEN** the shared fixture and a footprint whose courtyard overlaps slot `S1`
+- **WHEN** `uv run pytest tests/unit/placement/test_slot_obstacles.py` runs the hard checks
+- **THEN** the footprint is reported as overlapping a cut-out, as it is for the same ring drawn with `cutout()`
+

@@ -6,6 +6,8 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Archive c0170-convert-slots-obstacles: slots and cut-outs in conversions, slotted drills to Altium, generated hole footprints and slot obstacles, with `H-K-CONV-SLOTS` proved in CI (task 3.3).
+
 - Reconcile c0334's complete retained native census with unchanged BOM/import producer sources, preserving all refusals, tag skips, naming warnings and the failed CI verdict. Reflow its existing layering paragraph for complete OpenSpec parsing without changing its words or scenarios.
 
 - Preserve the required pending-author-report notation for two blocked Viewer evidence rows without changing their observations or levels (c0166).

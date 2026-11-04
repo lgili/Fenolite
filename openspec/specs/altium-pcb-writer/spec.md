@@ -829,3 +829,12 @@ The writer SHALL return, per kind of model item (footprint, pad, track, arc, via
 - **GIVEN** the reading of `tests/data/altium/routed/routed.PcbDoc` with the pair `("pad_removed", "2,4,5")` added to the bag of its first via
 - **WHEN** `uv run pytest tests/unit/backends/altium/test_lower.py -k pad_shape` writes it without `allow_lossy`
 - **THEN** the write is not refused, every via is written as a record of 321 bytes whose table at 209 is zero, the files are the bytes of the write without the pair, `not_lowered["via-pad-shape"]` holds the id of the first via alone, and the write has one `altium.not-lowered` information for the kind
+
+### Requirement: Slotted drills of footprint pads
+A footprint pad whose padstack holds only a slotted hole (`hole_shape` `slot`, `hole_length`, `hole_rotation`, no per-layer shapes and no offset) SHALL be written in the library and the document with hole shape 2, hole size the drill, slot length `hole_length` and slot rotation `hole_rotation` relative to the pad. A pad with an offset drill or per-layer shapes stays refused.
+
+#### Scenario: An oval mounting slot
+- **GIVEN** a KiCad footprint with an `np_thru_hole` oval pad of drill 1 × 3 mm turned 30°
+- **WHEN** `uv run pytest tests/unit/backends/altium/test_slot_drills.py` writes the library and reads it back
+- **THEN** the pad is read with hole shape 2, hole size 1 mm, slot length 3 mm and the pad's rotation, and the footprint is not refused
+
