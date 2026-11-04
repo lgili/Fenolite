@@ -25,6 +25,30 @@
 - [x] 2.3 Build test: the blink with `ohm("330").pct(5)` and with `ohm("330")` give equal planned files outside `.fenolite/` (scenario "Written KiCad files do not change"). Proof: `uv run pytest tests/unit/lens/test_build_value_range.py -q` (needs no `kicad-cli`; the `KICAD-VERIFIED` run is CI's KiCad job).
   - 2026-10-29: `tests/unit/lens/test_build_value_range.py` passes: only `.fenolite/circuit.json` differs, by `value_range` of `R1`.
 
+- [x] 2.3a Add a direct native KiCad case for the nominal 330ohm and 330ohm±5%
+  blink variants already covered by 2.3. Build both from temporary authored
+  sources with identical Mini libraries, seed 5/timestamp and the running target 9
+  or 10. Compare all backend bytes outside .fenolite, then run real netlist export
+  and ERC on EACH result; compare complete exported components/nets to their
+  generated sheets and one another. Preserve the unit test/asserts/baselines.
+  Checkpoint proof is hermetic focused tests/collection/static only; the bounded
+  pinned-image driver must be reviewed before native execution. 4.2/4.4 remain
+  open until exact-source required CI and their full evidence gates pass.
+
+  Local checkpoint: 8 hermetic tests passed (2.53s), including the intact
+  original unit, both targets and actual fixture/model-delta checks with native
+  calls forbidden. One native case collected (0.51s), not executed. Pin-loss,
+  failed/invalid ERC and ERC-finding stubs are refused. The external driver awaiting
+  review is prepared only; no native/CI label or complete gate is claimed.
+
+- [x] 2.3b Record the reviewed direct LOCAL native trial of 2.3a on source 7efa5778,
+  with fixed 9.0.9/10.0.6 versions, both input/output/build/report hashes and
+  source-integrity guards. Preserve the original unit and before-measurement
+  checkpoint. Bind only the actual scoped comparison and ERC result; do not
+  substitute DRC or mark 4.2/4.4/current CI from this local proof. Proof: read-only
+  reconciliation of native-variants-local-proof.json against the retained sealed
+  receipt, strict OpenSpec and private residue scan. No native rerun.
+
 ## 3. Documentation and agent guide
 
 - [x] 3.1 `docs/dsl.md`: a section "Ranges" after "Quantities" (constructors, arithmetic and its over-estimate, the unit table, `within()`, text, part values); `docs/design-model.md`: `ValueRange`, the unit table, outward rounding and the magnitude limit. Proof: `uv run pytest tests/consistency -q`.

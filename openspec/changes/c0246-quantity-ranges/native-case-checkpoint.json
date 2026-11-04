@@ -1,0 +1,62 @@
+{
+  "authored_targets_hermetically_built": [
+    9,
+    10
+  ],
+  "base": "baa033d2548e38563d2878058cc609a05ea43803",
+  "collection": {
+    "collected_nodes": [
+      "tests/kicad/build/test_value_range_build.py::test_value_range_native_builds"
+    ],
+    "command": [
+      "uv",
+      "run",
+      "--frozen",
+      "pytest",
+      "tests/kicad/build/test_value_range_build.py",
+      "--collect-only",
+      "-q"
+    ],
+    "exit": 0,
+    "native_executed": false,
+    "result": "1 collected in0.51s"
+  },
+  "focused_command": [
+    "uv",
+    "run",
+    "--frozen",
+    "pytest",
+    "tests/unit/lens/test_build_value_range.py",
+    "tests/unit/test_range_native_case.py",
+    "-q"
+  ],
+  "focused_log_sha256": "d3c4b982d4d6e6222edb6a0b21b772d4e3e8ef9112a53633634e49c13cb9ceb9",
+  "focused_result": "8 passed in2.53s",
+  "future_native_calls_per_pinned_major": {
+    "ERC": 2,
+    "netlist": 2,
+    "version": 1
+  },
+  "native_calls_forbidden_in_checkpoint": true,
+  "negative_controls": [
+    "connected pin removed from export",
+    "ERC execution nonzero",
+    "invalid ERC report",
+    "ERC finding"
+  ],
+  "original_blink_source_maps_unchanged": true,
+  "original_unit_test": {
+    "all_bytes_and_asserts_unchanged": true,
+    "path": "tests/unit/lens/test_build_value_range.py",
+    "sha256": "b4a81c5ce073289d10f134c69f3e05fff4abe47878958f77407c1e111c42107d"
+  },
+  "schema": 1,
+  "scope": {
+    "4.2_closed": false,
+    "4.4_closed": false,
+    "DRC_coverage_replaced": false,
+    "full_fast_CI_run": false,
+    "hypotheses_promoted": false,
+    "native_case_executed": false
+  }
+}

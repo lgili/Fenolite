@@ -265,3 +265,37 @@ Decided 2026-11-01: the user authorized all four recommended answers. They prese
 implemented public constructors and exact decimal model; no tolerance field or additional constructor
 is needed to close this change. Evidence promotion and exact-head publication still require tasks 4.2
 and 4.4; local unit proofs alone do not promote the backend evidence.
+
+## Native variant coverage follow-up — 2026-11-03
+
+The existing2.3 byte comparison is hermetic UNIT evidence, not proof that a
+KiCad job constructs both nominal and ranged variants. Add only the missing
+native case under tests/kicad/build: identical authored Mini inputs and seed5,
+temporary sources, target equal to the measured9/10major, strict backend byte
+equality, two fresh native netlists and two fresh ERC reports. Compare complete
+parsed netlists against each generated sheet and each other; reject execution
+failure, invalid reports or ERC findings. Keep the original unit test intact.
+No new product capability, model, DSL, FEN code, baseline or hypothesis promotion.
+No native measurement occurs before review of the bounded pinned-image driver.
+This does not inherit another blink test's PASS or close4.2/4.4/DRC/wholeCI gates.
+
+## Reviewed local direct native trial — 2026-11-03
+
+Source `7efa577870652738ea2c7defe33dc5695679b332` was measured once with the
+reviewed receipt-finalization driver `d3bc582371887fc32221a9d7278ca26ba863cfbcdcc84369f71d09cafe22eb87`.
+Both pinned 9.0.9/10.0.6 CLIs executed five calls each (version, nominal netlist,
+nominal ERC, ranged netlist, ranged ERC), after two independent builds per target.
+All 12 backend files outside .fenolite match within each pair. Native results
+have 3 components/33 nets/36 nodes and zero ERC findings for each of four inputs.
+Only the ranged model has R1.value_range with exact 313.5/330/346.5ohm bounds.
+Complete parsed native models agree. The existing own/native comparator covers
+refs, values, footprints, nets, pins and pintypes; it does not claim netclass,
+property or flag comparison against own_netlist. Raw outputs remain external.
+
+Capture, original blink/Mini hashes, raw git status and staging cleanup passed
+before final report.passed became true. The premature-report predecessor was
+never executed. See native-variants-local-proof.json for all version/image,
+source/input/output/report hashes and guards. This is local native evidence only:
+no DRC substitution, global label promotion, exact-source CI success or archive.
+The required CI gates 4.2/4.4 remain open; this local trial does not inherit any other CI verdict. No measurement was repeated
+for documentation.

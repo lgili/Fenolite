@@ -20,6 +20,9 @@ All notable changes to Fenolite are documented here. The format follows
 - Record the literal Altium 24 S6 repour observation on the authored clearance input, preserving the earlier findings and pending aggregate acceptance.
 
 - Enable experimental Altium cut-out regions by default after the recorded native Part S3–S5 checks; retain explicit gate-off regression and keep aggregate slot acceptance and graduation pending.
+- Record the reviewed local nominal/Range native trial on pinned KiCad 9.0.9 and 10.0.6, with equal backend bytes, fresh netlist/ERC results and verified source-integrity guards; DRC and exact-source CI/archival gates remain pending (c0246).
+
+- Add direct native KiCad coverage for the nominal and ranged 330-ohm blink builds, preserving backend byte equality and checking fresh netlist/ERC results for both inputs; required CI/evidence gates remain pending (c0246).
 
 - Preserve the failed historical drawn-context evidence guard and permit measurement closure only with the complete source 985f59a1 CI receipt; resolve one active or archived spec, reject ambiguous locations and preserve receipt scope independently of later task closure; reject incomplete or altered rows, counts, timings, hashes, partitions, aliases, warnings and receipt bindings (c0276).
 
