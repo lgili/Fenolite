@@ -13,7 +13,18 @@
 - [x] 2.1 Add the DSL-only explicit request and strict declared-input reader; register declared-input plan dependencies and existing stale-plan behavior. Refuse Altium before staging. Proof: focused DSL/CLI/API/input and zero-output negative tests.
 - [x] 2.2 Capture checked original project text in ephemeral Source state, emit the native sidecar plus literal digest request and reuse the existing project-update baseline consistently for planning/final output. Typed-managed settings/root/file identities win. Proof: moved-folder fresh/repeated build, all5 settings and authored physical knob retained with exact managed overrides.
 - [x] 2.3 Teach/document the actual method and precedence, regenerate agent guide and public surface, review delta and format owner. Update CHANGELOG. Proof: guide/generated/API/source/residue checks with no canonical model field.
-- [ ] 2.4 Measure actual native9/10 original versus rebuilt settings/text, complete electrical graphs and scoped physical behavior; replay public flat_hierarchy/Royal separately with input hashes. Preserve all unrelated findings. Proof: source-bound receipts; no semantic coverage or acceptance waiver.
+- [x] 2.4 Measure actual native9/10 original versus rebuilt settings/text, complete electrical graphs and scoped physical behavior; replay public flat_hierarchy/Royal separately with input hashes. Preserve all unrelated findings. Proof: source-bound receipts; no semantic coverage or acceptance waiver.
+  Authored native 9.0.9/10.0.6 portion passed earlier (proof.md). Public part passed 2026-11-04 on clean
+  468d8a61 (`docs/evidence/public-replays-20261104.json`, kicad-cli 10.0.6, inputs equal to their corpus
+  digests and byte-identical afterwards). Both demos are KiCad 9 format, so import binds target 9 (a
+  target-10 rebuild correctly refuses FEN-3004). flat_hierarchy: the imported code declares
+  `kicad_project`; the rebuilt project differs from the original only in the sheet identity cache
+  (`schematic/top_level_sheets`, `sheets`); all five intersheet settings (show true, others false/empty),
+  every `board` design setting and the native SVG text multiset (3 pages, 869 items) are equal; level 2
+  electrical partitions and levels 1, 3–6, S and 8 are equal; level 7 differs (regenerated padvia
+  geometry, raw teardrop 176/0). Royal: same project/text result (5 pages, 1131 items), levels equal
+  except level 7 (regenerated geometry, raw teardrop 263/0). No semantic coverage of other project keys,
+  acceptance or waiver is claimed; native 9 replays of these public boards stay with CI.
 
 - [x] 2.5 Revalidate imported-example and physical-identity controls against the explicit project carrier: author genuine target9 inputs for target9 positives, retain a source10-to9 zero-output refusal, and review complete derived file maps before updating byte pins. Preserve every physical/identity assertion and source fixture. Proof: 62 focused examples/identity/alias/data/determinism and76 complete byte guards passed; all75 complete before/after plan maps and target-specific maps are recorded in carrier-regression-proof.json (2026-11-03).
 

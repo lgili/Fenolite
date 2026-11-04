@@ -431,7 +431,7 @@ All notable changes to Fenolite are documented here. The format follows
 - **Preserve native empty pin numbers** (c0353): direct symbol embedding retains empty pin identities across KiCad targets and keeps literal tilde numbers distinct. Checked unit/style/geometry bindings prevent ambiguous pin matches; an unrepresentable old-target literal refuses before emission unless explicitly mapped. All three public full-owner cases retain complete native9/10 partitions after the correction.
 
 
-- **Declared native project inputs** (c0351): imported Python declares a portable KiCad project sidecar with its digest. Rebuilds retain unmanaged project settings while typed settings and fresh schematic identities win; changed inputs invalidate reviewed plans and incompatible targets refuse before staging. No canonical model field or broad native semantic coverage is added.
+- **Declared native project inputs** (c0351): imported Python declares a portable KiCad project sidecar with its digest. Rebuilds retain unmanaged project settings while typed settings and fresh schematic identities win; changed inputs invalidate reviewed plans and incompatible targets refuse before staging. No canonical model field or broad native semantic coverage is added. Public flat_hierarchy and Royal rebuilds keep every intersheet and board setting and the native schematic text (2026-11-04).
 
 - **Manual starter layout validation** (c0272): place and route all five authored
   benches in KiCad, reproduce every reusable layout byte-for-byte and confirm one

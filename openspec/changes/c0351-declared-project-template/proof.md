@@ -78,3 +78,14 @@ authored KiCad class priority INT_MAX. Its SHA-256 equals the already waived
 original fixture c0c49764831dbbb9ab9a54a643153d4fb636b70e8113c56e328e1f431f78173f.
 A file-specific numeric-code waiver documents this identity; every other
 public/private token/blob check stays active.
+
+
+## Public replays, 2026-11-04
+
+Clean 468d8a61 with kicad-cli 10.0.6; receipts in `docs/evidence/public-replays-20261104.json`.
+flat_hierarchy (9.0.9.1 demo) and Royal (10.0.6 demo, KiCad 9 format) import with exit 0 and declare
+`kicad_project`. Rebuilt for target 9, their projects differ from the originals only in the sheet
+identity cache; the five intersheet settings, all board design settings and the native schematic SVG
+text multisets are equal. `verify-source` keeps levels 1–6, S and 8 equal for both and reports only the
+level-7 derived padvia geometry and raw teardrop differences owned by c0340/c0355. Source files stay
+byte-identical; kicad-cli created only a local `.kicad_prl`. Task 3.1 remains open.
