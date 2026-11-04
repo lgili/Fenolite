@@ -45,9 +45,17 @@
   Passed 2026-11-02: styles, source types (zero errors), fresh guide/schema,
   zero residue hits and strict validation. The new diagnostic module also has
   zero type errors. Production source, dependencies and byte tables are unchanged.
-- [ ] 2.3 Observe an actual Mac failure capture and compare its streams before
+- [x] 2.3 Observe an actual Mac failure capture and compare its streams before
   claiming the original mismatch resolved. Root owns the complete gate and CI.
   Proof: retained actual failing-row artifact and required exact-head CI results.
+  Closed by root 2026-11-04. The actual Mac capture (run 41421198968, artifact
+  13128924288) was compared stream by stream in 4.2. The original mismatch is
+  NOT claimed resolved: the first divergent operation is 176 (difference), and
+  the maintainer accepted the platform difference instead of fixing it. The
+  guard now records one measured digest per platform for `board_40parts.PcbDoc`
+  only (Linux 7f49, macOS 01fd, Windows 94c3 measured in CI 41829443943). The
+  required exact-head CI 41853235387 on 0bce63e2 passed every job with that table.
+  A geometry fix that makes the three platforms agree is out of scope here.
 
 ## 3. Early Mac observation follow-up
 

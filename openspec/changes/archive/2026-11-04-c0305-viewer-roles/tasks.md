@@ -26,7 +26,8 @@
 ## 6. Closing
 
 - [x] 6.1 Screenshots of the six reference variants built to KiCad, looked at; the visual tests as the `viewer` CI job runs them. Proof: `FENOLITE_REQUIRE=browser uv run pytest tests/visual -q -n 2`.
-- [ ] 6.2 Run the focused tests and the CI jobs of the branch. Proof: `make check-fast` on the maintainer's machine, then the CI jobs, `viewer` included.
+- [x] 6.2 Run the focused tests and the CI jobs of the branch. Proof: `make check-fast` on the maintainer's machine, then the CI jobs, `viewer` included.
+  Passed 2026-11-04: CI 41853235387 on 0bce63e2 (lote 13, which carries this change) passed every job, `viewer (visual tests)` and all five unit jobs included; `make check-fast` passed on the maintainer's Mac on the archive branch.
 
 Open on the branch (2026-10-29): 6.2 waits for `make check-fast` on the maintainer's machine and the CI jobs of the branch, `viewer` included (only focused tests ran here: ruff, ruff format, pyright of the changed modules, `tests/unit/view`, `tests/unit/cli/test_view_cmd.py`, `tests/unit/roles`, `tests/unit/agent`, `tests/consistency`, the import graph, the release records, and `tests/visual` with `FENOLITE_REQUIRE=browser`).
 
