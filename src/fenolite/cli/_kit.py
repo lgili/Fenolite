@@ -3,9 +3,9 @@
 """What the Altium verification kit needs from the packages that ``fenolite.verify`` may not import
 (``package-layering``): building a sample from its script, and judging a document that Altium saved.
 
-``kit_sources`` builds the five samples of ``examples/kit/`` with the Altium lens and the sheet template of
-group K8; ``judge_document`` reads a re-saved document with Fenolite's readers and compares it with the
-kit's own. ``fenolite.verify.kit`` takes both as arguments (``docs/altium-kit.md``).
+``kit_sources`` builds the scripts and loads the pinned authored Part S catalogue of ``examples/kit/``
+and the sheet template of group K8; ``judge_document`` reads a re-saved document with Fenolite's readers
+and compares it with the kit's own. ``fenolite.verify.kit`` takes both as arguments (``docs/altium-kit.md``).
 
 A sample script is a design script. It may also bind ``KIT``, a mapping with the keys ``sheets`` (``flat``
 or ``modules``), ``forms`` (``binary``, ``ascii``), ``copper`` and ``planes`` (which replace the board's),
@@ -79,6 +79,12 @@ def build_sample(script: Path, *, edit: ModelEdit | None = None) -> SampleFiles:
     script = Path(script)
     if not script.is_file():
         raise FormatError(f"the sample script {script.parent.name}/{script.name} does not exist", file=SCRIPT)
+    if script.parent.name == "slots":
+        from fenolite.cli._kit_slots import part_s_sample
+
+        if edit is not None or script.name != SCRIPT:
+            raise FormatError("the pinned Part S catalogue takes no model edit", file=script.name)
+        return part_s_sample(script.parent)
     namespace = runpy.run_path(str(script))
     design = namespace.get("design")
     if not isinstance(design, Design):
@@ -551,6 +557,10 @@ def judge_document(check: str, own: Path, saved: Path) -> list[str]:
             other = kind_problems(own, saved)
             if other:
                 return other
+        if check == "slots-readback":
+            from fenolite.cli._kit_slots import slots_readback_problems
+
+            return slots_readback_problems(own, saved)
         if check in POUR_CHECKS:
             return pour_problems(check, own, saved)
         if check == PARITY_STAGE:

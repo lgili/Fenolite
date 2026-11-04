@@ -1,0 +1,60 @@
+{
+  "version": 1,
+  "source": "S-1297",
+  "recorded_campaign_date": "2026-11-03",
+  "date_basis": "maintainer-local campaign date; retained save/readback receipts do not carry an operation timestamp",
+  "scope": "literal current24 S7 only; source-bound native Save As and existing S7 readback, no formal kit record",
+  "native_version": "24.5.2.23",
+  "source_input_basename": "slots.PcbDoc",
+  "source_input_sha256": "be65d4b9884e1949abd162f64033f54b92167bf1cea5af535031d691467910f0",
+  "native_saved_basename": "slots-saved.PcbDoc",
+  "native_saved_sha256": "34baa3d9329792a860ad20500d3294c795357422e33e1c4e9f33cd3785cc4b85",
+  "native_saved_bytes": 188416,
+  "public_operation": "File > Save As",
+  "save_button_clicks": 1,
+  "source_files_unchanged": true,
+  "reopen_requested": false,
+  "new_DRC_requested": false,
+  "new_SDK_requested": false,
+  "existing_readback": {
+    "source_commit": "ad8cbf2e5d66c6a6b549244c948fef97dac263ea",
+    "test": "tests/unit/backends/altium/test_part_s.py -k s7 -q -n 0 -p no:cacheprovider",
+    "exit_code": 0,
+    "outcome": "1 passed, 1 deselected",
+    "wall_seconds": 0.8270459169871174,
+    "saved_file_unchanged": true,
+    "git_clean_after": true,
+    "native_tool_execution_in_this_readback": false
+  },
+  "retained_sha256": {
+    "native-save.json": "18cae38d6c461dbbe217366024dac74153018dfbb3dc19fbd288705b8423fc4b",
+    "focused-readback-receipt.json": "1686c45548b11a50df142534a82b63a081823f737887c8067de4510b8343f77e",
+    "focused-readback.log": "81d179d62fa613cb8cdfc6f7266ca65a0cef6db6726855695cc37dc44e142f0d"
+  },
+  "new_private_checker": {
+    "proof_sha256": "991ede584abe8a776c118bfe96901457d427b73bf9bd151694770f48d8e1b56b",
+    "original_bound_module_sha256": "ff9628aa7e651aed1c9db299a9d6f76943f573849287e89a9cc1edcc8129ccee",
+    "current_module_sha256": "378be6826d7ec3f49d464e40ab0edc4b6e3ec3fc64a4566b2cdc70782f10a142",
+    "geometry_functions_and_import_bindings_AST_unchanged": true,
+    "outcome": "no problems",
+    "native_operations": 0
+  },
+  "outcome": "as expected",
+  "aggregate_task5_2_completed": false,
+  "H_A_SLOT_KIT": "INFERRED",
+  "formal_kit_record_created": false,
+  "formal_bool_fields_filled": false,
+  "writer_graduation_or_release_claimed": false,
+  "pending_current24_cases": [
+    "S1",
+    "S8"
+  ],
+  "pending_reason": "native GUI unavailable while maintainer workstation locked; S1 project invocation/inspection was not accepted as complete",
+  "native_saved_file_committed": false,
+  "source_unchanged_scope": "original and staged copies of source slots.PcbDoc only; no S1 project-success claim",
+  "case": "S7",
+  "expected": "Save the original regions PCB under a new name; the existing S7 readback retains four holes and three cut-outs within1micrometre.",
+  "observed": "One actual24 Save As produced the bound188416-byte result; existing S7readback passed1test/1deselected and the saved bytes remained unchanged.",
+  "level": "INFERRED",
+  "level_scope": "The aggregate H-A-SLOT-KIT remains INFERRED without a formal Part S run; this scoped record documents the actual native S7 observation only."
+}

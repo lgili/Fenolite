@@ -1,0 +1,17 @@
+[Design]
+Version=1.0
+
+[Document1]
+DocumentPath=slots.SchDoc
+ClassGenCCAutoEnabled=1
+ClassGenCCAutoRoomEnabled=0
+ClassGenNCAutoScope=None
+
+[Document2]
+DocumentPath=slots.PcbDoc
+
+[Document3]
+DocumentPath=slots.PcbLib
+
+[Document4]
+DocumentPath=slots.SchLib

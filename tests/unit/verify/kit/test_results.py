@@ -466,6 +466,19 @@ def test_the_documents_of_every_sample_project_are_its_files(built_kit: Path) ->
     for sample in kit.samples:
         if sample in POUR_SAMPLES:
             continue  # free documents, no project (change c0215)
+        if sample == "slots":
+            for variant in ("regions", "clearance", "gate-off"):
+                path = built_kit / sample / variant / "slots.PrjPcb"
+                listed = [d.path for d in read_project(path.read_bytes(), file=path.name).documents]
+                expected = ["slots.PcbDoc", "slots.SchDoc"]
+                if variant == "clearance":
+                    expected += ["slots.PcbLib", "slots.SchLib"]
+                assert sorted(listed) == sorted(expected)
+                assert results.project_documents(path.read_bytes()) == listed
+                files = results.sample_documents(kit, f"slots/{variant}/slots.PrjPcb")
+                assert files == sorted([*listed, *(["build-report.json"] if variant == "gate-off" else [])])
+                assert all(f"slots/{variant}/{name}" in kit.files for name in listed)
+            continue
         path = built_kit / sample / f"{sample}.PrjPcb"
         listed = [d.path for d in read_project(path.read_bytes(), file=path.name).documents]
         assert results.project_documents(path.read_bytes()) == listed

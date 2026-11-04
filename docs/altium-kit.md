@@ -18,7 +18,7 @@ that Fenolite checks and that are archived. It is the base of the label `ALTIUM-
 - `kit_script.pas`: a script that the user may start from inside Altium for the steps marked `scripted`;
 - `results/`: empty but for `form.json`, the form that the user fills in.
 
-Nothing in the kit comes from outside this repository, and nothing that the kit builds is committed.
+Nothing in the kit comes from outside this repository. Generated kit folders and native results are not committed; the pinned Part S catalogue contains only Fenolite-authored writer inputs, with its recipe and provenance.
 
 ## What a run proves
 
@@ -53,7 +53,7 @@ fenolite kit build --out kit --dry-run --json
 fenolite kit build --out kit --confirm --json
 ```
 
-The command runs in a source checkout: it builds the seven scripts under `examples/kit/` (`--samples DIR`
+The command runs in a source checkout: it builds the seven scripts under `examples/kit/` and loads the pinned authored `slots` catalogue (`--samples DIR`
 names another folder). The two pour samples need the `geo` extra: without it the command exits 6. Without `--seed` and `--timestamp` it uses seed 0 and `2026-01-01T00:00:00Z`, so
 everyone who builds the same commit gets the same kit and the same `kit_sha256`. No external tool runs.
 
@@ -66,6 +66,7 @@ everyone who builds the same commit gets the same kit and the same `kit_sha256`.
 | `libs` | `examples/kit/libs/design.py` | a schematic library and a PCB library of seven parts |
 | `pour` | `examples/kit/pour/design.py` | eleven probes of the polygon pour on two layers (change c0215): two free PCB documents, `computed/pour.PcbDoc` with Fenolite's pour and `reference/pour.PcbDoc` without its regions, and `probes.json` |
 | `pour4` | `examples/kit/pour4/design.py` | the probes of the inner layers of four, with blind and buried vias, in the same form as `pour` |
+| `slots` | `examples/kit/slots/design.py` | the pinned authored Part S regions, clearance and gate-off projects and report; each project, schematic and PCB is source-bound, never a native-saved result |
 
 `routed` is built with the pour mode `outline` (as is every sample but the two pour samples), so step K6.1
 still repours a board that holds no poured copper. Each probe of `pour` and `pour4` is its own polygon on its
@@ -75,6 +76,28 @@ Fenolite's import.
 
 The kit also holds `templates/iso5457_generic.SchDot`, the sheet template of group K8. It is built from the
 shipped specification when the kit is built: no template file is kept in the repository.
+
+
+## Part S formal mapping
+
+K5.6–K5.13 map respectively to Part S S1–S8 (`slots/criteria.md`). All eight
+must pass for H-A-SLOT-KIT; missing or false observations and a failed S7 saved
+file prevent the hypothesis verdict. S1 still opens the regions project and PCB,
+inspects D1 and produces its NC drill and drill drawing. S7's `slots-readback`
+check retains exactly the existing four-hole/three-cut-out criterion within1µm
+(and slot axis within0.001°), without adding DRC, SDK or another reopen.
+
+The seven form values are actual operator observations on the one Altium version
+named by the run form. Historical26.5 observations cannot populate a24.5 run.
+The sample digest includes every regions/clearance/gate-off project, schematic
+and PCB, the clearance project libraries, the negative report and its authoring recipe. Changed inputs invalidate
+its verdict; old samples and their step fingerprints do not change merely because
+this catalogue was added. The installed CLI uses the existing `--samples DIR`
+mechanism with a complete copy of `examples/kit`, including the `slots` assets.
+
+Catalogue tests use synthetic runs, not native evidence. No real Part S record
+or label is created until its actual missing outcomes have been supplied and
+reviewed. A valid H-A-SLOT-KIT record alone does not graduate the PCB writer.
 
 ## The steps
 

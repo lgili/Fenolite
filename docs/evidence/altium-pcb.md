@@ -739,6 +739,7 @@ observations are unchanged. All three native input hashes remain exact. No globa
 | S4 | One selected L Region, Kind Board Cutout, authored rounded extremities | as expected |
 | S5 | Complete stable7-row native DRC result: TP1 pad Board Outline Clearance7.874mil<19.685mil; no TP2 in that category. All Rules, Normal mode,0waived, cap500 not reached; all other findings retained. No independent native TP2 object census. | as expected |
 | S6 | Later actual Repour All once on scratch822, AD24.5.2.23; Top Layer copper remains outside S1, the merged L and cut-out1; no observed message. Scratch dirty, no save/reopen, new DRC or SDK. | as expected |
+| S7 | Actual24.5.2.23 Save As of original regionsbe65d4 to new saved34baa3; existing S7readback exits0,1pass/1deselected, same4holes/3cutouts within1µm. Original/staged/saved bytes unchanged; no added reopen/DRC/SDK. | as expected |
 
 At capture time, S1/S2/S6/S7/S8 current24 outcomes remained open, CUTOUT_REGIONS was false and
 H-A-SLOT-KIT was INFERRED. Those observation records and their input hashes are unchanged.
@@ -761,6 +762,13 @@ or prove a saved fill. Only the S6 literal outcome is now as expected.
 Aggregate5.2 and H-A-SLOT-KIT remain open/INFERRED; no full kit, Part T,
 graduation, CI, archive or release result follows. VM/host clocks were not
 calibrated; their timestamps are retained separately.
+
+Later literal S7: [source-bound Save As/readback](altium-slots-s7-24-native.json)
+records actual24.5.2.23 output34baa3 from original regionsbe65d4 and the
+existing readback1pass onad8cbf2e. Only S7 is completed; raw receipts have no
+operation timestamp and no clock equivalence is inferred. S1/S8 remain
+pending; task5.2, formal bools/record, H-A-SLOT-KIT and writer graduation
+are unchanged. Native-saved bytes stay outside the repository.
 
 ### 2026-10-17, `AD 26.5`, Part S
 

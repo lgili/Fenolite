@@ -129,3 +129,8 @@ reason = "Authored blink_2layer integer nanometre coordinates 100000000 to 15000
 path = "tests/data/model/v0.5.0/board.json"
 pattern = "numeric-code"
 reason = "Authored blink_2layer integer nanometre coordinates 100000000 to 150000000 (outline and three placements), reproduced offline from public Fenolite tag v0.5.0 with original SOURCE commit/SHA256 (c0218). Exact-byte legacy migration input; all other residue/private patterns still apply."
+
+[[waiver]]
+path = "examples/kit/slots/clearance/slots.PcbLib"
+pattern = "numeric-code"
+reason = "Fenolite-authored Part S clearance library: exactly four VP.LX/HX/LY/HY values 499000000 and 501000000 from libboard.VIEWPORT, as in the existing authored blink/routed/board6 PcbLib waivers. The library bytes are unchanged; all other public/private patterns and known-blob checks remain active."

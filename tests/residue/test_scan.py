@@ -187,6 +187,23 @@ def test_waiver(tmp_path: Path) -> None:
     assert hits == [] and count == 1
 
 
+def test_part_s_viewport_waiver_remains_narrow() -> None:
+    path = "examples/kit/slots/clearance/slots.PcbLib"
+    data = (Path(__file__).resolve().parents[2] / path).read_bytes()
+    config = scan.load_config(environ={"FENOLITE_RESIDUE_TOKENS": TOKEN})
+    assert scan.scan_bytes(path, data, config) == []
+    hits = scan.scan_bytes(path.replace("slots.PcbLib", "other.PcbLib"), data, config)
+    assert [(hit.pattern, hit.offset) for hit in sorted(hits, key=lambda h: h.offset)] == [
+        ("numeric-code", offset) for offset in (78298, 78314, 78330, 78346)
+    ]
+    planted = data + f"\n{TOKEN} {USERS}/invented/board\n".encode()
+    config.blobs[hashlib.sha256(planted).hexdigest()] = "authored negative control"
+    patterns = {hit.pattern for hit in scan.scan_bytes(path, planted, config)}
+    assert "numeric-code" not in patterns
+    assert "known-blob" in patterns and "abs-user-path" in patterns
+    assert any(pattern.startswith("private-token-") for pattern in patterns)
+
+
 def test_exclusions(tmp_path: Path) -> None:
     config = scan.load_config()
     hits, count = scan.scan(tmp_path, config, [("uv.lock", f"{USERS}/alice/\n".encode())])

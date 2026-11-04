@@ -41,3 +41,14 @@ repour. No save/reopen/DRC/SDK or additional case was performed. The new
 source-bound record is docs/evidence/altium-slots-s6-24-native.json; earlier
 current24 pending summaries above describe their original capture window.
 Aggregate5.2 and H-A-SLOT-KIT remain open/INFERRED; no graduation or archive.
+
+
+## Later literal S7 observation
+
+Actual24.5.2.23 Save As of regionsbe65d4 now supplies saved34baa3. The
+existing S7readback onad8cbf2e passes4holes/3cutouts within1µm; original,
+staged and saved inputs stay unchanged. Source S-1297 and
+docs/evidence/altium-slots-s7-24-native.json retain the source/output and
+raw receipt hashes. No additional reopen/DRC/SDK was requested. This resolves
+only S7's current24 gap; S1/S8, aggregate5.2, H-A-SLOT-KIT and formal kit
+record/graduation remain pending. No prior scoped report is requalified.

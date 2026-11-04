@@ -40,3 +40,36 @@ style diagnostic on the earlier32-archive snapshot reported17pass/78warning-fail
 it is preserved without rewriting unrelated contracts or altering validators.
 
 No local full suite, new CI, push, release or geometry investigation was performed for this candidate.
+
+
+## Local documentary continuation after fast18 — 2026-11-03
+
+The preceding snapshot is retained unchanged. The following source-bound addendum
+starts from local integration `0102716d`; it does not replace the42-archive proof,
+the failed Windows result or any independent CI/native/release gate.
+
+| Scope | Completed evidence | Boundary still open |
+|---|---|---|
+| Local validation | Clean unchanged `ad8cbf2e`, fast18 exit0:22516 passed/52 skipped,1045.31s pytest; full log/driver/receipt hashes rechecked | Later viewer UI and documentary readers require the coordinator's next combined gate; no exact-current whole-CI claim |
+| c0329.3.2, c0330.2.1, c0350.2.1 | Local proof tasks reconciled against unchanged relevant source/test/tool paths from ad8 to010; schema/evidence/agent-guide generator checks pass; local-proof-20261103.json in each change | No actual archive; independent exact-source CI and other native/manual gates remain |
+| c0305 six views | Direct six-view inspection integrated as45a2074c, original screenshots/hashes/limits preserved | Task6.2 CI remains open; earlier text saying all six were uninspected is historical |
+| c0168 functional cut-outs | 258128e6 enables the accepted default;26c1a8a9 retains S6;ad8 makes negative controls explicitlyFalse; fast18 passes | Aggregate5.2/native formal evidence is not completed by these partial records |
+| c0246 nominal/Range | 97091978 integrates the test;f7fc669f records the local direct native trial; fast18 includes local non-native coverage | Actual CI variant proof4.2 and exact-source4.4 remain open |
+| Windows documentary portability | Source723 Windows job retained2failed/22599passed/4369skipped;04ecac47 fixes UTF-8;864367c3 makes proof lookup archive-safe | Original failed job remains failed; later CI must validate the repaired source |
+| Configurable layer presentation | 0102716d integrates the user-approved configurable-order feature and focused UI proofs for14 available layers | This is not the maintainer's native board comparison; c0181.3.3 remains open |
+
+The coordinator subsequently integrated the census-subject documentation as
+`2fd29fe7` from `72084c2a`; that is a later documentary checkpoint, not runtime
+coverage claimed for this base. The Mac is locked according to the coordinator;
+this worker performed no GUI/native action. Four native maintainer comparisons,
+remaining older Altium acceptance and external library CI/publication are unchanged.
+Royal/geometry findings are neither retried nor accepted by this addendum.
+
+`closure-local-addendum-20261103.json` binds these scopes and the three local
+closure commits. Quiet fast-log coverage is identified as inference from the
+complete selected run and unchanged sources, not nominal per-node PASSED lines.
+No new tests, full/fast suite, native measurement, CI, push, release or actual
+archive was executed. Four integrated auxiliary worktrees were reviewed for
+future cleanup;31 non-CHANGELOG cherry-picked files match and one source is a
+direct ancestor. Zero branches/worktrees were removed; a verified retention
+bundle and owner release remain required before removal.

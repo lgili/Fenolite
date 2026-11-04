@@ -210,7 +210,8 @@
               "repoured",
               "pour-match",
               "pour-same",
-              "pour-kept"
+              "pour-kept",
+              "slots-readback"
             ]
           }
         },

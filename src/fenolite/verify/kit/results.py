@@ -51,6 +51,7 @@ JUDGED_CHECKS = frozenset(
         "pour-match",
         "pour-same",
         "pour-kept",
+        "slots-readback",
     }
 )
 """The checks that read a document; the others read text or only look for the file."""

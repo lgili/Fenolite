@@ -21,3 +21,29 @@ RT-A3 SHALL expect a pad that the write detaches as a free pad (a pad without a 
 #### Scenario: Gate follows the report
 - **WHEN** `uv run pytest tests/unit/test_altium_verification_docs.py -k part_s` runs
 - **THEN** it passes only when `CUTOUT_REGIONS` is false or Part S records S3, S4 and S5 as passed
+
+
+### Requirement: Formal Part S source-bound mapping
+The formal kit SHALL register S1–S8 as K5.6–K5.13 on a single Fenolite-authored
+slots sample. The sample fingerprint SHALL bind every regions, clearance and
+gate-off project, schematic and PCB, the gate-off report and authoring recipe.
+Every existing step, criterion and old sample input SHALL remain unchanged.
+The same single-version form and run-record schemas SHALL apply; historical
+observations of another version MUST NOT populate a falsely attributed run.
+H-A-SLOT-KIT SHALL pass only if every required Part S step passes.
+
+S7 SHALL use the existing four-hole/three-cut-out readback criterion within1µm
+and slot axis within0.001degree, without adding native DRC, SDK or reopen. The
+existing KitFile check enum SHALL gain only slots-readback; its schema ID,
+version, fields, all old values and refusal of unknown checks SHALL remain.
+No synthetic test or catalogue construction SHALL create native evidence, a
+real recorded run, H-A-SLOT-KIT promotion or writer graduation.
+
+#### Scenario: Every Part S case is required
+- **GIVEN** one Part S observation is missing or false, or S7 geometry differs
+- **WHEN** the formal kit verifies the run
+- **THEN** H-A-SLOT-KIT does not pass, while unrelated old sample criteria remain intact
+
+#### Scenario: Compatible check enum
+- **WHEN** existing and slots-readback KitFile documents are schema-validated
+- **THEN** both validate under the existing schema, unknown or malformed checks fail, and no schema field or ID changes

@@ -155,3 +155,33 @@ The native kit adds three drilled slots and therefore has four holes; it is a
 different count, not a new default expectation. H-A-SLOT-KIT stays INFERRED and
 all formal-kit/graduation/release gates remain independent. No new native
 operation or personal approval is inferred from this code change.
+
+
+## Formal Part S catalogue continuation — 2026-11-03
+
+Task5.1d maps the existing eight native criteria to unused formal IDs K5.6–K5.13,
+without renumbering old steps or changing form/record schemas. One authored
+slots sample binds regions, clearance, gate-off and the gate-off report together.
+Seven typed outcomes retain the existing operator-report contract; S7 additionally
+requires the actual saved file and the existing four-hole/three-cut-out1µm check.
+No new SDK, DRC, save/reopen or per-version equivalence requirement is introduced.
+
+The producer must not import tests or temporarily change global CUTOUT_REGIONS.
+Pinned catalogue inputs are Fenolite-authored writer outputs with their authoring
+recipe/provenance, not native-saved binaries; the existing samples-root mechanism
+keeps this portable in an installed CLI. Existing steps and source fingerprints
+remain unchanged. If the added catalogue invalidates existing rows through a
+global digest, stop and report that result rather than relaxing freshness.
+
+One actual version/run and all eight valid outcomes are needed for the formal H
+verdict. Historical26.5 and current24.5.2.23 reports remain separately attributed.
+No simulated unit fixture or source packaging step creates a genuine run, changes
+H-A-SLOT-KIT from INFERRED, completes5.2 or graduates the writer.
+
+The existing public KitFile check enum is closed and cannot express S7's exact
+criterion through either broad resave or presence-only. Add only slots-readback
+to that existing enum and regenerate the existing v1 schema, retaining its v0
+reader alias, all old values, IDs, fields and unknown-check refusal. This is the
+minimal serialization of the registered check, not a new schema or a looser S7.
+
+The authored clearance PcbLib retains libboard.VIEWPORT byte-for-byte. Its four numeric-code matches receive only an exact-file/pattern residue waiver, matching existing authored PcbLib precedents. Structural, private-token and known-blob checks remain active; controls must reject the same numeric bytes at another path.

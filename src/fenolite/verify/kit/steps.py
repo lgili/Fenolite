@@ -23,13 +23,13 @@ StepKind = Literal["file", "form"]
 ValueType = Literal["bool", "int", "text"]
 Check = Literal[
     "resave", "netlist", "parity", "poured", "copper.clearance", "messages", "listing", "present",
-    "repoured", "pour-match", "pour-same", "pour-kept",
+    "repoured", "pour-match", "pour-same", "pour-kept", "slots-readback",
 ]  # fmt: skip
 
 STEP_ID = re.compile(r"K([1-9])\.([1-9][0-9]?)")
 RESULTS = "results"
 """The folder of a kit that a run fills."""
-SAMPLES: tuple[str, ...] = ("flat", "tree", "routed", "board6", "libs", "pour", "pour4")
+SAMPLES: tuple[str, ...] = ("flat", "tree", "routed", "board6", "libs", "pour", "pour4", "slots")
 """The kit's samples, each built from ``examples/kit/<name>/design.py``. ``pour`` and ``pour4`` (change
 c0215) are two free PCB documents each, ``computed/`` and ``reference/``, with ``probes.json``."""
 POUR_SAMPLES: tuple[str, ...] = ("pour", "pour4")
@@ -60,6 +60,10 @@ KIT_SAMPLE = "kit"
 
 CHECKS: Mapping[str, str] = MappingProxyType(
     {
+        "slots-readback": (
+            "Part S S7: the saved board retains four holes and three cut-outs within 1 "
+            "micrometre, with slot axes within 0.001 degree"
+        ),
         "resave": "the re-saved document passes RT-A0 and RT-A1, and its import equals the import of "
         "the kit's own document at every level of `equivalent` that the document holds",
         "netlist": "the document's import equals the import of the kit's own document at levels 1 and 2 "
@@ -349,6 +353,107 @@ def _pour_steps() -> tuple[Step, ...]:
     )
 
 
+def _part_s_steps() -> tuple[Step, ...]:
+    """The existing S1–S8 native criteria, with no cross-version aggregation."""
+    hypothesis = ("H-A-SLOT-KIT",)
+    return (
+        _form(
+            "K5.6",
+            "slots",
+            (
+                "Run Part S S1 in `slots/regions/slots.PrjPcb` and its PCB: inspect D1, generate NC "
+                "Drill Files and Drill Drawings. Type whether every S1 criterion of "
+                "`slots/criteria.md` passed on this run's Altium version."
+            ),
+            "bool",
+            True,
+            hypothesis,
+        ),
+        _form(
+            "K5.7",
+            "slots",
+            (
+                "Run Part S S2 on `slots/clearance/slots.PcbDoc`. Type whether Hole To Hole "
+                "Clearance reports the authored D2-D3 pair as specified in `slots/criteria.md`."
+            ),
+            "bool",
+            True,
+            hypothesis,
+        ),
+        _form(
+            "K5.8",
+            "slots",
+            (
+                "Run Part S S3 on `slots/regions/slots.PcbDoc`. Type whether 2D and actual 3D show "
+                "the two stated openings and NC drill output has no milled or cut-out hit, as "
+                "specified in `slots/criteria.md`."
+            ),
+            "bool",
+            True,
+            hypothesis,
+        ),
+        _form(
+            "K5.9",
+            "slots",
+            (
+                "Run Part S S4 on `slots/regions/slots.PcbDoc`. Type whether the merged L is one "
+                "Board Cutout region with three rounded free ends."
+            ),
+            "bool",
+            True,
+            hypothesis,
+        ),
+        _form(
+            "K5.10",
+            "slots",
+            (
+                "Inspect the complete Part S S5 DRC results for `slots/clearance/slots.PcbDoc`. "
+                "Type whether Board Outline Clearance flags TP1 and does not flag TP2, without "
+                "suppressing other findings."
+            ),
+            "bool",
+            True,
+            hypothesis,
+        ),
+        _form(
+            "K5.11",
+            "slots",
+            (
+                "Run Part S S6 on `slots/clearance/slots.PcbDoc`. Type whether Repour All returns "
+                "without a message and leaves the three stated milled openings empty of copper."
+            ),
+            "bool",
+            True,
+            hypothesis,
+        ),
+        _file(
+            "K5.12",
+            "slots",
+            (
+                "For Part S S7 open `slots/regions/slots.PcbDoc` and use File \u00bb Save As to "
+                "`results/slots/slots-saved.PcbDoc`. The saved board must retain four holes and "
+                "three cut-outs within 1 micrometre."
+            ),
+            "slots/slots-saved.PcbDoc",
+            hypothesis,
+            document="slots/regions/slots.PcbDoc",
+            checks=("slots-readback",),
+        ),
+        _form(
+            "K5.13",
+            "slots",
+            (
+                "Run Part S S8 on `slots/gate-off/slots.PcbDoc` and "
+                "`slots/gate-off/build-report.json`. Type whether the native board has only four "
+                "holes and no cut-out, and the report names all three omissions."
+            ),
+            "bool",
+            True,
+            hypothesis,
+        ),
+    )
+
+
 STEPS: tuple[Step, ...] = (
     _file(
         "K1.1",
@@ -528,6 +633,7 @@ STEPS: tuple[Step, ...] = (
         True,
         ("H-A-PCBX-TEXT",),
     ),
+    *_part_s_steps(),
     _file(
         "K6.1",
         "routed",

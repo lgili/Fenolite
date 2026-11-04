@@ -65,3 +65,24 @@ attempt invoked no repour. All original inputs, seven S5 findings and earlier
 receipts remain intact. This completes only the literal S6 observation; it
 does not close aggregate5.2, promote H-A-SLOT-KIT or create formal-kit,
 graduation, Part T, CI, archive or release acceptance.
+
+
+## Later literal S7 Save As/readback
+
+The [separate S7 record](altium-slots-s7-24-native.json), source S-1297, binds
+actual24.5.2.23 File > Save As of original regions inputbe65d4 to a new
+slots-saved.PcbDoc, SHA34baa3d9329792a860ad20500d3294c795357422e33e1c4e9f33cd3785cc4b85,
+188416bytes. One save-button click was recorded; original and staged PCB
+source copies remain unchanged. No additional reopen, DRC or SDK was requested.
+
+The existing S7readback on sourcead8cbf2e exited0 with1passed/1deselected:
+four holes and three cut-outs within1µm. The saved bytes stayed unchanged and
+the test checkout stayed clean. The later private formal checker also reads
+that same external savedfile without problems; it performs no native action.
+Raw save/readback receipts carry no operation timestamp, so no VM/host clock
+equivalence is inferred. The report uses the maintainer-local campaign date.
+
+Only literal S7 is complete. S1/S8 remain pending while the workstation is
+locked; the attempted S1 project invocation is not a successful project check.
+No formal bool, complete24run, H-A-SLOT-KIT promotion, writer graduation, CI,
+archive or release result is implied. The native-saved file remains external.

@@ -7,6 +7,8 @@ All notable changes to Fenolite are documented here. The format follows
 ## [Unreleased]
 
 - Clarify that the third drawn-census comparison measures original-native versus rewritten-native names; preserve resolver naming differences, sealed measurements and pending evidence gates (c0319).
+- **Current closure ledger** (c0319): reconcile retained fast18, three completed local proof tasks and later local integrations while preserving independent CI/native/release gates and the42 actual archives.
+
 - **Local proof reconciliation** (c0330): bind the existing scoped local validation to fast18 and exact unchanged source paths; keep CI/native closure independent.
 
 - **Local proof reconciliation** (c0329): bind the existing scoped local validation to fast18 and exact unchanged source paths; keep CI/native closure independent.
@@ -17,6 +19,10 @@ All notable changes to Fenolite are documented here. The format follows
 
 - Read and write the native-approval and temporary archive evidence as UTF-8 in documentary tests, preserving their assertions on Windows (c0319).
 - Configure the viewer layer list and keyboard navigation order with accessible draft controls, Apply/Cancel and reset; keep browser preferences per document/source hash without changing visibility, selections, geometry or source data (c0181).
+
+- Register Part S slot/cut-out cases in the formal single-version Altium kit, with pinned authored inputs and the existing S7 readback criterion. Keep native results, H-A-SLOT-KIT promotion and writer graduation separate. Scope the authored PcbLib viewport residue exception to its exact file/pattern; retain private and structural checks.
+- Record scoped Altium24.5.2.23 Part S S7 Save As/readback: four holes and three cut-outs within1µm; keep S1/S8 and full formal acceptance pending.
+
 
 - Keep the Altium conversion and RT-A2 gate-off regression controls explicit after enabling native-accepted cut-outs by default; preserve all findings, counts and the positive default control (c0168).
 

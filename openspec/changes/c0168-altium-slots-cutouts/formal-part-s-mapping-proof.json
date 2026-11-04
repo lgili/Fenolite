@@ -1,0 +1,159 @@
+{
+  "version": 1,
+  "base": "ad8cbf2e5d66c6a6b549244c948fef97dac263ea",
+  "scope": "c0168 local formal-catalogue implementation5.1d and scoped actual S7 report5.1e; not aggregate5.2",
+  "runtime_schema_sha256": {
+    "src/fenolite/cli/_kit_slots.py": "378be6826d7ec3f49d464e40ab0edc4b6e3ec3fc64a4566b2cdc70782f10a142",
+    "src/fenolite/cli/_kit.py": "bcd769e8599aebada1441b63789a245871a2114ab46b54bbc5503c489006f1e9",
+    "src/fenolite/verify/kit/steps.py": "474987639e52b46973fd5f4ff7483868140c0e023e91120310e622902c1e1436",
+    "src/fenolite/verify/kit/results.py": "af4ef7883c72c11c2889e932698a09bb70b0841bc6a60440f7bbc8eb2a4b3edd",
+    "schemas/formats/fenolite.altium-kit.v1.json": "5590db31d6b751eeb7437fbb354108b938e55dd9da061d08a7db2f99f0aed89e"
+  },
+  "authored_CAD_inputs_sha256": {
+    "clearance/slots.PcbDoc": "822d31cf5ee269e44b573db595388c0532008523ff4d0d93d103c7a528a8ec3e",
+    "clearance/slots.PcbLib": "0cb1c97ecb3821808275b54ecd986cedf21acdb0ed4f4f6ee4546201f61eeb11",
+    "clearance/slots.PrjPcb": "c1e0bb980352ed7bd7d01a1a584106883f7dc0f42db05dfbf3b49f7d59c320c1",
+    "clearance/slots.SchDoc": "0976b57d969fb5be103ee57761d13f123d3cf99643c83c86c96ef73c916efdb8",
+    "clearance/slots.SchLib": "14f88c47b5bf89aa45c1b4be879232bb89bef86e3898346e0042907965e6c160",
+    "gate-off/slots.PcbDoc": "c798ec4604bddbd28674bdd7fde5a41fdf6440b8ed4c298bc984b005ecb95554",
+    "gate-off/slots.PrjPcb": "e7d693f497c3345351e319d0b0c80cc9454443f30b5053ba27e5a57912b51bc5",
+    "gate-off/slots.SchDoc": "3d49003f302035874a7933695bf20a3187c9f298bcd5be4c8bdf92ed9cccd2b3",
+    "regions/slots.PcbDoc": "be65d4b9884e1949abd162f64033f54b92167bf1cea5af535031d691467910f0",
+    "regions/slots.PrjPcb": "e7d693f497c3345351e319d0b0c80cc9454443f30b5053ba27e5a57912b51bc5",
+    "regions/slots.SchDoc": "3d49003f302035874a7933695bf20a3187c9f298bcd5be4c8bdf92ed9cccd2b3"
+  },
+  "project_references_all_present": {
+    "regions/slots.PrjPcb": [
+      "slots.SchDoc",
+      "slots.PcbDoc"
+    ],
+    "clearance/slots.PrjPcb": [
+      "slots.SchDoc",
+      "slots.PcbDoc",
+      "slots.PcbLib",
+      "slots.SchLib"
+    ],
+    "gate-off/slots.PrjPcb": [
+      "slots.SchDoc",
+      "slots.PcbDoc"
+    ]
+  },
+  "source_CAD_file_count": 11,
+  "referenced_document_count": 8,
+  "project_count": 3,
+  "all42_old_steps_unchanged": true,
+  "all7_old_sample_fingerprints_inputs_script_unchanged": true,
+  "old_records_unchanged_no_stale_or_label_problems": true,
+  "old_kit_reconstructed_canonical_digest": "d8006a4697cd7114449e34d4de3df2ddd1ac4d0e209b15df9602c78d373471aa",
+  "old_kit_still_loads": true,
+  "schema_only_added_slots_readback_enum_value": true,
+  "schema_ID_version_fields_frozen_v0_old_values_unchanged": true,
+  "required_cases": [
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "S5",
+    "S6",
+    "S7",
+    "S8"
+  ],
+  "formal_steps": [
+    "K5.6",
+    "K5.7",
+    "K5.8",
+    "K5.9",
+    "K5.10",
+    "K5.11",
+    "K5.12",
+    "K5.13"
+  ],
+  "focused_proofs": {
+    "initial_RED": "2failed: missing catalogue and missing module; retained externally",
+    "initial_combined": "132passed/4failed/1error; failures retained, not a passing run",
+    "first_correction": "34passed/1failed; missing clearance library companions exposed and subsequently corrected",
+    "companion_correction": "11passed",
+    "final_guards": "70passed",
+    "final_documents_UTF8": "68passed",
+    "pyright": "0errors/0warnings",
+    "ruff": "passed",
+    "format": "passed",
+    "schema_check": "passed",
+    "guide_check": "passed",
+    "graduation_snapshot_check": "passed unchanged",
+    "strict_OpenSpec": "passed",
+    "residue_waiver_controls": "45passed; exact path excludes only numeric-code; another path/private/known-blob/structural negatives remain active"
+  },
+  "external_log_sha256": {
+    "RED2.log": "38937a9b25143356bbeead1b6d8112daeb6ecb8ef38ee5978490b2b724405014",
+    "focused-existing-and-new.log": "44c89ed759bb44fa35acb9ffe3f7b6cdd0816bbd33a6434d40f3b39e10f5f74f",
+    "focused-corrections.log": "7386734bbcd250b8c68cdec02a7fa89fab518d9a37e5936ab23261ec36121587",
+    "focused-library-companions.log": "e530b59510c870553cdfa692c65cfe862e06a06dcadbeed7c9d2120d40a5773c",
+    "focused-final-guards.log": "8bd7aad216d76c0e400d337662bfcc9d08ba7c8ff7cec832a5c7136c461b36d0",
+    "documents-and-utf8-final.log": "88000a072817a7da30eb7e8bf330fec65e509441fc2b079041d398af574cd956",
+    "pyright-final.log": "6d88a1b220adb7a3d62092b6e38431f0b3fe8babe9864fab90e5849766260332",
+    "schemas-check-final.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "guide-check-final.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "graduation-check-final.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "strict-final.log": "ed4b8bfd3e000f0110aeee49c957c766706f5f9886658722f048151932ef5a79",
+    "backward-compatibility-final.json": "9c36bd012def14b28e9f9892262f3bcea0f3c0b8c4487dd2f44a50da0b8b0d07",
+    "real-S7-checker-readonly.json": "991ede584abe8a776c118bfe96901457d427b73bf9bd151694770f48d8e1b56b",
+    "authored-viewport-residue-proof.json": "c70b5f7ed8f020fbd9a7ef15cea0d2f017c80a28be48a06e4107197a6173a4c9",
+    "residue-waiver-focused.log": "6cb996ef76fe99049dd692e5cd4ad5b89a1109573ab915339b3beabb0ca5dbe2",
+    "private-waiver-final.log": "a286db651fe85150393db79c819622a5da4460b63766a854d0c77fd8a0940e75",
+    "strict-waiver-final.log": "ed4b8bfd3e000f0110aeee49c957c766706f5f9886658722f048151932ef5a79",
+    "private-final-before-proof.log": "d20b265fe156587d9e4d16a1784690615b75804fc3ea505f3c1fb859d71c43cb",
+    "private-final.log": "d20b265fe156587d9e4d16a1784690615b75804fc3ea505f3c1fb859d71c43cb"
+  },
+  "actual_S7": {
+    "source": "S-1297",
+    "source_input_sha256": "be65d4b9884e1949abd162f64033f54b92167bf1cea5af535031d691467910f0",
+    "native_saved_sha256": "34baa3d9329792a860ad20500d3294c795357422e33e1c4e9f33cd3785cc4b85",
+    "native_version": "24.5.2.23",
+    "native_saved_not_committed": true,
+    "report_sha256": "9e2a52b34ca8e90367cc3e27e8bec8e0afe44fb0828c42c3566c015dee4a53d5",
+    "new_checker_no_problems_without_new_native_operation": true
+  },
+  "current24_S1_S8_pending": true,
+  "formal_bool_fields_filled": false,
+  "formal_run_record_created": false,
+  "aggregate5_2_completed": false,
+  "H_A_SLOT_KIT": "INFERRED",
+  "writer_graduation_changed": false,
+  "CI_full_fast_native_GUI_runs_by_this_agent": 0,
+  "whitespace_check": "default blank-at-eol/blank-at-eof/space-before-tab plus cr-at-eol, preserving the required byte-exact Altium PrjPcb CRLF",
+  "private_scan": {
+    "exit_code": 0,
+    "private_gate": "on",
+    "hits": 0,
+    "files_scanned": 40,
+    "scope": "staged final implementation/docs and exact-file numeric-code waiver",
+    "prior_failures": "four authored viewport numeric matches retained in failed scan logs; not private findings"
+  },
+  "authored_viewport_waiver": {
+    "path": "examples/kit/slots/clearance/slots.PcbLib",
+    "pattern": "numeric-code",
+    "binary_sha256": "0cb1c97ecb3821808275b54ecd986cedf21acdb0ed4f4f6ee4546201f61eeb11",
+    "source": "src/fenolite/backends/altium/libboard.py:VIEWPORT",
+    "fields": [
+      "VP.LX",
+      "VP.HX",
+      "VP.LY",
+      "VP.HY"
+    ],
+    "values": [
+      499000000,
+      501000000,
+      499000000,
+      501000000
+    ],
+    "offsets": [
+      78298,
+      78314,
+      78330,
+      78346
+    ],
+    "binary_bytes_unchanged": true,
+    "other_public_private_and_blob_checks_active": true
+  }
+}

@@ -545,3 +545,26 @@ label restores both original pages exactly. Runtime, tests, tools and normative
 specs are unchanged. OpenSpec 1.3 strict, diff and staged private residue pass
 with zero hits in six files, gate on. No new measurement, suite, CI, hypothesis
 promotion or c0276 closure occurred.
+
+- [x] 2.21 Reconcile the current documentary closure inventory after the completed fast18
+  and later isolated local integrations. Bind only existing source-specific proofs for
+  c0329/c0330/c0350 local tasks, preserving their independent CI/native boundaries,
+  all42 actual archives, earlier failed verdicts and source/future-release limits.
+  Record c0305 visual inspection, c0168/c0246 local integration, Windows UTF-8
+  repair and configurable viewer UI against their actual sources; keep the
+  locked-Mac limitation and current CI uncertainty explicit. No new suite, CAD,
+  Royal run, CI or archive is requested. Proof: existing receipt/log/driver and
+  source-file SHA comparisons; generated checks where applicable; nominal strict
+  OpenSpec, git diff --check and staged private-enabled residue.
+
+
+Task2.21 proof — 2026-11-03: fast18 log/driver/receipt hashes and six retained
+c0350 native logs match; relevant source/test/tool paths are unchanged between
+ad8 and010. Three generator --check commands pass without a test/native rerun.
+Three local tasks are completed with individual DCO commits and portable proof
+records; all independent CI/native/archive gates remain. The current ledger has
+a dated addendum, preserving every earlier snapshot and42 actual archives.
+Four cleanup candidates were reviewed,31 cherry-picked files match and the
+negative-control source is ancestral; nothing was deleted. Nominal strict,
+diff and staged private-enabled residue pass on this documentation.
+No current CI green, human review or release is inferred.
