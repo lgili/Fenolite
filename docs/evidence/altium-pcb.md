@@ -759,6 +759,18 @@ record as `panel-a`, so its rotation is stored elsewhere. Its file hash differs.
 `H-A-PANEL-RECORD` stays `UNKNOWN`: its row names 26.5, and these are agent observations under the
 approved 24.5 scope. `H-A-PANEL-LAYERKIND` stays `UNKNOWN` (Q3 not run). Task 2.4 stays open.
 
+**Evening retry of Q3, and Q5 (source S-1580).** At the maintainer's second request of 2026-11-04 the
+agent tried Q3 again on the same VM copy of `panel-a.PcbDoc` (`83999080…`, unchanged) in Altium 24.5.2.23.
+View » Panels » View Configuration again opened as a floating panel over the Projects panel. A right-click
+on its "Mechanical Layers (M)" row opened the Projects panel's document menu (Open, Remove from
+Project…, and so on). The agent closed it with Esc and chose nothing. A read-only DelphiScript read the
+`Kind` of mechanical layer 20 as 0. The agent did not set any kind by script, because no source here
+maps kind numbers to V Cut or Route Tool Path, and Q3 asks for the panel's own fields. Q3 stays not run,
+and nothing was saved.
+
+The four copies of Q5 are the expected outcome, not a defect. Q1 set Column Count 2 and Row Count 2, so
+the array holds four boards. The outputs repeat each board's 7 top and 3 bottom flashes four times.
+
 ### 2026-11-04, actual `AD24.5.2.23`, Part T
 
 Source S-1571: [T1–T6 report](altium-part-t-convert-2026-11-04.md) and
