@@ -102,6 +102,15 @@ All notable changes to Fenolite are documented here. The format follows
   The roadmap reconciles the original phases 0–4; no router runtime behavior changes here.
 
 - Archive c0170-convert-slots-obstacles: slots and cut-outs in conversions, slotted drills to Altium, generated hole footprints and slot obstacles, with `H-K-CONV-SLOTS` proved in CI (task 3.3).
+- **Import failures on real boards** (c0364): `check` no longer fails with `FEN-1001` on a non-plated hole
+  whose pad has no copper (the model-only pad geometry gives an `np_thru_hole` pad no copper, as the
+  backends do); `convert` refuses a project whose declared PCB document is missing with `FEN-3001` naming
+  it, instead of an `AssertionError`; `parity` (and every document command) names and hashes a PCB that the
+  project keeps in a subfolder (`PCB/Board.PcbDoc`) instead of failing with `FileNotFoundError`; an empty
+  source value stays empty through `import --to python`. **Behavior change:** `Part(value="")` now keeps
+  the value empty in a KiCad build (`Part.value_empty`; `build_design(empty_values=...)`, filled by
+  `fenolite.dsl.convert.empty_value_ids`; the model and its schema do not change); `value=None`, the
+  default, still takes the symbol's `Value`. An Altium build still writes the symbol's name as the comment.
 
 - Reconcile c0334's complete retained native census with unchanged BOM/import producer sources, preserving all refusals, tag skips, naming warnings and the failed CI verdict. Reflow its existing layering paragraph for complete OpenSpec parsing without changing its words or scenarios.
 

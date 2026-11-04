@@ -360,6 +360,7 @@ def _resolve(
     issues: list[Issue],
     authored: Mapping[str, FootprintDef] = MappingProxyType({}),
     authored_symbols: Mapping[str, SymbolDef] = MappingProxyType({}),
+    empty_values: frozenset[str] = frozenset(),
 ) -> tuple[list[_Part], dict[str, str]]:
     errors: list[LibraryError] = []
     libraries: dict[str, str] = {}
@@ -417,10 +418,10 @@ def _resolve(
                 errors.append(error)
                 continue
             libraries[fp_ref] = location.origin
-        # a board-only part has no symbol on the sheet: its value is its own, empty included (change c0277)
-        value = (
-            component.value if component.board_only else component.value or symbol.properties.get("Value", "")
-        )
+        # a board-only part has no symbol on the sheet: its value is its own, empty included (change c0277);
+        # so is a part given ``value=""`` (change c0364, ``empty_values``)
+        own = component.board_only or component.id in empty_values
+        value = component.value if own else component.value or symbol.properties.get("Value", "")
         component = dataclasses.replace(component, lib_footprint_ref=native_ref, value=value)
         origin = libraries[component.lib_symbol_ref]
         found.append(_Part(component, _path(component), symbol, footprint, location, parents, origin))
@@ -1512,8 +1513,13 @@ def build_design(
     project_template: str | None = None,
     project_resources: Sequence[ProjectResource] = (),
     preserve_project_minimums: bool = False,
+    empty_values: frozenset[str] = frozenset(),
 ) -> BuildOutput:
     """Every file of the built project as bytes, or no file when an issue is an error.
+
+    ``empty_values`` holds the ids of components whose part was given ``value=""``
+    (``fenolite.dsl.convert.empty_value_ids``, change c0364): their value stays empty instead of taking
+    the Value of the symbol.
 
     ``write_base`` adds the base record ``fenolite-base.json`` (change c0250, ``docs/lens.md``, "The base
     record"): for each written part its code values (``prepared.codes``, else the script's values and the
@@ -1614,7 +1620,9 @@ def build_design(
         else (prepared.existing.project if prepared is not None else None)
     )
     issues: list[Issue] = [*prepared.issues] if prepared is not None else []
-    parts, libraries = _resolve(design, resolver, issues, authored_footprints, authored_symbols)
+    parts, libraries = _resolve(
+        design, resolver, issues, authored_footprints, authored_symbols, empty_values=empty_values
+    )
     plan = _vendor_plan(parts, vendor, issues)
     device_of = {p.component.id: devices[p.path] for p in parts if p.path in devices}
     functions = {cid: {pin.function: pin.pins for pin in device.pins} for cid, device in device_of.items()}

@@ -9,7 +9,7 @@ from pathlib import Path
 
 from fenolite.backends.kicad.libs import LibraryConfig, LibraryResolver
 from fenolite.dsl import Design, mm, placements, to_model
-from fenolite.dsl.convert import two_terminal, unused_marks
+from fenolite.dsl.convert import empty_value_ids, two_terminal, unused_marks
 from fenolite.lens.build import BuildOutput, build_design
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -132,7 +132,12 @@ def build(design: Design, target: int = 10, **kwargs: object) -> BuildOutput:
         copper=design.copper,  # type: ignore[arg-type]
         resolver=resolver(target, project_dir, config_home, cache_dir),  # type: ignore[arg-type]
         target=target,
-        **{"unused": unused_marks(design), "two_terminal": two_terminal(design), **kwargs},  # type: ignore[arg-type]
+        **{
+            "unused": unused_marks(design),
+            "two_terminal": two_terminal(design),
+            "empty_values": empty_value_ids(design),
+            **kwargs,
+        },  # type: ignore[arg-type]
     )
 
 

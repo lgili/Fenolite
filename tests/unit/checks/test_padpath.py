@@ -6,7 +6,7 @@ from dataclasses import replace
 
 from _topologybench import MM, bench, ident
 
-from fenolite.checks.padpath import CopperGraph
+from fenolite.checks.padpath import CopperGraph, model_pads
 from fenolite.core.coords import Point
 from fenolite.model.board import Arc, Track, Zone, ZoneFill
 
@@ -83,3 +83,36 @@ def test_arc_length_is_not_its_chord() -> None:
     path = CopperGraph(design).shortest("U1-1", "U2-1")
     assert path.status == "ok" and path.length_nm == 47_123_890 + 20 * MM
     assert path.steps[0].kind == "arc"
+
+
+def test_non_plated_hole_without_copper_has_no_copper_entry() -> None:
+    """change c0364: an NPTH pad of size 0 used to raise ``ValueError`` (``FEN-1001`` in ``check``)."""
+    from fenolite.core.coords import Size
+    from fenolite.model.board import FootprintInstance, Pad
+
+    design = bench()
+    assert design.board is not None
+    for kind, size in (("np_thru_hole", 0), ("np_thru_hole", 4 * MM), ("thru_hole", 0)):
+        hole = FootprintInstance(
+            id=ident("fp", "H1"),
+            component_id=ident("cmp", "H1"),
+            lib_ref="authored",
+            position=Point(80 * MM, 0),
+            pads=(
+                Pad(
+                    id=ident("pad", "H1"),
+                    number="",
+                    shape="circle",
+                    size=Size(size, size),
+                    position=Point(0, 0),
+                    kind=kind,  # type: ignore[arg-type]
+                    drill=3 * MM,
+                    layers=("*.Cu",),
+                ),
+            ),
+        )
+        board = replace(design.board, footprints=(*design.board.footprints, hole))
+        pads = {pad.footprint_id: pad for pad in model_pads(replace(design, board=board))}
+        assert pads[hole.id].copper == (), (kind, size)
+        assert len(pads) == 3
+        CopperGraph(replace(design, board=board))  # the graph builds from the same pads

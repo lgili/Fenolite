@@ -187,3 +187,23 @@ def test_hierarchical_build_without_the_tool(monkeypatch: pytest.MonkeyPatch, tm
     code, env, err, _ = run(monkeypatch, tmp_path, "parity", str(root))
     assert code == 0, err
     assert env["result"]["netlist"] == "own" and env["result"]["findings"] == [] and env["issues"] == []
+
+
+def test_altium_board_in_a_project_subfolder(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """change c0364: the board of an Altium project kept in ``PCB/`` is named and hashed where the project
+    declares it; ``parity`` used to fail with ``FEN-1001`` (``FileNotFoundError``) after the comparison."""
+    import hashlib
+
+    blink_folder = Path(__file__).resolve().parents[2] / "data" / "altium" / "blink"
+    root = Path(shutil.copytree(blink_folder, tmp_path / "blink"))
+    (root / "PCB").mkdir()
+    (root / "blink.PcbDoc").rename(root / "PCB" / "blink.PcbDoc")
+    project = root / "blink.PrjPcb"
+    project.write_bytes(
+        project.read_bytes().replace(b"DocumentPath=blink.PcbDoc", b"DocumentPath=PCB\\blink.PcbDoc")
+    )
+    code, env, err, _ = run(monkeypatch, tmp_path, "parity", str(project))
+    assert code in (0, 5), err
+    assert env["result"]["board"] == "PCB/blink.PcbDoc"
+    digest = hashlib.sha256((root / "PCB" / "blink.PcbDoc").read_bytes()).hexdigest()
+    assert (env["input"]["path"], env["input"]["sha256"]) == ("PCB/blink.PcbDoc", digest)

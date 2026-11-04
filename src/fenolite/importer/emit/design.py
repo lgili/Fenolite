@@ -1520,7 +1520,9 @@ def emit(source: Source, options: Options) -> Emission:
         kwargs = [("footprint", text(native_footprint))]
         if lib_id != native_footprint:
             kwargs.append(("footprint_definition", text(lib_id)))
-        if component.value:
+        # an empty source value is written as ``value=""``: without it the build takes the symbol's Value
+        # (change c0364); a board-only part keeps its own value anyway
+        if component.value or component.id not in board_only:
             kwargs.append(("value", text(component.value)))
         written = shown.get(component.id, ref)
         if path[-1] != written:
@@ -1563,9 +1565,7 @@ def emit(source: Source, options: Options) -> Emission:
         var = identifier(ref, writer.taken, prefix="p")
         part_vars[ref] = var
         lock_refs["/".join(path)] = ref
-        kwargs = [("bom_only", Raw("True"))]
-        if component.value:
-            kwargs.append(("value", text(component.value)))
+        kwargs = [("bom_only", Raw("True")), ("value", text(component.value))]  # empty included (c0364)
         if component.lib_footprint_ref:
             kwargs.append(("footprint", text(component.lib_footprint_ref)))
         if path[-1] != ref:

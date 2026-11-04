@@ -101,3 +101,18 @@ def test_two_backends_in_one_folder(tmp_path: Path) -> None:
     shutil.copy(ALTIUM_BLINK / "blink.PrjPcb", tmp_path / "blink.PrjPcb")
     with pytest.raises(SourceError, match="two backends"):
         read_source(tmp_path)
+
+
+def test_altium_project_without_its_pcb_document_is_refused(tmp_path: Path) -> None:
+    """change c0364: a project whose declared PcbDoc is absent is bad input (``FEN-3001``), not an
+    ``AssertionError`` of the KiCad direction."""
+    shutil.copy(ALTIUM_BLINK / "blink.SchDoc", tmp_path / "blink.SchDoc")
+    shutil.copy(ALTIUM_BLINK / "blink.SchLib", tmp_path / "blink.SchLib")
+    project = tmp_path / "p.PrjPcb"
+    project.write_bytes(
+        b"[Design]\r\nVersion=1.0\r\n\r\n[Document1]\r\nDocumentPath=blink.SchDoc\r\n"
+        b"\r\n[Document2]\r\nDocumentPath=PCB\\Board.PcbDoc\r\n"
+    )
+    with pytest.raises(ProjectNotFoundError, match=r"PCB/Board\.PcbDoc") as raised:
+        convert_project(project, to="kicad", allow_lossy=True)
+    assert raised.value.cli_code == "FEN-3001"

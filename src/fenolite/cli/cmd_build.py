@@ -136,6 +136,7 @@ from fenolite.dsl import (
 )
 from fenolite.dsl import Design as DslDesign
 from fenolite.dsl.convert import (
+    empty_value_ids,
     footprint_overrides,
     images,
     model_refs,
@@ -1685,6 +1686,7 @@ def _built(
             prepared.design if prepared is not None and prepared.design is not None else model,
             prepared.placements if prepared is not None else requested,
             name=design.name,
+            empty_values=empty_value_ids(design),
             copper=design.copper,
             resolver=resolver,
             target=ctx.kicad_target,
@@ -2239,6 +2241,7 @@ def _run_altium(
             model,
             requested,
             name=name,
+            empty_values=empty_value_ids(run.design),
             copper=run.design.copper,
             resolver=resolver,
             target=ctx.kicad_target,

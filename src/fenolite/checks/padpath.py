@@ -68,8 +68,22 @@ def _layers(patterns: Sequence[str], layers: Sequence[str]) -> tuple[str, ...]:
     )
 
 
+def _copper_entry(
+    layer: str, core: tuple[Point, ...], width: int, *, filled: bool = False
+) -> PadCopper | None:
+    """A ``PadCopper``, or ``None`` for a core that no copper record holds (a disc of diameter 0), as the
+    backends' pad frames drop it (change c0364)."""
+    try:
+        return PadCopper(layer, core, width, filled=filled)
+    except ValueError:
+        return None
+
+
 def model_pads(design: Design) -> tuple[BoardPad, ...]:
-    """Exact common pad shapes for model-only callers. Backend BoardPad geometry covers other shapes."""
+    """Exact common pad shapes for model-only callers. Backend BoardPad geometry covers other shapes.
+
+    As in the KiCad and Altium pad frames, an ``np_thru_hole`` pad has no copper entries and an entry that
+    no copper record can hold is left out; the pad itself stays (change c0364)."""
     if design.board is None:
         return ()
     copper = tuple(layer.name for layer in design.board.layers if layer.kind == "copper")
@@ -82,11 +96,11 @@ def model_pads(design: Design) -> tuple[BoardPad, ...]:
             placement = Transform.placement(footprint.position, footprint.rotation)
             at = placement.apply(pad.position)
             transform = Transform.placement(at, footprint.rotation + pad.rotation)
-            shapes: list[PadCopper] = []
-            for layer in _layers(pad.layers, copper):
+            shapes: list[PadCopper | None] = []
+            for layer in () if pad.kind == "np_thru_hole" else _layers(pad.layers, copper):
                 w, h = pad.size.w, pad.size.h
                 if pad.shape == "circle":
-                    shapes.append(PadCopper(layer, (at,), min(w, h)))
+                    shapes.append(_copper_entry(layer, (at,), min(w, h)))
                 elif pad.shape == "rect":
                     points = tuple(
                         transform.apply(Point(x, y))
@@ -97,12 +111,12 @@ def model_pads(design: Design) -> tuple[BoardPad, ...]:
                             (-w // 2, h // 2),
                         )
                     )
-                    shapes.append(PadCopper(layer, points, 0, filled=True))
+                    shapes.append(_copper_entry(layer, points, 0, filled=True))
                 elif pad.shape == "oval":
                     half = abs(w - h) // 2
                     local = (Point(-half, 0), Point(half, 0)) if w >= h else (Point(0, -half), Point(0, half))
                     shapes.append(
-                        PadCopper(layer, tuple(transform.apply(point) for point in local), min(w, h))
+                        _copper_entry(layer, tuple(transform.apply(point) for point in local), min(w, h))
                     )
             found.append(
                 BoardPad(
@@ -118,7 +132,7 @@ def model_pads(design: Design) -> tuple[BoardPad, ...]:
                     pad.layers,
                     pad.net_id,
                     nets.get(pad.net_id or ""),
-                    tuple(shapes),
+                    tuple(shape for shape in shapes if shape is not None),
                 )
             )
     return tuple(found)

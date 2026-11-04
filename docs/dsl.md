@@ -273,9 +273,11 @@ r1.place(mm(32), mm(9), rot=90, side="bottom")
 
 - `Design(name)`, `Module(name)`: containers; `add(*objs)` adds parts, modules, nets and interfaces.
   There is no implicit "current design".
-- `Part(ref, lib_id, footprint=None, value="", *, name=None, prefix=None, properties=None)`: `lib_id` is
+- `Part(ref, lib_id, footprint=None, value=None, *, name=None, prefix=None, properties=None)`: `lib_id` is
   a symbol `Library:Name`; `footprint=None` falls back to the symbol's `Footprint` property, and
-  `value=""` to its `Value` property. `properties` maps user property names to text ("User properties").
+  `value=None` to its `Value` property. `value=""` keeps the value empty in a KiCad build (change c0364;
+  before it, `""` also took the symbol's `Value`); an Altium build writes the symbol's name as the comment
+  of a part without a value. `properties` maps user property names to text ("User properties").
   The ref may be left out: the build then assigns one ("Reference designators and the design lock").
   `height=` states how tall the part is ("Part heights and height limits"). `dnp=True` marks a part that
   is not populated (change c0277): its schematic symbol is written with `(dnp yes)` and its board

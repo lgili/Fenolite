@@ -19,6 +19,7 @@ from importlib import resources
 from pathlib import Path
 from typing import Literal
 
+from fenolite.backends.kicad.projectset import ProjectNotFoundError
 from fenolite.convert import to_altium, to_kicad
 from fenolite.convert.codes import ISSUE_CODES, issue
 from fenolite.convert.direction import (
@@ -120,6 +121,36 @@ def direction_for(backend: str, to: str) -> Direction:
     return found
 
 
+def _no_board(read: SourceProject) -> ProjectNotFoundError:
+    """The refusal of a source without a PCB design (``FEN-3001``, change c0364): it names the PCB
+    documents an Altium project declares and lacks."""
+    missing: list[str] = []
+    if read.backend == "altium" and read.path.suffix.lower() == ".prjpcb":
+        from fenolite.backends.altium.read.project import load_project
+
+        try:
+            loaded = load_project(read.path)
+        except (OSError, ValueError):
+            loaded = None
+        if loaded is not None:
+            missing = [
+                item.document.posix
+                for item in loaded.documents
+                if item.document.kind == "pcb" and not item.present
+            ]
+    if missing:
+        message = (
+            f"{read.path.name} declares PCB document(s) that are not in its folder: {', '.join(missing)}"
+        )
+        hint = "add the missing PCB document(s) to the project folder; a conversion needs the board"
+    else:
+        message = f"{read.path.name} holds no PCB design to convert"
+        hint = "pass a project with a PCB document; a conversion needs the board"
+    error = ProjectNotFoundError(message)
+    setattr(error, "hint", hint)  # noqa: B010 - read by the CLI's error mapping
+    return error
+
+
 def convert_project(
     source: Path | str | SourceProject,
     *,
@@ -144,6 +175,8 @@ def convert_project(
         raise ValueError(f"pour is one of {', '.join(POURS)}, got {pour!r}")
     read = source if isinstance(source, SourceProject) else read_source(Path(source))
     direction = direction_for(read.backend, to)
+    if read.design.board is None:
+        raise _no_board(read)
     written = direction.write(read, Options(kicad_version=kicad_version, bodies=bodies, name=name, pour=pour))
     report = written.report
     lossy = tuple(lossy_issue(row) for row in report.rows if row.kind in report.refused)

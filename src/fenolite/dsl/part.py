@@ -306,6 +306,9 @@ class Part(Edges):
                 "and footprint_definition"
             )
         self.bom_only = bom_only
+        self.value_empty = isinstance(value, str) and value == ""
+        """The script gave ``value=""``: the build keeps the value empty instead of taking the Value of the
+        symbol, which a part without ``value=`` takes (change c0364)."""
         if not isinstance(board_only, bool):  # pyright: ignore[reportUnnecessaryIsInstance]
             raise DslError(f"part {ref or name}: board_only must be a bool, not {board_only!r}")
         self.board_only = board_only

@@ -106,12 +106,16 @@ def find_documents(path: Path) -> tuple[DocumentValidator, DocumentSet] | None:
 
 
 def given_document(path: Path, documents: DocumentSet) -> str:
-    """The name, relative to the set's root, of the file that ``path`` names: the file itself, or the
-    project file for a folder."""
+    """The name, relative to the set's root, of the file that ``path`` names: the file itself (with the
+    subfolders of a file under the root, such as ``PCB/Board.PcbDoc``, change c0364), or the project file
+    for a folder."""
     if path.is_dir():
         assert documents.project is not None
         return documents.project
-    return path.name
+    try:
+        return path.resolve().relative_to(documents.root.resolve()).as_posix()
+    except ValueError:
+        return path.name
 
 
 def input_ref(path: Path, documents: DocumentSet) -> InputRef:

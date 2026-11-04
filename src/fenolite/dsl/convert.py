@@ -162,6 +162,16 @@ def _component(part: Part) -> Component:
     )
 
 
+def empty_value_ids(design: Design) -> frozenset[str]:
+    """The ids of the components whose part was given ``value=""`` (change c0364): ``build_design`` keeps
+    their value empty instead of taking the Value of the symbol. The model holds no such flag."""
+    return frozenset(
+        key_id("component", part.path)
+        for part in design.parts.values()
+        if part.value_empty and not part.value
+    )
+
+
 def _decimal10(value: Fraction, mode: str, what: str) -> Decimal10:
     """``value`` as a ``Decimal10``: exact with at most 15 significant digits, else rounded to 15 ``down``,
     ``up`` or to ``near``est (ties to even); ``DslError`` naming ``what`` when the exponent leaves
