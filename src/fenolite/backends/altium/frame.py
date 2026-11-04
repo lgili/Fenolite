@@ -275,8 +275,9 @@ def placed_extents(design: Design, *, issues: list[Issue] | None = None) -> tupl
 
 EDGE_LAYER = "Edge.Cuts"
 EDGE_JOIN_NM = 1_000
-"""Edge graphics whose endpoints lie closer than this are chained as one point: the import rounds the end
-of an arc of the board outline from its centre, radius and angles, and the next line from the vertex."""
+"""Edge graphics whose endpoints lie closer than this are chained as one point: the import ends an arc of
+the board outline on its vertices only when its centre, radius and angles give ends within
+``adapter.copper.OUTLINE_VERTEX_NM`` of them (change c0378), else on the rounded computed ends."""
 
 
 def _edge_pieces(design: Design) -> list[Segment | GeoArc]:

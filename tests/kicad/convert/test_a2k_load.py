@@ -80,3 +80,45 @@ def test_copper_shape_of_a_net_is_no_short_in_kicad_drc(tmp_path) -> None:
     with_region, without = drc(pad.net_id), drc(pad.net_id, added=False)
     for kind in ("shorting_items", "clearance"):
         assert with_region[kind] == without[kind], kind
+
+
+def test_outline_arc_off_its_circle_is_a_closed_edge_in_kicad(tmp_path) -> None:
+    """change c0378 task 1.2: the blink's board outline replaced by one whose arc ends on a vertex 5.08 µm
+    off the arc's circle. The written board loads, KiCad's DRC finds no ``invalid_outline``, and the edge
+    ring read back equals the source's."""
+    import dataclasses
+
+    from _outline_arc import rounded
+
+    from fenolite.backends import registry
+    from fenolite.backends.altium import frame
+    from fenolite.convert import convert_project
+    from fenolite.convert.rings import compare_rings
+    from fenolite.convert.sources import read_source
+
+    source = read_source(_a2kcases.SAMPLE)
+    board = source.design.board
+    edges = rounded("800.2mil").board
+    assert board is not None and edges is not None
+    graphics = (
+        *(g for g in board.graphics if g.layer != "Edge.Cuts"),
+        *(dataclasses.replace(g, id=f"c0378-{g.id}") for g in edges.graphics if g.layer == "Edge.Cuts"),
+    )
+    design = dataclasses.replace(source.design, board=dataclasses.replace(board, graphics=graphics))
+    cli = runner()
+    conversion = convert_project(
+        dataclasses.replace(source, design=design), to="kicad", kicad_version=cli.major(), allow_lossy=True
+    )
+    for name, data in conversion.files.items():
+        (tmp_path / name).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / name).write_bytes(data)
+    written = tmp_path / conversion.read_back
+    files = {name: tmp_path / name for name in conversion.files if name != conversion.read_back}
+    run = cli.drc(written, files=files)
+    assert run.report is not None, run.run.stderr
+    assert "invalid_outline" not in {v.type for v in run.report.violations}
+    backend = registry.for_path(written)
+    rings = backend.board_edges(backend.read(written).design)  # type: ignore[attr-defined]
+    source_rings = frame.board_edges(design)
+    assert source_rings is not None
+    assert compare_rings(source_rings, rings, conversion.report) == ()

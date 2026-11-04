@@ -102,6 +102,10 @@ All notable changes to Fenolite are documented here. The format follows
   The roadmap reconciles the original phases 0–4; no router runtime behavior changes here.
 
 - Archive c0170-convert-slots-obstacles: slots and cut-outs in conversions, slotted drills to Altium, generated hole footprints and slot obstacles, with `H-K-CONV-SLOTS` proved in CI (task 3.3).
+- **Altium outline arcs** (c0378): an arc of an Altium board outline ends on the two vertices it joins
+  when its centre, radius and angles give ends within 10 µm of them, so a vertex that lies a few
+  micrometres off the arc's circle no longer leaves a gap in the edge that KiCad closes (an unexplained
+  `edge-ring` difference). The fact is CORPUS-VERIFIED on the eight public boards (`H-A-IMP-OUTLINE-ARC`).
 - **Altium copper shapes** (c0376): free fills and regions on an Altium copper layer are copper graphics of
   their net (`Graphic.net_id`) instead of keeping the net only in the extension bag, so `convert --to kicad`
   writes them on their net instead of as copper of no net.

@@ -1054,9 +1054,22 @@ def _nearer(point: Point, a: Point, b: Point) -> bool:
     return da <= db
 
 
+OUTLINE_VERTEX_NM = 10_000
+"""How far, in nanometres, the ends of an outline arc computed from its centre, radius and angles may lie
+from the two vertices it joins for the vertices to be its ends (change c0378): the arc of vertex k runs from
+vertex k to vertex k+1, and a vertex may lie micrometres off the circle (``pcb-document.md``). The distance
+is KiCad's own join distance of edge ends (``backends.kicad.outline.CHAIN_GAP``)."""
+
+
+def _within(point: Point, other: Point, distance: int) -> bool:
+    return (point.x - other.x) ** 2 + (point.y - other.y) ** 2 <= distance * distance
+
+
 def outline(vertices: Sequence[OutlineVertex], ctx: Context, locator: str = "Board6/Data#0") -> list[Graphic]:
     """The board outline as graphics on ``Edge.Cuts`` with width 0: one per segment, a ``line`` for a line
-    vertex and an ``arc`` for an arc vertex; a segment of zero length is dropped."""
+    vertex and an ``arc`` for an arc vertex; a segment of zero length is dropped. An arc runs from its vertex
+    to the next: its ends are the two vertices when its computed ends lie within ``OUTLINE_VERTEX_NM`` of
+    them, its middle comes from its centre, radius and angles."""
     found: list[Graphic] = []
     count = len(vertices)
     if count < 2:
@@ -1091,6 +1104,8 @@ def outline(vertices: Sequence[OutlineVertex], ctx: Context, locator: str = "Boa
         start, mid, end = units.arc_points(vertex.cx, vertex.cy, vertex.radius, start_angle, end_angle)
         if not _nearer(start, a, b):
             start, end = end, start
+        if _within(start, a, OUTLINE_VERTEX_NM) and _within(end, b, OUTLINE_VERTEX_NM):
+            start, end = a, b
         found.append(
             _graphic(ctx, "arc", EDGE, (start, mid, end), width=0, filled=False, locator=where, pairs=pairs)
         )
