@@ -241,6 +241,7 @@ All notable changes to Fenolite are documented here. The format follows
 - Collect the eight complete native mirror/TAB preservation proofs in the KiCad oracle jobs, preserving their assertions and explicit writer-version compatibility; unit-only jobs retain pure controls.
 
 - Certify all imported pour copper within the continuous10nm boundary band while retaining native fragmentation, every fill/hole, strict net/layer identity and the existing XOR limit; add located tiny-copper negatives instead of assuming native container counts (c0215).
+  Its 2026-11-04 re-run on KiCad 10.0.6 is recorded with the current fill counts and XOR areas, and each named control is mapped to its test case.
 
 - Record the maintainer’s source-bound approval of the native KiCad/viewer colour comparison (c0178), retaining independent CI and electrical gates.
 
