@@ -215,6 +215,7 @@ All notable changes to Fenolite are documented here. The format follows
 - Record all four acceptance_v03 native body owners, layers, heights, projections and bounds, with exact source equality and a native 3D top-view observation; retain the failed layer-stack probe and broader acceptance gates (c0092).
 
 - Preserve the complete actual Altium24 acceptance_v03 DRC result (nine unrouted and five antenna findings) and native retention of all seven source rule field sets, without claiming DRC-clean/full-kit or graduation (c0092).
+- Re-run the c0092 residue scan and residue/manifest tests on the current head (2026-11-04); the full suite, exact-head CI and the maintainer Altium run stay open (c0092).
 
 - Record actual Altium24 PCB census and native save/close/reopen for acceptance_v03 with byte-identical complete exports and unchanged inputs; retain DRC/full-kit/graduation gates (c0092).
 
