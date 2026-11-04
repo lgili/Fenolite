@@ -170,7 +170,73 @@ digests and sizes are committed.
 
 ## Reports
 
-No report of Part J has been received.
+No report of Part J has been received from the maintainer. The agent run below is not an author report.
+
+### 2026-11-04, actual `AD 24.5.2.23`, phase A J1 to J22 (source S-1316)
+
+A Claude agent ran phase A at the maintainer's request of 2026-11-04, in the Altium Designer installed in
+the maintainer's Parallels Windows VM. This is not the maintainer's own review. `X2.exe` is 24.5.2.23
+(Trial licence). The kit was built at `7074a68e` into the agent's folder
+`~/fenolite-altium-checks/claude-2026-11-04/c0241-J` (2 passed). The agent worked on a copy of `board/`
+and used File » Open and File » Save As for every case. Each kit document still matches `SHA256SUMS` after
+the run: `edit.PcbDoc` `0f6301a5…`, `edit.SchDoc` `4940e6af…`, `edit.PcbLib` `365b5ff3…`, `edit.PrjPcb`
+`21c386b7…`. The project file was never saved.
+
+**Method.** An authored DelphiScript selected each object, and the selection was cleared before every
+save. The edit itself was made in one of four ways:
+
+- **P**: the Properties panel, with its fields set through UI Automation.
+- **M**: a menu command.
+- **UI**: an interactive command; the pointer was placed with Edit » Jump » Location and Enter.
+- **S**: an authored DelphiScript through the public PCB, schematic or library interface.
+
+S was used where the Properties field could not be reached: the panel was re-docked narrow after a
+restart, and the field lookups timed out. S is a weaker observation than an edit in the panel.
+
+Altium closed with an unhandled exception (`0xeedfade`, then `0xc000041d`) at 10:25 while a selection
+script was being started from File » Run Script, between J2 and the repeat of J3. No crash report was
+sent. Altium was started again with the same build. The first J3 file had kept a script selection, so it
+was deleted and the case repeated. A first J12 paste landed off position and a first J21 edit was lost
+before its save; both were discarded unsaved.
+
+The diff column comes from `fenolite diff A B --view records`. It lists the streams whose record counts
+change. Each PCB case is compared with `J01`. J2 against J1 shows what a second save rewrites anyway:
+`Board6` 1, `FileHeaderSix` 1, `Pads6` 6, `Rules6` 32, `Texts` 1, `Texts6` 7 and `Vias6` 3 records
+changed. The cases from J3 also change `Classes6` 14, `PrimitiveGuids` 1 and, after a move, `Connections6`
+1 against J1. Only streams beyond that resave set are named below.
+
+| case | file (SHA-256) | way | expected | observed |
+|---|---|---|---|---|
+| J1 | `J01-resave.PcbDoc` `8e025db3…` | M | opens with no repair message, saves without a message | as expected. Against the kit's document, the save adds 14 `Classes6`, 32 `Rules6` and one record each in `BoardRegions`, `EmbeddedFonts6`, `FileVersionInfo`, `PrimitiveGuids`, `Texts` and `UnionNames`, and changes 33 `Tracks6`, 6 `Pads6`, 3 `Vias6`, 3 `Arcs6` and 3 `Components6` records |
+| J2 | `J02-resave.PcbDoc` `fa2c9147…` | M | opens and saves without a message | opens and saves without a message. The second save still changes the records listed above |
+| J3 | `J03-move-track.PcbDoc` `b012fac6…` | P | only the track moves; the via stays at (20, 5) | as expected: the track runs (10, 6)–(20, 6), and the via stays at (20, 5). `Tracks6` changes 1 record |
+| J4 | `J04-move-component.PcbDoc` `8eb8732e…` | P | `R1` moves with its pads and texts; tracks stay | `R1` is at (14, 20). `Components6` changes 2, `Tracks6` 20 and `Texts6` 4 records. Violation streams are added for clearance, component clearance, short circuit and silk-to-silk. Whether the free tracks stayed was not read |
+| J5 | `J05-width.PcbDoc` `6d41066d…` | P | only the width changes | `Tracks6` changes 1 record, and a `TMaxWidthTrackViolation` record is added |
+| J6 | `J06-comment.PcbDoc` `fb814f35…` | P | the comment reads `2k2` | the Comment field reads `2k2`. `WideStrings6` changes 1 record |
+| J7 | `J07-text.PcbDoc` `d4234eec…` | S | the new text shows | the text reads `FENOLITE EDIT 2`. `Texts6` changes 1 record and `WideStrings6` 1 |
+| J8 | `J08-rotate.PcbDoc` `aced1e3e…` | P | `R2` turns about its origin | `R2` is at rotation 90 at (12, 12). `Components6` changes 1 record and `Tracks6` 10 |
+| J9 | `J09-flip.PcbDoc` `7412c97b…` | S (Layer set to Bottom) | `D1` on the bottom, mirrored, overlay on Bottom Overlay | `D1` is on the Bottom Layer at rotation 180, and its origin reads (28.55, 15), not (26, 15). One `Tracks6` record is replaced. `UniqueIDPrimitiveInformation` changes 2 records and `WideStrings6` 5. Clearance and short-circuit violations are added. The overlay layer was not read |
+| J10 | `J10-delete-track.PcbDoc` `d45f8291…` | M (Edit » Delete) | the via stays | as expected: 1 `Tracks6` record is removed, and all three vias remain |
+| J11 | `J11-delete-component.PcbDoc` `b4660ee2…` | M (Edit » Delete) | `R2` goes with its pads and texts; its tracks stay | `R2` is removed with 2 pads, 2 texts and 10 tracks. The count of 10 equals the tracks that one placed `Mini_R_0603` adds in J13, so the free tracks appear to stay |
+| J12 | `J12-copy.PcbDoc` `f4d97b62…` | UI (copy with reference at the via, paste at (20, 8)) | a second track and via; note the net | one track (10, 8)–(20, 8) and one via at (20, 8) are added, on `GND`. That place touches the `GND` via at (16, 8). The discarded first paste, at a clear place near (16.1, 29.9), showed the copies with no net |
+| J13 | `J13-place-component.PcbDoc` `7896eb7a…` | UI | one more component with two pads; note the designator | the Components panel had no library installed. With `edit.PrjPcb` open it listed the project's `Mini_R`, whose footprint is `Mini_R_0603`. Place MiniR at (32, 22) adds one component `Designator1` with 2 pads, 2 texts and 10 tracks. The file grows to 747520 bytes |
+| J14 | `J14-layer.PcbDoc` `a1fbaf46…` | S | both on Mechanical 15 | the line and the region read Mechanical 15. One `Tracks6` record is replaced, and `Regions6` and `ShapeBasedRegions6` each change 1 record |
+| J15 | `J15-rule.PcbDoc` `65c5d0f0…` | UI (rules editor) | the rule shows 0.25 mm when reopened | the saved rule holds `GAP=9.8425mil` (0.25 mm), where the kit has `7.874mil`. The reopened editor's list showed only the rule name |
+| J16 | `J16-repour.PcbDoc` `941bc082…` | M | both polygons pour without a message | as expected: 2 `Regions6` and 2 `ShapeBasedRegions6` records are added |
+| J17 | `J17-delete-polygon.PcbDoc` `1d2fc7c2…` | M (Edit » Delete, from J16) | `GND` keeps its copper; note its Pour Index | as expected: 1 polygon, 1 region and 1 shape-based region are removed. A read-only script gives `GND` Pour Index 0. The Polygon Manager grid did not expose the index |
+| J18 | `J18-sch-move.SchDoc` `88b608b8…` | S (move by 10 mm) | `R1` moves; note the wires | `R1` is at (2794, 6300) mil, from (2400, 6300). The wires' first vertices are unchanged |
+| J19 | `J19-sch-parameter.SchDoc` `18354348…` | S | `R1` shows `2k2` | as expected: `R1`'s comment reads `2k2` |
+| J20 | `J20-sch-delete.SchDoc` `53264a3e…` | M (Edit » Delete) | `R2` goes; its wires stay | as expected: no message, and the six wires remain |
+| J21 | `J21-library.PcbLib` `b558bb8d…` | S | only pad 1 moves | pad 1 is at (-0.9, 0) mm, from (-0.8, 0), and pad 2 stays at (0.8, 0). Against the kit's library, both footprints' records change. There is no plain library resave to separate them |
+| J22 | the 21 files above | copy without `History` | path scan before reading | `fenolite kit verify` refuses the folder with `FEN-3001` (no `kit.json`). Called directly, the kit privacy scan finds no home folder or login name. Each PCB document and the library hold their own VM path in the file header. `J13` also has one false match inside binary data. The folder cannot be published as it is |
+
+The schematic cases are compared with the kit's `edit.SchDoc`. Each schematic file differs in its
+`FileHeader` (64 added, 31 removed and 14 changed records for J18). No plain schematic resave was made,
+so the edit cannot be separated from the save there. The saved files stay in `c0241-J/saved/board/`,
+outside the repository.
+
+Every `H-A-EDIT-*` and `H-A-INTEG-*` row keeps its level. The run is on 24.5 under the approved scope, by an
+agent, and six cases used a scripted edit, so task 1.2 stays open.
 
 ## Approved pending-native scope — 2026-11-03
 
