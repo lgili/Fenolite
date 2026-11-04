@@ -6,6 +6,8 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Reconcile c0334's complete retained native census with unchanged BOM/import producer sources, preserving all refusals, tag skips, naming warnings and the failed CI verdict. Reflow its existing layering paragraph for complete OpenSpec parsing without changing its words or scenarios.
+
 - Preserve the required pending-author-report notation for two blocked Viewer evidence rows without changing their observations or levels (c0166).
 
 - Clarify that the third drawn-census comparison measures original-native versus rewritten-native names; preserve resolver naming differences, sealed measurements and pending evidence gates (c0319).

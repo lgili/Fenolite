@@ -67,6 +67,33 @@ root-owned fast gate, full current literal census and required exact-head KiCad 
 their independent receipts. This patch must not be archived from focused native proof alone. The
 literal 130-row census on the earlier immutable source remains separate and is never relabeled.
 
+### Later complete literal census reconciliation — 2026-11-04
+
+The then-pending literal-census portion is now documented in
+[census-reconciliation.json](census-reconciliation.json). A read-only replay of
+the retained artifact reader verifies 403 JSON members, complete 130-row
+inventories for actual KiCad 9.0.9/10.0.6, every input/manifest hash, complete
+partitions, aliases only after identical bytes, and the five already measured
+same-tool10 floor pairs. It executes no CAD or tests. The execution source is
+still 723183a1; exact recursive producer/helper/config bindings establish that
+the relevant code and manifest are unchanged at 13ff795e. Unrelated later Altium
+writer/kit and viewer-UI changes receive no coverage claim from this census.
+
+Native 9 is 87 equal/5 refused/38 tag-incompatible, native 10 is 113 equal/1 refused/16 tag-
+incompatible. The affected eight sheets all use registered owner 003, not eight
+distinct boards. Each native 10 context retains 603 pins/221 groups, zero native-only
+or unlisted pins, 84 bus-member and 5 dangling warnings per resolver stage, and two
+resolver/native name differences. Native 9 cannot read these eight tag10 sheets;
+their skips remain explicit. Across the complete inventories, the source and
+lowered resolver comparisons retain 57/82 name-warning contexts. The third
+comparison is original-native to rewritten-native, whose names agree; it is not
+a universal resolver-name result. No hypothesis label is raised.
+
+This completes task 2.4 only. It preserves the earlier separate BOM measurement,
+all refusals and original receipts. The retained CI is terminal FAILURE, not a
+green integration verdict; tasks 3.1/3.2 and the independent release/freeze gates
+remain open.
+
 ## Multi-unit boundary audit before freeze
 
 The coordinator requested and approved this focused follow-up. Independently authored pinless two-unit

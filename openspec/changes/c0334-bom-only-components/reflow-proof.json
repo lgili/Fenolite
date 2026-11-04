@@ -1,0 +1,9 @@
+{
+  "six_lines_to_one": true,
+  "whitespace_normalized_text_equal": true,
+  "before_sha256": "999efcf47f87aa571c10bed1928a7617037874266dbd3f6499b1a118e0fea190",
+  "after_sha256": "7336b9db1cb23aac351795ce1713f5ddc7dc49cf1728d185d2c8fda92f8046eb",
+  "two_scenarios_byte_identical": true,
+  "scenario_bytes": 495,
+  "scenario_sha256": "ec145763dd4e3e9f0e365b865bc039cc0bfbf8d4812eda898d6943a3ec27770e"
+}
