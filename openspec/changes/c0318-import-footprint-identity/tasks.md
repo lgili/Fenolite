@@ -36,3 +36,9 @@
 - [ ] 3.2 Coordinator: integrate the signed source with the pending source schematic packets, refresh
   the actual final model0 KEEP/freeze inventory, and run the scheduled full gate/exact-head CI.
   Proof: actual final source/inventory and CI jobs. Leave open in this worker; no full suite or push.
+  Integration check 2026-11-04 on 468d8a61: the source is integrated with the schematic packets that
+  were pending (c0276, c0320, c0326, c0329 and c0330 are archived on this base). `tools/model_review.py`
+  regenerates 175 dataclasses and 1251 fields whose names, types and defaults equal c0218's committed
+  final inventory, including `Component.footprint_definition_ref` (str, default ""); the field is in
+  `schemas/fenolite.model.v1/circuit.json`. Focused identity/alias/vendor/embed/DSL/model/review-tool
+  tests 103 passed. The scheduled full gate and exact-head CI stay with the coordinator.

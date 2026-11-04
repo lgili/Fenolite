@@ -804,7 +804,8 @@ All notable changes to Fenolite are documented here. The format follows
 - **Preserve imported footprint identity** (c0318): local physical variants select their geometry through
   `Part(..., footprint_definition=...)`, while PCB and schematic names retain the original native ID.
   Repeated sheets keep their strict metadata/electrical guards; actual footprint-name changes fail
-  self-check. Ordinary builds/imports keep their bytes; Altium refuses the explicit KiCad override.
+  self-check. Ordinary builds/imports keep their bytes; Altium refuses the explicit KiCad override. The field
+  is in the final model-0/1.0 inventory (2026-11-04).
 - **Completed dependency and asset review gates** (c0220): inventory exact installed metadata across all locked extras, distinguish uninspected branches and reject imported copyleft; record dated policy witnesses, required example source headers and a separate version/NOTICE-bound review of bundled Preact. The 1.0.0 gate refuses incomplete or stale review evidence. The current private history scan remains open.
 
 - **Bounded library variant comparisons** (c0315): board imports reuse each footprint instance's normalized signature across variant comparisons and storage. Native footprint bytes, variant names, references and diagnostics remain unchanged; no public argument or dependency is added.
