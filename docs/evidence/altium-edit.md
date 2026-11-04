@@ -238,6 +238,20 @@ outside the repository.
 Every `H-A-EDIT-*` and `H-A-INTEG-*` row keeps its level. The run is on 24.5 under the approved scope, by an
 agent, and six cases used a scripted edit, so task 1.2 stays open.
 
+**Evening attempt to redo the scripted cases through the panel (source S-1582).** At the maintainer's
+second request of 2026-11-04 the agent tried to redo J7, J9, J14, J18, J19 and J21 through the Properties
+panel instead of a script, in the same Altium 24.5.2.23. J12 had already been done through the UI in the
+run above. The attempt stopped before any case:
+
+- The right dock showed the Components panel ("No Search Sources found"), left open by J13. The
+  Properties tab lay outside the screen, at x 3112.
+- Selecting or clicking that tab through UI Automation did not switch the dock to Properties.
+- After the agent closed the Components panel, the dock was gone. View » Panels » Properties and F11
+  did not bring back a Properties panel that UI Automation could see.
+
+No case was redone, and nothing was saved. The six cases keep their scripted edits from the run above.
+Every `H-A-EDIT-*` and `H-A-INTEG-*` row keeps its level.
+
 ## Approved pending-native scope — 2026-11-03
 
 The maintainer explicitly authorized the pending Altium validations on the
