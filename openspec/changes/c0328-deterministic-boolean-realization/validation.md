@@ -173,3 +173,26 @@ the generated matrix is current, strict OpenSpec and whitespace checks pass.
 Private-list staged residue finds zero hits in eight files, private gate on;
 the sixty-file continuation inventory remains exact at 95 open tasks. No core,
 test, schema or dependency file differs from the preceding f7413fb8 checkpoint.
+
+
+## Head re-measurement for review — 2026-11-04
+
+Measurement only, for the root review of task 2.3; `src/fenolite/geometry/boolean/` was not touched.
+The four archived programs ran from a session scratch folder against a clean detached checkout of
+468d8a61. Their geometry and proof lines are unchanged. The rebase changed only:
+
+- the repository/index path constants;
+- capture: the `ea762411` geometry-diff assertion and the 188-operation archive assertion became
+  recorded receipt fields (both measured: the geometry tree differs by c0332's exact modules, which
+  production does not call; the 188 operations equal the archive);
+- full reference: the whole-tree `d90a71e9` guard became a guard on exactly what it imports
+  (`predicates.py`, `polygon.py`, `vector.py` byte-identical; `_without_debris` AST equal), and the
+  pinned index-program digest became the rebased copy's. The first attempt with the unmodified guard
+  refused controls ("unreviewed source changes", 642 changed files) and is kept, not counted.
+
+Findings: operand 176 (`e9dc5cb6…`) and the 20346-candidate file (`04065a77…`) equal the archive; 84
+controls pass; the full run exits 1 at realization ("retained original boundary turns lost or
+inverted"); the failure certificate `bec30f75…`, rejected realization `045b31a8…` and exact loops
+`bf003c78…` are byte-identical to 2026-11-02. The refutation therefore reproduces on the current head,
+deterministically. `verify_refutation.py` binds the archived run's own files and was not counted as a
+pass. Task 2.2 stays open; task 2.3 (root review and a separate production design) is untouched.

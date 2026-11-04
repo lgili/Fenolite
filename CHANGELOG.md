@@ -761,7 +761,8 @@ All notable changes to Fenolite are documented here. The format follows
   tested before holes are filled; zero-area collapse needs a signed-current proof.
   The independent source audit verifies all 414 simple prepolicy loops, 27
   zero-current collapses and exact equality with that unchanged runtime policy;
-  planted hole-first and zero-area bow-tie errors refuse.
+  planted hole-first and zero-area bow-tie errors refuse. A 2026-11-04 re-measurement on the current head reproduces
+  the same refusal with byte-identical certificates.
 
 - **Exact technical layer tables** (c0324): preserve supported short native tables with
   `board(technical_layers=...)`, using existing model rows and unchanged ordinary defaults. Strict

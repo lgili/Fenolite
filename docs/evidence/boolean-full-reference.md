@@ -90,3 +90,11 @@ Their unavailable legacy programs were not rerun under a new identity. The new
 refutation auditor's exit 0 proves a failed obligation, not a successful source
 realization or a complete CAC/CI gate. c0328 tasks 2.2/2.3 remain open, and the
 Mac byte guard remains failing. No publication or production change is approved.
+
+## Head re-measurement, 2026-11-04
+
+On clean 468d8a61 the same programs, re-pointed at the head (rebase recorded in
+[the rerun record](boolean-full-reference-rerun-20261104.json)), capture byte-identical operands and
+candidates, pass all 84 controls and refuse realization again with byte-identical failure certificate,
+rejected realization and exact loops. The refusal is deterministic on the current source. No production
+source, platform hash or acceptance changed.

@@ -58,6 +58,13 @@
   resource certificates are retained; a separate exit-0 audit verifies the
   refusal without making the source gate pass. Keep this task open. See
   `docs/evidence/boolean-full-reference.md` and `validation.md`.
+  Re-measured 2026-11-04 on clean 468d8a61 (`docs/evidence/boolean-full-reference-rerun-20261104.json`):
+  the archived programs, re-pointed at this head with only path constants and two identity guards
+  changed (recorded per line), capture operand 176 with SHA-256 e9dc5cb6… — byte-identical to the
+  archive, all 188 traced operations equal — and the index census selects the same 20346 candidates.
+  84 controls pass; the full source run exits 1 at realization with the same refusal, and its failure
+  certificate, rejected realization and exact loops are byte-identical to the 2026-11-02 run (10.2 s,
+  69 MB, 54/83/500 bits). No platform hash is selected. Keep this task open: no valid realization exists.
 - [ ] 2.3 Obtain root review of the concrete bounded/full findings and a separate production design before any source/model/baseline change. Proof: the recorded explicit review; this task is not satisfied by passing scratch controls or a partial CI job.
   The root agent's actual failed-finding review is in `root-review.md`.
   It rejects shipping the current candidate and requires an explicit contract
