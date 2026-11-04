@@ -184,11 +184,26 @@
   Proof: the KiCad job of the commit on GitHub CI is green;
   `uv run pytest tests/kicad/fidelity/test_zone_outline.py -rA` there.
   Open 2026-10-29: needs the KiCad CI job and the GUI-saved fixture of task 4.1.
+  2026-11-04, local KiCad 10.0.6 (macOS): `uv run pytest tests/kicad/fidelity/test_zone_outline.py -rA` passes on the
+  GUI-saved fixture of task 4.1. Level 7 has no differences after `pcb upgrade --force` and a refill, and the original's
+  bytes are unchanged. The kicad-10 CI job runs it with `tests/kicad`. The row stays `INFERRED`. `pcb upgrade` exists in
+  10.0 only (H-K-FMT-RESAVE, KICAD-VERIFIED), so the test skips on 9.0.9 and cannot measure the row's "9.0.x" part.
+  `docs/hypotheses.md` says so. Open: the green kicad-10 job on the exact commit, and a maintainer decision on the 9.0.x
+  part of the target level.
 - [ ] 6.2 Add `tests/kicad/fidelity/test_corpus_roundtrip.py` and `accepted.toml`, run it on the `rtf`
   rows, record counts and timings in `docs/evidence/fidelity.md` (scenarios "Demo rows", "Ratchet", "Page
   matches the run"). Proof: `uv run pytest tests/kicad/fidelity -rA` in the KiCad job;
   `uv run pytest tests/unit/test_fidelity_docs.py -q`.
   Open 2026-10-29: needs c0275 and the `rtf` rows (tasks 5.1 and 5.2).
+  2026-11-04, on `468d8a61` with local KiCad 10.0.6: a strict census of the 24 `rtf` roots ran in 549.09 s. Ten rows had
+  no difference at any level they reached. Each became a measured `[[row]]` with `counts = {}` (attribution `fenolite`,
+  `[run]` 0.7.0.dev0 / 2026-11-04), so any new difference fails the ratchet. The other 14 stay `pending` with their
+  2026-11-04 outcome. Five differ with undecided attribution, five imports were refused, one `verify-source` was refused
+  (FEN-3004), the malformed input was refused, and two heavy rows were skipped. Counts and timings are in
+  `docs/evidence/fidelity.md` ("Strict census — 2026-11-04"). `FENOLITE_REQUIRE=kicad,corpus uv run pytest tests/kicad/fidelity -rA`:
+  11 passed, 14 skipped, 570.67 s. `uv run pytest tests/unit/test_fidelity_docs.py -q` passes. The kicad-10 job now also fetches
+  `--uses rtf`. Open: the same run in the kicad-10 CI job on the exact commit, and the attribution review of the five differing
+  rows (not decided here).
 
 ## 7. Documentation and guide
 

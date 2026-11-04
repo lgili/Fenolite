@@ -921,6 +921,10 @@ All notable changes to Fenolite are documented here. The format follows
   finding of a check of an earlier revision of the file, and the page says why; after an action writes a project
   file the checks read (a waiver writes the `.kicad_pro`), the document's review results are marked stale until a
   check runs again, and the run strip, the Project review and the inspector offer Run again.
+- **Fidelity corpus baselines** (c0278): ten `rtf` demo rows that round-trip with no difference at any level are measured
+  zero-count rows of `tests/kicad/fidelity/accepted.toml`, so the corpus test runs them instead of skipping. The other 14
+  stay pending with their 2026-11-04 outcome. The kicad-10 job fetches `--uses rtf`. `H-K-FID-ZONE-OUTLINE` names its
+  10.0-only test. The 2026-11-04 census is in `docs/evidence/fidelity.md`.
 
 ### Changed
 

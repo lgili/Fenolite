@@ -1,31 +1,85 @@
 # Count-only fidelity baselines (c0278). No board names, refs, values or geometry belong here.
 # Pending has no reviewed baseline: it is never a zero-count baseline or an acceptance.
 # Add a [[row]] only after an actual all-level comparison; retain its scoped reason/attribution.
+# A row with counts = {} was equal at every level it reached: any new difference fails the ratchet.
 schema = "fenolite.fidelity-ratchet.v0"
-row = []
+
+[run]
+fenolite = "0.7.0.dev0"
+date = "2026-11-04"
+
+[[row]]
+id = "kicad-demo-10-0-6-pcb-02"
+counts = {}
+reason = "Strict all-level round trip on 2026-11-04 (KiCad 10.0.6): no differences."
+attribution = "fenolite"
+
+[[row]]
+id = "kicad-demo-10-0-6-pcb-03"
+counts = {}
+reason = "Strict all-level round trip on 2026-11-04 (KiCad 10.0.6): no differences."
+attribution = "fenolite"
+
+[[row]]
+id = "kicad-demo-10-0-6-pcb-04"
+counts = {}
+reason = "Strict all-level round trip on 2026-11-04 (KiCad 10.0.6): no differences."
+attribution = "fenolite"
+
+[[row]]
+id = "kicad-demo-10-0-6-pcb-08"
+counts = {}
+reason = "Strict all-level round trip on 2026-11-04 (KiCad 10.0.6): no differences; levels 5 and S skipped with a reason."
+attribution = "fenolite"
+
+[[row]]
+id = "kicad-demo-10-0-6-pcb-10"
+counts = {}
+reason = "Strict all-level round trip on 2026-11-04 (KiCad 10.0.6): no differences."
+attribution = "fenolite"
+
+[[row]]
+id = "kicad-demo-10-0-6-pcb-12"
+counts = {}
+reason = "Strict all-level round trip on 2026-11-04 (KiCad 10.0.6): no differences."
+attribution = "fenolite"
+
+[[row]]
+id = "kicad-demo-10-0-6-pcb-15"
+counts = {}
+reason = "Strict all-level round trip on 2026-11-04 (KiCad 10.0.6): no differences."
+attribution = "fenolite"
+
+[[row]]
+id = "kicad-demo-10-0-6-pcb-16"
+counts = {}
+reason = "Strict all-level round trip on 2026-11-04 (KiCad 10.0.6): no differences."
+attribution = "fenolite"
+
+[[row]]
+id = "kicad-demo-9-0-9-1-pcb-03"
+counts = {}
+reason = "Strict all-level round trip on 2026-11-04 (KiCad 10.0.6): no differences."
+attribution = "fenolite"
+
+[[row]]
+id = "kicad-demo-9-0-9-1-pcb-06"
+counts = {}
+reason = "Strict all-level round trip on 2026-11-04 (KiCad 10.0.6): no differences."
+attribution = "fenolite"
 
 [pending]
-"kicad-demo-10-0-6-pcb-01" = "No reviewed baseline; actual strict import refused with FEN-3004; no comparison counts."
-"kicad-demo-10-0-6-pcb-02" = "No reviewed baseline; actual strict import refused with FEN-7001; no comparison counts."
-"kicad-demo-10-0-6-pcb-03" = "No reviewed baseline; actual strict import refused with FEN-3004; no comparison counts."
-"kicad-demo-10-0-6-pcb-04" = "No reviewed baseline; actual strict comparison differs and attribution remains undecided."
-"kicad-demo-10-0-6-pcb-05" = "No reviewed baseline; actual strict import refused with FEN-7001; no comparison counts."
+"kicad-demo-10-0-6-pcb-01" = "No reviewed baseline; the 2026-11-04 strict import reported error findings (FEN-5001); no comparison counts."
+"kicad-demo-10-0-6-pcb-05" = "No reviewed baseline; the 2026-11-04 strict import refused with FEN-3004; no comparison counts."
 "kicad-demo-10-0-6-pcb-06" = "No reviewed baseline; heavy input was skipped by the declared corpus policy."
-"kicad-demo-10-0-6-pcb-07" = "No reviewed baseline; actual strict import refused with FEN-3004; no comparison counts."
-"kicad-demo-10-0-6-pcb-08" = "No reviewed baseline; actual strict import refused with FEN-7001; no comparison counts."
-"kicad-demo-10-0-6-pcb-09" = "No reviewed baseline; actual strict import refused with FEN-7001; no comparison counts."
-"kicad-demo-10-0-6-pcb-10" = "No reviewed baseline; actual strict import refused with FEN-3004; no comparison counts."
-"kicad-demo-10-0-6-pcb-11" = "No reviewed baseline; actual strict import refused with FEN-3004; no comparison counts."
-"kicad-demo-10-0-6-pcb-12" = "No reviewed baseline; actual strict import refused with FEN-3004; no comparison counts."
-"kicad-demo-10-0-6-pcb-13" = "No reviewed baseline; actual strict import refused with FEN-3004; no comparison counts."
-"kicad-demo-10-0-6-pcb-14" = "No reviewed baseline; actual strict import refused with FEN-7001; no comparison counts."
-"kicad-demo-10-0-6-pcb-15" = "No reviewed baseline; actual strict import refused with FEN-3004; no comparison counts."
-"kicad-demo-10-0-6-pcb-16" = "No reviewed baseline; actual strict import refused with FEN-3004; no comparison counts."
-"kicad-demo-10-0-6-pcb-17" = "No reviewed baseline; actual strict import refused with FEN-3004; no comparison counts."
+"kicad-demo-10-0-6-pcb-07" = "No reviewed baseline; the 2026-11-04 strict import reported error findings (FEN-5001); no comparison counts."
+"kicad-demo-10-0-6-pcb-09" = "No reviewed baseline; the 2026-11-04 strict verify-source refused with FEN-3004 (native project context missing on one side); no comparison counts."
+"kicad-demo-10-0-6-pcb-11" = "No reviewed baseline; the 2026-11-04 strict import reported error findings (FEN-5001); no comparison counts."
+"kicad-demo-10-0-6-pcb-13" = "No reviewed baseline; the 2026-11-04 strict comparison differs (7:opaque-count=1, 7:zone-field=1) and attribution remains undecided."
+"kicad-demo-10-0-6-pcb-14" = "No reviewed baseline; the 2026-11-04 strict comparison differs (5:track-width=4) and attribution remains undecided."
+"kicad-demo-10-0-6-pcb-17" = "No reviewed baseline; the 2026-11-04 strict import reported error findings (FEN-5001); no comparison counts."
 "kicad-demo-10-0-6-pcb-18" = "No reviewed baseline; heavy input was skipped by the declared corpus policy."
-"kicad-demo-9-0-9-1-pcb-01" = "No reviewed baseline; actual strict import refused with FEN-7001; no comparison counts."
-"kicad-demo-9-0-9-1-pcb-02" = "No reviewed baseline; actual strict import refused with FEN-3004; no comparison counts."
-"kicad-demo-9-0-9-1-pcb-03" = "No reviewed baseline; actual strict import refused with FEN-3004; no comparison counts."
+"kicad-demo-9-0-9-1-pcb-01" = "No reviewed baseline; the 2026-11-04 strict comparison differs (7:opaque-count=1, 8:render-pixels=1) and attribution remains undecided."
+"kicad-demo-9-0-9-1-pcb-02" = "No reviewed baseline; the 2026-11-04 strict comparison differs (7:opaque-count=1, 7:zone-field=1) and attribution remains undecided."
 "kicad-demo-9-0-9-1-pcb-04" = "No reviewed baseline; the manifest-declared malformed input was refused before comparison."
-"kicad-demo-9-0-9-1-pcb-05" = "No reviewed baseline; actual strict comparison differs and attribution remains undecided."
-"kicad-demo-9-0-9-1-pcb-06" = "No reviewed baseline; actual strict import refused with FEN-3004; no comparison counts."
+"kicad-demo-9-0-9-1-pcb-05" = "No reviewed baseline; the 2026-11-04 strict comparison differs (7:graphic-missing=5) and attribution remains undecided."

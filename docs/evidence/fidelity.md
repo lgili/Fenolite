@@ -28,32 +28,32 @@ The `fidelity-demos` census records only row ids, counts by level/kind, statuses
 | row | licence | equal levels | counts | attribution | version | date | seconds |
 |---|---|---|---|---|---|---|---|
 | kicad-demo-10-0-6-pcb-01 | CC-BY-SA-4.0 | not baselined | not baselined | undecided | — | — | — |
-| kicad-demo-10-0-6-pcb-02 | CC-BY-SA-4.0 | not baselined | not baselined | undecided | — | — | — |
-| kicad-demo-10-0-6-pcb-03 | CC-BY-SA-4.0 | not baselined | not baselined | undecided | — | — | — |
-| kicad-demo-10-0-6-pcb-04 | CC-BY-SA-4.0 | not baselined | not baselined | undecided | — | — | — |
+| kicad-demo-10-0-6-pcb-02 | CC-BY-SA-4.0 | 1, 2, 3, 4, 5, 6, 7, S, 8 | none | fenolite | 0.7.0.dev0 | 2026-11-04 | 55.606 |
+| kicad-demo-10-0-6-pcb-03 | CC-BY-SA-4.0 | 1, 2, 3, 4, 5, 6, 7, S, 8 | none | fenolite | 0.7.0.dev0 | 2026-11-04 | 9.563 |
+| kicad-demo-10-0-6-pcb-04 | CC-BY-SA-4.0 | 1, 2, 3, 4, 5, 6, 7, S, 8 | none | fenolite | 0.7.0.dev0 | 2026-11-04 | 9.224 |
 | kicad-demo-10-0-6-pcb-05 | CC-BY-SA-4.0 | not baselined | not baselined | undecided | — | — | — |
 | kicad-demo-10-0-6-pcb-06 | CC-BY-SA-4.0 | not baselined | not baselined | undecided | — | — | — |
 | kicad-demo-10-0-6-pcb-07 | CC-BY-SA-4.0 | not baselined | not baselined | undecided | — | — | — |
-| kicad-demo-10-0-6-pcb-08 | CC-BY-SA-4.0 | not baselined | not baselined | undecided | — | — | — |
+| kicad-demo-10-0-6-pcb-08 | CC-BY-SA-4.0 | 1, 2, 3, 4, 6, 7, 8 | none | fenolite | 0.7.0.dev0 | 2026-11-04 | 5.489 |
 | kicad-demo-10-0-6-pcb-09 | CC-BY-SA-4.0 | not baselined | not baselined | undecided | — | — | — |
-| kicad-demo-10-0-6-pcb-10 | CC-BY-SA-4.0 | not baselined | not baselined | undecided | — | — | — |
+| kicad-demo-10-0-6-pcb-10 | CC-BY-SA-4.0 | 1, 2, 3, 4, 5, 6, 7, S, 8 | none | fenolite | 0.7.0.dev0 | 2026-11-04 | 84.402 |
 | kicad-demo-10-0-6-pcb-11 | CC-BY-SA-4.0 | not baselined | not baselined | undecided | — | — | — |
-| kicad-demo-10-0-6-pcb-12 | CC-BY-SA-4.0 | not baselined | not baselined | undecided | — | — | — |
+| kicad-demo-10-0-6-pcb-12 | CC-BY-SA-4.0 | 1, 2, 3, 4, 5, 6, 7, S, 8 | none | fenolite | 0.7.0.dev0 | 2026-11-04 | 36.244 |
 | kicad-demo-10-0-6-pcb-13 | CC-BY-SA-4.0 | not baselined | not baselined | undecided | — | — | — |
 | kicad-demo-10-0-6-pcb-14 | CC-BY-SA-4.0 | not baselined | not baselined | undecided | — | — | — |
-| kicad-demo-10-0-6-pcb-15 | CC-BY-SA-4.0 | not baselined | not baselined | undecided | — | — | — |
-| kicad-demo-10-0-6-pcb-16 | CC-BY-SA-4.0 | not baselined | not baselined | undecided | — | — | — |
+| kicad-demo-10-0-6-pcb-15 | CC-BY-SA-4.0 | 1, 2, 3, 4, 5, 6, 7, S, 8 | none | fenolite | 0.7.0.dev0 | 2026-11-04 | 17.191 |
+| kicad-demo-10-0-6-pcb-16 | CC-BY-SA-4.0 | 1, 2, 3, 4, 5, 6, 7, S, 8 | none | fenolite | 0.7.0.dev0 | 2026-11-04 | 262.3 |
 | kicad-demo-10-0-6-pcb-17 | CC-BY-SA-4.0 | not baselined | not baselined | undecided | — | — | — |
 | kicad-demo-10-0-6-pcb-18 | CC-BY-SA-4.0 | not baselined | not baselined | undecided | — | — | — |
 | kicad-demo-9-0-9-1-pcb-01 | CC-BY-SA-4.0 | not baselined | not baselined | undecided | — | — | — |
 | kicad-demo-9-0-9-1-pcb-02 | CC-BY-SA-4.0 | not baselined | not baselined | undecided | — | — | — |
-| kicad-demo-9-0-9-1-pcb-03 | CC-BY-SA-4.0 | not baselined | not baselined | undecided | — | — | — |
+| kicad-demo-9-0-9-1-pcb-03 | CC-BY-SA-4.0 | 1, 2, 3, 4, 5, 6, 7, S, 8 | none | fenolite | 0.7.0.dev0 | 2026-11-04 | 41.108 |
 | kicad-demo-9-0-9-1-pcb-04 | CC-BY-SA-4.0 | not baselined | not baselined | undecided | — | — | — |
 | kicad-demo-9-0-9-1-pcb-05 | CC-BY-SA-4.0 | not baselined | not baselined | undecided | — | — | — |
-| kicad-demo-9-0-9-1-pcb-06 | CC-BY-SA-4.0 | not baselined | not baselined | undecided | — | — | — |
+| kicad-demo-9-0-9-1-pcb-06 | CC-BY-SA-4.0 | 1, 2, 3, 4, 5, 6, 7, S, 8 | none | fenolite | 0.7.0.dev0 | 2026-11-04 | 43.341 |
 <!-- fidelity-corpus:end -->
 
-The 24 rows above have no reviewed all-level baseline. A complete run must provide actual counts, timing, version/date and a scoped attribution before moving a row out of pending.
+Ten rows above have a measured zero-count baseline from the 2026-11-04 census (below). The other 14 have no reviewed all-level baseline. A complete run must provide actual counts, timing, version/date and a scoped attribution before moving a row out of pending.
 The GUI-save and native application requirements remain open; an authored writer/readback test cannot establish them.
 
 ## Actual strict probe — 2026-11-01
@@ -126,3 +126,43 @@ attribution remains undecided; no count is accepted. The historical observations
 ratchets above are unchanged. An authored CC0 line/arc project passes all nine levels after width
 preservation, without acceptance. These local controls remain `INFERRED`; native application and
 exact-head whole-batch/CI proof remain open.
+
+## Strict census — 2026-11-04
+
+The census reran every `rtf` root on `468d8a61` (`0.7.0.dev0`) with KiCad 10.0.6 on macOS. It used the
+same strict import/build/verify pipeline, with no lossy permission, acceptance, tolerance or level subset.
+It took 549.09 seconds over 24 rows, two of them heavy rows that were skipped. Ten rows had no difference at any level they
+reached. Each of them is now a measured `[[row]]` of `accepted.toml` with `counts = {}`, so any new difference fails the
+ratchet. Their seconds in the table above come from the corpus test run itself. Five rows differ and keep
+`pending`, because the attribution of their differences is undecided. Five imports were refused, one
+`verify-source` was refused, and the malformed input was refused before comparison. None of these is a zero count.
+The corpus test then ran with the new ratchet: `FENOLITE_REQUIRE=kicad,corpus uv run pytest tests/kicad/fidelity -rA`
+gave 11 passed (10 measured rows and the zone-outline probe) and 14 pending skips in 570.67 seconds, run serially.
+This is a local measurement on the maintainer's Mac. It is not the kicad-10 CI job, and no level is raised.
+
+| row | outcome | equal levels | raw differences | seconds |
+|---|---|---|---|---:|
+| kicad-demo-10-0-6-pcb-01 | import-refused (`FEN-5001`) | not compared | not compared | 12.587 |
+| kicad-demo-10-0-6-pcb-02 | compared, equal | 1, 2, 3, 4, 5, 6, 7, S, 8 | none | 22.9 |
+| kicad-demo-10-0-6-pcb-03 | compared, equal | 1, 2, 3, 4, 5, 6, 7, S, 8 | none | 4.432 |
+| kicad-demo-10-0-6-pcb-04 | compared, equal | 1, 2, 3, 4, 5, 6, 7, S, 8 | none | 4.64 |
+| kicad-demo-10-0-6-pcb-05 | import-refused (`FEN-3004`) | not compared | not compared | 0.583 |
+| kicad-demo-10-0-6-pcb-06 | heavy-skipped | not compared | not compared | 0.03 |
+| kicad-demo-10-0-6-pcb-07 | import-refused (`FEN-5001`) | not compared | not compared | 10.891 |
+| kicad-demo-10-0-6-pcb-08 | compared, equal; 5/S skipped | 1, 2, 3, 4, 6, 7, 8 | none | 1.496 |
+| kicad-demo-10-0-6-pcb-09 | verify-source refused (`FEN-3004`) | not compared | not compared | 32.424 |
+| kicad-demo-10-0-6-pcb-10 | compared, equal | 1, 2, 3, 4, 5, 6, 7, S, 8 | none | 52.225 |
+| kicad-demo-10-0-6-pcb-11 | import-refused (`FEN-5001`) | not compared | not compared | 17.192 |
+| kicad-demo-10-0-6-pcb-12 | compared, equal | 1, 2, 3, 4, 5, 6, 7, S, 8 | none | 24.172 |
+| kicad-demo-10-0-6-pcb-13 | compared, differs | 1, 2, 3, 4, 5, 6, S, 8 | 7:opaque-count=1, 7:zone-field=1 | 90.403 |
+| kicad-demo-10-0-6-pcb-14 | compared, differs | 1, 2, 3, 4, 6, 7, S, 8 | 5:track-width=4 | 4.316 |
+| kicad-demo-10-0-6-pcb-15 | compared, equal | 1, 2, 3, 4, 5, 6, 7, S, 8 | none | 11.009 |
+| kicad-demo-10-0-6-pcb-16 | compared, equal | 1, 2, 3, 4, 5, 6, 7, S, 8 | none | 139.083 |
+| kicad-demo-10-0-6-pcb-17 | import-refused (`FEN-5001`) | not compared | not compared | 25.88 |
+| kicad-demo-10-0-6-pcb-18 | heavy-skipped | not compared | not compared | 0.016 |
+| kicad-demo-9-0-9-1-pcb-01 | compared, differs | 1, 2, 3, 4, 5, 6, S | 7:opaque-count=1, 8:render-pixels=1 | 3.94 |
+| kicad-demo-9-0-9-1-pcb-02 | compared, differs | 1, 2, 3, 4, 5, 6, S, 8 | 7:opaque-count=1, 7:zone-field=1 | 29.943 |
+| kicad-demo-9-0-9-1-pcb-03 | compared, equal | 1, 2, 3, 4, 5, 6, 7, S, 8 | none | 25.565 |
+| kicad-demo-9-0-9-1-pcb-04 | malformed input refused | not compared | not compared | 0.045 |
+| kicad-demo-9-0-9-1-pcb-05 | compared, differs | 1, 2, 3, 4, 5, 6, S, 8 | 7:graphic-missing=5 | 1.118 |
+| kicad-demo-9-0-9-1-pcb-06 | compared, equal | 1, 2, 3, 4, 5, 6, 7, S, 8 | none | 34.2 |
