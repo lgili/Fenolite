@@ -138,6 +138,47 @@ Every `H-A-POUR-*` row keeps its level, and task 7.4 stays open. Three things re
 - the dead-copper finding on the netless sample polygon `P5_NONET` (K6.6);
 - the absence of the K6.8 setting in 24.5.
 
+### 2026-11-04 evening, actual `AD24.5.2.23`, K6 rerun on the current source (source S-1579)
+
+At the maintainer's second request of 2026-11-04, a Claude agent ran group K6 again, on a kit built from
+the current source. The c0332 exact cut is off there. The run used the same Altium Designer 24.5.2.23
+(Trial) in the maintainer's VM, the same method and the same form values (`AD 24.5`, K6.5 `0`, K6.6 `1`).
+It is not the maintainer's own review. Altium Designer 26 is not installed in the VM, so K6.8 could not be
+tried there and stays without a value.
+
+The kit was built at `0207378b` (`0.7.0.dev0`) with the same command. Against the morning kit, only
+`kit.json` and the two computed pours changed:
+
+| file | SHA-256 |
+|---|---|
+| `kit.json` | `f1b0e767069167475ebc052bedfdc319b6e6c8af34382344a62258166616739d` |
+| `pour/computed/pour.PcbDoc` | `aa0d34d5965a7fbf441e86e7417c432d443606fe24c3f840a2677aa9d56ea613` |
+| `pour4/computed/pour4.PcbDoc` | `26ebecc51cc6acee02c8aa70388b910e8474d119a01674ec4cb642e4085230be` |
+
+`kit_script.pas`, `routed.PcbDoc` and both references keep the digests in the table above.
+
+| step | observation | `kit verify` |
+|---|---|---|
+| K6.1 | `routed`: 0 regions before Repour All, 1 after | pass |
+| K6.2 | the manager's Repour menu read `Modified (0)`, `Selected (1)`, `Violating (0)`. Force Repour All was confirmed; 19 of 21 polygons hold regions | fail: `pour-match` M2 at P3 and P8 |
+| K6.3 | reference reopened with 0 regions; 19 of 21 after Repour All | pass |
+| K6.4 | computed opens with no dialog, 19 of 21 already poured, saved | pass |
+| K6.5 | `Modified (0)`, `Violating (0)`; typed `0` | pass |
+| K6.6 | DRC: 42 violations (NetAntennae 21, UnRoutedNet 17, SilkToSilkClearance 4), again including `Dead Copper - Net Not Assigned` on `P5_NONET`; typed `1` | fail: expected 0 |
+| K6.7 | Repour All on computed showed no confirmation dialog; 19 of 21 | fail: `pour-match` M2 at P3 and P8 |
+| K6.8 | not available: only Altium 24.5.2.23 is installed | skipped |
+| K6.9 | `pour4` reference: 0 of 3, then 3 of 3 after Force Repour All | pass |
+| K6.10 | `pour4` computed opens with 3 of 3, saved | pass |
+| K6.11 | Repour All on computed, 3 of 3 | pass |
+
+`fenolite kit verify` (run at `2c9fb2b3`) exits 5 with the same three error findings. 7 steps pass, and 3 fail.
+40 are skipped. The pour differences are the same ten as in the morning run: two of 0.0044 mm² at P3, held
+by Fenolite's pour, and eight of 0.0083 mm² at P8, held by Altium's pour, at the same coordinates. So
+dropping the exact cut changed the computed pour's bytes but not these differences. The K6.6 finding is
+unchanged. The row verdicts are the morning ones. No record was confirmed, for the same three reasons.
+Every `H-A-POUR-*` row keeps its level, and task 7.4 stays open. The saved files stay in the agent's
+folder `c0215-K6b/kit/results/`, outside the repository.
+
 ## Approved pending-native scope — 2026-11-03
 
 The maintainer explicitly authorized the pending Altium validations on the

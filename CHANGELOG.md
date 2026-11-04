@@ -7,6 +7,7 @@ All notable changes to Fenolite are documented here. The format follows
 ## [Unreleased]
 
 - Archive c0323-build-byte-diagnostics (the per-platform byte mismatch is recorded as accepted, not resolved; CI 41853235387) and c0305-viewer-roles (viewer job green in CI 41853235387).
+- Record an evening rerun of kit group K6 on the current source in Altium 24.5.2.23 (c0215, S-1579). A Claude agent ran it at the maintainer's request. Without the exact cut, the computed pours change bytes, but `kit verify` gives the same result. K6.2 and K6.7 fail M2 with the same differences at P3 and P8, and K6.6 keeps its dead-copper finding. Altium Designer 26 is not installed in the VM, so K6.8 was not tried. No record was made, levels are unchanged, and task 7.4 stays open.
 - Prepare an external c0180 comparison packet for the native F0.5 Draftsman drawing that Altium 24.5.2.23 wrote in the agent round of 2026-11-04. It holds the viewer export, the input hashes and a checklist. No native capture is included. Tasks 2.4a and 2.4 stay open.
 - Note that the evening Altium round of 2026-11-04 did not reach c0166 tasks 3.1 to 3.5. They stay open, with no observation recorded.
 - Record an evening attempt to redo six scripted Part J cases through the Altium Properties panel (c0241, S-1582). A Claude agent tried it at the maintainer's request in Altium 24.5.2.23. It stopped before any case, because UI Automation could not reach the Properties panel. Nothing was saved, levels are unchanged, and task 1.2 stays open.
