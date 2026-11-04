@@ -7,6 +7,8 @@ All notable changes to Fenolite are documented here. The format follows
 ## [Unreleased]
 
 - Archive c0323-build-byte-diagnostics (the per-platform byte mismatch is recorded as accepted, not resolved; CI 41853235387) and c0305-viewer-roles (viewer job green in CI 41853235387).
+- Record current Altium 24.5.2.23 Draftsman rounds F0 and FP (c0172, S-1313, S-1314). A Claude agent ran them at the maintainer's request. All fourteen F0 files were saved. F0.9's BOM table has no rows, and F0.13 warns that saving as a template deletes the dimensions. The observation intake refuses the folder, because Altium writes the absolute path of the source PCB into every Draftsman document. FP1 and FP2 cannot be built. FP3 and FP4 do not open (`Value cannot be null`), and FP5 was not run as written. Tasks 1.4, 3.2 and 3.3 stay open, and every level is unchanged.
+
 - Record a current Altium 24.5.2.23 inspection of the acceptance_v03 OutJob and drawing frames (c0092, S-1312). A Claude agent ran it at the maintainer's request on the prepared-v2 files. The OutJob lists six outputs and two containers. Each sheet's 36 labels and 27 polylines equal the written records. Task 5.3 stays open (whole-tree record, graduation, CI).
 
 - Record a current Altium 24.5.2.23 K6 round (c0215, S-1311). A Claude agent ran it at the maintainer's request. Seven steps pass. K6.2 and K6.7 fail `pour-match` M2 at probes P3 and P8, K6.6 counts one DRC finding on the netless polygon `P5_NONET`, and 24.5 lists no `PCB.Polygon.AdvancedPour` (K6.8). `kit verify` exits 5, no kit record is made, the `H-A-POUR-*` levels stay unchanged and task 7.4 stays open.

@@ -229,12 +229,97 @@ local review; matched personal strings are not printed. Native files remain outs
 
 ## Reports
 
-No report of Part F has been received. Nothing on this page or in `docs/formats/altium/draftsman.md` is
-`ALTIUM-VERIFIED`.
+No report of Part F has been received from the maintainer. The agent rounds below are not author
+reports. Nothing on this page or in `docs/formats/altium/draftsman.md` is `ALTIUM-VERIFIED`.
 
 2026-11-01 availability update: the maintainer reports that Altium Designer is unavailable now.
 F0 saves, FP outcomes, F1-F8 and the native gates remain open. Public corpus read-back and authored
 candidate kits are mechanical preparation only; they are not author reports or application saves.
+
+### 2026-11-04, actual `AD 24.5.2.23`, rounds F0 and FP (sources S-1313 and S-1314)
+
+A Claude agent ran these rounds at the maintainer's request of 2026-11-04. It operated the Altium
+Designer installed in the maintainer's Parallels Windows VM. This is not the maintainer's own review.
+`X2.exe` has FileVersion 24.5.2.23 (Trial licence, not signed in). Menu commands, clicks and keys were
+sent through Windows UI Automation. The canvas was read from window captures, which were deleted after
+viewing. Under the approved 24.5 scope these rounds complete no case, open no gate and raise no level.
+
+**F0 inputs.** The F0 kit was built at `9de1ae80` with `FENOLITE_ALTIUM_PART_F0=<folder> uv run pytest
+tests/unit/backends/altium/test_part_f.py -k f0_kit`. It has these digests:
+
+| file | SHA-256 |
+|---|---|
+| `blink_routed.PrjPcb` | `99bcc6d9…` |
+| `blink_routed.SchDoc` | `c1c35243…` |
+| `blink_routed.PcbDoc` | `6691042b…` |
+| `blink_routed.PcbLib` | `640bbcdb…` |
+| `blink_routed.SchLib` | `2308a12f…` |
+| `blink_routed.OutJob` | `595be494…` |
+| `fenolite-base.json` | `34d8eccd…` |
+
+The agent worked on a VM copy, `C:\FenoliteClaude\c0172\F0\blink_routed`. Every step used File » Save As
+into that folder.
+
+| step | saved file (SHA-256) | observed |
+|---|---|---|
+| F0.1 | `F0-01.PCBDwf` `bba5247f…` | New Document offered template `[Default]`, project `blink_routed.PrjPcb` and document `blink_routed.PcbDoc`. One sheet with no object. Saved without a message. |
+| F0.2 | `F0-02.PCBDwf` `bba5247f…` | Saved without a message; the bytes equal F0-01. The Projects panel then lists `F0-02.PCBDwf` under the project, which shows as modified. The `.PrjPcb` on disk is unchanged. |
+| F0.3 | `F0-03.PCBDwf` `bbd8713f…` | The Text's field holds `FENOLITE-1`. The sheet shows `FENOLITE`, clipped because Clip Text To Bounds keeps the box of the default `New Text`. Saved without a message. |
+| F0.4 | `F0-04.PCBDwf` `6f3b54b0…` | The field holds `FENOLITE-22`. Saved without a message. |
+| F0.5 | `F0-05.PCBDwf` `972c4046…` | A view titled `View from Top side (Scale 1:1)` shows the outline with small part graphics. The designators were not legible at the captured zoom. Saved without a message. |
+| F0.6 | `F0-06.PCBDwf` `eb306061…` | The second view, with View Side Bottom, is titled `View from Bottom side` and shows `D1`. As expected. |
+| F0.7 | `F0-07.PCBDwf` `b204b78c…` | The view shows the holes with symbols. The Drill Table lists 7 × 0.30 mm plated, 2 × 0.90 mm plated and 9 in total. As expected. |
+| F0.8 | `F0-08.PCBDwf` `99fd0821…` | The legend lists overlays, solder masks, Top Layer and Bottom Layer (copper, 0.04 mm each), FR-4 0.32 mm and a total of 0.41 mm. Two layers are copper. As expected. |
+| F0.9 | `F0-09.PCBDwf` `fa690fd3…` | **Not as expected.** The Bill of Materials table shows only its header row; there is no row for `D1`, `R1` or `U1`. When reopened for this step, `F0-05` already showed as modified (see the incident below). |
+| F0.10 | `F0-10.PCBDwf` `32180e3a…` | The Note holds the two entries, numbered 1 and 2, after the default third entry was deleted. The Linear Dimension between the outline's left and right edges reads `50.00mm`. It attached only after the status bar's `Snapping: Disabled` was switched to Enabled with Shift+E. Saved without a message. |
+| F0.11 | `F0-11.PCBDwf` `da95dc9e…` | Tools » Add New Sheet in `F0-01`. Saved without a message; the agent did not count the sheets. |
+| F0.12 | `F0-12.PCBDwf` `e52414c9…` | `R1` was moved by a read-write DelphiScript (`MoveByXY` of +5 mm, from (32, 21) to (37, 21) mm from the board origin), not by a drag. File » Save of the PCB showed no message (`blink_routed.PcbDoc` now `3d43fa2e…`). Tools » Import Changes From blink_routed.PcbDoc showed no message, and the `R1` graphic in the top view moved right by about 5 mm, judged from captures before and after. Saved without a message. |
+| F0.13 | `F0-13.DwfDot` `c4db5299…` | **A message.** Type `Altium Draftsman Document Templates (*.DwfDot)` showed a Confirmation: the dimensions, callouts, section views and detail views will be deleted, the action is irreversible, proceed? The agent chose OK, and the file was saved. |
+| F0.14 | `F0-14.pdf` `3c8a4bc0…` | File » Export to PDF showed no message and no option dialog. The PDF has one A4 landscape page with the drill view, the 50.00 mm dimension, the Drill Table and the two notes. As expected. |
+
+**Incident.** Before F0.8, keystrokes sent through SendKeys left Shift and Alt held down. Later clicks
+then opened "Customizing PcbDrawing Editor", a "Draftsman" dialog and the find-text and edit-menu
+windows. The agent closed them, released the keys and repeated F0.8. No saved file was overwritten.
+`F0-05` showed as modified when reopened for F0.9, probably from stray keys, and F0-09 was built on it.
+The cause of the disabled snapping in F0.10 is unknown. `F0-10` showed as modified as soon as it was
+reopened for F0.14.
+
+**Path scan and intake.** The saved folder was copied to the agent's kit folder outside the repository.
+`uv run python tools/altium_observations.py F0 <folder>` **refused** it (exit 3) because the kit privacy
+scan has findings:
+
+- 14 raw `absolute-path` findings. Each Draftsman file holds the VM folder
+  `C:\FenoliteClaude\c0172\F0\blink_routed` once, and the saved PcbDoc holds `…\blink_routed.$$$`.
+- 39 decoded-chunk findings, all the VM path of `blink_routed.PcbDoc`.
+- 20 findings in `F0-14.pdf`. They are PDF name objects (`/Type`, `/Filter`, …) read as POSIX roots.
+
+No finding is a home folder or a login name. The agent checked this locally, path segment by segment.
+
+So Altium writes the absolute path of the source PCB into every Draftsman document. A folder saved
+under a user profile would therefore carry that profile's path. Because the intake refused the folder,
+no member was interpreted, `test_f0_files_decode` was not run, and the F0 halves of `H-A-DWF-CONTAINER`
+and `H-A-DWF-FIELD` are still unmeasured.
+
+**FP.** The probes were built at `9de1ae80` with `FENOLITE_ALTIUM_PART_FP=<folder> uv run pytest
+tests/unit/backends/altium/test_part_f.py -k fp_candidates`:
+
+- `FP3.PCBDwf` `d29f5b1d…`; `FP4.PCBDwf` and `FP5.DwfDot` both `992b5098…`; `status.json` `a3f7e522…`.
+- `status.json` lists FP1 and FP2 as missing and keeps the native verdict `unjudged`.
+- With `FENOLITE_DWF_F0` set to the saved F0 folder, the build fails, because the same kit privacy scan
+  refuses the F0.3 control.
+
+The digests match the VM copy before and after the run.
+
+| probe | observed |
+|---|---|
+| FP1, FP2 | not built: the F0.3 control does not pass the kit privacy scan |
+| FP3 | **does not open.** File » Open shows an `Error` window, `Value cannot be null. Parameter name: source`, with a crash-report form. The agent closed it with Close, so no report was sent, and no document opened. |
+| FP4 | **does not open**, with the same error; Import Changes was not reached |
+| FP5 | not run as written. Offering the `.DwfDot` in File » New » Draftsman Document needs it registered under Preferences » Data Management » Templates, a lasting change to the maintainer's installation that the agent did not make. Opened directly with File » Open, it shows the same error. |
+
+`H-A-DWF-MINIMAL`, `H-A-DWF-IMPORT` and `H-A-DWF-TEMPLATE` keep their levels. These are 24.5 agent
+observations, and the rows name Altium Designer 26.5. The G2 and G3 decisions of c0172 Decision 9 are
+left to the maintainer. No native file, capture or saved document enters the repository.
 
 ## Approved pending-native scope — 2026-11-03
 
