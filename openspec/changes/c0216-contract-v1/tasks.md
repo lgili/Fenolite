@@ -21,8 +21,10 @@
   Proof: `uv run python tools/gen_cli_surface.py --review --out /tmp/review.md` writes the list.
 - [x] 1.4 **Maintainer.** Review the list and decide, per item, keep, rename (the old name deprecated) or drop;
   record the answers under this task. Proof: the record under this task.
-- [ ] 1.5 Apply the decisions of 1.4, each rename with its deprecation. Proof: `uv run pytest tests/unit/cli
+- [x] 1.5 Apply the decisions of 1.4, each rename with its deprecation. Proof: `uv run pytest tests/unit/cli
   tests/consistency -q`.
+  Done 2026-11-04: the 1.4 record keeps every name (no rename, no drop), so no rename or deprecation
+  applies. Proof on 2cf0c378: 3711 passed, 43 skipped.
 
 ## 2. Envelope, error and deprecation
 

@@ -39,9 +39,7 @@ def test_real_unrepresentable_corner_refuses_without_fallback() -> None:
 
 
 @pytest.mark.skipif(importlib.util.find_spec("pyclipper") is None, reason="needs the geo extra")
-def test_certificate_refusal_is_cli_bad_input_and_stages_no_writes(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_build_no_longer_calls_the_exact_certificate(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     def refuse(*args: object, **kwargs: object) -> None:
         raise GeometryError("planted final neck certificate refusal")
 
@@ -61,8 +59,8 @@ def test_certificate_refusal_is_cli_bad_input_and_stages_no_writes(
         seed=1,
         timestamp="2026-01-01T00:00:00Z",
     )
-    assert reply.exit_code == 3
-    assert reply.error is not None and reply.error["code"] == "FEN-3005"
-    assert "planted final neck certificate refusal" in reply.error["message"]
-    assert not reply.result.get("plan")
+    # The maintainer disconnected the exact final cut on 2026-11-04 (c0332): a planted certificate
+    # refusal no longer reaches a build, which plans its writes as before and changes no input.
+    assert reply.exit_code == 0, reply.error
+    assert reply.result.get("plan")
     assert not output.exists() and script.read_bytes() == before

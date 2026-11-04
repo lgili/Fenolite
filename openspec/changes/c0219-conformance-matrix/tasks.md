@@ -1,6 +1,6 @@
 ## 0. Entry check
 
-- [ ] 0.1 Read `openspec/specs/cli-contract/spec.md` ("Evidence matrix in capabilities"),
+- [x] 0.1 Read `openspec/specs/cli-contract/spec.md` ("Evidence matrix in capabilities"),
   `openspec/specs/verification-evidence/spec.md`, `docs/evidence/matrix.md` and the open questions of the
   design; record the maintainer's answers under this task. Proof: `openspec validate c0219-conformance-matrix --strict`.
   - 2026-10-27: the maintainer accepted every recommended answer (roadmap, "Open decisions", row 49): `NO_CLAIM` is
@@ -22,23 +22,23 @@
 
 ## 2. Evidence of every reply
 
-- [ ] 2.1 `NO_CLAIM` (by the answer to open question 1), `claims` in `capabilities`, the two rules in
+- [x] 2.1 `NO_CLAIM` (by the answer to open question 1), `claims` in `capabilities`, the two rules in
   `cli/output.py`, `FENOLITE_CONTRACT_CHECK` and `cli.evidence-unsound` in `fenolite explain` (scenarios "INFERRED
   without a hypothesis is caught", "A no-claim command may be UNVERIFIED"). Proof:
   `uv run pytest tests/unit/cli -q -k "evidence or capabilities or explain"`.
-- [ ] 2.2 The gaps: `kit`, `view`, `analyze` and `route` give the level and the hypotheses of Decision 6 and of
+- [x] 2.2 The gaps: `kit`, `view`, `analyze` and `route` give the level and the hypotheses of Decision 6 and of
   open question 2, with new register rows where needed. Proof: `uv run pytest tests/unit/cli -q -k "kit or view or analyze or route"`;
   `uv run pytest tests/unit/test_hypotheses_register.py -q`.
-- [ ] 2.3 The consistency suite runs every example with `FENOLITE_CONTRACT_CHECK=1` (scenario "Every example
+- [x] 2.3 The consistency suite runs every example with `FENOLITE_CONTRACT_CHECK=1` (scenario "Every example
   follows the rules"); `docs/cli-contract.md` describes the rules and `versions`; the agent guide names them.
   Proof: `uv run pytest tests/consistency tests/unit/agent/test_pages.py -q`.
 
 ## 3. Closing
 
-- [ ] 3.1 Run the tests and the residue scan. Proof: `make check-fast`.
-- [ ] 3.2 Update the evidence labels: the new rows of 2.2 at the level their tests reached; no other label
+- [x] 3.1 Run the tests and the residue scan. Proof: `make check-fast`.
+- [x] 3.2 Update the evidence labels: the new rows of 2.2 at the level their tests reached; no other label
   changes. Proof: `uv run pytest tests/unit/test_hypotheses_register.py tests/unit/test_evidence_register.py -q`.
-- [ ] 3.3 Update `CHANGELOG.md` under `## [Unreleased]`. Proof: `uv run pytest tests/unit/test_release_record.py -q`.
+- [x] 3.3 Update `CHANGELOG.md` under `## [Unreleased]`. Proof: `uv run pytest tests/unit/test_release_record.py -q`.
 
 ## Current-source preparation
 
@@ -142,6 +142,22 @@ The earlier failed edit/mcp strict receipts remain historical failures.
 
 Approved B.6 actual complete evidence/capabilities/CLI-consistency selection:792passed,41explicit mutating skips in120.97s; no edit/mcp deselection, all strict JSON envelope cases now pass. The skips are pre-existing confirmation-protocol cases exercised in their focused command tests, not edit/mcp exemptions. Earlier112pass/4fail receipt remains historical. Source CLIv0 and all higher-label/hypothesis negatives retained.
 
-- [ ] 2.2d Reconcile actual lowest-wins pin-source and circuit-input evidence using existing complete result receipts; preserve UNVERIFIED, primary failed/no-write diagnostics, strict rejection of arbitrary successful replies and every attempted write. Prove authored positive/negative controls and all affected original pins/block/route/roles assertions before ticking.
+- [x] 2.2d Reconcile actual lowest-wins pin-source and circuit-input evidence using existing complete result receipts; preserve UNVERIFIED, primary failed/no-write diagnostics, strict rejection of arbitrary successful replies and every attempted write. Prove authored positive/negative controls and all affected original pins/block/route/roles assertions before ticking.
 
 Conservative-input reconciliation: four authored positive cases reproduced strict failures before runtime; after correction, complete evidence framework61 passed, original pins/route/roles regressions4 passed, all shipped blocks5 passed, and focused source pyright reports zero errors. The larger producer selection and root fast/CI remain separately pending. An initial authored fixture used an undeclared fmt result field; corrected to the existing lines field before the61-test proof.
+
+## Closing proofs — 2026-11-04
+
+On the lote-12 head 367e44b0 (published to `cac/lote-12`), with no source change after the B.6 and 2.2d
+checkpoints:
+
+- 2.1 `uv run pytest tests/unit/cli -q -k "evidence or capabilities or explain"`: 189 passed.
+- 2.2 `uv run pytest tests/unit/cli -q -k "kit or view or analyze or route"`: 450 passed.
+- 2.3 `uv run pytest tests/consistency tests/unit/agent/test_pages.py -q`: 953 passed, 42 skipped.
+- 3.2 `uv run pytest tests/unit/test_hypotheses_register.py tests/unit/test_evidence_register.py -q`: 43 passed.
+- 3.3 `uv run pytest tests/unit/test_release_record.py -q`: 14 passed.
+- 3.1 and 2.2d: `make check-fast` passed (22619 passed, 51 skipped, 40m50s), which holds the larger
+  pins/block/route/roles producer selection that 2.2d left pending.
+
+0.1 was answered on 2026-10-27 (recorded under the task). Archive only after the required CI jobs of the
+exact published head pass (CI 41800749394).

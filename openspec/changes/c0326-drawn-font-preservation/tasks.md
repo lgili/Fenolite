@@ -213,10 +213,16 @@
   120 tests (6.70 s), and the generated guide check passes. Typed properties,
   code-owned text and unsupported-style refusals are documented; final model-0
   recapture and model-1 activation remain task 4.2.
-- [ ] 4.2 Root recaptures the actual combined final model 0 and redoes the 1.0 transition from
+- [x] 4.2 Root recaptures the actual combined final model 0 and redoes the 1.0 transition from
   that surface; retain the immutable 695 capture as history.
   Proof: recorded clean signed source/dataclass/ext/schema/CLI/package/byte receipt and
   focused c0216/c0217/c0218 checks on that exact replacement cut.
+  Done 2026-11-04: c0218's `transition-proof.json` recaptured the combined final model 0 at
+  7c1789ae, which contains this change's model work: 75 rows, 1137 files, the only difference
+  `meta.schema_version` 0 to 1.0, no native or other canonical byte changed; 955 model/migration and
+  355 guide/surface/capabilities/schema tests passed. On 2cf0c378 `tools/model_review.py` gives the
+  same 175 dataclasses and 1251 fields with identical types and defaults (only reader lists differ);
+  the only later model commit is c0218's own migration.
 - [ ] 4.3 Run the serialized root-owned full gate and exact-head required 9.0.9/10.0.6 CI jobs.
   Proof: complete successful gate log and required CI job receipts for the recorded commit.
   Local 9.0.2 and CLI exports cannot close this task or any literal GUI-save requirement.

@@ -466,6 +466,10 @@ All notable changes to Fenolite are documented here. The format follows
   with closed tests and extensible published records, retain typed user maps,
   and accept reviewed v1 mirrors without changing v0 writer bytes. Contextual
   symbol mirrors require explicit rebinding to their actual schema string.
+  The keys whose type varies keep their measured form: `blocks` `page`
+  (pagination or a documentation path), `catalog` `sources` (a source list or a
+  dimension-keyed map) and its `record` (device data or family text), and the
+  conditional typed rows and counts of the `check` and `ready` summaries.
 
 - **Prepared CLI stability contract** (c0216): discover the active v0 contract
   and declared deprecations, retain deprecated spellings without altering writes
@@ -624,6 +628,13 @@ All notable changes to Fenolite are documented here. The format follows
   retained inversions and uncertified results refuse through FEN-3005 before
   writing. One capped proposal handles many independent hairlines before
   exhaustive fallback, with unchanged integer-corner and full-curve guards.
+  **Disconnected on 2026-11-04** (maintainer decision): the native KiCad 10 job
+  of lote 12 (CI 41800749394) refused 27 large public boards on exact budgets and
+  timed the Altium pour of row 03 at 86.6 s against its 60 s limit. Builds use the
+  floating final cut again; the exact code and its unit tests stay for a redesign.
+  `board_40parts.PcbDoc` keeps its Linux digest and gets its measured macOS digest
+  (c0323) and Windows digest (CI 41829443943) in the byte guard; no other recorded
+  digest changes.
   Cleanup retains integer nodes and uses a complete continuous certificate
   when the stronger projected point-set fast gate differs. All 77 geometry
   and 183 expanded caller/byte tests pass. All 75 complete plans

@@ -45,10 +45,13 @@
 ## 4. Closing
 
 - [ ] 4.1 Run the tests and the residue scan. Proof: `make check-fast`.
-- [ ] 4.2 Update the evidence labels: none changes; no format claim. Proof:
+- [x] 4.2 Update the evidence labels: none changes; no format claim. Proof:
   `uv run pytest tests/unit/test_hypotheses_register.py -q`.
-- [ ] 4.3 Update `CHANGELOG.md` under `## [Unreleased]`, with the keys of 1.2. Proof:
+  Done 2026-11-04: no label changes; the proof passed with 4.3's (52 passed).
+- [x] 4.3 Update `CHANGELOG.md` under `## [Unreleased]`, with the keys of 1.2. Proof:
   `uv run pytest tests/unit/test_release_record.py -q`.
+  Done 2026-11-04: the c0217 entry names the measured keys of 1.2 (recorded in
+  `current-source-proof.md`, "Retained measured polymorphism"); the proof passed.
 
 ## Current-source selective preparation
 

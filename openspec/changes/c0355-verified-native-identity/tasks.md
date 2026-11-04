@@ -1,3 +1,12 @@
+## Deferred — maintainer decision, 2026-11-04
+
+The investigation showed a real limit: the generated code does not carry the normal fills and original
+order that the Royal proof must preserve, and the design forbids removing or seeding fills to reach
+equality. Asked whether to defer c0355/Royal to a later version (keeping files and experimental results)
+or to widen the implementation in v0.7, the maintainer answered "Adiar c0355/Royal, preservando o
+trabalho". The change stays open and out of the v0.7 batches; every proof file in this folder and the
+branch `codex/cac-royal-identity-copy` are kept as they are. L7 is not recorded as passing.
+
 ## 0. Read-only causality and coordinator review
 
 - [x] 0.1 Confirm free ID and read existing common-native/profile, exact geometry, rule-context and format contracts. Measure class-specific UUID and track-order controls on private copies; preserve raw files/digests and all vertices. Proof: completed external receipts and explicit unchanged-source observations.

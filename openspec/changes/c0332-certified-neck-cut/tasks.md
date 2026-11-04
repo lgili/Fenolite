@@ -1,3 +1,19 @@
+## Disconnected — maintainer decision, 2026-11-04
+
+Lote 12 (`cac/lote-12` 367e44b0, CI 41800749394) failed only the native KiCad 10 job
+(and drawn-floor, which requires it): 28 failures, all from this change's exact
+final neck cut. Pour row 03 took 86.6 s against the unchanged 60 s limit. The
+others were proposal-node, enumeration-node, input-edge, deadline and nonsimple
+refusals, on Altium rows 01, 04 and 05, on rta3 sets 02 and 03, on KiCad demos
+01, 02, 07, 10, 11, 13, 16 and 17, and in DIFAT. The maintainer chose to
+disconnect the exact cut and keep this change open: `_Geometry` calls the floating
+`_without_debris(self.minus(...))` again, and `_certified_neck_cut` and its
+modules and tests stay unchanged and unused. The Mac/Linux difference this change
+addresses comes back for one file only: `board_40parts.PcbDoc` has its measured
+macOS digest (c0323) in `tests/unit/test_build_bytes.py`. No budget, certificate
+or other baseline changes. Reconnecting needs a redesign that passes every
+caller above within the existing limits. Tasks 2.2 to 2.16 stay open for it.
+
 ## 0. Plan and external pilot
 
 - [x] 0.1 Verify the free ID, read contracts and root-review the scoped design; strictly validate before coding. Proof: `npx -y @fission-ai/openspec validate c0332-certified-neck-cut --strict`; `git diff --check`.

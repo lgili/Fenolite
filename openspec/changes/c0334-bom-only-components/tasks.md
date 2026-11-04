@@ -43,7 +43,13 @@
 
 ## 3. Combined proof
 
-- [ ] 3.1 Recapture complete 75 plans and the final model-0 inventory/schemas; coordinate and prove c0217/c0218 transition from that exact source. Proof: complete file maps, field/default/type review and migration/native-byte comparisons.
+- [x] 3.1 Recapture complete 75 plans and the final model-0 inventory/schemas; coordinate and prove c0217/c0218 transition from that exact source. Proof: complete file maps, field/default/type review and migration/native-byte comparisons.
+  Done 2026-11-04: c0218's `transition-proof.json` recaptured the combined final model 0 at
+  7c1789ae, which contains this change's model work: 75 rows, 1137 files, the only difference
+  `meta.schema_version` 0 to 1.0, no native or other canonical byte changed; 955 model/migration and
+  355 guide/surface/capabilities/schema tests passed. On 2cf0c378 `tools/model_review.py` gives the
+  same 175 dataclasses and 1251 fields with identical types and defaults (only reader lists differ);
+  the only later model commit is c0218's own migration.
 - [ ] 3.2 Run focused lint/format/types/generated checks/residue and the root-owned fast and exact-head CI gates; update CHANGELOG truthfully. Proof: source-bound successful logs. Archive only when all literal criteria pass.
 
 Entry review — 2026-11-02, clean base d348705f. The c0334 path/ref/commit

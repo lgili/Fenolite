@@ -876,7 +876,9 @@ class _Geometry:
             if found and not tips and max(box.width, box.height) <= half + tol:
                 continue  # the sliver the round opening takes off a corner of 89.5° or more stays
             cut.append(piece)
-        return _certified_neck_cut(polys, cut, tol) if cut else tuple(polys)
+        # c0332's exact `_certified_neck_cut` stays available but is not called: it refuses or overruns
+        # its budgets on large public boards (maintainer decision, 2026-11-04).
+        return _without_debris(self.minus(polys, cut), tol) if cut else tuple(polys)
 
     def union(self, polys: Sequence[Polygon]) -> tuple[Polygon, ...]:
         return self.backend.union(polys) if polys else ()
@@ -906,7 +908,10 @@ def _without_debris(polys: Sequence[Polygon], tol: int) -> tuple[Polygon, ...]:
     return tuple(kept)
 
 
-def _certified_neck_cut(subject: Sequence[Polygon], cut: Sequence[Polygon], tol: int) -> tuple[Polygon, ...]:
+# Kept, not called, since 2026-11-04 (c0332): its tests and a later redesign use it.
+def _certified_neck_cut(  # pyright: ignore[reportUnusedFunction]
+    subject: Sequence[Polygon], cut: Sequence[Polygon], tol: int
+) -> tuple[Polygon, ...]:
     """Exact final opening cut; retain the existing debris policy and certify its result."""
     from fenolite.geometry.boolean._exact_faces import difference_loops
     from fenolite.geometry.boolean._exact_noding import Budget, ResourceLimit, Segment

@@ -19,7 +19,13 @@
 ## 3. Compatibility and closure
 - [ ] 3.1 Update measured evidence, CHANGELOG and agent guide; prove default22 scenes and75 complete API plans unchanged. Proof: immutable baseline captures and focused regression checks.
 - [ ] 3.2 Rerun affected public board proofs and coordinate complete exact-head fast/CI. Proof: actual source-bound outcomes, no acceptance/threshold changes, required CI jobs before closure.
-- [ ] 3.3 Coordinate final model0 inventory/schema/fingerprint with root before model1 freeze. Proof: final source-bound regeneration/gates after the last model field.
+- [x] 3.3 Coordinate final model0 inventory/schema/fingerprint with root before model1 freeze. Proof: final source-bound regeneration/gates after the last model field.
+  Done 2026-11-04: c0218's `transition-proof.json` recaptured the combined final model 0 at
+  7c1789ae, which contains this change's model work: 75 rows, 1137 files, the only difference
+  `meta.schema_version` 0 to 1.0, no native or other canonical byte changed; 955 model/migration and
+  355 guide/surface/capabilities/schema tests passed. On 2cf0c378 `tools/model_review.py` gives the
+  same 175 dataclasses and 1251 fields with identical types and defaults (only reader lists differ);
+  the only later model commit is c0218's own migration.
 
 Task0.1 passed2026-11-02: strict proposal validation after coordinator review; actual native10refill diagnosis receipts and byte-hash invariants preserved, with raw outcomes recorded in docs/evidence/project-geometry-teardrop-diagnosis.json. No runtime comparison or model normalization has changed at this checkpoint; native9default proof remains pending.
 

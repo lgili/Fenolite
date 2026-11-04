@@ -35,7 +35,13 @@
     - **S-0187** (from the scene): GND 1, PWR, Signal Layer 1 and GND 2 sit between Top Copper and Bottom Copper.
 - [x] 3.2 Docs (`docs/viewer.md`, `pcb-records.md` rows), `LEGAL-ANNEX.md` row and the fast gate. Proof: `make check-fast`.
   - 2026-10-25: proof passed (13 898 passed, 34 skipped).
-- [ ] 3.3 The maintainer compares a board of their own with Altium: the layer tabs and the mask openings. Proof: the record under this task.
+- [x] 3.3 The maintainer compares a board of their own with Altium: the layer tabs and the mask openings. Proof: the record under this task.
+  - 2026-11-04: the maintainer reviewed the updated Altium × Fenolite comparison with the configurable
+    layer order (Fenolite-authored example, the review source they chose on 2026-11-03: 14 exported layers
+    against 17 Altium tabs; names, colours, mask and paste openings, and the Order layers dialog with move,
+    apply, cancel and restore) and answered "Revisei e aprovo a comparação atualizada". This is the
+    maintainer's own review of an authored example, not of a personal project; no native label is raised
+    by it.
 
 ## Continuation review — 2026-11-01
 
