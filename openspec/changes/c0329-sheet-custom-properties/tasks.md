@@ -39,7 +39,7 @@ maintained; its closed keys must agree with the normative lens.
 
 - [x] 3.1 Teach the typed property and text authority in drawn/format/agent docs,
   register only authored/public measurements, and update CHANGELOG Unreleased.
-- [ ] 3.2 Run focused tests, static/types/generator/residue and strict OpenSpec
+- [x] 3.2 Run focused tests, static/types/generator/residue and strict OpenSpec
   checks plus the local fast gate. Keep exact-head CI open until publication is
   authorized and required jobs finish on that exact commit.
 
@@ -120,3 +120,20 @@ lowering and both native exports preserve every pin and all 1800 groups.
 Native original/written names agree. The own resolver's 486 name differences
 are explicitly retained; c0327's other row contexts and naming/combined gates
 stay open. This measured repeat closes 2.2 only; 3.2 remains open.
+
+
+Local documentary reconciliation — 2026-11-03: task3.2 is complete only in its
+local scope. The existing clean fast18 on signed ad8cbf2e passed22516 tests,
+52 recorded skips and every static/private-residue stage. Relevant production,
+unit/fidelity and generator paths are byte-identical between that source and
+local integration0102716d; the later viewer UI and documentary-reader changes
+are independent. The complete quiet fast log establishes source/selection
+coverage, not individually printed PASSED node receipts. Retained focused/native
+observations keep their original sources, versions and limits. Schema, evidence
+and agent-guide generator --check commands were also executed successfully
+without new tests or native calls. See local-proof-20261103.json for exact
+log/driver/source digests and the six retained c0350 native log seals.
+
+This checks no CI/native/manual task and does not archive the change, promote
+a label, declare current integration green or repair any Royal/geometry finding.
+The independent exact-source CI boundary remains open.
