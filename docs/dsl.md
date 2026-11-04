@@ -1333,6 +1333,8 @@ design.via_table(
 - `via_table` takes `kind`, `layers`, `protection`, `teardrop` and `locked` as `via()` does; every table
   takes `locked`. A via table also takes a blind via over both outer layers (`kind="blind"`,
   `layers=("F.Cu", "B.Cu")`), as KiCad writes some (change c0277); `via()` and `via_step` refuse it.
+- `track_table` and `arc_table` without `net` write copper on no net, as a board may hold (change c0375);
+  `via_table` names its net.
 - Row `i` of table `key` is the copper item `seg[i]`, `arc[i]` or `via[i]` of the key: the build gives it
   the copper uuid it derives for that item, so a rebuild keeps it, and the lens treats it as script copper.
 - **Errors at the call.** `DslError` names the key and the row index for a row of the wrong length, a value
@@ -1356,7 +1358,7 @@ design.zone(
 |---|---|---|
 | `net` | a `Net`, which joins the design, or `None` for a zone without a net | required |
 | `layers` | the copper layers of the pour, any of `Design.copper_layers`: `F.Cu`, `B.Cu` and the inner layers `In1.Cu` … `In<copper − 2>.Cu` of the count (`In6.Cu` is the deepest with `copper=8`); a refused name lists the board's layers | required |
-| `name` | names the zone across builds; unique in the design | the net's name; required when `net` is `None` |
+| `name` | names the zone across builds; unique in the design and without surrounding spaces, unless `key` is given: with a key the name is only written, and may repeat another zone's name or hold surrounding spaces, as an imported board's zones do (change c0375) | the net's name; required when `net` is `None` |
 | `key` | the zone's identity across builds when it has no name (change c0275), written nowhere in the board; with `key` and no `name` the zone has no name; unique among zones | the name |
 | `outline` | at least three `(x, y)` points in the frame of `place()`, which may hold `arc_to(mid, end)` steps as `board(outline=…)` does (change c0277): each is an arc edge, written in KiCad as an `arc` of the outline, polygonised by the copper check and written as segments in an Altium region | the board rectangle |
 | `priority` | an `int` of at least 0; a higher priority is filled first | 0 |

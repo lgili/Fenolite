@@ -171,7 +171,8 @@ class TrackTableIntent:
     ``(x1, y1, x2, y2)`` in the written board frame. Row ``i`` is the copper item ``seg[i]`` of ``key``."""
 
     key: str
-    net: str
+    net: str | None
+    """``None``: copper on no net (change c0375)."""
     layer: str
     width: Nm
     rows: tuple[tuple[int, int, int, int], ...]
@@ -185,7 +186,8 @@ class ArcTableIntent:
     in the written board frame. Row ``i`` is the copper item ``arc[i]`` of ``key``."""
 
     key: str
-    net: str
+    net: str | None
+    """``None``: copper on no net (change c0375)."""
     layer: str
     width: Nm
     rows: tuple[tuple[int, int, int, int, int, int], ...]
@@ -290,7 +292,7 @@ class _Table:
     """A copper table as a script records it: the intent with the net's name, and the ``Net``."""
 
     intent: TableIntent
-    net: Net
+    net: Net | None
 
 
 Recorded = _Track | _Via | _Stitch | _Table
@@ -797,8 +799,8 @@ def record_table(
     call = f"{table}_table"
     name = check_key(design, key)
     what = f"{call} {name}"
-    chosen = _net(net, what, required=True)
-    assert chosen is not None
+    # a track or arc table may lie on no net (change c0375); a via table names its net
+    chosen = _net(net, what, required=table == "via")
     flag = _locked(locked, what)
     found = _rows(name, call, rows, TABLE_WIDTHS[table])
     intent: TableIntent
@@ -812,6 +814,7 @@ def record_table(
         if span is not None:
             for named in span:
                 _table_layer(design, named, what)
+        assert chosen is not None
         intent = ViaTableIntent(
             name, chosen.name, size, hole, cast("tuple[tuple[int, int], ...]", found), via_kind, span,
             _protection(protection, what), flag, teardrop=_teardrop(teardrop, what),
@@ -822,18 +825,24 @@ def record_table(
         size = _table_size(width, f"{what}: width")
         if table == "track":
             intent = TrackTableIntent(
-                name, chosen.name, on, size, cast("tuple[tuple[int, int, int, int], ...]", found), flag
+                name,
+                None if chosen is None else chosen.name,
+                on,
+                size,
+                cast("tuple[tuple[int, int, int, int], ...]", found),
+                flag,
             )
         else:
             intent = ArcTableIntent(
                 name,
-                chosen.name,
+                None if chosen is None else chosen.name,
                 on,
                 size,
                 cast("tuple[tuple[int, int, int, int, int, int], ...]", found),
                 flag,
             )
-    design.register_net(chosen)
+    if chosen is not None:
+        design.register_net(chosen)
     design.copper_intents[name] = _Table(intent, chosen)
 
 
@@ -953,7 +962,8 @@ def copper(design: Design) -> tuple[CopperIntent, ...]:
                 )
             )  # fmt: skip
         elif isinstance(item, _Table):
-            _net_name(design, item.net, key)
+            if item.net is not None:
+                _net_name(design, item.net, key)
             found.append(item.intent)
         else:
             found.append(

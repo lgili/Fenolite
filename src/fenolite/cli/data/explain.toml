@@ -4392,6 +4392,11 @@ meaning = "The source board holds teardrop zones that KiCad drew from the teardr
 fix = "Nothing to fix. Run fenolite fill on the built board to draw the teardrops."
 see = "import"
 
+["import.arc-as-track"]
+meaning = "The source board holds arcs whose start, mid and end lie on one line once rounded to nanometres. KiCad draws such an arc as the straight segment from its start to its end, which the code writes as a row of a track table."
+fix = "Nothing to fix. Redraw the arc in the source if it was meant to bend."
+see = "import"
+
 ["library.deprecated"]
 meaning = "The design uses a library record (pins, package, device or part) that is deprecated: its interface was replaced by another record. The design still builds."
 fix = "Move the part to the record named in the message (deprecated.by) when you can; read the reason in the record."

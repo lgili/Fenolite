@@ -35,6 +35,7 @@ EXPLAINS: Mapping[str, tuple[tuple[int, str], ...]] = {
     "copper-without-net": ((5, "*"),),
     "zero-length-track": ((5, "*"),),
     "degenerate-arc": ((5, "*"),),
+    "arc-as-track": ((5, "*"),),
     "via-protection": ((5, "*"),),
     "via-span": ((5, "*"),),
     "pad-net-conflict": ((2, "*"), (5, "*")),
@@ -65,6 +66,8 @@ class Ledger:
     counts: Counter[str] = field(default_factory=lambda: Counter[str]())
     examples: dict[str, list[str]] = field(default_factory=lambda: {})
     regenerated: Counter[str] = field(default_factory=lambda: Counter[str]())
+    changed: Counter[str] = field(default_factory=lambda: Counter[str]())
+    """Items the code writes in another form that draws the same copper (``arc-as-track``; change c0375)."""
     teardrops_lost: int = 0
     """Vias and footprints left out that hold teardrop settings (their teardrops would not come back)."""
 
@@ -177,6 +180,31 @@ def explained(level: LevelId, kind: str, rows: Iterable[Unexpressed]) -> bool:
     return False
 
 
+CHANGED_KINDS = frozenset({"arc-as-track"})
+"""The kinds of ``Tables.left_out`` that the code still writes, in another form (change c0375)."""
+
+
+def changed_issues(ledger: Ledger) -> tuple[Issue, ...]:
+    """One ``import.arc-as-track`` (info) when arcs whose three points lie on one line are written as the
+    straight tracks they draw (change c0375)."""
+    count = ledger.changed["arc-as-track"]
+    if not count:
+        return ()
+    return (
+        issue(
+            "import.arc-as-track",
+            f"{count} arc(s) whose start, mid and end lie on one line are written as the straight track "
+            "from start to end that they draw",
+            where="arc-as-track",
+        ),
+    )
+
+
+def changed_rows(ledger: Ledger) -> tuple[Unexpressed, ...]:
+    """What ``changed`` holds, as rows the self-check takes as explanations (change c0375)."""
+    return tuple(Unexpressed(kind, count) for kind, count in sorted(ledger.changed.items()) if count)
+
+
 def regenerated_issues(ledger: Ledger) -> tuple[Issue, ...]:
     """One ``import.teardrops-regenerated`` (info) when teardrop zones were left to the filling tool."""
     count = ledger.regenerated["teardrop"]
@@ -194,6 +222,7 @@ def regenerated_issues(ledger: Ledger) -> tuple[Issue, ...]:
 
 
 __all__ = [
+    "CHANGED_KINDS",
     "EXPLAINS",
     "INFRASTRUCTURE",
     "TEARDROP_REGENERATED",
@@ -202,6 +231,8 @@ __all__ = [
     "explained",
     "lossy_issues",
     "root_kinds",
+    "changed_issues",
+    "changed_rows",
     "regenerated_issues",
     "scan",
 ]

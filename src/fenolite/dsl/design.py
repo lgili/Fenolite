@@ -1715,8 +1715,10 @@ class Design(Container):
         setting left at ``None`` takes KiCad's new-zone value (``docs/dsl.md``, "Zones"). ``locked=True``
         makes the script win over an edit of the zone in KiCad, and locks the zone there. ``key`` (change
         c0275) is the zone's identity across builds, written nowhere in the board; with a key and no name
-        the zone has no name. ``smoothing`` (``chamfer`` or ``fillet``) rounds or cuts the corners of the
-        fill by ``smoothing_radius`` (change c0277).
+        the zone has no name, and with a key the name is written as given: it may repeat another zone's name
+        or hold surrounding spaces, as an imported board's zones do (change c0375). ``smoothing``
+        (``chamfer`` or ``fillet``) rounds or cuts the corners of the fill by ``smoothing_radius`` (change
+        c0277).
         """
         if self.outline_path is None:
             raise DslError("zone(): call board() first")
@@ -1728,11 +1730,17 @@ class Design(Container):
             if net is None:
                 raise DslError("zone(): a zone without a net needs a name")
             name = net.name
-        if name is not None and (not isinstance(name, str) or not name or name != name.strip()):  # pyright: ignore[reportUnnecessaryIsInstance]
+        if key is not None and name is not None:
+            # with a key the name is only written: it may repeat or hold surrounding spaces (change c0375)
+            if not isinstance(name, str) or not name.strip():  # pyright: ignore[reportUnnecessaryIsInstance]
+                raise DslError(
+                    f"zone(): name must be a string with a character that is not a space, not {name!r}"
+                )
+        elif name is not None and (not isinstance(name, str) or not name or name != name.strip()):  # pyright: ignore[reportUnnecessaryIsInstance]
             raise DslError(
                 f"zone(): name must be a non-empty string without surrounding spaces, not {name!r}"
             )
-        if name is not None and any(spec.name == name for spec in self.zones.values()):
+        elif name is not None and any(spec.name == name for spec in self.zones.values()):
             raise DslError(f"zone(): the name {name!r} is already used; pass another name=")
         identity = key if key is not None else cast(str, name)
         if identity in self.zones:
@@ -2409,11 +2417,19 @@ class Design(Container):
         )
 
     def track_table(
-        self, key: str, *, net: Net, layer: str, width: object, rows_nm: object, locked: bool = False
+        self,
+        key: str,
+        *,
+        net: Net | None = None,
+        layer: str,
+        width: object,
+        rows_nm: object,
+        locked: bool = False,
     ) -> None:
         """Many straight tracks of ``net`` on ``layer``, ``width`` wide: each row of ``rows_nm`` is
         ``(x1, y1, x2, y2)`` in integer nanometres in the frame of ``place()`` (change c0275). Row ``i``
-        keeps the copper uuid of item ``seg[i]`` of ``key`` across builds."""
+        keeps the copper uuid of item ``seg[i]`` of ``key`` across builds. Without ``net`` the tracks lie
+        on no net (change c0375)."""
         from fenolite.dsl import intents
 
         intents.record_table(
@@ -2421,10 +2437,18 @@ class Design(Container):
         )
 
     def arc_table(
-        self, key: str, *, net: Net, layer: str, width: object, rows_nm: object, locked: bool = False
+        self,
+        key: str,
+        *,
+        net: Net | None = None,
+        layer: str,
+        width: object,
+        rows_nm: object,
+        locked: bool = False,
     ) -> None:
         """Many arcs of ``net`` on ``layer``: each row is ``(sx, sy, mx, my, ex, ey)`` in integer nanometres
-        in the frame of ``place()``, the start, a point on the arc and the end."""
+        in the frame of ``place()``, the start, a point on the arc and the end. Without ``net`` the arcs lie
+        on no net (change c0375)."""
         from fenolite.dsl import intents
 
         intents.record_table(self, "arc", key, net=net, rows=rows_nm, layer=layer, width=width, locked=locked)

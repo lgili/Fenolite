@@ -216,6 +216,18 @@ _ViaGroup = tuple[
 """The rows of one via table and its shared fields, the ``free`` flag last (change c0277)."""
 
 
+NO_NET = ""
+"""The net of a track or arc table whose copper lies on no net: the code writes it without ``net``."""
+
+
+def _table_net(net_id: str | None, net_names: Mapping[str, str]) -> str | None:
+    """The table net of copper on ``net_id``: its name, ``NO_NET`` without a net, ``None`` for a net id that
+    names no net (change c0375)."""
+    if not net_id:
+        return NO_NET
+    return net_names.get(net_id)
+
+
 def copper_tables(board: Board, net_names: Mapping[str, str]) -> Tables:
     """The tables of ``board``'s tracks, arcs and vias; ``net_names`` maps net ids to names."""
     stack = tuple(
@@ -224,7 +236,7 @@ def copper_tables(board: Board, net_names: Mapping[str, str]) -> Tables:
     left: Counter[str] = Counter()
     lines: dict[tuple[str, str], dict[tuple[int, int, bool], list[tuple[Row, str]]]] = {}
     for track in board.tracks:
-        net = net_names.get(track.net_id or "")
+        net = _table_net(track.net_id, net_names)
         if net is None:
             left["copper-without-net"] += 1
             continue
@@ -236,12 +248,20 @@ def copper_tables(board: Board, net_names: Mapping[str, str]) -> Tables:
             ((*_rel(track.start), *_rel(track.end)), track.native_ids.get("kicad", ""))
         )
     for arc in board.arcs:
-        net = net_names.get(arc.net_id or "")
+        net = _table_net(arc.net_id, net_names)
         if net is None:
             left["copper-without-net"] += 1
             continue
         if len({arc.start, arc.mid, arc.end}) < 3 or _collinear(arc.start, arc.mid, arc.end):
-            left["degenerate-arc"] += 1
+            if arc.start == arc.end:
+                left["degenerate-arc"] += 1
+                continue
+            # an arc whose three points lie on one line is the straight track it draws (change c0375)
+            left["arc-as-track"] += 1
+            groups = lines.setdefault((net, arc.layer), {})
+            groups.setdefault((0, arc.width, arc.locked), []).append(
+                ((*_rel(arc.start), *_rel(arc.end)), arc.native_ids.get("kicad", ""))
+            )
             continue
         groups = lines.setdefault((net, arc.layer), {})
         groups.setdefault((1, arc.width, arc.locked), []).append(

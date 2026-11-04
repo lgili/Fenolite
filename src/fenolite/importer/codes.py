@@ -22,6 +22,7 @@ ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "import.provenance-missing": "warning",
         "import.timestamp-missing": "info",
         "import.teardrops-regenerated": "info",
+        "import.arc-as-track": "info",
         "import.board-only": "info",
     }
 )

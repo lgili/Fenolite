@@ -168,9 +168,9 @@ Never silently. The kinds today:
 | `image` | a board image whose data is not a PNG, on a layer the DSL does not take, or with a scale that is not a plain decimal; another image becomes `design.image()` and its file `images/<layer>-<n>.png` (change c0277) |
 | `stackup`, `title-block` | a stack-up row or a title-block field the DSL refuses (a silkscreen row with a dielectric constant or a loss tangent) |
 | `custom-rule` | a `.kicad_dru` rule whose selector the DSL cannot write (a layer leaf, an undeclared class) |
-| `zone-setting`, `zone-name`, `zone-layer`, `zone-outline`, `rule-area-name`, `rule-area-layer`, `rule-area-placement` | a zone hatch, a repeated zone name, a zone or area off the copper layers or without an outline, an area name the DSL refuses, a placement area that places by another source than a sheet |
+| `zone-setting`, `zone-name`, `zone-layer`, `zone-outline`, `rule-area-name`, `rule-area-layer`, `rule-area-placement` | a zone hatch, a zone name of spaces only (a repeated or padded name is written with `name=` beside the zone's `key=`, change c0375), a zone or area off the copper layers or without an outline, an area name the DSL refuses, a placement area that places by another source than a sheet |
 | `drawing`, `drawing-layer`, `text`, `text-layer` | a drawing the DSL calls refuse (a hidden text, a mirror that does not follow the layer side, a knockout off copper and silkscreen, a dashed stroke, a copper graphic on a net the code does not declare), or one on a layer they do not take |
-| `copper-without-net`, `zero-length-track`, `degenerate-arc`, `via-protection`, `via-span`, `copper-layer`, `copper-count` | copper no table holds |
+| `copper-without-net`, `zero-length-track`, `degenerate-arc`, `via-protection`, `via-span`, `copper-layer`, `copper-count` | copper no table holds: a via on no net (a track or arc on no net is a table without `net=`, change c0375), an arc whose start and end are one point |
 | `teardrop-setting` | a via's `teardrops` child the import cannot read: the via is written without it |
 | `footprint` | a footprint the library derive cannot bring back |
 | `pad-net-unnumbered`, `pad-net-conflict`, `outline` | a pad on a net without a number, a pad number on two nets, no closed outline |
@@ -270,6 +270,7 @@ of a third-party board belongs in the library repository or your own folder.
 | `import.provenance-missing` | warning | no `--licence`, `--copyright` or `--source` |
 | `import.timestamp-missing` | info | no `--timestamp`: the output is not reproducible |
 | `import.teardrops-regenerated` | info | teardrop zones left out because KiCad draws them again from the pad and via teardrop settings the code keeps (change c0277) |
+| `import.arc-as-track` | info | arcs whose start, mid and end lie on one line (after rounding to nanometres) are written as the straight track they draw; the self-check takes them as explained (change c0375) |
 | `import.board-only` | info | footprints that share a reference or have none a script can name, written as board-only parts named by key; the count of those that gain KiCad's `board_only` attribute (change c0277) |
 
 ## Evidence

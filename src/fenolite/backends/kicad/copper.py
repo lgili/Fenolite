@@ -200,7 +200,7 @@ class TableIntentLike(Protocol):
     @property
     def table(self) -> str: ...
     @property
-    def net(self) -> str: ...
+    def net(self) -> str | None: ...
     @property
     def rows(self) -> Sequence[Sequence[int]]: ...
 
@@ -365,7 +365,9 @@ def _via_sizes(
     return diameter, drill
 
 
-def _track(key: str, locator: str, start: Point, end: Point, width: int, layer: str, net: Net) -> Track:
+def _track(
+    key: str, locator: str, start: Point, end: Point, width: int, layer: str, net: Net | None
+) -> Track:
     native = copper_uuid(key, locator)
     return Track(
         id=derived_id("trk", "kicad", native),
@@ -374,11 +376,13 @@ def _track(key: str, locator: str, start: Point, end: Point, width: int, layer: 
         end=end,
         width=width,
         layer=layer,
-        net_id=net.id,
+        net_id=None if net is None else net.id,
     )
 
 
-def _arc(key: str, locator: str, points: tuple[Point, Point, Point], width: int, layer: str, net: Net) -> Arc:
+def _arc(
+    key: str, locator: str, points: tuple[Point, Point, Point], width: int, layer: str, net: Net | None
+) -> Arc:
     native = copper_uuid(key, locator)
     return Arc(
         id=derived_id("arc", "kicad", native),
@@ -388,7 +392,7 @@ def _arc(key: str, locator: str, points: tuple[Point, Point, Point], width: int,
         end=points[2],
         width=width,
         layer=layer,
-        net_id=net.id,
+        net_id=None if net is None else net.id,
     )
 
 
@@ -838,11 +842,11 @@ def _resolve_table(board: _Board, intent: TableIntentLike) -> tuple[list[Track],
     """The copper of a table: row ``i`` is the item ``seg[i]``, ``arc[i]`` or ``via[i]`` of its key, so it
     keeps the uuid a build derives for the same item of a path intent."""
     key, kind = intent.key, intent.table
-    net = _required_net(board, intent.net, key, f"{kind} table")
     tracks: list[Track] = []
     arcs: list[Arc] = []
     vias: list[Via] = []
     if kind == "via":
+        net = _required_net(board, intent.net, key, f"{kind} table")
         sizes = _via_sizes(
             (getattr(intent, "diameter", None), getattr(intent, "drill", None)), None, net, key
         )
@@ -876,19 +880,20 @@ def _resolve_table(board: _Board, intent: TableIntentLike) -> tuple[list[Track],
                 )  # fmt: skip
             )
         return tracks, arcs, vias
+    on = _named_net(board, intent.net, key)  # a track or arc table may lie on no net (change c0375)
     layer = cast(str, getattr(intent, "layer", ""))
     _copper_layer(board, layer, key)
     width = _positive(cast(int, getattr(intent, "width", 0)), "track width", key)
     for index, row in enumerate(intent.rows):
         if kind == "track":
             tracks.append(
-                _track(key, f"seg[{index}]", Point(row[0], row[1]), Point(row[2], row[3]), width, layer, net)
+                _track(key, f"seg[{index}]", Point(row[0], row[1]), Point(row[2], row[3]), width, layer, on)
             )
         elif kind == "arc":
             points = (Point(row[0], row[1]), Point(row[2], row[3]), Point(row[4], row[5]))
             if len(set(points)) < 3 or _on_one_line(*points):
                 raise _Refused("kicad.copper.bad-intent", f"{key}: row {index} does not make an arc", key)
-            arcs.append(_arc(key, f"arc[{index}]", points, width, layer, net))
+            arcs.append(_arc(key, f"arc[{index}]", points, width, layer, on))
         else:
             raise _Refused("kicad.copper.bad-intent", f"{key}: {kind!r} is not a table kind", key)
     return tracks, arcs, vias

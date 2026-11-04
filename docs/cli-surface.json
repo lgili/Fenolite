@@ -13243,6 +13243,12 @@
         "warning"
       ]
     },
+    "import.arc-as-track": {
+      "experimental": false,
+      "severities": [
+        "info"
+      ]
+    },
     "import.board-only": {
       "experimental": false,
       "severities": [
@@ -18476,11 +18482,11 @@
                 "required": true
               },
               {
-                "annotation": "Net",
+                "annotation": "Net | None",
                 "default": null,
                 "kind": "KEYWORD_ONLY",
                 "name": "net",
-                "required": true
+                "required": false
               },
               {
                 "annotation": "str",
@@ -21228,11 +21234,11 @@
                 "required": true
               },
               {
-                "annotation": "Net",
+                "annotation": "Net | None",
                 "default": null,
                 "kind": "KEYWORD_ONLY",
                 "name": "net",
-                "required": true
+                "required": false
               },
               {
                 "annotation": "str",

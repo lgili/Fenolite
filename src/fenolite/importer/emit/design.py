@@ -57,6 +57,7 @@ from fenolite.importer.provenance import Provenance
 from fenolite.importer.schematic import drawing_value as source_drawing
 from fenolite.importer.source import Source
 from fenolite.importer.tables import (
+    NO_NET,
     ORIGIN,
     Table,
     copper_tables,
@@ -158,6 +159,9 @@ class Emission:
     issues: tuple[Issue, ...]
     refs: Mapping[str, str] = field(default_factory=lambda: {})
     variants: tuple[str, ...] = ()
+    changed: tuple[Unexpressed, ...] = ()
+    """Items written in another form that draws the same copper; they explain self-check differences
+    (change c0375)."""
 
 
 def design_name(seed: str) -> str:
@@ -747,7 +751,7 @@ def _zones(
             args.append(("name", text(zone.name)))
             identity = zone.name
         else:
-            if zone.name:
+            if zone.name and not zone.name.strip():
                 ledger.add("zone-name", zone.name)
             stem = segment(net) if net is not None else "zone"
             index = counters.get(stem, 0) + 1
@@ -756,6 +760,9 @@ def _zones(
             counters[stem] = index
             keys.add(f"{stem}/{index}")
             args.append(("key", text(f"{stem}/{index}")))
+            if zone.name.strip():
+                # a repeated or padded name is written as it is beside the key (change c0375)
+                args.append(("name", text(zone.name)))
             identity = f"{stem}/{index}"
         if bends and writer is not None:
             args.append(("outline", _ring_path(ring, bends, writer)))
@@ -1232,9 +1239,11 @@ def _copper_file(tables: Sequence[Table], header: Sequence[str]) -> str:
     imports = {"Design", "Net", "mm"}
     body: list[str] = []
     for table in tables:
-        net = Sub("n", text(table.net))
         rows = Tup(tuple(Tup(tuple(number(v) for v in row)) for row in table.rows))
-        args: list[tuple[str, Expr]] = [("net", net)]
+        # a track or arc table on no net names none (change c0375)
+        args: list[tuple[str, Expr]] = []
+        if table.kind == "via" or table.net != NO_NET:
+            args.append(("net", Sub("n", text(table.net))))
         if table.kind == "via":
             args += [("diameter", length(table.diameter)), ("drill", length(table.drill)), ("rows_nm", rows)]
             if table.via_kind != "through":
@@ -1391,7 +1400,10 @@ def emit(source: Source, options: Options) -> Emission:
         issues.append(issue("import.board-only", said, where="footprints"))
     tables = copper_tables(board, names)
     for kind, count in tables.left_out.items():
-        ledger.add(kind, count=count)
+        if kind in coverage.CHANGED_KINDS:
+            ledger.changed[kind] += count
+        else:
+            ledger.add(kind, count=count)
     ledger.teardrops_lost += tables.teardrops_lost
     kept_tables: list[Table] = []
     for table in tables.tables:
@@ -1439,7 +1451,7 @@ def emit(source: Source, options: Options) -> Emission:
             seen[(ref, pad.number)] = net
             members.setdefault(net, {})[(ref, pad.number)] = None
     used_nets = {net for net, pins in members.items() if not (len(pins) == 1 and net.startswith(UNCONNECTED))}
-    used_nets |= {table.net for table in kept_tables}
+    used_nets |= {table.net for table in kept_tables if table.net != NO_NET}
     used_nets |= {names[z.net_id] for z in board.zones if z.net_id in names}
     numbers = net_numbers(design)
     copper_layers = {layer.name for layer in board.layers if layer.kind == "copper"}
@@ -1640,6 +1652,7 @@ def emit(source: Source, options: Options) -> Emission:
     group_lines = _groups(board, grouped, ledger)
     coverage.scan(design, ledger)
     issues += coverage.regenerated_issues(ledger)
+    issues += coverage.changed_issues(ledger)
     files: dict[str, str] = dict(vendored.files)
     sheet_aliases: list[list[str]] = []
     if hierarchy.instances:
@@ -1781,6 +1794,7 @@ def emit(source: Source, options: Options) -> Emission:
             sorted({**{path: body.encode("utf-8") for path, body in files.items()}, **binary}.items())
         ),
         unexpressed=rows,
+        changed=coverage.changed_rows(ledger),
         counts=counts,
         modules=tuple("/".join(p) for p in sorted(module_vars)),
         issues=tuple(issues),

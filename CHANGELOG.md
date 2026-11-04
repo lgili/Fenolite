@@ -102,6 +102,11 @@ All notable changes to Fenolite are documented here. The format follows
   The roadmap reconciles the original phases 0–4; no router runtime behavior changes here.
 
 - Archive c0170-convert-slots-obstacles: slots and cut-outs in conversions, slotted drills to Altium, generated hole footprints and slot obstacles, with `H-K-CONV-SLOTS` proved in CI (task 3.3).
+- **Import copper coverage** (c0375): `import --to python` writes tracks and arcs on no net as track and
+  arc tables without `net=` (the DSL tables now take no net), an arc whose three points lie on one line as
+  the straight track it draws (reported once as the new info `import.arc-as-track`), and repeated or padded
+  zone names exactly: `Design.zone` with `key=` accepts a name that repeats or holds surrounding spaces.
+
 - **PCB net conflicts** (c0373): a pin that a net of the Altium sheets holds is no longer also added to a
   net that only the PCB document holds; the pad keeps its own net on the board and the new warning
   `altium.import.pcb-net-conflict` names each such pin with both nets (schematic and board out of sync).

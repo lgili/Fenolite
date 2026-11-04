@@ -386,7 +386,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             build_issues, built, built_text = _build(emission, name, target, ctx)
             issues += build_issues
         if built is not None:
-            checked = self_check(source.design, built, emission.unexpressed)
+            checked = self_check(source.design, built, (*emission.unexpressed, *emission.changed))
             issues += checked.issues
             equivalence = checked.as_json()
             if args.adopt:
