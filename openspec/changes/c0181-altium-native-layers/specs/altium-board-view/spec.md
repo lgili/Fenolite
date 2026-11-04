@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: Native layer names of an Altium board
-For an Altium board the scene SHALL name each layer as its `Board6` record does: the user's name of a numbered layer when the record holds one, else Altium's default name. The model name SHALL stay the layer's id. The layers SHALL be ordered as Altium orders them.
+For an Altium board the scene SHALL name each layer as its `Board6` record does: the user's name of a numbered layer when the record holds one, else Altium's default name. The model name SHALL stay the layer's id. The viewer SHALL allow its available layer list and layer-stepping order to be configured, as specified by the board-viewer requirement "Configurable layer order". The deterministic initial ranking SHALL be described as Default viewer order, without claiming universal Altium order.
 
 #### Scenario: A board with renamed layers
 - **GIVEN** an authored `.PcbDoc` whose `Board6` names layer 1 `Signal Top` and keeps the default name of layer 33

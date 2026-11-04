@@ -16,9 +16,12 @@ wherever the board uses an expansion.
   `Mid-Layer 1`, `Bottom Layer`, `Top Overlay`, `Top Paste`, `Top Solder`, `Mechanical 1`, `Multi-Layer`,
   `Drill Drawing`, `Keep-Out Layer`). The model name stays as the layer's id, so overlays, the 3D view and the
   KiCad boards are unchanged.
-- **Altium's order and colours.** The layer tabs follow Altium's order: signal layers top to bottom, planes,
-  overlays, pastes, solders, mechanical layers by number, then Multi-Layer and the drill layers. The colours are
-  the authored Altium palette of c0178 for each native layer kind.
+- **Configurable viewer order.** The user may arrange the available board/footprint layer list and
+  keyboard navigation order in the viewer, then restore **Default viewer order**. The choice is scoped to
+  the document and source hash in this browser, with a page-only fallback if storage is unavailable.
+  Presentation order does not change source data, geometry, draw order, selection or visibility. The
+  existing deterministic initial ranking is a viewer fallback, not a claim of universal Altium order.
+  Colours remain the authored Altium palette of c0178 for each native layer kind.
 - **Solder mask and paste from the pads.** Each pad's paste and solder-mask expansion and their modes (none,
   from the rules, manual) are read from the pad record (`pcb-records.md`, "Pad"). A manual value is used as it
   is. A value from the rules uses the `SolderMaskExpansion` and `PasteMaskExpansion` rules of `Rules6` whose
@@ -36,17 +39,18 @@ wherever the board uses an expansion.
 
 ### Modified Capabilities
 
-- None.
+- `board-viewer`: accessible layer-order controls, per-document preferences and reset.
 
 ## Non-goals
 
-- KiCad boards: their names (`F.Cu`, user names of the board file) are already their tool's.
+- Renaming KiCad layers or changing their geometry: their names (`F.Cu`, user names of the board file)
+  are already their tool's. Shared presentation-order controls apply to boards and footprints.
 - Layer sets and view configurations of Altium (`.PCBSysConfig`).
 - Evaluating every query of the Altium query language: only what `read.scope` evaluates.
 
 ## Evidence level required
 
-- Layer names and order: `CORPUS-VERIFIED` against the boards of S-0170 to S-0176, S-0187 and S-0188 where
+- Layer names: `CORPUS-VERIFIED` against the boards of S-0170 to S-0176, S-0187 and S-0188 where
   their `Board6` holds the keys; the default names come from `read.pcbstack` (c0041).
 - Mask and paste expansion: `INFERRED` (pad record offsets, `H-A-PCB-PAD`). The maintainer's review against
   Altium (task 3.3) confirms what the page shows.
@@ -59,3 +63,11 @@ wherever the board uses an expansion.
   `view/page.html` (labels, Properties rows), `cli/cmd_view.py`, `docs/viewer.md`,
   `docs/formats/altium/pcb-records.md`.
 - **Size:** 3 design-days.
+
+## Maintainer scope decision — 2026-11-03
+
+The maintainer explicitly chose: "Permitir configurar a ordem das abas no visualizador".
+This replaces the unsupported universal tab-order assertion; it does not approve the still-pending
+native layer/mask comparison. The actual v6 scene has 14 available layers, including three viewer-derived
+items; the native application's 17 tabs are not an equal set. No missing/empty native layer is invented.
+Altium LayerSets/preferences are not imported, inferred from geometry or modified by this feature.

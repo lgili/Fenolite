@@ -526,11 +526,11 @@ def test_future_separate_closure_does_not_promote_the_historical_receipt(
     original = _change_directory()
     proof_bytes = (original / "census-7.2-proof.json").read_bytes()
     (folder / "census-7.2-proof.json").write_bytes(proof_bytes)
-    tasks = (original / "tasks.md").read_text()
+    tasks = (original / "tasks.md").read_text(encoding="utf-8")
     for task in ("7.1", "9.2"):
         tasks = tasks.replace(f"- [ ] {task} ", f"- [x] {task} ")
         assert f"- [x] {task} " in tasks
-    (folder / "tasks.md").write_text(tasks)
+    (folder / "tasks.md").write_text(tasks, encoding="utf-8")
     evidence = tmp_path / "docs/evidence"
     evidence.mkdir(parents=True)
     for name in ("drawn-context.json", "drawn-ci-census-985f59a1.json"):

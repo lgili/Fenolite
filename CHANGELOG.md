@@ -6,6 +6,13 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Keep the drawn native-proof check readable after a normal spec archive, rejecting missing or ambiguous locations while preserving UTF-8 and all evidence assertions (c0319).
+
+- Read and write the native-approval and temporary archive evidence as UTF-8 in documentary tests, preserving their assertions on Windows (c0319).
+- Configure the viewer layer list and keyboard navigation order with accessible draft controls, Apply/Cancel and reset; keep browser preferences per document/source hash without changing visibility, selections, geometry or source data (c0181).
+
+- Keep the Altium conversion and RT-A2 gate-off regression controls explicit after enabling native-accepted cut-outs by default; preserve all findings, counts and the positive default control (c0168).
+
 - Record direct inspection of six authored role views with original JPEGs and portable hashes; preserve unfilled-board findings and keep exact-source CI closure pending (c0305).
 
 - Record42 verified scoped archives, fast16 with22471passed/52skipped and the later54-case documentary guard, plus five actual native viewer action passes; retain exact-source CI and pending functional gates (c0319,c0303).

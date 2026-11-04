@@ -2128,7 +2128,20 @@ body:not(.sch) #tabs {
   border: 1px solid var(--border);
 }
 .layerTools {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  flex-wrap: wrap;
   padding: 0 var(--space-4) var(--space-2);
+}
+.layerVisibilityGroups {
+  margin: 0 var(--space-4) var(--space-2);
+}
+.layerVisibilityGroups summary {
+  cursor: pointer;
+  color: var(--text-2);
+  font-size: var(--text-sm);
 }
 .layerHint {
   color: var(--text-3);
@@ -2328,7 +2341,8 @@ body.mode3d #inspSimilar {
 /* src/styles/dialogs.css */
 #palette,
 #shortcuts,
-#about {
+#about,
+#layerOrderDialog {
   padding: 0;
   color: var(--text-1);
   background: var(--surface-1);
@@ -2339,6 +2353,44 @@ body.mode3d #inspSimilar {
 #palette::backdrop,
 #shortcuts::backdrop {
   background: var(--backdrop);
+}
+#layerOrderDialog::backdrop {
+  background: var(--backdrop);
+}
+#layerOrderDialog {
+  width: min(540px, calc(100vw - 24px));
+  max-height: 90vh;
+  overflow: auto;
+}
+.layerOrderBody {
+  padding: var(--space-3) var(--space-5);
+}
+.layerOrderBody p {
+  color: var(--text-2);
+  font-size: var(--text-sm);
+}
+.layerOrderBody label {
+  display: block;
+  margin-bottom: var(--space-2);
+}
+#layerOrderSelect {
+  display: block;
+  width: 100%;
+  margin-bottom: var(--space-3);
+}
+#layerOrderSelect option {
+  padding: 4px 6px;
+}
+.layerOrderMoves,
+.layerOrderFoot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.layerOrderFoot {
+  justify-content: flex-end;
+  padding: var(--space-3) var(--space-5);
+  border-top: 1px solid var(--border);
 }
 #palette {
   width: min(640px, calc(100vw - 24px));

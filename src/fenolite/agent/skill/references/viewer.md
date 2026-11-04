@@ -68,4 +68,13 @@ An ambiguous physical child path refuses; it never selects the first instance. P
 changes invalidate scene caches and live views, and missing inputs keep the last good scene with an
 error. Native visible reference text without an explicit field pose refuses instead of guessing.
 
+
+## Layer presentation order
+
+In the viewer's Layers panel, **Order layers** changes a draft with Move up/down or `Alt+↑` / `Alt+↓`.
+Apply saves it for that document/source hash in this browser; Cancel or Escape discards it. Reset to
+default followed by Apply restores **Default viewer order**, a viewer fallback rather than a universal
+Altium order. Browser storage failures keep the choice only for this page session. Selection, visibility,
+opacity, source bytes and drawing order do not change; no empty native layer is invented.
+
 Read next: `files`, `checks`, `board-routing`.

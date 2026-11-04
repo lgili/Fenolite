@@ -236,3 +236,18 @@ CM5 cause established before native execution: the sole unexplained difference i
 ### Historical release records and current continuation tasks
 
 The historical v0.4/v0.5/v0.6 release and native-acceptance claims remain unchanged. Their existing guards continue comparing current task files: append explicitly dated current tracking for newly opened tasks rather than pretending they existed at the old release cut. A numeric continuation ID may have one lowercase letter suffix; it must remain a distinct task, including its checked/open state, and an unnamed open continuation must fail. Negative guards use authored temporary task files when their purpose is independent of a real task later completing. No checker exemption, freeze/graduation change or native evidence promotion is introduced.
+
+### Windows documentary evidence encoding
+
+The two failed Windows tests read UTF-8 tasks and the maintainer approval, and one writes a temporary archived tasks copy. Set UTF-8 explicitly on those three operations. Keep all assertions and evidence bytes unchanged. A focused CP1252-default I/O control reproduces both failures before the fix and runs the same tests afterward; this is a local portability control, not a passing Windows CI claim.
+
+## Native visual proof lookup after archive (task2.19)
+
+The documentary reader resolves exactly one active or archived c0276 directory
+before reading `native-visual-proof.json` as UTF-8. It uses the same small candidate
+selection rule as the existing census proof lookup, without importing one test
+module from another or adding a production API. Missing, file-only and ambiguous
+layouts refuse before reading. Temporary active/archive copies under a controlled
+CP1252 default execute the original approval/scope checks and retain exact proof
+bytes. All 171 prior assertions and all native evidence remain unchanged. This
+prepares a later normal archive; it does not close c0276 or promote any hypothesis.

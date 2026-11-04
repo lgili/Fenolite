@@ -7,9 +7,11 @@ import { $ } from "../core/dom";
 import { S, st, vis } from "../core/state";
 import { buildLayers } from "../panels/layers";
 import { draw, VIEWL } from "./draw";
+import { preferredLayers } from "./layer-order";
 export const TAB_ORDER = id => { const k = id.endsWith(".Cu") ? (id === "F.Cu" ? 0 : id === "B.Cu" ? 2 : 1) : id.startsWith("Mech") ? 3 : id.endsWith("SilkS") ? 4 : id.endsWith("Paste") ? 5 : id.endsWith("Mask") ? 6
   : id.endsWith("CrtYd") ? 7 : id.endsWith("Fab") ? 8 : id === "Edge.Cuts" ? 9 : id.startsWith("View.") ? 11 : 10; return k; };
-export function tabLayers() { return [...S.layers].sort((a, b) => (a.tab ?? TAB_ORDER(a.id) * 100) - (b.tab ?? TAB_ORDER(b.id) * 100) || (a.id.startsWith("B.") - b.id.startsWith("B.")) || a.id.localeCompare(b.id, undefined, { numeric: true })); }
+export function defaultTabLayers() { return [...S.layers].sort((a, b) => (a.tab ?? TAB_ORDER(a.id) * 100) - (b.tab ?? TAB_ORDER(b.id) * 100) || (a.id.startsWith("B.") - b.id.startsWith("B.")) || a.id.localeCompare(b.id, undefined, { numeric: true })); }
+export function tabLayers() { return preferredLayers(defaultTabLayers()); }
 export function buildTabs() {
   buildLayers();
   const cur = S.layers.find(l => l.id === st.cur); $("cur").textContent = cur ? `Layer ${cur.name}${st.single ? " · only this layer" : ""}` : "";

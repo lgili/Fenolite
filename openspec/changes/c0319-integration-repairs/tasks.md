@@ -494,3 +494,33 @@ Task2.16 proof: all3 reviewed terminal runs were removed with HTTP204 and each s
 - [x] 2.17 Bind the42 actual source-scoped archives and101living files, clean fast16/source863 plus the54-case later documentary-guard proof and the five actual native viewer passes. Preserve failed-CI/geometry deferral, separate post985 integration, immutable old native reports and active c0246/c0276/Altium/release gates. Proof: complete archive/source/DCO and living-byte comparisons; strict living/c0319; diff/private residue. No additional fast/CI or push is implied.
 
 Task2.17 proof:42actual archive directories/316files match their reviewed source commits and individual maintainer DCO; all101living files equal reviewed chain1789432f and101/101 nominal strict passes. Fast16: clean unchanged8635415a, exit0,22471passed/52skips,1049.99s pytest/1146.12s driver; log/driver/receipt digests recomputed. Every later runtime/config/schema/tool file equals that source; the sole later test file is the independently54passed documentary guard. Actual c0303 local native proof is2pass+1version skip on9.0.9 and3pass on10.0.6, with unchanged inputs/test/workflow; no CI result is inferred. Strict c0319/c0303 and diff pass; private staged scan is required before commit. The c0168 runtime gate and c0246 variant-native WIP remain outside this candidate; no push or CI performed.
+
+- [x] 2.18 Make the three affected documentary file operations explicitly UTF-8 after the retained
+  Windows failure of CI41744987316/source723183a1. Preserve every assertion, approval literal and
+  historical receipt. Cover both decoding and the temporary archived tasks write without relying
+  on the platform locale. Proof: the two complete affected unit modules; a CP1252-default I/O
+  control on the two original failing tests; strict c0319, diff and private staged residue.
+  This repairs test portability only; the failed CI and independent native gates remain recorded.
+
+Task2.18 proof: retained Windows source723 had2failed/22599passed/4369skipped. The same two tests reproduce2failures under targeted CP1252-default I/O before the fix, then2pass with explicit UTF-8. Both affected modules pass56tests; all171assertion ASTs and every other AST node remain identical after normalizing only the added encoding keywords. Original tasks/evidence/approval bytes are unchanged. Ruff/format, nominal strict c0319 and diff pass; private staged scan reports0hits/7files with the gate on. This is a local portability correction, not a claim that the failed Windows run passed; exact-source CI closure remains pending.
+
+- [x] 2.19 Make the drawn native visual-proof reader survive a later normal archive of c0276.
+  Resolve exactly one active or archived change directory; reject missing, non-directory and
+  ambiguous matches before reading the proof. Keep explicit UTF-8 and every existing approval,
+  evidence, limitation and experimental-writer assertion unchanged. Prove active and archived
+  reading under a controlled CP1252 default, plus absence and ambiguity refusals in temporary
+  trees only. Proof: the focused reader cases and both complete documentary unit modules,
+  existing-assertion AST comparison, focused Ruff/format, strict c0319, diff and private residue.
+  Do not move the real change, alter native evidence or claim CI/archival completion.
+
+Task2.19 proof: the extracted old active-only reader reproduces five failures and
+one pass for the six lifecycle controls. Strict directory selection then passes
+both complete documentary modules: 62 cases in 1.04s, including active/archive
+reads under an enforced CP1252 default and four missing/file/ambiguity refusals.
+Both positive layouts also run the original full approval/limitation checks;
+copied proof bytes remain exact. All 171 preexisting assertion ASTs are unchanged;
+the only changed original assignment delegates proof loading to the strict UTF-8
+reader. Native proof bytes and production code are unchanged. Focused Ruff,
+format, OpenSpec 1.3 strict and diff pass; staged private residue is zero hits in
+five files, gate on. No real archive, hypothesis promotion, fast/full/native/CI
+or push.

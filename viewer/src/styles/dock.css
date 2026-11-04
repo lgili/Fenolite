@@ -67,7 +67,9 @@ body:not(.sch) #tabs { display:none; }
 /* The Layers panel. */
 .layerHead { display:flex; align-items:center; justify-content:space-between; padding:var(--space-3) var(--space-4) var(--space-1); color:var(--text-1); font-weight:600; }
 #ls { border:1px solid var(--border); }
-.layerTools { padding:0 var(--space-4) var(--space-2); }
+.layerTools { display:flex; align-items:center; justify-content:space-between; gap:var(--space-2); flex-wrap:wrap; padding:0 var(--space-4) var(--space-2); }
+.layerVisibilityGroups { margin:0 var(--space-4) var(--space-2); }
+.layerVisibilityGroups summary { cursor:pointer; color:var(--text-2); font-size:var(--text-sm); }
 .layerHint { color:var(--text-3); font-size:var(--text-sm); }
 .lgroup { padding:0 var(--space-2) var(--space-2); }
 .lgHead { display:flex; align-items:center; gap:var(--space-2); height:30px; padding:0 var(--space-2); border-top:1px solid var(--border); }

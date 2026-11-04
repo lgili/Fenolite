@@ -3839,6 +3839,77 @@ function pick3D(X, Y) {
     return best;
 }
 glc.addEventListener("wheel", e => { e.preventDefault(); V3.cam.dist = Math.min(Math.max(V3.cam.dist * Math.exp(e.deltaY * 0.0012), 5), 3000); draw3D(); }, { passive: false });
+// ---- board/layer-order.ts
+// Presentation preferences only (c0181): never write into a scene or its tab/draw-order data.
+const LAYER_ORDER_SESSION = new Map();
+const LAYER_ORDER_ANONYMOUS = new WeakMap();
+function layerOrderDocumentKey() {
+    return JSON.stringify([PROJECT?.name || "", DOC?.id || "", DOC?.name || S?.meta?.name || ""]);
+}
+function layerOrderKey() {
+    const sha = S?.meta?.sha256;
+    if (typeof sha !== "string" || !/^[a-f0-9]{64}$/i.test(sha))
+        return null;
+    return "fenolite.view.layerOrder:" + JSON.stringify([layerOrderDocumentKey(), sha.toLowerCase()]);
+}
+function readLayerOrder() {
+    const key = layerOrderKey();
+    if (!key)
+        return S ? LAYER_ORDER_ANONYMOUS.get(S)?.get(layerOrderDocumentKey()) || null : null;
+    if (!LAYER_ORDER_SESSION.has(key)) {
+        let ids = null;
+        try {
+            const value = JSON.parse(localStorage.getItem(key) || "null");
+            if (Array.isArray(value) && value.every(id => typeof id === "string"))
+                ids = value;
+        }
+        catch (e) { /* unavailable storage or malformed data: this page's default */ }
+        LAYER_ORDER_SESSION.set(key, ids);
+    }
+    return LAYER_ORDER_SESSION.get(key);
+}
+function orderedLayerIds(defaultIds, saved) {
+    const left = new Set(defaultIds), ids = [];
+    if (Array.isArray(saved) && saved.every(id => typeof id === "string")) {
+        for (const id of saved)
+            if (left.delete(id))
+                ids.push(id);
+    }
+    return [...ids, ...left];
+}
+function preferredLayers(layers) {
+    const by = new Map(layers.map(l => [l.id, l]));
+    return orderedLayerIds(layers.map(l => l.id), readLayerOrder()).map(id => by.get(id));
+}
+function hasLayerOrder(layers) {
+    const saved = readLayerOrder(), available = new Set(layers.map(l => l.id));
+    return Array.isArray(saved) && saved.some(id => available.has(id));
+}
+function keepLayerOrder(ids, defaultIds) {
+    const order = orderedLayerIds(defaultIds, ids);
+    const custom = ids !== null;
+    const key = layerOrderKey();
+    if (!key) {
+        if (S) {
+            if (!LAYER_ORDER_ANONYMOUS.has(S))
+                LAYER_ORDER_ANONYMOUS.set(S, new Map());
+            const stored = LAYER_ORDER_ANONYMOUS.get(S), doc = layerOrderDocumentKey();
+            if (custom)
+                stored.set(doc, order);
+            else
+                stored.delete(doc);
+        }
+        return;
+    }
+    LAYER_ORDER_SESSION.set(key, custom ? order : null);
+    try {
+        if (custom)
+            localStorage.setItem(key, JSON.stringify(order));
+        else
+            localStorage.removeItem(key);
+    }
+    catch (e) { /* the applied preference stays in this page session */ }
+}
 // ---- board/tabs.ts
 // ================================================================== layers: order, current layer, presets
 // The layers of a board are listed in the dock's Layers panel (c0301, panels/layers); the bottom bar keeps the
@@ -3848,7 +3919,8 @@ const TAB_ORDER = id => {
         : id.endsWith("CrtYd") ? 7 : id.endsWith("Fab") ? 8 : id === "Edge.Cuts" ? 9 : id.startsWith("View.") ? 11 : 10;
     return k;
 };
-function tabLayers() { return [...S.layers].sort((a, b) => (a.tab ?? TAB_ORDER(a.id) * 100) - (b.tab ?? TAB_ORDER(b.id) * 100) || (a.id.startsWith("B.") - b.id.startsWith("B.")) || a.id.localeCompare(b.id, undefined, { numeric: true })); }
+function defaultTabLayers() { return [...S.layers].sort((a, b) => (a.tab ?? TAB_ORDER(a.id) * 100) - (b.tab ?? TAB_ORDER(b.id) * 100) || (a.id.startsWith("B.") - b.id.startsWith("B.")) || a.id.localeCompare(b.id, undefined, { numeric: true })); }
+function tabLayers() { return preferredLayers(defaultTabLayers()); }
 function buildTabs() {
     buildLayers();
     const cur = S.layers.find(l => l.id === st.cur);
@@ -3892,6 +3964,88 @@ $("ls").onclick = e => {
     mnu.style.display = mnu.style.display === "block" ? "none" : "block";
 };
 window.addEventListener("click", () => { $("lsmenu").style.display = "none"; });
+// ---- dialogs/layer-order.tsx
+// An accessible draft editor: applying changes only this document's presentation preference.
+const LAYER_ORDER_DRAFT = { scene: null, key: null, document: null, ids: [], selected: "", message: "", reset: false };
+function layerOrderChangedDocument() {
+    return LAYER_ORDER_DRAFT.scene !== S || LAYER_ORDER_DRAFT.key !== layerOrderKey() || LAYER_ORDER_DRAFT.document !== layerOrderDocumentKey();
+}
+function rejectChangedLayerOrder() {
+    if (!layerOrderChangedDocument())
+        return false;
+    LAYER_ORDER_DRAFT.message = "The document changed. Cancel and open Order layers again.";
+    renderLayerOrder();
+    return true;
+}
+function closeLayerOrder() {
+    $("layerOrderDialog").close();
+    LAYER_ORDER_DRAFT.scene = null;
+    $("orderLayers")?.focus();
+}
+function moveLayerOrder(dir) {
+    if (rejectChangedLayerOrder())
+        return;
+    const draft = LAYER_ORDER_DRAFT, at = draft.ids.indexOf(draft.selected), next = at + dir;
+    if (at < 0 || next < 0 || next >= draft.ids.length)
+        return;
+    [draft.ids[at], draft.ids[next]] = [draft.ids[next], draft.ids[at]];
+    draft.reset = false;
+    const layer = draft.scene.layers.find(l => l.id === draft.selected);
+    draft.message = `${layer.name} moved to position ${next + 1} of ${draft.ids.length}.`;
+    renderLayerOrder();
+    $("layerOrderSelect").focus();
+}
+function applyLayerOrder() {
+    if (rejectChangedLayerOrder())
+        return;
+    keepLayerOrder(LAYER_ORDER_DRAFT.reset ? null : LAYER_ORDER_DRAFT.ids, defaultTabLayers().map(l => l.id));
+    buildTabs();
+    closeLayerOrder();
+}
+function LayerOrderEditor() {
+    const draft = LAYER_ORDER_DRAFT, at = draft.ids.indexOf(draft.selected), changed = layerOrderChangedDocument();
+    const by = new Map(draft.scene.layers.map(l => [l.id, l]));
+    return preact.h(preact.Fragment, null,
+        preact.h("header", { class: "dlgHead" },
+            preact.h("h2", { id: "layerOrderTitle" }, "Order layers")),
+        preact.h("div", { class: "layerOrderBody" },
+            preact.h("p", { id: "layerOrderHelp" }, "Choose a layer, then use Move up/down or Alt+\u2191/\u2193. Apply saves the order for this document in this browser; Cancel keeps the current order."),
+            preact.h("label", { for: "layerOrderSelect" }, "Layer to reorder"),
+            preact.h("select", { id: "layerOrderSelect", disabled: changed, size: Math.min(10, Math.max(2, draft.ids.length)), value: draft.selected, "aria-describedby": "layerOrderHelp", onChange: e => { draft.selected = e.target.value; renderLayerOrder(); }, onKeyDown: e => {
+                    if (e.altKey && !e.ctrlKey && !e.metaKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        moveLayerOrder(e.key === "ArrowUp" ? -1 : 1);
+                    }
+                } }, draft.ids.map(id => preact.h("option", { key: id, value: id }, by.get(id).name))),
+            preact.h("div", { class: "layerOrderMoves" },
+                preact.h("button", { type: "button", id: "layerOrderUp", class: "tb", disabled: changed || at <= 0, onClick: () => moveLayerOrder(-1) }, "Move up"),
+                preact.h("button", { type: "button", id: "layerOrderDown", class: "tb", disabled: changed || at < 0 || at >= draft.ids.length - 1, onClick: () => moveLayerOrder(1) }, "Move down"),
+                preact.h("button", { type: "button", id: "layerOrderReset", class: "tb", disabled: changed, onClick: () => {
+                        if (rejectChangedLayerOrder())
+                            return;
+                        draft.ids = defaultTabLayers().map(l => l.id);
+                        draft.reset = true;
+                        draft.message = "Default viewer order. Choose Apply to restore it.";
+                        renderLayerOrder();
+                        $("layerOrderSelect").focus();
+                    } }, "Reset to default")),
+            preact.h("p", { id: "layerOrderStatus", role: "status", "aria-live": "polite" }, draft.message || "Only the list and layer navigation order change. Visibility and selections stay as they are.")),
+        preact.h("footer", { class: "layerOrderFoot" },
+            preact.h("button", { type: "button", id: "layerOrderCancel", class: "tb", onClick: closeLayerOrder }, "Cancel"),
+            preact.h("button", { type: "button", id: "layerOrderApply", class: "tb primary", disabled: layerOrderChangedDocument(), onClick: applyLayerOrder }, "Apply")));
+}
+function renderLayerOrder() { preact.render(preact.h(LayerOrderEditor, null), $("layerOrderDialog")); }
+function openLayerOrder() {
+    if (!S?.layers?.length)
+        return;
+    const ids = tabLayers().map(l => l.id);
+    Object.assign(LAYER_ORDER_DRAFT, { scene: S, key: layerOrderKey(), document: layerOrderDocumentKey(), ids, selected: ids[0], message: "", reset: false });
+    renderLayerOrder();
+    $("layerOrderDialog").showModal();
+    $("layerOrderSelect").focus();
+}
+$("layerOrderDialog").addEventListener("cancel", e => { e.preventDefault(); closeLayerOrder(); });
 // ---- panels/tree.tsx
 // ================================================================== project tree (left panel)
 // A Preact component (c0300): the project, its groups (each folds) and their documents, the open one marked; a
@@ -6394,35 +6548,50 @@ function relayer() { buildLayers(); draw(); }
 function setVisible(id, on) { vis.set(id, on); relayer(); }
 function setGroup(ids, on) { for (const id of ids)
     vis.set(id, on); relayer(); }
+function LayerGroupHead({ title, list }) {
+    const shown = list.filter(l => vis.get(l.id)).length;
+    return preact.h("div", { class: "lgHead" },
+        preact.h("span", { class: "lgTitle" }, title),
+        preact.h("span", { class: "lgN" }, `${shown}/${list.length}`),
+        preact.h("button", { type: "button", class: "tb icon small ghost", "aria-pressed": shown > 0, "aria-label": `${shown ? "Hide" : "Show"} the ${title.toLowerCase()} layers`, "data-tip": `${shown ? "Hide" : "Show"} the group`, onClick: () => setGroup(list.map(l => l.id), !shown) },
+            preact.h(Icon, { name: shown ? "eye" : "eyeOff", size: 14 })));
+}
+function LayerRows({ layers }) {
+    return preact.h(preact.Fragment, null, layers.map(l => {
+        const on = !!vis.get(l.id), cur = l.id === st.cur, pct = Math.round((l.alpha ?? 1) * 100);
+        return preact.h("div", { key: l.id, class: "lrow" + (cur ? " cur" : "") + (on ? "" : " off"), "data-layer": l.id },
+            preact.h("button", { type: "button", role: "radio", "aria-checked": cur, class: "lcur", "aria-label": `Make ${l.name} the current layer`, "data-tip": "Current layer", onClick: () => setCurrent(l.id) },
+                preact.h("span", { class: "radio" })),
+            preact.h("span", { class: "sw", style: `background:${l.color}` }),
+            preact.h("span", { class: "lname", title: l.name === l.id ? `${l.name} · ${l.kind}` : `${l.name} (${l.id}) · ${l.kind}`, onClick: () => setCurrent(l.id) }, l.name),
+            preact.h("input", { type: "range", class: "lop", min: "0", max: "100", step: "5", value: pct, "aria-label": `Opacity of ${l.name}`, title: `Opacity ${pct} %`, onInput: e => { l.alpha = +e.target.value / 100; draw(); e.target.title = `Opacity ${Math.round(l.alpha * 100)} %`; } }),
+            preact.h("button", { type: "button", class: "tb icon small ghost leye", "aria-pressed": on, "aria-label": `${on ? "Hide" : "Show"} ${l.name}`, "data-tip": on ? "Hide" : "Show", onClick: () => setVisible(l.id, !on) },
+                preact.h(Icon, { name: on ? "eye" : "eyeOff", size: 14 })));
+    }));
+}
 function LayersPanel() {
-    const layers = tabLayers(), by = new Map(LAYER_GROUPS.map(([g]) => [g, []]));
+    const layers = tabLayers(), custom = hasLayerOrder(defaultTabLayers());
+    const by = new Map(LAYER_GROUPS.map(([g]) => [g, []]));
     for (const l of layers)
         by.get(layerGroup(l)).push(l);
     return preact.h(preact.Fragment, null,
         preact.h("div", { class: "layerTools" },
-            preact.h("span", { class: "layerHint" }, st.single ? "Only the current layer is shown." : `${layers.filter(l => vis.get(l.id)).length} of ${layers.length} layers shown`)),
-        LAYER_GROUPS.map(([g, title]) => {
+            preact.h("span", { class: "layerHint" }, st.single ? "Only the current layer is shown." : `${layers.filter(l => vis.get(l.id)).length} of ${layers.length} layers shown`),
+            preact.h("button", { type: "button", id: "orderLayers", class: "tb small", "aria-haspopup": "dialog", onClick: openLayerOrder }, "Order layers")),
+        custom ? preact.h(preact.Fragment, null,
+            preact.h("details", { class: "layerVisibilityGroups" },
+                preact.h("summary", null, "Visibility groups"),
+                LAYER_GROUPS.map(([g, title]) => { const list = by.get(g); return list.length ? preact.h(LayerGroupHead, { key: g, title: title, list: list }) : null; })),
+            preact.h("section", { class: "lgroup", "aria-label": "Custom layer order" },
+                preact.h("div", { class: "lgHead" },
+                    preact.h("span", { class: "lgTitle" }, "Custom order")),
+                preact.h(LayerRows, { layers: layers }))) : LAYER_GROUPS.map(([g, title]) => {
             const list = by.get(g);
             if (!list.length)
                 return null;
-            const shown = list.filter(l => vis.get(l.id)).length;
             return preact.h("section", { class: "lgroup", key: g, "aria-label": title },
-                preact.h("div", { class: "lgHead" },
-                    preact.h("span", { class: "lgTitle" }, title),
-                    preact.h("span", { class: "lgN" }, `${shown}/${list.length}`),
-                    preact.h("button", { type: "button", class: "tb icon small ghost", "aria-pressed": shown > 0, "aria-label": `${shown ? "Hide" : "Show"} the ${title.toLowerCase()} layers`, "data-tip": `${shown ? "Hide" : "Show"} the group`, onClick: () => setGroup(list.map(l => l.id), !shown) },
-                        preact.h(Icon, { name: shown ? "eye" : "eyeOff", size: 14 }))),
-                list.map(l => {
-                    const on = !!vis.get(l.id), cur = l.id === st.cur, pct = Math.round((l.alpha ?? 1) * 100);
-                    return preact.h("div", { key: l.id, class: "lrow" + (cur ? " cur" : "") + (on ? "" : " off"), "data-layer": l.id },
-                        preact.h("button", { type: "button", role: "radio", "aria-checked": cur, class: "lcur", "aria-label": `Make ${l.name} the current layer`, "data-tip": "Current layer", onClick: () => setCurrent(l.id) },
-                            preact.h("span", { class: "radio" })),
-                        preact.h("span", { class: "sw", style: `background:${l.color}` }),
-                        preact.h("span", { class: "lname", title: l.name === l.id ? `${l.name} · ${l.kind}` : `${l.name} (${l.id}) · ${l.kind}`, onClick: () => setCurrent(l.id) }, l.name),
-                        preact.h("input", { type: "range", class: "lop", min: "0", max: "100", step: "5", value: pct, "aria-label": `Opacity of ${l.name}`, title: `Opacity ${pct} %`, onInput: e => { l.alpha = +e.target.value / 100; draw(); e.target.title = `Opacity ${Math.round(l.alpha * 100)} %`; } }),
-                        preact.h("button", { type: "button", class: "tb icon small ghost leye", "aria-pressed": on, "aria-label": `${on ? "Hide" : "Show"} ${l.name}`, "data-tip": on ? "Hide" : "Show", onClick: () => setVisible(l.id, !on) },
-                            preact.h(Icon, { name: on ? "eye" : "eyeOff", size: 14 })));
-                }));
+                preact.h(LayerGroupHead, { title: title, list: list }),
+                preact.h(LayerRows, { layers: list }));
         }),
         preact.h(RoleLayers, null));
 }

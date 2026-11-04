@@ -27,3 +27,5 @@ acceptance or native Altium verification is added.
 The exact L8 Windows CI also exposes path-separator, ZIP creator metadata and
 cross-drive authored-kit failures. Task 1.12 repairs those three bounded cases
 without changing checked fixture archives or native acceptance gates.
+
+Windows CI41744987316 exposed two documentary tests that decode UTF-8 evidence with the platform default. Repair only their three text operations with explicit UTF-8; retain every approval literal, assertion and failed-run proof.

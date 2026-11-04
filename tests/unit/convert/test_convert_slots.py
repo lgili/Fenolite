@@ -69,6 +69,7 @@ BOX = [(0, 0), (60, 0), (60, 40), (0, 40)]
 def test_altium_fixture_with_the_gate_off(monkeypatch: pytest.MonkeyPatch) -> None:
     """Scenario "Fixture to Altium", the gate off: three rings lost with the gate's reason, none under
     ``outline``, and no region in the document."""
+    monkeypatch.setattr(pcbdoc, "CUTOUT_REGIONS", False)
     read_as(monkeypatch, _fixture())
     conversion = convert_project("slots.kicad_pcb", to="altium")
     report = conversion.report
@@ -153,6 +154,7 @@ def test_altium_overlap_without_a_union_is_lost(monkeypatch: pytest.MonkeyPatch)
 def test_altium_board_ring_arcs_as_today(monkeypatch: pytest.MonkeyPatch) -> None:
     """The board ring of the edges is written as before: an arc as two straight edges, counted under
     ``outline`` by the id of its graphic; no edge is "outside the first ring" any more."""
+    monkeypatch.setattr(pcbdoc, "CUTOUT_REGIONS", False)
     arc = Graphic(
         id=derived_id("gfx", "test", "arc"),
         kind="arc",
@@ -427,6 +429,7 @@ def test_verify_rings_that_the_report_explains(monkeypatch: pytest.MonkeyPatch) 
     and nothing is unexplained. With the gate on every ring comes back within 1 µm plus the chord."""
     from fenolite.api import convert
 
+    monkeypatch.setattr(pcbdoc, "CUTOUT_REGIONS", False)
     read_as(monkeypatch, _fixture())
     result = convert("slots.kicad_pcb", to="altium")
     rings = [(e.difference.where, e.kind) for e in result.explained if e.difference.kind == "edge-ring"]

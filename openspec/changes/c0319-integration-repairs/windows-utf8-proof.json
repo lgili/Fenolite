@@ -1,0 +1,73 @@
+{
+  "schema": "fenolite.documentary-utf8-proof.v1",
+  "base": "ad8cbf2e5d66c6a6b549244c948fef97dac263ea",
+  "failed_CI": {
+    "run_id": 41744987316,
+    "source": "723183a11ebffe4bcdf5d6d0795420db57e2847e",
+    "job_id": 126295612586,
+    "conclusion": "failure",
+    "retained_log_sha256": "8e24b14b29049a403bec9455a848427f713c2a01bd1a0480d39cb7912ed928dc",
+    "counts": {
+      "failed": 2,
+      "passed": 22599,
+      "skipped": 4369
+    }
+  },
+  "scope": "Three explicit UTF-8 test file operations; no production or evidence payload changes",
+  "files": [
+    {
+      "file": "tests/unit/test_drawn_context_evidence.py",
+      "before_sha256": "6c229d8ac1697b76c59acbb8892e55752367c58523e9d6f5ea5b75678763079c",
+      "after_sha256": "5a60d47312f6af186641200e8e2f4a58c0b3aeb66a6aa01256af88313081d5b4",
+      "assertions_unchanged": 92,
+      "AST_unchanged_except_explicit_UTF8": true
+    },
+    {
+      "file": "tests/unit/test_altium_verification_docs.py",
+      "before_sha256": "917811ea88e553a4f430b66e4ad1ad6f5973d23bafee39bc8730881925265a64",
+      "after_sha256": "3e46a6e3928e82e18a9beb33951a7b26ecdc8b4b4d34b0ea3201943a3ce7444d",
+      "assertions_unchanged": 79,
+      "AST_unchanged_except_explicit_UTF8": true
+    }
+  ],
+  "local_proof": {
+    "CP1252_default_RED": {
+      "failed": 2,
+      "exit": 1
+    },
+    "CP1252_default_GREEN": {
+      "passed": 2,
+      "exit": 0
+    },
+    "two_complete_unit_modules": {
+      "passed": 56,
+      "exit": 0
+    },
+    "scope": "Local targeted locale-control, not an actual passing Windows CI run",
+    "retained_files": [
+      {
+        "file": "run_locale_control.py",
+        "bytes": 1391,
+        "sha256": "424699588e6fdf79bdd776880c6e4e3a9c2c07b0a01150225b02a6d53199a758"
+      },
+      {
+        "file": "red.log",
+        "bytes": 4596,
+        "sha256": "a1a09f0f27d96d2ffac9353f644460515dbdb2696e0d31cca2b12bdc15562ac9"
+      },
+      {
+        "file": "green.log",
+        "bytes": 98,
+        "sha256": "6882715691d0fed69425bf6c539a6b17e3ada7d5aef454b0308d068b93029776"
+      },
+      {
+        "file": "focused.log",
+        "bytes": 142,
+        "sha256": "9bdf398ba148d12c8fae23c46df46680a907470b7824a69d895003cb7f541502"
+      }
+    ]
+  },
+  "evidence_and_approval_bytes_unchanged": true,
+  "new_CI_pass_claimed": false,
+  "private_gate_required_before_commit": true
+}

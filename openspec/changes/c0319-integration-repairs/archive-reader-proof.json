@@ -1,0 +1,64 @@
+{
+  "schema": "fenolite.c0319.archive-proof-reader.v1",
+  "base_commit": "eab06526de28e05d8e7bfe7da49c8729a8afe156",
+  "scope": "Test-only strict lookup of the existing c0276 native visual proof before or after normal archive; no real archive or evidence-level change.",
+  "task": "2.19",
+  "original_failure": "The active-only file path fails after c0276 moves and cannot reject simultaneous active/archived matches.",
+  "lookup": "Require exactly one directory among active c0276 and matching archived paths; refuse missing, file-only and ambiguous layouts. Read its unchanged native-visual-proof.json explicitly as UTF8.",
+  "tests": {
+    "command": "python -m pytest tests/unit/test_altium_verification_docs.py tests/unit/test_drawn_context_evidence.py -q",
+    "result": "62 passed in 1.04s",
+    "red_result": "5 failed, 1 passed, 15 deselected in 1.26s under the old active-only reader",
+    "reader_controls": [
+      "active directory with controlled CP1252 default",
+      "archived directory with controlled CP1252 default",
+      "no matching directory",
+      "file-only match",
+      "active plus archived directories",
+      "two archived directories"
+    ],
+    "original_report_test_also_executed_under_each_positive_layout": true,
+    "proof_copies_preserve_original_bytes": true
+  },
+  "integrity": {
+    "original_assertions_preserved": 171,
+    "other_original_AST_unchanged_except": "One proof-loading assignment now calls the strict UTF8 reader; all original statements/assertions are otherwise identical. New reader helpers/import/cases are additional.",
+    "native_visual_proof_bytes_unchanged": true,
+    "native_visual_proof_sha256": "cd2faafa2b1d0128eab6aed881af4e26a87c72c2172c4c127c2632128440cd5e",
+    "production_src_unchanged": true,
+    "focused_cases": {
+      "red": "5 failed,1 passed; old active-only path",
+      "green": "62 passed; both full documentary modules",
+      "positive_scope": "Active and archived under CP1252 default; original report assertions execute in both; exact copied bytes retained",
+      "negative_scope": [
+        "missing",
+        "file instead of directory",
+        "active plus archive",
+        "two archive directories"
+      ]
+    },
+    "no_actual_spec_archive": true,
+    "no_new_fast_full_native_CI_or_push": true
+  },
+  "source_and_logs": {
+    "tests/unit/test_altium_verification_docs.py": {
+      "sha256": "152b1828f786a5f04e5e390ced014eb77d091c3041cb8333e221a3ec7b27ea3e"
+    },
+    "external_packet": "fenolite-c0276-archive-proof-reader-20261103-v1",
+    "red_stdout_sha256": "ea167e87090ee889854a7d902e21f4f17ca6f9436c96981bf2ba54fd597bff2f",
+    "focused_stdout_sha256": "8cba05fbf91037913f09da8e0ae47d2ebe8f654632cef6a16fd39d7f5c386885",
+    "integrity_proof_sha256": "5833978682d4e67581d2ee9e77b190f6f455b1bd348002c9821c6c04c23947fa"
+  },
+  "new_full_fast_native_CI_or_push": false,
+  "c0276_task_or_hypothesis_changed": false,
+  "writer_experimental_scope_changed": false,
+  "documentary_checks": {
+    "ruff": "PASS",
+    "format": "PASS",
+    "openspec_version": "1.3.0",
+    "strict_c0319": "PASS",
+    "diff_check": "PASS",
+    "initial_staged_private_gate": "0 hits in5files;private gate on",
+    "private_final_scan_required_before_commit": true
+  }
+}

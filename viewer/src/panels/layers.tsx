@@ -8,7 +8,9 @@
 // bottom bar.
 import * as preact from "preact";
 import { draw } from "../board/draw";
-import { setCurrent, SETS, tabLayers } from "../board/tabs";
+import { defaultTabLayers, setCurrent, SETS, tabLayers } from "../board/tabs";
+import { hasLayerOrder } from "../board/layer-order";
+import { openLayerOrder } from "../dialogs/layer-order";
 import { $ } from "../core/dom";
 import { S, st, vis } from "../core/state";
 import { Icon } from "../ui/icons";
@@ -25,32 +27,44 @@ export function layerGroup(l) {
 function relayer() { buildLayers(); draw(); }
 function setVisible(id, on) { vis.set(id, on); relayer(); }
 function setGroup(ids, on) { for (const id of ids) vis.set(id, on); relayer(); }
+function LayerGroupHead({ title, list }: { title: string; list: any[] }) {
+  const shown = list.filter(l => vis.get(l.id)).length;
+  return <div class="lgHead">
+    <span class="lgTitle">{title}</span><span class="lgN">{`${shown}/${list.length}`}</span>
+    <button type="button" class="tb icon small ghost" aria-pressed={shown > 0} aria-label={`${shown ? "Hide" : "Show"} the ${title.toLowerCase()} layers`}
+      data-tip={`${shown ? "Hide" : "Show"} the group`} onClick={() => setGroup(list.map(l => l.id), !shown)}><Icon name={shown ? "eye" : "eyeOff"} size={14} /></button>
+  </div>;
+}
+function LayerRows({ layers }: { layers: any[] }) {
+  return <>{layers.map(l => { const on = !!vis.get(l.id), cur = l.id === st.cur, pct = Math.round((l.alpha ?? 1) * 100);
+    return <div key={l.id} class={"lrow" + (cur ? " cur" : "") + (on ? "" : " off")} data-layer={l.id}>
+      <button type="button" role="radio" aria-checked={cur} class="lcur" aria-label={`Make ${l.name} the current layer`} data-tip="Current layer"
+        onClick={() => setCurrent(l.id)}><span class="radio"></span></button>
+      <span class="sw" style={`background:${l.color}`}></span>
+      <span class="lname" title={l.name === l.id ? `${l.name} · ${l.kind}` : `${l.name} (${l.id}) · ${l.kind}`} onClick={() => setCurrent(l.id)}>{l.name}</span>
+      <input type="range" class="lop" min="0" max="100" step="5" value={pct} aria-label={`Opacity of ${l.name}`} title={`Opacity ${pct} %`}
+        onInput={e => { l.alpha = +(e.target as HTMLInputElement).value / 100; draw(); (e.target as HTMLInputElement).title = `Opacity ${Math.round(l.alpha * 100)} %`; }} />
+      <button type="button" class="tb icon small ghost leye" aria-pressed={on} aria-label={`${on ? "Hide" : "Show"} ${l.name}`} data-tip={on ? "Hide" : "Show"}
+        onClick={() => setVisible(l.id, !on)}><Icon name={on ? "eye" : "eyeOff"} size={14} /></button>
+    </div>; })}</>;
+}
 export function LayersPanel() {
-  const layers = tabLayers(), by = new Map(LAYER_GROUPS.map(([g]) => [g, []]));
+  const layers = tabLayers(), custom = hasLayerOrder(defaultTabLayers());
+  const by = new Map(LAYER_GROUPS.map(([g]) => [g, []]));
   for (const l of layers) by.get(layerGroup(l)).push(l);
   return <>
     <div class="layerTools">
       <span class="layerHint">{st.single ? "Only the current layer is shown." : `${layers.filter(l => vis.get(l.id)).length} of ${layers.length} layers shown`}</span>
+      <button type="button" id="orderLayers" class="tb small" aria-haspopup="dialog" onClick={openLayerOrder}>Order layers</button>
     </div>
-    {LAYER_GROUPS.map(([g, title]) => { const list = by.get(g); if (!list.length) return null;
-      const shown = list.filter(l => vis.get(l.id)).length;
+    {custom ? <>
+      <details class="layerVisibilityGroups"><summary>Visibility groups</summary>
+        {LAYER_GROUPS.map(([g, title]) => { const list = by.get(g); return list.length ? <LayerGroupHead key={g} title={title} list={list} /> : null; })}
+      </details>
+      <section class="lgroup" aria-label="Custom layer order"><div class="lgHead"><span class="lgTitle">Custom order</span></div><LayerRows layers={layers} /></section>
+    </> : LAYER_GROUPS.map(([g, title]) => { const list = by.get(g); if (!list.length) return null;
       return <section class="lgroup" key={g} aria-label={title}>
-        <div class="lgHead">
-          <span class="lgTitle">{title}</span><span class="lgN">{`${shown}/${list.length}`}</span>
-          <button type="button" class="tb icon small ghost" aria-pressed={shown > 0} aria-label={`${shown ? "Hide" : "Show"} the ${title.toLowerCase()} layers`}
-            data-tip={`${shown ? "Hide" : "Show"} the group`} onClick={() => setGroup(list.map(l => l.id), !shown)}><Icon name={shown ? "eye" : "eyeOff"} size={14} /></button>
-        </div>
-        {list.map(l => { const on = !!vis.get(l.id), cur = l.id === st.cur, pct = Math.round((l.alpha ?? 1) * 100);
-          return <div key={l.id} class={"lrow" + (cur ? " cur" : "") + (on ? "" : " off")} data-layer={l.id}>
-            <button type="button" role="radio" aria-checked={cur} class="lcur" aria-label={`Make ${l.name} the current layer`} data-tip="Current layer"
-              onClick={() => setCurrent(l.id)}><span class="radio"></span></button>
-            <span class="sw" style={`background:${l.color}`}></span>
-            <span class="lname" title={l.name === l.id ? `${l.name} · ${l.kind}` : `${l.name} (${l.id}) · ${l.kind}`} onClick={() => setCurrent(l.id)}>{l.name}</span>
-            <input type="range" class="lop" min="0" max="100" step="5" value={pct} aria-label={`Opacity of ${l.name}`} title={`Opacity ${pct} %`}
-              onInput={e => { l.alpha = +(e.target as HTMLInputElement).value / 100; draw(); (e.target as HTMLInputElement).title = `Opacity ${Math.round(l.alpha * 100)} %`; }} />
-            <button type="button" class="tb icon small ghost leye" aria-pressed={on} aria-label={`${on ? "Hide" : "Show"} ${l.name}`} data-tip={on ? "Hide" : "Show"}
-              onClick={() => setVisible(l.id, !on)}><Icon name={on ? "eye" : "eyeOff"} size={14} /></button>
-          </div>; })}
+        <LayerGroupHead title={title} list={list} /><LayerRows layers={list} />
       </section>; })}
     <RoleLayers />
   </>;

@@ -9,6 +9,8 @@ import json
 import re
 from pathlib import Path
 
+import pytest
+
 from fenolite.backends.altium.backend import READ_KINDS
 from fenolite.checks.codes import ISSUE_CODES
 from fenolite.checks.documents import DOCUMENT_STAGES
@@ -28,6 +30,21 @@ SKIPS = ("native-input", "no-schematic", "single-source", "not-judged", "read-re
 
 def _page(name: str) -> str:
     return (ROOT / "docs" / name).read_text(encoding="utf-8")
+
+
+def _drawn_proof_path() -> Path:
+    changes = ROOT / "openspec/changes"
+    candidates = [
+        changes / "c0276-drawn-schematic",
+        *sorted((changes / "archive").glob("*-c0276-drawn-schematic")),
+    ]
+    found = [path for path in candidates if path.is_dir()]
+    assert len(found) == 1, "expected exactly one c0276 change directory"
+    return found[0] / "native-visual-proof.json"
+
+
+def _drawn_visual_proof() -> dict:
+    return json.loads(_drawn_proof_path().read_text(encoding="utf-8"))
 
 
 def _section(text: str, heading: str) -> str:
@@ -285,7 +302,7 @@ def test_drawn_report_acceptance_preserves_historical_failures_and_kit_scope() -
     row = next(line for line in _page("hypotheses.md").splitlines() if line.startswith("| H-A-DRAWN-WRITE |"))
     assert "INFERRED" in row and "formal-kit drawn step/source binding" in row
     assert "Altium24.5.2.23" in row and "altium-drawn-native.md" in row
-    proof = json.loads((ROOT / "openspec/changes/c0276-drawn-schematic/native-visual-proof.json").read_text())
+    proof = _drawn_visual_proof()
     approval = proof["maintainer_report_approval"]
     assert approval["status"] == "APPROVED"
     assert approval["answer"] == "Aprovo o relatório com essas limitações"
@@ -342,3 +359,64 @@ def test_clean_drawn_native_control_is_scoped_and_preserves_its_negative() -> No
         for case in observed["all_native_names_before_marking_and_after_save"].values()
     )
     assert "24.5.2.23" in _page("evidence/altium-drawn-native.md")
+
+
+@pytest.mark.parametrize("archived", [False, True])
+def test_drawn_proof_reader_active_or_archived_with_cp1252_default(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, archived: bool
+) -> None:
+    original = _drawn_proof_path().read_bytes()
+    source_root = ROOT
+    changes = tmp_path / "openspec/changes"
+    folder = changes / ("archive/2026-11-03-c0276-drawn-schematic" if archived else "c0276-drawn-schematic")
+    folder.mkdir(parents=True)
+    copied = folder / "native-visual-proof.json"
+    copied.write_bytes(original)
+    control = tmp_path / "locale-control.txt"
+    control.write_bytes("Aprovação “íntegra”".encode())
+    original_open = Path.open
+
+    def cp1252_open(path, mode="r", buffering=-1, encoding=None, errors=None, newline=None):
+        if "b" not in mode and encoding in (None, "locale"):
+            encoding = "cp1252"
+        return original_open(path, mode, buffering, encoding, errors, newline)
+
+    monkeypatch.setattr(Path, "open", cp1252_open)
+    with pytest.raises(UnicodeDecodeError):
+        control.read_text()
+    monkeypatch.setitem(globals(), "ROOT", tmp_path)
+    monkeypatch.setitem(
+        globals(), "_page", lambda name: (source_root / "docs" / name).read_text(encoding="utf-8")
+    )
+    assert _drawn_visual_proof() == json.loads(original.decode("utf-8"))
+    assert copied.read_bytes() == original
+    test_drawn_report_acceptance_preserves_historical_failures_and_kit_scope()
+
+
+@pytest.mark.parametrize("layout", ["missing", "file", "active-and-archive", "two-archives"])
+def test_drawn_proof_reader_refuses_missing_or_ambiguous_directories(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, layout: str
+) -> None:
+    original = _drawn_proof_path().read_bytes()
+    changes = tmp_path / "openspec/changes"
+    active = changes / "c0276-drawn-schematic"
+    archives = [
+        changes / "archive/2026-11-03-c0276-drawn-schematic",
+        changes / "archive/2026-11-04-c0276-drawn-schematic",
+    ]
+    if layout == "file":
+        changes.mkdir(parents=True)
+        active.write_bytes(b"not a directory")
+    folders = (
+        [active, archives[0]]
+        if layout == "active-and-archive"
+        else archives
+        if layout == "two-archives"
+        else []
+    )
+    for folder in folders:
+        folder.mkdir(parents=True)
+        (folder / "native-visual-proof.json").write_bytes(original)
+    monkeypatch.setitem(globals(), "ROOT", tmp_path)
+    with pytest.raises(AssertionError, match="exactly one c0276 change directory"):
+        _drawn_visual_proof()

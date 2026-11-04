@@ -45,6 +45,8 @@
 
 - [x] 5.1b Record only the later native24 S6 literal repour result on input822: one actual public Repour All, filled Top Layer copper outside the three empty milled openings, no observed message. Bind original operation/PNG/visual receipts; preserve the refused first attempt and all earlier findings. Do not close aggregate5.2, promote H-A-SLOT-KIT, claim saved/reopened results or graduate/archive the writer. Proof: retained input/artifact SHA256 and `uv run pytest tests/unit/test_altium_verification_docs.py -k part_s -q`; strict OpenSpec and private staged scan.
 
+- [x] 5.1c Preserve the existing gate-off conversion and RT-A2 negative controls after the native-accepted default becomes True: explicitly keep CUTOUT_REGIONS=False throughout each negative operation and comparison, while retaining every existing assertion, expected count and the unchanged default-True positive control. Do not change production, fixture bytes, helper restoration or holds semantics. Proof: `uv run pytest tests/unit/convert/test_convert_slots.py tests/unit/checks/test_rta2_slots.py tests/unit/lens/test_altium_slots.py::test_native_accepted_default_writes_the_regions -q`; focused lint/format, unchanged-assert inventory, strict OpenSpec and private staged scan. The retained fast17 failure remains recorded; no full/fast/native/GUI/CI rerun in this task.
+
 - [ ] 5.2 **Maintainer, in Altium Designer.** Run S1 to S8 and give the report; record it under "Reports" of `docs/evidence/altium-pcb.md` in the form of the native acceptance inventory, register its source, and set `H-A-SLOT-KIT`. Only when S3 to S5 pass, set `pcbdoc.CUTOUT_REGIONS = True` and update the scenario "Cut-outs while the gate is off" to the written counts. OPEN until Altium was run; nothing is marked `ALTIUM-VERIFIED` before. Proof: `uv run pytest tests/unit/test_altium_verification_docs.py -k part_s tests/unit/test_hypotheses_register.py -q`.
   - 2026-10-17, OPEN: native AD 26.5 run on the kit of `670f02d`, recorded in `docs/evidence/altium-part-s-slots-2026-10-17.md` (S-0812) and under "Reports" of `docs/evidence/altium-pcb.md`: S1, S2, S4, S5, S6, S7 and S8 as expected; S3 incomplete, because the 3D Layout Mode viewport stayed blank (Board Planning Mode showed the openings and the NC output held no milled hit). `H-A-SLOT-KIT` holds the result and stays `INFERRED`; `pcbdoc.CUTOUT_REGIONS` stays false until S3 is repeated (S4 and S5 passed). `uv run pytest tests/unit/test_altium_verification_docs.py -k part_s tests/unit/test_hypotheses_register.py -q` passes.
   - 2026-11-03, later S5 literal subtest (S-1297): one actual24.5.2.23 DRC on the unchanged authored clearance alias (`822d31cf…`) yields all7 native findings, read twice as a stable7×1 grid with `[All Rules]` selected, Normal display mode,0waived and cap500 not reached. Pad TP1 has Board Outline Clearance7.874mil<19.685mil; no TP2 occurs in that category. Four Hole Size findings, a TP1 overlay-text clearance collision and one Hole To Hole finding remain intact. TP2's negative is scoped to this complete result for the guarded input; no independent native SDK TP2 census or saved/reopened proof was executed. Record only this literal subtest; keep5.2 unchecked, CUTOUT_REGIONS false, H-A-SLOT-KIT INFERRED and remaining current24 cases open. Proof: the full/stable raw receipt digests and all seven descriptions are in `docs/evidence/altium-slots-24-native.json`; `env PYTHONPATH=src uv run --extra geo --extra dev python -m pytest tests/unit/test_altium_verification_docs.py tests/unit/test_hypotheses_register.py tests/unit/test_format_facts.py -q` passed77 tests; `openspec validate c0168-altium-slots-cutouts --strict --no-interactive` passed.
@@ -138,3 +140,21 @@ is unchanged INFERRED and aggregate5.2 is still unchecked. The earlier
 functional-gate-proof.json remains attributed to its pre-S6 code change.
 This documentation commit changes no runtime, fixture or baseline and runs
 no native, GUI, full/fast or CI operation.
+
+
+## Explicit negative gate controls — 2026-11-03
+
+Task 5.1c follows the retained terminal fast17 failure on f7fc669f: four failures,
+22512 passes and 52 skips, not a passing or interrupted integration run. The
+three conversion negatives now set False explicitly; their existing True phase
+is retained. The moved-hole negative keeps False during both fixture generation
+and RT-A2, because the helper restores the prior global value before comparison.
+The helper, production gate, cutout comparer and holds semantics are unchanged.
+
+The two complete unit modules and unchanged default-True positive control pass:
+21 tests in 4.53s. Every assertion and the remaining test AST are unchanged after
+removing the four new False setup calls and the one required fixture parameter.
+Runtime and fixture paths are byte-identical to the base. Ruff/format and nominal
+OpenSpec strict passed; the portable proof binds the retained red and focused
+green logs. No fast/full/native/GUI/CI rerun or push was performed. Aggregate 5.2
+and the subsequent central integration gate remain open.

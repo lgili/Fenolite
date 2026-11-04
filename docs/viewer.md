@@ -107,6 +107,15 @@ written by `--export`. It is built from the TypeScript sources in `viewer/src/` 
   or hides the group.
   - A click on a name or its radio makes that layer current: it is drawn last, above the others.
   - `Shift+S` shows the current layer alone; `+` and `-` step through the visible layers.
+  - **Order layers** opens a draft list. Choose a layer and use **Move up/down** or `Alt+↑` / `Alt+↓`;
+    **Apply** uses that order for the list and `+` / `-`. **Cancel** or `Esc` discards the draft. To restore
+    **Default viewer order**, choose **Reset to default**, then **Apply**. Group-visibility controls remain
+    available under **Visibility groups** when a custom global order is active.
+  - The preference belongs to this document and source hash in this browser; another document or changed
+    source uses its own order. If browser storage is unavailable, the choice lasts for this page session.
+    Reordering preserves the current layer, visibility, opacity and selections, and changes neither the
+    source/scene data nor the canvas draw order. Only available layers are listed; it does not add empty
+    native layers or import Altium LayerSets/preferences.
   - **Presets** offers layer sets: all layers, signal layers, the top side, the bottom side, the defaults, and
     the current layer alone. Sheets keep their document tabs in the bottom bar.
 - **Net emphasis.** A selected net or part, or the filter's result, is drawn in its own layer colours at full
@@ -486,8 +495,9 @@ Large boards open fast the second time (change c0182):
 
 An Altium board is shown as Altium shows it (change c0181):
 - **Layer names.** Each layer has the name the board's layer stack gives it (`Top Layer`, `GND 1`, `Top Mask`,
-  `Mechanical 1`, or the designer's own names); the outline is `Board Outline`. The tabs follow Altium's order:
-  signal layers, planes, overlays, pastes, solders, mechanical layers, then the drill and keep-out layers.
+  `Mechanical 1`, or the designer's own names); the outline is `Board Outline`. **Order layers** lets the
+  reviewer arrange the available layers to match their workflow. **Default viewer order** is the viewer's
+  deterministic fallback, not a claim of universal Altium tab order or imported view preferences.
 - **Mask and paste openings.** Each pad's solder-mask and paste opening is its copper grown by its expansion:
   the pad's manual value, else the `SolderMaskExpansion` or `PasteMaskExpansion` rule that governs it (by
   priority; scopes that Fenolite does not evaluate are skipped and counted in the notes), else 4 mil of mask and

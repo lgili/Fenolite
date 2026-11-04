@@ -59,3 +59,46 @@ are recorded in `docs/evidence/native-viewer-maintainer-review-plan.md`.
 - [x] 3.3a Prepare an external source-bound Fenolite-authored comparison packet with actual viewer export, original input hashes, criterion checklist and precise native handoff. Keep missing native captures/theme creation/F0.5 measurements explicit; source choice is not human acceptance. Proof: export dry-run/exact confirmation, fixture provenance and packet manifest. The parent human-review task stays open.
 
   - 2026-11-03: source bfda2ac4 local input/standalone-export packet passed reviewed-plan writes and input-hash checks; existing focused viewer/writer controls39passed. Native version/captures and the parent human review remain absent. No UI/configuration was operated and no native or evidence promotion is claimed.
+
+
+## 4. Configurable order — maintainer decision, 2026-11-03
+
+The maintainer chose "Permitir configurar a ordem das abas no visualizador". This replaces only the
+unproved universal ordering claim, not names, openings or task 3.3 acceptance. No empty native layers,
+filter or draw-order change is authorized. Source 723183a1 and central-fast source ad8cbf2e stay frozen.
+
+- [x] 4.1 Implement browser-local, document/hash-scoped order of available layers with an accessible draft editor: selected layer, Move up/down, Alt+Up/Down, Apply, Cancel/Escape and Reset. Preserve the existing default list and all original data/selections/visibility. Keep visibility-group controls available in custom mode. Proof: focused Chromium interaction cases for apply/cancel/reset/persistence, document/hash separation, invalid values and unavailable storage; unchanged geometry/data comparisons.
+- [x] 4.2 Prove the real v6 scene's 14 available layers and a separately labelled authored 17-layer case, with keyboard stepping following custom order and the default restored. Do not claim equality with the native 17-tab set or complete human review. Proof: source-bound external v6 browser receipt and focused authored interaction tests.
+- [x] 4.3 Document Order layers and the preference/reset limits in docs/viewer.md and the relevant agent UI guidance. Update CHANGELOG; regenerate the committed viewer assets and check them. Proof: focused Python/viewer tests, nominal TypeScript build, `uv run python tools/build_viewer.py --check`, OpenSpec strict, diff check and private staged residue scan. No new CLI/DSL/FEN code; no full/fast/native/CI/push in this task.
+
+
+## Configurable-order focused proof — 2026-11-03
+
+The user decision was implemented on isolated base ad8cbf2e. The original ranking
+is retained as Default viewer order, without claiming a universal Altium order.
+Thirteen Chromium cases passed (the separate authored 17-layer UI fixture and
+three existing Layers regressions); 136 focused Python/viewer/agent-guide cases
+passed. The guide's first run correctly rejected a misplaced Read next footer;
+it was restored to the end without changing any test expectation.
+
+Additional RED controls caught reset against a live replacement scene and a
+missing-hash preference crossing document identity. Both were fixed and each
+control passed before the final focused run. No helper, source board or fixture
+was rewritten to make a check pass. TS compile, ruff/format, viewer bundle check,
+and guide generator check passed.
+
+The actual retained v6 scene has 14 available layers; it is distinct from the
+native application's 17 tabs. A source-bound headless browser used 20 real
+Alt+Up actions to configure those 14, checked real Escape/focus, Apply, reload,
+Reset/Cancel and Reset/Apply. Scene JSON, selection, visibility, draw order and
+canvas pixels stayed identical through application/reset; the original v6 bytes
+remain SHA256 97d3339c991840960aabf48fa72a3ad12010a6d1292cf3210c98d1f39498c64c.
+No empty native layer, global preference interpretation, CAD operation or human
+approval was invented. Task 3.3 remains open. configurable-order-proof.json
+binds the actual receipts; later central integration/CI stays separate.
+
+The final browser run also proves stepping from Bottom Layer to the newly ordered
+Mechanical13 (not its former next layer); the real v6 replay explicitly shows
+that existing layer before the invariant snapshot, without adding a native layer.
+Final strict validation, diff checks and the staged residue scan passed with
+private gate on; no integration, release or task 3.3 approval is implied.

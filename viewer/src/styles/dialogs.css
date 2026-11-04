@@ -1,8 +1,17 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 /* Copyright (c) 2026 Fenolite contributors */
 /* The palette, the shortcut sheet and "About this document" (c0300, design decisions 4 and 6). */
-#palette, #shortcuts, #about { padding:0; color:var(--text-1); background:var(--surface-1); border:1px solid var(--border); border-radius:12px; box-shadow:0 24px 64px var(--shadow); }
+#palette, #shortcuts, #about, #layerOrderDialog { padding:0; color:var(--text-1); background:var(--surface-1); border:1px solid var(--border); border-radius:12px; box-shadow:0 24px 64px var(--shadow); }
 #palette::backdrop, #shortcuts::backdrop { background:var(--backdrop); }
+#layerOrderDialog::backdrop { background:var(--backdrop); }
+#layerOrderDialog { width:min(540px,calc(100vw - 24px)); max-height:90vh; overflow:auto; }
+.layerOrderBody { padding:var(--space-3) var(--space-5); }
+.layerOrderBody p { color:var(--text-2); font-size:var(--text-sm); }
+.layerOrderBody label { display:block; margin-bottom:var(--space-2); }
+#layerOrderSelect { display:block; width:100%; margin-bottom:var(--space-3); }
+#layerOrderSelect option { padding:4px 6px; }
+.layerOrderMoves, .layerOrderFoot { display:flex; flex-wrap:wrap; gap:var(--space-2); }
+.layerOrderFoot { justify-content:flex-end; padding:var(--space-3) var(--space-5); border-top:1px solid var(--border); }
 #palette { width:min(640px,calc(100vw - 24px)); margin:12vh auto auto; max-height:min(560px,76vh); overflow:hidden; }
 .palBox { display:flex; flex-direction:column; max-height:min(560px,76vh); }
 .palField { display:flex; align-items:center; gap:var(--space-2); padding:0 var(--space-4); border-bottom:1px solid var(--border); }
