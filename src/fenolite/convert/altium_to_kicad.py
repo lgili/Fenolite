@@ -8,10 +8,11 @@ import dataclasses
 import re
 from collections import defaultdict
 from collections.abc import Mapping
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any, cast
 
 from fenolite.backends.kicad import layers
+from fenolite.convert.report import SCHEMATIC_REFUSED
 from fenolite.convert.sources import SourceProject
 from fenolite.core.errors import Issue
 from fenolite.core.ids import derived_id
@@ -570,6 +571,107 @@ class Part:
     symbol_origin: str = "project"
 
 
+PAGE_ROUNDS = 7
+"""How many times a refused page of a generated schematic is split again (1, 2, 4, … 64 pages)."""
+
+
+def _source_sheets(parts: list[Part], source: Design) -> list[Part]:
+    """``parts`` with each part of a flat circuit on the sheet of its source schematic document, when the
+    parts come from several documents: the generator gives each sheet a KiCad sheet of its own. A circuit
+    with modules keeps its paths, and a part from no schematic document stays on the root (change c0372).
+    The documents are those of the ``source`` design's components: the lowered design holds no provenance."""
+    if any("/" in part.path for part in parts):
+        return parts
+    of = {
+        component.id: component.provenance.file
+        for component in source.circuit.components
+        if component.provenance is not None and component.provenance.file.lower().endswith(".schdoc")
+    }
+    files = {part.component.id: of[part.component.id] for part in parts if part.component.id in of}
+    if len(set(files.values())) < 2:
+        return parts
+    names: dict[str, str] = {}
+    for file in sorted(set(files.values()), key=str.casefold):
+        stem = _sheet_name(PurePosixPath(file.replace("\\", "/")).stem)
+        name, n = stem, 1
+        while name.casefold() in {taken.casefold() for taken in names.values()}:
+            n += 1
+            name = f"{stem}-{n}"
+        names[file] = name
+    return [
+        dataclasses.replace(part, path=f"{names[files[part.component.id]]}/{part.path}")
+        if part.component.id in files
+        else part
+        for part in parts
+    ]
+
+
+def _sheet_name(stem: str) -> str:
+    """A sheet name from a document stem: a ``/`` or ``.`` would split or join module paths."""
+    return re.sub(r"[/.]", "_", stem).strip() or "sheet"
+
+
+def _pages(parts: list[Part], pages: Mapping[str, int]) -> tuple[list[Part], dict[str, str]]:
+    """``parts`` with the parts of each module that ``pages`` splits spread, in the natural order of their
+    paths, over that many sibling modules ``<module>-<n>`` (``page-<n>`` for the root); and the module of
+    each page → the module it splits."""
+    from fenolite.backends.kicad.schlayout import natural_key
+
+    by_module: dict[str, list[Part]] = defaultdict(list)
+    for part in parts:
+        by_module[part.path.rpartition("/")[0]].append(part)
+    out: list[Part] = []
+    split: dict[str, str] = {}
+    for module, members in by_module.items():
+        count = pages.get(module, 1)
+        if count <= 1:
+            out += members
+            split[module] = module
+            continue
+        members = sorted(members, key=lambda part: natural_key(part.path))
+        parent, _, leaf = module.rpartition("/")
+        for n in range(count):
+            page = f"{leaf}-{n + 1}" if module else f"page-{n + 1}"
+            page = f"{parent}/{page}" if parent else page
+            split[page] = module
+            chunk = members[n * len(members) // count : (n + 1) * len(members) // count]
+            out += [
+                dataclasses.replace(part, path=f"{page}/{part.path.rpartition('/')[2]}") for part in chunk
+            ]
+    return out, split
+
+
+def _paged_schematic(design: Design, parts: list[Part], name: str, target: int, generate: Any) -> Any:
+    """The generated schematic of ``parts``; a sheet that no page size fits is split into pages, twice as
+    many each round, until every page fits, a page holds one part, or ``PAGE_ROUNDS`` ends (change c0372)."""
+    sizes: dict[str, int] = defaultdict(int)
+    for part in parts:
+        sizes[part.path.rpartition("/")[0]] += 1
+    pages: dict[str, int] = {}
+    generated = None
+    for _ in range(PAGE_ROUNDS):
+        laid, split = _pages(parts, pages)
+        generated = generate(design, laid, name=name, target=target, layout="readable", allow_lossy=True)
+        errors = [issue for issue in generated.issues if issue.severity == "error"]
+        refused = {
+            split.get("" if issue.where == name else issue.where)
+            for issue in errors
+            if issue.code == "build.schematic-too-large"
+        }
+        if (
+            not errors
+            or any(issue.code != "build.schematic-too-large" for issue in errors)
+            or None in refused
+        ):
+            break
+        grow = {module for module in refused if module is not None and pages.get(module, 1) < sizes[module]}
+        if not grow:
+            break
+        for module in grow:
+            pages[module] = min(2 * pages.get(module, 1), sizes[module])
+    return generated
+
+
 def schematic_files(
     source: SourceProject, design: Design, name: str, target: int, ledger: Ledger
 ) -> tuple[dict[str, str], tuple[Issue, ...]]:
@@ -669,12 +771,13 @@ def schematic_files(
             no_connects=tuple(sorted(flags, key=lambda member: (member.component_id, member.pin))),
         ),
     )
-    generated = generate_schematic(
-        design, parts, name=name, target=target, layout="readable", allow_lossy=True
+    generated = _paged_schematic(
+        design, _source_sheets(parts, source.design), name, target, generate_schematic
     )
     if any(issue.severity == "error" for issue in generated.issues):
-        ledger.drop("schematic", design.header.id, "the schematic generator refused the imported circuit")
-        return {}, generated.issues
+        # a declared loss that needs --allow-lossy, not an error finding that blocks the board (change c0372)
+        ledger.drop("schematic", design.header.id, SCHEMATIC_REFUSED)
+        return {}, tuple(issue for issue in generated.issues if issue.severity != "error")
     files = {f"{name}.kicad_sch": sch.write_schematic(generated.sheet, target=target, allow_lossy=True).text}
     for file, sheet in generated.children.items():
         files[file] = sch.write_schematic(sheet, target=target, allow_lossy=True).text

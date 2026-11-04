@@ -102,6 +102,12 @@ All notable changes to Fenolite are documented here. The format follows
   The roadmap reconciles the original phases 0–4; no router runtime behavior changes here.
 
 - Archive c0170-convert-slots-obstacles: slots and cut-outs in conversions, slotted drills to Altium, generated hole footprints and slot obstacles, with `H-K-CONV-SLOTS` proved in CI (task 3.3).
+- **Generated schematic limit** (c0372): when the schematic generator cannot lay an Altium circuit out on
+  one A0 page, `convert --to kicad` still writes the board and declares the schematic lost (exit 7 without
+  `--allow-lossy`) instead of planning no write; the lost schematic explains schematic-only components.
+  The generated schematic now keeps each source sheet of a flat project as a KiCad sheet, and spreads a
+  sheet too large for A0 over several pages, so such circuits are converted with their schematic.
+
 - **Conversion verification scope** (c0371): when a conversion writes a schematic, the board comparison
   covers the placed components only and the schematic comparison the others, so a schematic-only part is
   no longer an unexplained `component-missing`; a component that several source footprints link is

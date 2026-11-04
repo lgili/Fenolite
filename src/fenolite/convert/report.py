@@ -114,10 +114,12 @@ EMBEDDED_BOARD_REASON = (
     "the board places other PCB documents (an Embedded Board Array), whose records are not read: their "
     "components and copper are not converted"
 )
+SCHEMATIC_REFUSED = "the schematic generator refused the imported circuit"
 REFUSE_REASONS: Mapping[str, frozenset[str]] = MappingProxyType(
     {
         "cutout": frozenset({OVERLAP_NO_UNION, OVERLAP_NOT_ONE_RING}),
         "embedded-board": frozenset({EMBEDDED_BOARD_REASON}),  # change c0374
+        "schematic": frozenset({SCHEMATIC_REFUSED}),  # change c0372
     }
 )
 """The reasons whose losses need consent in a kind of class ``report`` (change c0170): overlapping cut-outs
@@ -377,6 +379,7 @@ EXPLAINS: tuple[Explains, ...] = (
     Explains("net-tie", LEVEL5, "footprint-nets"),
     Explains(SOURCE, ("ref-ambiguous",), "same"),
     Explains("shared-footprint", ("ref-ambiguous",), "ref"),
+    Explains("schematic", ("component-missing",), "ref"),
 )
 """The closed table of which differences a lost or changed item explains. A lost or changed pad explains
 only its own ``pad-missing``, ``pin-missing`` and ``pad-kind`` and the level-5 kinds of its net, not every
@@ -429,6 +432,13 @@ class Explainer:
             if not ids:
                 continue
             kind = row.kind
+            if kind == "schematic" and row.ids("lost"):
+                # a lost schematic explains the components that only a schematic holds (change c0372)
+                placed = {fp.component_id for fp in footprints}
+                self._add(
+                    kind, "ref", {c.ref for c in circuit.components if c.id not in placed and not c.bom_only}
+                )
+                continue
             if kind == "shared-footprint":
                 self._add(
                     kind,
@@ -512,6 +522,7 @@ __all__ = [
     "REFUSE",
     "EMBEDDED_BOARD_REASON",
     "REFUSE_REASONS",
+    "SCHEMATIC_REFUSED",
     "SOURCE",
     "ConversionReport",
     "Explainer",

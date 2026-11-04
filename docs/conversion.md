@@ -152,6 +152,16 @@ The vocabulary is closed (`fenolite.convert.report.KINDS`), one table for every 
   footprints link, `changed`; it explains the `ref-ambiguous` of that reference (change c0371). With a
   written schematic, the board comparison covers placed components and the schematic comparison the
   others (change c0371).
+- **Refused generated schematic (Altium to KiCad).** When the schematic generator refuses the circuit
+  (`build.schematic-too-large`: more units than one A0 page holds), the board and libraries are still
+  written and `schematic` is `lost` with a reason of `report.REFUSE_REASONS`, so the conversion exits 7
+  without `--allow-lossy` instead of planning no write (change c0372). The lost schematic explains the
+  `component-missing` of every component that no footprint places. Before refusing, the generator keeps
+  the parts of each source schematic document of a flat project on a KiCad sheet of its own
+  (`sheets/<document stem>.kicad_sch`), and spreads a sheet that no paper holds over sibling pages
+  (`<sheet>-1`, `<sheet>-2`, …; `page-1`, … for a flat circuit such as a PcbDoc given alone), doubling the
+  pages up to 64 in the natural order of the references; the sheet is refused only when one part alone
+  does not fit (change c0372).
 - **Changes of KiCad to Altium.** `zone-fill`: with `--altium-pour computed` (the default since change
   c0215) the polygon is poured by Fenolite from the written document (experimental), and a polygon the engine
   refuses, or every polygon with `--altium-pour outline`, is written unpoured, and Altium fills it on a
@@ -204,6 +214,7 @@ these places. "Level 5" is `route-missing`, `route-connectivity`, `route-vias`, 
 | `footprint-copper`, `net-tie` | a net of the pads of its footprint | level 5 |
 | `source` | a reference held as often on both sides | `ref-ambiguous` |
 | `shared-footprint` | the reference of a component that several source footprints link (change c0371) | `ref-ambiguous` |
+| `schematic` | a component that no footprint places, when the schematic is lost (change c0372) | `component-missing` |
 <!-- explains:end -->
 
 `source` is no kind of the report: several components of the source share a reference (an empty one, or a
@@ -282,7 +293,9 @@ Verification profile: `altium-to-kicad`, absolute frame, 1 nm tolerance.
 `fenolite convert input.PrjPcb --to kicad --kicad-version 10 --out out --dry-run --json`
 prepares a reviewed project; commit it with `--confirm --plan <plan_id>`. Targets 9 and 10 are supported.
 The result includes PCB/project/rules, a derived `.pretty` library and table, and (when the imported
-circuit has unique designators) generated schematic sheets and a symbol library/table.
+circuit has unique designators) generated schematic sheets and a symbol library/table: one KiCad sheet
+per source schematic document of a flat project, a module sheet per sheet symbol of a hierarchical one,
+and more pages for a sheet too large for A0 (change c0372).
 
 Mechanical layers map in numerical order to User.1..45, preserving their name as the layer alias.
 Unknown/out-of-stack layers and excess mechanical layers are reported as losses. Closed Keep-Out

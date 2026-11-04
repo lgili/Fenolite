@@ -100,6 +100,34 @@ def test_board_in_a_project_subfolder_converts_as_beside(tmp_path: Path) -> None
     assert rows == {row.kind: (row.source, row.lost, row.changed) for row in beside.report.rows}
 
 
+def test_refused_generated_schematic_is_a_declared_loss(monkeypatch: pytest.MonkeyPatch) -> None:
+    """change c0372: when the schematic generator cannot lay the circuit out (here: a page too small for
+    the blink), the board is still converted and the schematic is a loss that needs --allow-lossy."""
+    import fenolite.backends.kicad.schlayout as schlayout
+    from fenolite.convert import LossyConversionError
+
+    name, _, _ = schlayout.PAPERS[0]
+    monkeypatch.setattr(schlayout, "PAPERS", ((name, 20_000_000, 20_000_000),))
+    with pytest.raises(LossyConversionError):
+        convert_project(read_source(BLINK), to="kicad")
+    conversion = convert_project(read_source(BLINK), to="kicad", allow_lossy=True)
+    assert not [i for i in conversion.issues if i.severity == "error"]
+    assert conversion.schematic is None and conversion.read_back in conversion.files
+    row = next(row for row in conversion.report.rows if row.kind == "schematic")
+    assert row.lost == 1
+
+
+def test_lost_schematic_explains_schematic_only_components(monkeypatch: pytest.MonkeyPatch) -> None:
+    """change c0372: without a written schematic, a component that no footprint places is lost with it,
+    and that loss explains its ``component-missing``."""
+    import fenolite.backends.kicad.schlayout as schlayout
+
+    name, _, _ = schlayout.PAPERS[0]
+    monkeypatch.setattr(schlayout, "PAPERS", ((name, 20_000_000, 20_000_000),))
+    source, ref = _source("unplaced")
+    assert not [d for d in _unexplained(source) if d[1] == ref]
+
+
 @pytest.mark.needs_corpus
 def test_arc_zones_of_a_board_in_a_subfolder_keep_their_outline(tmp_path: Path) -> None:
     """change c0371: the zone outlines with an arc vertex are read from the board document in ``PCB/``
