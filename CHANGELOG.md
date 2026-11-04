@@ -742,7 +742,8 @@ All notable changes to Fenolite are documented here. The format follows
   import/build/sync plans bind all inputs; malformed or missing contexts and material/core-default
   differences refuse. All 36 VME-owner row contexts pass the literal native-10
   partition driver on de6c6f2f; own name-election differences and warnings remain
-  recorded. Required native/full combined-head CI proof remains separate.
+  recorded. The authored native cache/property/component control passes on KiCad 10.0.6
+  (2026-11-04). Required native/full combined-head CI proof remains separate.
 
 - **Deterministic Boolean realization proof** (c0328): record a source-bound external Fraction and
   half-even experiment with retained-topology/debris certificates,18 bounded cases and108 passing

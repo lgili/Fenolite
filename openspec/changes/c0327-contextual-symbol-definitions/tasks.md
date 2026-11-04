@@ -84,6 +84,9 @@
   flags, four native BOM rows, full local property nodes and all nine levels
   match; the owned census retains 8 pins / 5 groups and four snapshots.
   Required 9.0.9/10.0.6 exact CI remains open; local proof does not substitute.
+  Local 10.0.6 repeat 2026-11-04 on clean 468d8a61, `FENOLITE_REQUIRE=kicad`: 2 passed in 17.34 s
+  (4 components and 4 BOM rows, all nine levels equal; 8 pins / 5 groups, 4 complete contextual
+  definitions, all partitions equal). The required 9.0.9 and 10.0.6 CI jobs still close this task.
 - [x] 2.2 Replay the real VME owner and all of its row contexts with declared inputs.
   Preserve any remaining refusal, naming difference and all five reader-floor failures.
   Proof: the literal c0276 corpus driver reports its actual source/version-bound outcomes.
