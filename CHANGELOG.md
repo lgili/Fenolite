@@ -6,6 +6,8 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- `library review --accept` of a device record stores the digest of the record as written (c0266, task 6.2): a device keeps its evidence in two places and only one was updated, so a seeded device accepted on a later day was refused by the library audit as unreviewed.
+
 - Review sheets no longer change with the Python version (c0266, task 6.1): the packed scenes of a page are gzipped with a fixed header (operating system 255, as Python 3.13 writes it), so a `sheet_sha256` accepted on one interpreter stays fresh on 3.11, 3.12 and Windows.
 
 - Archive c0170-convert-slots-obstacles: slots and cut-outs in conversions, slotted drills to Altium, generated hole footprints and slot obstacles, with `H-K-CONV-SLOTS` proved in CI (task 3.3).

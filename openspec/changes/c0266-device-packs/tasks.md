@@ -189,3 +189,14 @@ the complete local gate and exact-head CI; no external publication or human revi
   99a972bb reproduces the four approved sheet hashes exactly on 3.13 and not on 3.12; the only byte that
   differs in the embedded `gz:` scenes is header byte 9. Proof passed on 3.11, 3.12 and 3.13 (5 passed
   each); the new `_gzip` equals `gzip.compress(data, mtime=0)` of 3.13 for empty, short and 128 KiB inputs.
+
+- [x] 6.2 `library review --accept` (and `--revoke`) of a device record updates both places a device record
+  holds its evidence (header and device) before computing the stored `record_sha256`, so the digest is that
+  of the record as written. Proof: `uv run pytest tests/unit/cli/test_library_review.py -q`.
+
+  Found 2026-11-04 by the library's `audit`, `versions` and `origin` jobs after renewing the four LibrePCB
+  reviews: `LibrePCBBaseReview:Resistor_1608__0603_` was refused with `library.provenance-invalid` ("a record
+  with an origin stays UNVERIFIED until a review of its current digest"), while the symbol and footprints
+  passed. The new test (a device with an origin accepted on 2026-11-02 and again on 2026-11-04, each written
+  record parsed strictly) failed before the fix on the first acceptance and passes after it (23 passed in the
+  file; `tests/unit/library/test_audit_devices.py` 9 passed, `tests/unit/cli/test_library_check.py` 12 passed).
