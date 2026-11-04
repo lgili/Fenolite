@@ -583,6 +583,10 @@ All notable changes to Fenolite are documented here. The format follows
   or unsupported bodies, and require actual arc endpoint contact. Support
   verified rectangle/roundrect drill offsets by exact quarter-turn translation
   without moving holes; unsupported/inexact offsets still refuse.
+  Measured on 2026-11-04: c0340's own commit leaves all 22 default scenes and
+  all 75 complete plans byte-identical; public Complex passes all nine levels
+  (exact 16b255c6 regenerated geometry), Royal and flat_hierarchy differ only at
+  level 7 (regenerated padvia geometry and raw teardrop count), with no acceptance.
 
 - **Preserve blank native title blocks** (c0339, in progress): keep imported
   empty sheet metadata explicitly blank instead of inheriting a dated board.

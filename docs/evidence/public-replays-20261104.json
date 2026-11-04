@@ -1,0 +1,392 @@
+{
+ "boards": {
+  "complex_hierarchy": {
+   "board_sha256": "d5f4162d4c766448832723d139f9e0fcb88a17c82340f10f6f6dc6c2042f0d69",
+   "corpus_row": "kicad-demo-10-0-6-pcb-02",
+   "derived_cache": {
+    "complete_regenerated_geometry_equal": true,
+    "sides": {
+     "a": {
+      "exact_geometry_sha256": "16b255c6c4cef85741adccd28e2266abcf6617068ff12f16f2cad14fe637ad41",
+      "native_non_simple_rings": {
+       "proper_edge_pair_crossings": 14,
+       "rings_with_proper_crossings": 12
+      },
+      "raw_caches": 165,
+      "regenerated_caches": 167
+     },
+     "b": {
+      "exact_geometry_sha256": "16b255c6c4cef85741adccd28e2266abcf6617068ff12f16f2cad14fe637ad41",
+      "native_non_simple_rings": {
+       "proper_edge_pair_crossings": 14,
+       "rings_with_proper_crossings": 12
+      },
+      "raw_caches": 0,
+      "regenerated_caches": 167
+     }
+    },
+    "status": "equal",
+    "tool": "kicad-cli 10.0.6"
+   },
+   "import": {
+    "confirm_exit": 0,
+    "dry_exit": 0
+   },
+   "native_created_files": [
+    "complex_hierarchy.kicad_prl"
+   ],
+   "origin": "10.0.6 demos (identical at 9.0.9.1)",
+   "rebuilt_project": {
+    "board_design_settings_differ": 0,
+    "build_target": 9,
+    "by_section": {
+     "schematic": 1,
+     "sheets": 1
+    },
+    "confirm_exit": 0,
+    "differing_leaves": 2,
+    "differing_schematic_keys": [
+     "/schematic/top_level_sheets"
+    ],
+    "dry_exit": 0,
+    "intersheet_settings_original_rebuilt": {
+     "intersheets_ref_own_page": [
+      "false",
+      "false"
+     ],
+     "intersheets_ref_prefix": [
+      "\"\"",
+      "\"\""
+     ],
+     "intersheets_ref_short": [
+      "false",
+      "false"
+     ],
+     "intersheets_ref_show": [
+      "false",
+      "false"
+     ],
+     "intersheets_ref_suffix": [
+      "\"\"",
+      "\"\""
+     ]
+    },
+    "native_svg_text": {
+     "exit": [
+      0,
+      0
+     ],
+     "pages": [
+      3,
+      3
+     ],
+     "text_items": [
+      500,
+      500
+     ],
+     "text_multiset_equal": true
+    },
+    "original_leaves": 292,
+    "rebuilt_leaves": 293
+   },
+   "source_files": 17,
+   "source_files_unchanged": true,
+   "source_tree_sha256": "38625d6949138d4bad7d49077c79265224e43256082e6cda811bca0cf85417f5",
+   "verify_source": {
+    "accepted": [],
+    "differences": [],
+    "exit": 0,
+    "levels": {
+     "1": "equal",
+     "2": "equal",
+     "3": "equal",
+     "4": "equal",
+     "5": "equal",
+     "6": "equal",
+     "7": "equal",
+     "8": "equal",
+     "S": "equal"
+    },
+    "proof_sha256": "a58497012c03d05c2d5d0a25b09d3193018776620bdaa74423988ed6ad197600"
+   }
+  },
+  "flat_hierarchy": {
+   "board_sha256": "4bd316f0609b689c90add7426362ece5763dd3a4443a3d26fd73bce987a438aa",
+   "corpus_row": "kicad-demo-9-0-9-1-pcb-02",
+   "derived_cache": {
+    "complete_regenerated_geometry_equal": false,
+    "sides": {
+     "a": {
+      "exact_geometry_sha256": "6c67e319e6e42e5f28572cccdc0e89897dccb7539026ff6ee1eeb5625f386096",
+      "native_non_simple_rings": {
+       "proper_edge_pair_crossings": 12,
+       "rings_with_proper_crossings": 12
+      },
+      "raw_caches": 176,
+      "regenerated_caches": 178
+     },
+     "b": {
+      "exact_geometry_sha256": "37277939f51d701c5b51d8300000396dd0528b4585ae09b5896ed70bc0722f84",
+      "native_non_simple_rings": {
+       "proper_edge_pair_crossings": 12,
+       "rings_with_proper_crossings": 12
+      },
+      "raw_caches": 0,
+      "regenerated_caches": 178
+     }
+    },
+    "status": "differs",
+    "tool": "kicad-cli 10.0.6"
+   },
+   "import": {
+    "confirm_exit": 0,
+    "dry_exit": 0
+   },
+   "native_created_files": [
+    "flat_hierarchy.kicad_prl"
+   ],
+   "origin": "9.0.9.1 demos",
+   "rebuilt_project": {
+    "board_design_settings_differ": 0,
+    "build_target": 9,
+    "by_section": {
+     "schematic": 1,
+     "sheets": 1
+    },
+    "confirm_exit": 0,
+    "differing_leaves": 2,
+    "differing_schematic_keys": [
+     "/schematic/top_level_sheets"
+    ],
+    "dry_exit": 0,
+    "intersheet_settings_original_rebuilt": {
+     "intersheets_ref_own_page": [
+      "false",
+      "false"
+     ],
+     "intersheets_ref_prefix": [
+      "\"\"",
+      "\"\""
+     ],
+     "intersheets_ref_short": [
+      "false",
+      "false"
+     ],
+     "intersheets_ref_show": [
+      "true",
+      "true"
+     ],
+     "intersheets_ref_suffix": [
+      "\"\"",
+      "\"\""
+     ]
+    },
+    "native_svg_text": {
+     "exit": [
+      0,
+      0
+     ],
+     "pages": [
+      3,
+      3
+     ],
+     "text_items": [
+      869,
+      869
+     ],
+     "text_multiset_equal": true
+    },
+    "original_leaves": 290,
+    "rebuilt_leaves": 291
+   },
+   "source_files": 29,
+   "source_files_unchanged": true,
+   "source_tree_sha256": "7b5297f74ceb3b67d9421f7f91dc9c3a3d38ebb87109d2a8b27c6c52219fa7ae",
+   "verify_source": {
+    "accepted": [],
+    "differences": [
+     {
+      "a": "6c67e319e6e42e5f28572cccdc0e89897dccb7539026ff6ee1eeb5625f386096",
+      "b": "37277939f51d701c5b51d8300000396dd0528b4585ae09b5896ed70bc0722f84",
+      "field": "regenerated_geometry",
+      "kind": "zone-field",
+      "level": 7,
+      "where": "board:derived:padvia"
+     },
+     {
+      "a": "176",
+      "b": "0",
+      "field": "teardrop",
+      "kind": "opaque-count",
+      "level": 7,
+      "where": "board:opaque:teardrop"
+     }
+    ],
+    "exit": 5,
+    "levels": {
+     "1": "equal",
+     "2": "equal",
+     "3": "equal",
+     "4": "equal",
+     "5": "equal",
+     "6": "equal",
+     "7": "differs",
+     "8": "equal",
+     "S": "equal"
+    },
+    "proof_sha256": "3bcc0a095add15287213a33786f4558563f8d5f106e1a905ed47abc8697057a3"
+   }
+  },
+  "royalblue54L_feather": {
+   "board_sha256": "535dbe212f43a8bab12b23277e176a94ac9694177258af2981c0e7b08e4b7252",
+   "corpus_row": "kicad-demo-10-0-6-pcb-13",
+   "derived_cache": {
+    "complete_regenerated_geometry_equal": false,
+    "sides": {
+     "a": {
+      "exact_geometry_sha256": "a562fa7965020cc8dfd270a007b7dcf1da04d716c994b7ffeb8a8fb81278ad12",
+      "native_non_simple_rings": {
+       "proper_edge_pair_crossings": 38,
+       "rings_with_proper_crossings": 25
+      },
+      "raw_caches": 263,
+      "regenerated_caches": 289
+     },
+     "b": {
+      "exact_geometry_sha256": "4b439125f5f7f38c4fa565299aafcf2a2332a2886730288467ddf06a54e6844c",
+      "native_non_simple_rings": {
+       "proper_edge_pair_crossings": 41,
+       "rings_with_proper_crossings": 26
+      },
+      "raw_caches": 0,
+      "regenerated_caches": 293
+     }
+    },
+    "status": "differs",
+    "tool": "kicad-cli 10.0.6"
+   },
+   "import": {
+    "confirm_exit": 0,
+    "dry_exit": 0
+   },
+   "native_created_files": [
+    "RoyalBlue54L-Feather.kicad_prl"
+   ],
+   "origin": "10.0.6 demos",
+   "rebuilt_project": {
+    "board_design_settings_differ": 0,
+    "build_target": 9,
+    "by_section": {
+     "schematic": 1,
+     "sheets": 1
+    },
+    "confirm_exit": 0,
+    "differing_leaves": 2,
+    "differing_schematic_keys": [
+     "/schematic/top_level_sheets"
+    ],
+    "dry_exit": 0,
+    "intersheet_settings_original_rebuilt": {
+     "intersheets_ref_own_page": [
+      "false",
+      "false"
+     ],
+     "intersheets_ref_prefix": [
+      "\"\"",
+      "\"\""
+     ],
+     "intersheets_ref_short": [
+      "false",
+      "false"
+     ],
+     "intersheets_ref_show": [
+      "false",
+      "false"
+     ],
+     "intersheets_ref_suffix": [
+      "\"\"",
+      "\"\""
+     ]
+    },
+    "native_svg_text": {
+     "exit": [
+      0,
+      0
+     ],
+     "pages": [
+      5,
+      5
+     ],
+     "text_items": [
+      1131,
+      1131
+     ],
+     "text_multiset_equal": true
+    },
+    "original_leaves": 280,
+    "rebuilt_leaves": 281
+   },
+   "source_files": 50,
+   "source_files_unchanged": true,
+   "source_tree_sha256": "d9bcf1ae4702cd39e80007c600f14240143071dda203a02c74a5909fc341edcb",
+   "verify_source": {
+    "accepted": [],
+    "differences": [
+     {
+      "a": "a562fa7965020cc8dfd270a007b7dcf1da04d716c994b7ffeb8a8fb81278ad12",
+      "b": "4b439125f5f7f38c4fa565299aafcf2a2332a2886730288467ddf06a54e6844c",
+      "field": "regenerated_geometry",
+      "kind": "zone-field",
+      "level": 7,
+      "where": "board:derived:padvia"
+     },
+     {
+      "a": "263",
+      "b": "0",
+      "field": "teardrop",
+      "kind": "opaque-count",
+      "level": 7,
+      "where": "board:opaque:teardrop"
+     }
+    ],
+    "exit": 5,
+    "levels": {
+     "1": "equal",
+     "2": "equal",
+     "3": "equal",
+     "4": "equal",
+     "5": "equal",
+     "6": "equal",
+     "7": "differs",
+     "8": "equal",
+     "S": "equal"
+    },
+    "proof_sha256": "709f495a704f843d1795fac1f64851bfb2d02d28fa300adc6cd03b945bda8a11"
+   }
+  }
+ },
+ "claims": {
+  "acceptance_or_waiver": false,
+  "ci": false,
+  "drc_pass": false,
+  "native9": false
+ },
+ "commands": [
+  "fenolite import <copy>/<project>.kicad_pro --to python --out <imported> --dry-run, then --confirm --plan <id>",
+  "fenolite verify-source <imported>/design.py --against <copy>/<project>.kicad_pro --kicad-cli <kicad-cli 10.0.6>",
+  "fenolite build <imported>/design.py --out <rebuilt> --kicad-version 9 (dry-run then confirm), kicad-cli sch export svg --exclude-drawing-sheet on both sides"
+ ],
+ "driver_sha256": {
+  "project_compare": "8ff154688f474cedd7e4f39f7dbac3f3dcf5d539b2457c0cd9db838d18e7b95b",
+  "replay": "941c0a4526ed35c12612d4e634e8287254f1143cefbf60b7dd9037f8b5af3e05"
+ },
+ "head": "468d8a61cb4210ea8a40ec546c4e2a637f694648",
+ "measured": "2026-11-04",
+ "notes": [
+  "The three demo boards are format 20241229, so import binds target 9; a target-10 rebuild correctly refuses FEN-3004 and verify-source builds for 9.",
+  "Every existing source file is byte-identical after the run; kicad-cli's schematic export created only the local .kicad_prl settings file.",
+  "Rebuilt projects differ from the originals only in the sheet identity cache (top_level_sheets added, sheets renamed/re-identified by the c0344 writer)."
+ ],
+ "schema": "fenolite.public-replays.v0",
+ "tool": "kicad-cli 10.0.6 (macOS); KiCad 9.0.9 and exact-head CI not run here"
+}

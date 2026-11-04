@@ -17,8 +17,26 @@
   Proof: backend declaration/page guards and hypothesis register controls, 79 passed (2026-11-03).
 
 ## 3. Compatibility and closure
-- [ ] 3.1 Update measured evidence, CHANGELOG and agent guide; prove default22 scenes and75 complete API plans unchanged. Proof: immutable baseline captures and focused regression checks.
+- [x] 3.1 Update measured evidence, CHANGELOG and agent guide; prove default22 scenes and75 complete API plans unchanged. Proof: immutable baseline captures and focused regression checks.
+  Passed 2026-11-04 on clean 468d8a61 (`docs/evidence/project-geometry-default-compat.json`). Fresh
+  complete captures on four detached checkouts with the locked all-extras environment: c0340's parent
+  fc7f5d15 and its own commit 2bbbb085 have identical 22 scene maps and 75 plan maps (1042 files plus
+  the 130 excluded version files = 1172; the same ten refusals). Immutable e2658942 differs from
+  2bbbb085 only in the 41 project files that c0344 reviewed; all 41 equal its recorded after-digests,
+  and all 22 scenes are equal. Later HEAD differences trace to other changes (c0276 drawn source edits,
+  whose 8 scenes differ only where the source schematic differs; c0351 import_python; c0332's darwin
+  PcbDoc digest). `tests/unit/test_build_bytes.py` 77 passed. Focused curve/teardrop/native-rule/agent
+  page/hypothesis controls 297 passed; actual KiCad 10.0.6 `tests/kicad/board/test_derived_teardrop_proof.py`
+  1 passed. CHANGELOG records the measurement; the guide's `max_curve_error` and padvia lines are unchanged
+  and its generation check passes. No acceptance, threshold or evidence level changed.
 - [ ] 3.2 Rerun affected public board proofs and coordinate complete exact-head fast/CI. Proof: actual source-bound outcomes, no acceptance/threshold changes, required CI jobs before closure.
+  Local part 2026-11-04 (`docs/evidence/public-replays-20261104.json`, kicad-cli 10.0.6, inputs equal to
+  their corpus digests and unchanged afterwards): Complex imports and passes all nine levels, exit 0,
+  accepted [], regenerated 167/167 with exact 16b255c6. Royal exits 5 only at level 7: regenerated
+  geometry a562fa79 (raw 263 to 289) versus 4b439125 (0 to 293; the 2026-11-03 checkpoint had cc159325
+  for this side) and raw teardrop 263/0. flat_hierarchy (9.0.9.1 demo) exits 5 only at level 7: raw
+  176 to 178 versus 0 to 178, geometry 6c67e319 versus 37277939, raw teardrop 176/0. No waiver or
+  acceptance. Native 9.0.9 and the exact-head fast/CI jobs remain for the coordinator; keep open.
 - [x] 3.3 Coordinate final model0 inventory/schema/fingerprint with root before model1 freeze. Proof: final source-bound regeneration/gates after the last model field.
   Done 2026-11-04: c0218's `transition-proof.json` recaptured the combined final model 0 at
   7c1789ae, which contains this change's model work: 75 rows, 1137 files, the only difference
