@@ -733,3 +733,128 @@ For a `group` subject the router SHALL run c0244's role mode on the group's rout
 - **WHEN** `uv run pytest tests/unit/cli/test_explain_cmd.py tests/unit/routing -k proposal` runs
 - **THEN** the eight codes have their severities, an entry and a documented row
 
+### Requirement: Opt-in search
+The router SHALL preserve pattern routing by default. The search family SHALL propose ordinary connections only. Opt-in search modes MUST NOT propose independent pair legs; other unsupported search subjects SHALL retain supported atomic pattern candidates or an explicit refusal.
+
+#### Scenario: Opt-in search contract
+- **GIVEN** an ordinary connection blocked from all fixed patterns
+- **WHEN** bounded search is explicitly enabled
+- **THEN** a legal detour is proposed and the board bytes remain unchanged
+
+#### Scenario: A half-selected pair stays atomic
+- **GIVEN** a named or declared differential pair with only one net selected
+- **WHEN** proposals use search=fallback or search=only
+- **THEN** no independent-leg candidate is emitted, search-unsupported is reported, and project bytes stay unchanged
+
+### Requirement: Physical legality
+Search SHALL check swept geometry, cutouts, exact endpoint attachments and through-via clearance on every traversed copper layer. Missing necessary geometry or rules MUST prevent a candidate.
+
+#### Scenario: Physical legality contract
+- **GIVEN** a via whose endpoints are clear but whose barrel intersects inner-layer copper
+- **WHEN** search considers that transition
+- **THEN** the transition is rejected
+
+### Requirement: Deterministic bounds
+Search SHALL use stable integer state ordering, explicit state/via bounds and the job wall-clock budget. Fixed state-limited runs SHALL be byte deterministic; clock-limited runs SHALL report truncation without claiming identical exploration.
+
+#### Scenario: Deterministic bounds contract
+- **GIVEN** the same board, options, seed and state bound without clock exhaustion
+- **WHEN** search runs twice
+- **THEN** candidate bytes and termination facts match
+
+### Requirement: Hard role limits
+Search SHALL treat declared electrical exclusions as hard constraints. It MUST NOT exchange a violated user limit for a shorter route or invent a missing high-voltage distance.
+
+#### Scenario: Hard role limits contract
+- **GIVEN** a shorter path violates a declared switching clearance
+- **WHEN** role-aware search compares it with a legal detour
+- **THEN** only the legal detour can become a candidate
+
+### Requirement: Honest ground reference
+Reference coverage SHALL be measured from valid current fill geometry. Missing or stale fill SHALL be reported as unknown; it MUST NOT count as proven reference coverage.
+
+#### Scenario: Honest ground reference contract
+- **GIVEN** a ground-zone outline whose fill is stale
+- **WHEN** candidate facts are measured
+- **THEN** coverage is unknown and no ground-reference assurance is emitted
+
+### Requirement: Role provenance
+Role fields SHALL use nonnegative integer penalties with provenance, retain final role/copper judgment, and invalidate results on changed inputs. Unconfirmed roles MUST NOT become confirmed through routing.
+
+#### Scenario: Role provenance contract
+- **GIVEN** a proposal calculated from a confirmed role profile
+- **WHEN** the profile changes before acceptance
+- **THEN** the old reviewed write is refused
+
+### Requirement: Protected geometry
+Negotiation SHALL reroute only its own provisional routes. Manual or locked copper, accepted decisions and role corridors MUST remain immutable. Unsupported coupled subjects SHALL be refused as units.
+
+#### Scenario: Protected geometry contract
+- **GIVEN** an existing locked route blocks a corridor
+- **WHEN** negotiation retries selected connections
+- **THEN** the locked route is unchanged even if no solution exists
+
+### Requirement: Atomic alternatives
+Coupled reroutes SHALL be emitted and accepted as a jointly validated bundle. Accept, reject, replay and forget SHALL be atomic; an individual coupled member MUST NOT be accepted alone.
+
+#### Scenario: Atomic alternatives contract
+- **GIVEN** a bundle changes two mutually dependent paths
+- **WHEN** one member alone is accepted
+- **THEN** the request is refused and no project or decision bytes change
+
+### Requirement: Bounded negotiation
+Negotiation SHALL bound rounds and expanded states under the shared job budget. Provisional overlaps MUST NOT escape as candidates; exhaustion SHALL report unresolved subjects and keep prior copper unchanged.
+
+#### Scenario: Bounded negotiation contract
+- **GIVEN** all rounds end with provisional overlap
+- **WHEN** the round budget expires
+- **THEN** no invalid candidate is emitted and unresolved subjects are reported
+
+### Requirement: Explicit local adapters
+External candidates SHALL require --propose-with and a locally available supported router. The command MUST NOT download tools, upload designs or silently accept returned copper.
+
+#### Scenario: Explicit local adapters contract
+- **GIVEN** a requested router is absent
+- **WHEN** proposals request that router
+- **THEN** the existing external-tool-missing contract is returned without changing files
+
+### Requirement: Verified scoped delta
+External output SHALL preserve existing geometry, rules and unselected nets. Only validated new scoped copper may become candidates; unsupported pairs/groups MUST be refused atomically.
+
+#### Scenario: Verified scoped delta contract
+- **GIVEN** external output moves an existing pad or routes an unselected net
+- **WHEN** the delta is inspected
+- **THEN** the output is rejected rather than partially imported
+
+### Requirement: One subprocess budget
+All external candidate processes SHALL share the job timeout and cancellation. Killed, incomplete or malformed output MUST NOT become candidates or project writes.
+
+#### Scenario: One subprocess budget contract
+- **GIVEN** an adapter has written a partial result
+- **WHEN** the shared budget expires
+- **THEN** the process tree is stopped and the partial result is discarded
+
+### Requirement: Explicit board workflow
+Documentation SHALL distinguish development phase order from board execution order: roles, critical routes, power copper, proposal review, optional tidy, fill, checks and export. Ordinary routes MUST remain explicitly accepted.
+
+#### Scenario: Explicit board workflow contract
+- **GIVEN** an engineer follows the completion recipe
+- **WHEN** critical routes and power copper are prepared
+- **THEN** remaining routes are proposed for review rather than silently committed
+
+### Requirement: Truthful completion
+Completion SHALL require post-fill connectivity and declared checks, exposing opens, rejections, unattempted subjects and unknown checks separately. Oracle limitations MUST remain visible and MUST NOT be counted as successful checks.
+
+#### Scenario: Truthful completion contract
+- **GIVEN** all candidates were rejected but physical opens remain
+- **WHEN** the completion report is generated
+- **THEN** the board is reported incomplete with those opens
+
+### Requirement: Preserved output and scale evidence
+Acceptance tests SHALL prove preserved locks/manual edits, scoped tidy, repeatability, interruption safety and KiCad-to-Altium readback on authored fixtures. Performance claims MUST identify inputs, bounds, versions and measured evidence.
+
+#### Scenario: Preserved output and scale evidence contract
+- **GIVEN** a reviewed route is followed by scoped tidy and a second routing pass
+- **WHEN** both stages finish or cancel
+- **THEN** protected copper is preserved and incomplete stages are reported honestly
+
