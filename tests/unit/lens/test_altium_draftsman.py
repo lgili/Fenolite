@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
-"""Closed-gate build integration and candidate drawing layout, without a native acceptance claim."""
+"""Closed-gate build integration (route P of c0388) and candidate drawing layout, without a native acceptance
+claim."""
 
 from __future__ import annotations
 
@@ -13,16 +14,50 @@ from fenolite.backends.altium import draftsman
 from fenolite.backends.altium.read.draftsman import read_draftsman
 from fenolite.backends.altium.read.outjob import read_outjob
 from fenolite.backends.altium.read.project import read_project
+from fenolite.core.errors import Issue
 from fenolite.exports.drawing_spec import DEFAULT
-from fenolite.lens.altium_draftsman import draftsman_spec
+from fenolite.lens.altium_draftsman import ROUTE_P, draftsman_spec
 
 
-def test_gate_off_keeps_all_file_bytes() -> None:
+def _route_p(issues: tuple[Issue, ...]) -> str:
+    (found,) = (i for i in issues if i.code == "altium.draftsman-not-written")
+    assert found.severity == "info" and ROUTE_P in found.message
+    return found.message
+
+
+def test_route_p_without_a_title_block_keeps_all_file_bytes() -> None:
+    """Route P (c0388 task 1.1): a design without title-block fields has no project parameter to write."""
     off = blink_output(outjob=True)
     requested = blink_output(outjob=True, draftsman=True)
     assert off.files == requested.files
     assert requested.summary["draftsman"] is None
-    assert any(i.code == "altium.draftsman-not-written" and "gate" in i.message for i in requested.issues)
+    assert "no title-block field" in _route_p(requested.issues)
+
+
+def test_route_p_writes_the_title_block_as_project_parameters() -> None:
+    """Route P: the project file gains the title-block parameters, and no other design file changes: no
+    document, no listing of one and no ``PCBDrawing`` output (the build record under ``.fenolite/`` notes the
+    option)."""
+    off = blink_output(framed=True, outjob=True)
+    requested = blink_output(framed=True, outjob=True, draftsman=True)
+    assert not [i for i in requested.issues if i.severity == "error"], requested.issues
+    assert set(requested.files) == set(off.files) and "blink.PCBDwf" not in requested.files
+    changed = [f for f in off.files if off.files[f] != requested.files[f] and not f.startswith(".fenolite/")]
+    assert changed == ["blink.PrjPcb"] and requested.summary["draftsman"] is None
+    text = requested.files["blink.PrjPcb"].decode("ascii")
+    assert text.startswith(off.files["blink.PrjPcb"].decode("ascii").rstrip("\r\n"))
+    assert "[Parameter1]\r\nName=Title\r\nValue=Blink" in text and "Name=Revision\r\nValue=B" in text
+    assert "PCBDwf" not in text
+    assert [d.path for d in read_project(requested.files["blink.PrjPcb"]).documents] == [
+        d.path for d in read_project(off.files["blink.PrjPcb"]).documents
+    ]
+    assert "title-block field(s) as project parameters" in _route_p(requested.issues)
+
+
+def test_route_p_keeps_a_kept_project_file() -> None:
+    kept = blink_output(framed=True, outjob=True, draftsman=True, project_exists=True)
+    assert "blink.PrjPcb" not in kept.files
+    assert "is not rewritten" in _route_p(kept.issues)
 
 
 def test_document_project_parameters_and_job(monkeypatch: pytest.MonkeyPatch) -> None:

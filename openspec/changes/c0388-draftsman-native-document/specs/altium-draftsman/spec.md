@@ -35,3 +35,35 @@ The document SHALL hold one assembly sheet per side of `[assembly].sides` that h
 - **GIVEN** the routed blink with `D1` placed on the top, so that every part is on the top
 - **WHEN** its Draftsman spec is built with the default drawing specification
 - **THEN** the document has two sheets, the second holds a top assembly view and a BOM table, and no bottom sheet exists
+
+### Requirement: Draftsman route P
+Gate G2 failed after the correction round (round FPC, S-1606: the minimal document opens, but Import Changes leaves a written view empty and the written template gives no board view), so route P of c0172's Decision 9 SHALL ship. While `draftsman.NATIVE_WRITE` is `False`, a build with `--target altium --altium-draftsman on` SHALL write the non-empty title-block fields as `[Parameter<n>]` sections into a project file that it writes, in the order of `title_parameters`. It MUST plan no `.PCBDwf`, MUST list no document and add no `PCBDrawing` output, and MUST leave every other design file with the bytes of a build without the option. `result.draftsman` SHALL be null, and the info `altium.draftsman-not-written` SHALL name route P and say what the project file holds. `docs/altium.md` SHALL give the procedure for a document made from an Altium template.
+
+#### Scenario: Title-block parameters without a document
+- **GIVEN** the blink with a title block holding `Title` `Blink` and `Revision` `B`
+- **WHEN** it is built for Altium with an output job and `--altium-draftsman on`
+- **THEN** `blink.PrjPcb` holds `[Parameter1]` with `Name=Title` and `Value=Blink`, lists the same documents as a build without the option, and is the only design file whose bytes differ; no `.PCBDwf` is planned
+
+#### Scenario: No title-block field
+- **GIVEN** a design whose board has no title-block field
+- **WHEN** it is built for Altium with `--altium-draftsman on`
+- **THEN** every design file holds the bytes of a build without the option, and the info says that there is no field to write
+
+#### Scenario: Kept project file
+- **GIVEN** a project file that the build keeps
+- **WHEN** the design is built with `--altium-draftsman on`
+- **THEN** the project file is not written, and the info says that it is not rewritten
+
+## MODIFIED Requirements
+
+### Requirement: Draftsman write gate
+`draftsman.NATIVE_WRITE` SHALL be `False` until the maintainer's probes FP1 to FP4 of Part F are recorded as passed in `docs/evidence/altium-draftsman.md`. While it is false, no build MUST plan a `.PCBDwf`. Gate G2 failed on 2026-11-04 (Altium Designer 24.5.2.23 refused the minimal document FP3 and the shell FP4, S-1575 and S-1581). It failed again after the correction round of change c0388 (round FPC, S-1606): the shell's view stays empty after Import Changes. So the gate stays shut, and route P ships.
+
+#### Scenario: Gate follows the report
+- **WHEN** `uv run pytest tests/unit/test_altium_verification_docs.py -k part_f` runs
+- **THEN** it passes only when `NATIVE_WRITE` is false or Part F records FP1 to FP4 as passed
+
+#### Scenario: Gate G2 failed
+- **GIVEN** Part F records FP3 and FP4 as refused by Altium Designer 24.5.2.23 on 2026-11-04, and round FPC records the shell's view as empty after Import Changes
+- **WHEN** the routed blink is built with `--target altium --altium-draftsman on --drawing-spec FILE --dry-run --json`
+- **THEN** `draftsman.NATIVE_WRITE` is `False`, no `.PCBDwf` is planned, and `issues` holds `altium.draftsman-not-written` naming route P

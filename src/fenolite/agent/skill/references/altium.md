@@ -69,9 +69,11 @@ Read `altium.not-lowered` locators. A `track_width` rule needs both limits (page
 
 ## The status of each file kind
 
-`--altium-draftsman on` requests a native document; `--drawing-spec FILE` uses the same drawing TOML as
-KiCad exports and requires that option plus `--target altium`. The native gate is closed pending Part F:
-`altium.draftsman-not-written` explains why no file is planned and `result.draftsman` is null.
+`--altium-draftsman on` requests a Draftsman document; `--drawing-spec FILE` uses the same drawing TOML as
+KiCad exports and requires that option plus `--target altium`. The native gate is closed (route P):
+`altium.draftsman-not-written` explains why no file is planned and `result.draftsman` is null. A project
+file that the build writes then holds the title-block fields as parameters, for a document made by hand
+from an Altium template (`docs/altium.md`, "Draftsman document").
 `altium.draftsman-not-listed` names a kept project that needs the drawing added. Candidate shells and
 their own readback stay `INFERRED`; they do not prove that Altium fills or prints the drawing.
 

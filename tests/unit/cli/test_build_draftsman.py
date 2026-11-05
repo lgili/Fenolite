@@ -57,7 +57,8 @@ def test_gate_off_request(monkeypatch: pytest.MonkeyPatch, script: Path, tmp_pat
     )
     assert code == 0 and reply["result"]["draftsman"] is None
     assert not any(row["path"].endswith(".PCBDwf") for row in reply["result"]["plan"])
-    assert any(row["code"] == "altium.draftsman-not-written" for row in reply["issues"])
+    (found,) = (row for row in reply["issues"] if row["code"] == "altium.draftsman-not-written")
+    assert "route P of change c0388" in found["message"]  # c0388 task 1.1
 
 
 def test_drawing_spec_is_bound_and_native_file_is_planned(

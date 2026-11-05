@@ -363,9 +363,9 @@ def _register(parser: argparse.ArgumentParser) -> None:
         "--altium-draftsman",
         choices=("off", "on"),
         default=None,
-        help="with --target altium: on requests a native Draftsman document; off (default) keeps "
-        "legacy files. "
-        "The native gate remains closed until Part F passes in Altium",
+        help="with --target altium: on requests a Draftsman document; off (default) keeps legacy files. "
+        "The native gate is closed (route P): on writes the title-block fields as project parameters "
+        "for a document made from an Altium template",
     )
     parser.add_argument(
         "--drawing-spec",

@@ -592,6 +592,7 @@ def write_project(
     pour_results: list[PcbDocResult] | None = None,
     pour_regions: bool = True,
     draftsman: DraftsmanSpec | None = None,
+    title_parameters: Sequence[tuple[str, str]] = (),
     planned_sheets: ProjectSheets | None = None,
     extra_symbols: Sequence[str] = (),
 ) -> dict[str, bytes]:
@@ -610,7 +611,9 @@ def write_project(
     mode of the PCB document (change c0215; ``pcbdoc.write_pcbdoc_result``), and ``pour_results``, when
     given, receives what the write of the PCB document did; ``BackendUnavailable`` for ``computed`` without
     the ``geo`` extra. ``pour_regions`` off writes the computed document without the regions of its
-    polygons (``write_pcbdoc_result``; the input ``reference/`` of the kit's pour samples)."""
+    polygons (``write_pcbdoc_result``; the input ``reference/`` of the kit's pour samples).
+    ``title_parameters`` (route P of change c0388) are written as the project file's ``[Parameter<n>]``
+    sections when no Draftsman document is written; ``draftsman`` brings its own."""
     from fenolite.backends.altium.hierarchy import ProjectSheets, plan_sheets, write_harness
 
     if form not in ("binary", "ascii"):
@@ -672,7 +675,7 @@ def write_project(
             net_classes=bool(design.circuit.netclasses),
             outjob=f"{name}.OutJob" if outjob is not None else None,
             draftsman=f"{name}.PCBDwf" if draftsman is not None else None,
-            parameters=draftsman.parameters if draftsman is not None else (),
+            parameters=draftsman.parameters if draftsman is not None else tuple(title_parameters),
         )
     for sheet in planned.sheets:
         frame = (frames or {}).get(sheet.file)

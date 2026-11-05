@@ -31,8 +31,18 @@ say nothing about Altium's acceptance; the FPC correction round still decides th
 force this code to be reworked or removed; and task 6.3, which turns the gate on, still needs FP1 to FP4 to
 pass. The requirement "Draftsman native document correction round" says so.
 
+## Found on 2026-11-05
+
+Round FPC reported (S-1606). With the root members of the control, FP3 opens (FPC1). The shell FP4 opens,
+but Import Changes leaves its view empty (FPC2), and the template route gives no board view (FPC3). The
+coordinator ruled that FPC2 fails G2, so G2 fails after its correction round, and **route P** ships (task
+1.1; `design.md`, written for this decision). With the gate closed, `--altium-draftsman on` writes the
+title-block fields as project parameters, and `docs/altium.md` gives the procedure for a document made
+from an Altium template. Tasks 3.3 and 6.1 to 6.3 are cut. So is the requirement "Draftsman scope round
+trip": its only scenario is the F8 re-save of a native document. `NATIVE_WRITE` stays `False`.
+
 ## Impact
 
-No code, public name or evidence level changes with this proposal. `draftsman.NATIVE_WRITE` stays `False`
-until FP1 to FP4 pass (task 6.3). c0172's design, Decisions 3 to 9, stays the design of this change; a
-design is written here only if the correction round changes it.
+No public name and no evidence level changes. `draftsman.NATIVE_WRITE` stays `False`. Route P changes the
+project file of a build with `--altium-draftsman on`, and only that build. c0172's design, Decisions 3 to 9,
+was this change's design until round FPC; `design.md` records the decision that followed.

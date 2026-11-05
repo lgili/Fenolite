@@ -470,8 +470,8 @@ fix = "Nothing to do if you do not need it in Altium; otherwise enter it there b
 see = "Build target"
 
 ["altium.draftsman-not-written"]
-meaning = "No native Draftsman document was planned: the option is off, the native acceptance gate is closed, or no PCB document is written."
-fix = "Read the reason. The closed gate needs actual Part F reports; a build option cannot bypass it."
+meaning = "No native Draftsman document was planned: the option is off, or the native gate is closed (route P of change c0388: the project file holds the title-block fields as parameters instead), or no PCB document is written."
+fix = "Read the reason. Under route P, create the document in Altium from a template whose title block reads the project parameters, then run Import Changes; no build option bypasses the gate."
 see = "Build target"
 
 ["altium.draftsman-not-listed"]

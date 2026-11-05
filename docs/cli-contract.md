@@ -400,7 +400,9 @@ and native acceptance remain `INFERRED`. See `docs/schematic-composition.md`.
 `--altium-draftsman {off,on}` (default `off`) requests a Draftsman document for `--target altium`.
 `--drawing-spec FILE` reads `fenolite.drawing-spec.v0` and requires that target and `--altium-draftsman on`;
 invalid combinations are usage errors. While the native gate is closed, `altium.draftsman-not-written`
-explains the reason and `result.draftsman` is null. A test-only gate override writes `.PCBDwf`, lists it
+explains the reason and `result.draftsman` is null. Under route P (change c0388), `on` writes the non-empty
+title-block fields as `[Parameter<n>]` sections into a project file that the build writes. It plans no
+document. A test-only gate override writes `.PCBDwf`, lists it
 after the job, writes title parameters, and adds the PDF-enabled `PCBDrawing` output. A kept project that
 lacks the drawing gives `altium.draftsman-not-listed`. The non-null result holds `file`, `sheets`,
 `not_lowered` and `spec` (given path and SHA-256). See [the limits](altium.md#draftsman-document).

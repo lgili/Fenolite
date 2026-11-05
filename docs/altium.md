@@ -1897,9 +1897,26 @@ Unreadable or malformed specifications are input errors, and reviewed plans bind
 
 The native gate is **closed**. `altium.draftsman-not-written` states the reason, no `.PCBDwf` is planned,
 and `result.draftsman` is null. No command option bypasses the gate. Gate G2 failed on 2026-11-04:
-Altium Designer 24.5.2.23 refused the minimal probe document and the shell probe (Part F, round FP), so
-change c0172 does not ship the native document. One correction round and the writer content follow in
-change c0388; until a probe opens, the gate stays closed.
+Altium Designer 24.5.2.23 refused the minimal probe document and the shell probe (Part F, round FP).
+Round FPC, the one correction round of change c0388, made the minimal document open, but Import Changes
+left the written view empty and the written template gave no board view (S-1606). So **route P** ships
+(c0388 task 1.1, 2026-11-05): with `--altium-draftsman on`, a project file that the build writes holds the
+non-empty title-block fields as `[Parameter<n>]` sections (`Title`, `Revision`, `Date`, `Organization`,
+`DocumentNumber`, `DrawnBy`, `ApprovedBy`, then the variables by name). Every other file keeps the bytes of
+a build without the option. A kept project file is not rewritten, and the info says so. `--drawing-spec`
+is read and bound, but route P does not use it. Showing the parameters in a title block is `INFERRED`
+(`H-A-DWF-PARAMS`).
+
+The drawing, by hand in Altium:
+
+1. Open the built project, then File » New » Draftsman Document with one of Altium's own templates and
+   the built `.PcbDoc`.
+2. Use a title block whose Texts show the project parameters as special strings.
+3. Place the views and tables, run Import Changes after each new build, and print with File » Export to
+   PDF or the output job.
+
+For PDF drawings with no Altium step, build the same script with `--target kicad` and use the
+[KiCad drawings](drawings.md).
 
 The candidate writer, exercised with test-only gate overrides, writes measured sheets, parameter Texts,
 Notes, assembly/drill views, a Drill Table, a Layer Stack Legend and a BOM shell. C0117's pure packing
@@ -1914,12 +1931,9 @@ project is preserved; `altium.draftsman-not-listed` names a missing listing. A p
 to the prior build can be relisted. Changed output files follow the normal reviewed-plan/backup rules.
 `result.draftsman` then holds `file`, per-sheet `sheets`, `not_lowered`, and `spec` (given path and SHA-256).
 
-[Part F](evidence/altium-draftsman.md#part-f-draftsman-documents) has reproducible observation, probe and
-candidate acceptance kits. FP1/FP2 need the actual F0.3 control; the independent FP3/FP4/FP5 are ready.
-No gate has failed or passed. Route T (a document template) or route P (project parameters and a manual
-document procedure) is chosen only after the corresponding actual failed probe. Meanwhile create a
-document from an Altium template whose title block reads the project parameters, then use Import Changes
-and the native PDF/output-job flow; these are instructions for a future native session, not measured outcomes.
+[Part F](evidence/altium-draftsman.md#part-f-draftsman-documents) holds the observation round F0, the
+probes FP1 to FP5, the correction round FPC and the candidate acceptance kit. The writer stays behind the
+gate. A later change that writes the views' board data could open it, and it would need a new Altium round.
 
 ## Panels (change c0173)
 

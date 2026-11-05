@@ -274,6 +274,10 @@ what it shows. G2 is decided again from this report only (c0388, task 1.1): it p
 FPC1 or FPC4 opens and FPC2 fills its view; FPC3 settles `H-A-DWF-TEMPLATE`. If no FPC probe opens, route P
 of c0172's Decision 9 is decided.
 
+Decided on 2026-11-05 (c0388 task 1.1, from the report of S-1606): **route P**. G2 does not pass, because
+FPC2 opens but does not fill its view. FPC3, the template route, gives no board view. The design of c0388
+gives the reasons.
+
 ### Round F1 to F8: candidate acceptance
 
 Prepare with `FENOLITE_ALTIUM_PART_F=<outside folder> uv run pytest
@@ -526,6 +530,17 @@ By the rule of this round, G2 passes when FPC1 or FPC4 opens and FPC2 fills its 
 FPC2 does not fill its view. FPC3 does not give a document with the current board. The decision on G2
 is left to the coordinator. `H-A-DWF-MINIMAL`, `H-A-DWF-IMPORT` and `H-A-DWF-TEMPLATE` keep their levels,
 because this was an agent run.
+
+G2 decision, 2026-11-05 (c0388 task 1.1). The coordinator ruled that FPC2 does not pass: under the round's
+rule, an empty view after Import Changes fails G2. So G2 fails after its one correction round. The drop
+series names the root members a document needs in order to open: `ArrowStyles`, `DocumentOptions`,
+`FillStyles` and `LineStyles`. They cure the refusal of FP3: FPC1 holds them and opens. They do not fill a
+view: FPC2 holds every root member of the control and still shows an empty frame. FPC10's view stays
+empty too, even after Import Changes has filled its `BoardSourceName`. The template route fails as well:
+FPC3 gives no board view. By c0172's Decision 9, **route P** ships. The project file holds the title-block
+parameters, and the document is made by hand from an Altium template (`docs/altium.md`, "Draftsman
+document"). `draftsman.NATIVE_WRITE` stays `False`. The three rows keep their levels, and their results
+name the round.
 
 The template folder was changed only for the session, as for FP5 (S-1589). Preferences » Data
 Management » Templates, Local Templates folder, was the default `Altium\AD22\Templates` folder under the

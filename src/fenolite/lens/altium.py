@@ -2484,16 +2484,23 @@ def build_altium(
     relist = False
     drawing: draftsman_writer.DraftsmanSpec | None = None
     drawing_info: dict[str, object] | None = None
-    if not draftsman or not draftsman_writer.NATIVE_WRITE or spec is None:
-        reason = (
-            "the option is off"
-            if not draftsman
-            else (
-                "the native write gate is off; Part F has no passing native report"
-                if not draftsman_writer.NATIVE_WRITE
-                else "no PCB document is written"
+    title_parameters: tuple[tuple[str, str], ...] = ()
+    if draftsman and not draftsman_writer.NATIVE_WRITE:
+        # Route P (change c0388, task 1.1): the native gate stays shut, so the request writes the title-block
+        # fields as project parameters, which a document made from an Altium template reads.
+        from fenolite.lens.altium_draftsman import title_parameters as title_fields
+
+        try:
+            title_parameters = title_fields(model)
+            # The existing minimal project writer is ASCII. Refuse an unrepresentable parameter before writes.
+            project.write_prjpcb(schematic=f"{name}.SchDoc", parameters=title_parameters)
+        except ValueError as error:
+            issues.append(issue("altium.text-unwritable", str(error), "title_block"))
+            return BuildOutput(
+                model, {}, tuple(issues), evidence, _summary(model, kept, None, form, sheets=sheets)
             )
-        )
+    elif not draftsman or spec is None:
+        reason = "the option is off" if not draftsman else "no PCB document is written"
         issues.append(issue("altium.draftsman-not-written", f"Draftsman not written: {reason}"))
     else:
         from fenolite.exports.drawing_spec import DEFAULT as DEFAULT_DRAWING
@@ -2559,6 +2566,17 @@ def build_altium(
             )
         # change c0138: a project file that is as a build wrote it and lacks the job is written again
         relist = relist or (project_exists and not outjob_listed and project_digest is not None)
+    if draftsman and not draftsman_writer.NATIVE_WRITE:
+        from fenolite.lens.altium_draftsman import ROUTE_P
+
+        if not title_parameters:
+            outcome = "the design has no title-block field to write as a project parameter"
+        elif project_exists and not relist:
+            outcome = f"the kept {name}.PrjPcb is not rewritten, so its project parameters are not either"
+        else:
+            count = len(title_parameters)
+            outcome = f"{name}.PrjPcb holds {count} title-block field(s) as project parameters"
+        issues.append(issue("altium.draftsman-not-written", f"Draftsman not written: {ROUTE_P}; {outcome}"))
     frames: dict[str, schdot.SheetFrame] = {}
     sheet_info: dict[str, object] | None = None
     if drawing_sheet is not None:
@@ -2625,6 +2643,7 @@ def build_altium(
             sheets=sheets,
             outjob=job_writer.write_outjob(job) if job is not None else None,
             draftsman=drawing,
+            title_parameters=title_parameters,
             frames=frames,
             directions=directions,
             composition=composition,

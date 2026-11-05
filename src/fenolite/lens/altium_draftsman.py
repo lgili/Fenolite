@@ -30,6 +30,14 @@ DEFERRED = (
 )
 
 
+ROUTE_P = (
+    "route P of change c0388: Altium did not fill a written view after Import Changes (round FPC, S-1606), "
+    "so no native document is written; create it from an Altium template whose title block reads the "
+    "project parameters (docs/altium.md, Draftsman document)"
+)
+"""Why a requested Draftsman document is not written while ``draftsman.NATIVE_WRITE`` is off (c0388, 1.1)."""
+
+
 def title_parameters(design: Design) -> tuple[tuple[str, str], ...]:
     """The non-empty title-block fields, in the existing Altium mapping's argument order."""
     from fenolite.lens.altium import SHEET_PARAMETERS
@@ -250,4 +258,4 @@ def document_summary(spec: DraftsmanSpec) -> dict[str, object]:
     }
 
 
-__all__ = ["DEFERRED", "document_summary", "draftsman_spec", "title_parameters"]
+__all__ = ["DEFERRED", "ROUTE_P", "document_summary", "draftsman_spec", "title_parameters"]
