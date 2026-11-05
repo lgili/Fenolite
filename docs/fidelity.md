@@ -72,21 +72,24 @@ build gives copper its own identities and order, so before its one native run, s
 input copy takes the identity of each feature-equal side-a segment, arc, via and pad and the side-a file
 order of its root segments, arcs and vias, in the slots they occupy
 (`summary.derived_cache.identity_preparation`, c0384). Objects pair by their complete non-identity content
-with nets by declared name, under two canonical rules listed in `canonical_nets` with each old and new
-spelling: a stored `{slash}` reads as the `/` of its label text (`slash`), and an `unconnected-(` net that
-carries exactly one pad and whose name KiCad derives from that pad is keyed by the pad's reference and
-number (`unconnected_single_pad`); such a net on no pad or several pads, a name that does not derive from
-its pad, or two nets under one key refuse. Changed, missing, extra or duplicated objects refuse the
-preparation (status `refused`, side b unprepared), except one proven case: exactly two pads identical
-apart from their identity, listed in `identical_pairs`. An object whose side-a identity names several
-objects keeps its own; `source_aliases` lists them with their count as "source alias, not rewritten". The
-receipt lists every rewritten identity (`rewritten`) and every moved object with its old and new position
-(`moved`). The result is labelled by what was prepared (`label`: "L7 after identity and order
-preparation", or identity or order alone), never plain level 7: it measures geometry once identity and
-order are aligned and does not claim that Fenolite keeps the source's identities or order. The editable
-model, the sources and every written file stay untouched. A generated board never shares the source's
-identities, so a board with teardrops always gets the prepared label, even one that was equal unprepared
-(the public complex_hierarchy demo): one native run per side leaves no unprepared run to report.
+with nets by declared name; a name not declared verbatim on both boards is keyed under two canonical rules
+listed in `canonical_nets` with each old and new spelling: a stored `{slash}` reads as the `/` of its
+label text (`slash`), and an `unconnected-(` net that carries exactly one pad and whose name KiCad derives
+from that pad is keyed by the pad's reference and number (`unconnected_single_pad`); such a net on no pad
+or several pads, a name that does not derive from its pad, or two nets under one key refuse. Changed,
+missing, extra or duplicated objects refuse the preparation (status `refused`, side b unprepared), except
+one proven case: exactly two pads identical apart from their identity, listed in `identical_pairs`. An
+object whose side-a identity names several objects keeps its own; `source_aliases` lists them with their
+count as "source alias, not rewritten". The receipt lists every rewritten identity (`rewritten`) and every
+moved object with its old and new position (`moved`). The result is labelled by what was prepared
+(`label`: "L7 after identity and order preparation", or identity or order alone), never plain level 7: it
+measures geometry once identity and order are aligned and does not claim that Fenolite keeps the source's
+identities or order. Before it writes, the preparation refuses a rewritten identity that anything else in
+the copy names, a written identity that the copy would then hold twice, and any other change of its root
+children. The editable model, the sources and every written file stay untouched. A generated board never
+shares the source's identities, so a board with teardrops always gets the prepared label, even one that
+was equal unprepared (the public complex_hierarchy demo): one native run per side leaves no unprepared run
+to report.
 
 | reason | when |
 |---|---|

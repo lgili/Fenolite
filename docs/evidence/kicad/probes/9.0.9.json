@@ -823,6 +823,7 @@
     "sch-stacked-parity": "absent",
     "sch-unconnected-chars": "equal",
     "sch-unconnected-plain": "equal",
+    "sch-unconnected-samename": "absent",
     "sch-unconnected-units": "equal",
     "sch-unconnected-unnamed": "equal",
     "sch-wire-ends": "equal",

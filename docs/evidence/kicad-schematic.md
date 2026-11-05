@@ -130,6 +130,7 @@ projects written for its own major. The probe outcomes are committed in
 | `sch-unconnected-plain` | the named pins of the 32-pin IC: `unconnected-(U1-<name>-Pad<n>)` | `equal` | `equal` |
 | `sch-unconnected-unnamed` | two pins without a name: `unconnected-(U1-Pad1)`, `unconnected-(U1-Pad16)` | `equal` | `equal` |
 | `sch-unconnected-units` | the eight pins of the three units of `Mini_DualGate`: `unconnected-(U2C-GND-Pad7)` for a named pin, `unconnected-(U2-Pad1)` for a pin without a name | `equal` | `equal` |
+| `sch-unconnected-samename` | pins `1` and `10` named like their numbers and a control pin `2` named `P2`, all on no net: KiCad leaves out a name equal to the number (`unconnected-(J1-Pad1)`, `unconnected-(J1-Pad10)`) and keeps the control's (`unconnected-(J1-P2-Pad2)`); `netnames.unconnected_name` still writes `J1-1-Pad1` (c0384 1.4) | `absent` | `absent` |
 | `sch-unconnected-chars` | pin names `A B`, `A/B`, `V+`, `~`, `~{RST}`, `1WIRE`, `DUP` (two pins), `A-B_C.D`, `D{0}` | `equal` | `equal` |
 | `sch-label-plain`, `sch-label-chars` | 20 label texts (blank, `[ ]`, `{ }`, `( )`, quote, backslash, a non-ASCII letter, `+ . - _ : , # $ ~ =`) name their net unchanged | `equal` | `equal` |
 | `sch-label-slash` | the label `mod/LED_A` names the net `mod{slash}LED_A` | `equal` | `equal` |

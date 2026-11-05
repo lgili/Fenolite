@@ -16,6 +16,7 @@ from _native_identity_pairing import apply_identities, pair_identities
 
 from fenolite.backends.kicad import derived_teardrops as dt
 from fenolite.backends.kicad.cli import KicadCli
+from fenolite.backends.kicad.identity_pairing import apply, pair
 from fenolite.backends.kicad.sexpr import Node, dumps, parse, parse_bytes
 
 pytestmark = pytest.mark.needs_kicad
@@ -316,4 +317,120 @@ def test_fully_identical_pads_exchange_their_identities_without_changing_fills(t
             {"native_version": version, "pad_ids": PAD_IDS, "cases": observed}, indent=2, sort_keys=True
         )
         + "\n"
+    )
+
+
+JUNCTION_TEARDROPS = (
+    "(teardrops (best_length_ratio 0.5) (max_length 1) (best_width_ratio 1) (max_width 2) (curved_edges no) "
+    "(filter_ratio 0.9) (enabled yes) (allow_two_segments yes) (prefer_zone_connections yes))"
+)
+
+
+def _junction_board(root: Node, order: tuple[str, ...]) -> Node:
+    """A 3.6 mm square pad with a 0.5 mm through-hole pad inside, both on one net; a 0.35 mm stub runs from
+    the small pad to a junction inside the large pad, and two 1.2 mm tracks leave the junction, one down
+    through the bottom edge and one left through the left edge, each to a 0.8 x 0.25 mm pin."""
+    x, y = 122.0, 110.0
+    jx, jy = x - 1.25, y + 1.25
+    hole = (jx + 0.25, jy - 0.25)
+    ends = {"stub": (hole, (jx, jy)), "down": ((jx, jy + 1.2), (jx, jy)), "left": ((jx - 1.2, jy), (jx, jy))}
+    ids = {k: str(uuid.uuid5(uuid.NAMESPACE_URL, f"Fenolite c0384 1.1 junction {k}")) for k in ends}
+
+    def pad(n: str, kind: str, at: tuple[float, float], size: str, extra: str, u: int) -> str:
+        return (
+            f'(pad "{n}" {kind} (at {at[0] - x:.4f} {at[1] - y:.4f}) (size {size}) {extra} '
+            '(net 1 "FONT_PROBE") '
+            f'(uuid "00000000-0000-4000-8000-0000000c{u:04d}") {JUNCTION_TEARDROPS})'
+        )
+
+    footprint = parse(
+        '(footprint "Probe:Junction" (layer "F.Cu") (uuid "00000000-0000-4000-8000-0000000c0384") '
+        f'(at {x} {y}) (property "Reference" "U9" (at 0 -3 0) (layer "F.SilkS") '
+        '(uuid "00000000-0000-4000-8000-0000000c0385") (effects (font (size 1 1) (thickness 0.15)))) '
+        + pad("1", "smd rect", (x, y), "3.6 3.6", '(layers "F.Cu" "F.Mask" "F.Paste")', 386)
+        + pad("1", "thru_hole circle", hole, "0.5 0.5", '(drill 0.3) (layers "*.Cu")', 393)
+        + pad(
+            "2",
+            "smd roundrect",
+            ends["left"][0],
+            "0.8 0.25",
+            '(layers "F.Cu" "F.Mask") (roundrect_rratio 0.25)',
+            391,
+        )
+        + pad(
+            "3",
+            "smd roundrect",
+            ends["down"][0],
+            "0.25 0.8",
+            '(layers "F.Cu" "F.Mask") (roundrect_rratio 0.25)',
+            392,
+        )
+        + ")"
+    )
+    tracks = tuple(
+        parse(
+            f"(segment (start {ends[k][0][0]:.4f} {ends[k][0][1]:.4f}) "
+            f"(end {ends[k][1][0]:.4f} {ends[k][1][1]:.4f}) "
+            f'(width 0.3) (layer "F.Cu") (net 1) (uuid "{ids[k]}"))'
+        )
+        for k in order
+    )
+    body = tuple(c for c in root.children if not (isinstance(c, Node) and c.name == "segment"))
+    return root.with_children((*body, footprint, *tracks))
+
+
+def test_track_order_at_a_junction_changes_a_teardrop_outline_and_order_preparation_restores_it(
+    tmp_path: Path,
+) -> None:
+    """c0384 1.1, the authored track-order positive (the topology of the one order-dependent RoyalBlue
+    outline, authored anew): the teardrop of the small pad runs along the 0.35 mm stub and, two segments
+    allowed, continues at the junction along whichever of the two leaving tracks comes first in file
+    order. Only the order of those two tracks changes the outline; the stub's place does not; the private
+    order preparation (``identity_pairing``) puts the copy back into the source order and restores the
+    baseline."""
+    version = _kicad.supported_version()
+    if not version.startswith("10."):
+        pytest.skip("actual native10 refill control only")
+    source = curve_project(tmp_path / "source", 9, 10_000)
+    root = parse_bytes((source / "font_probe.kicad_pcb").read_bytes())
+    baseline = _junction_board(root, ("stub", "down", "left"))
+    reordered = _junction_board(root, ("stub", "left", "down"))
+    pairing = pair(baseline, reordered)
+    assert pairing.rewritten == () and len(pairing.moved) == 2
+    prepared = apply(reordered, pairing)
+    assert prepared == baseline
+    cases = (
+        ("baseline", baseline),
+        ("baseline-repeat", baseline),
+        ("stub-last", _junction_board(root, ("down", "left", "stub"))),  # the stub's place: no effect
+        ("leaving-tracks-reordered", reordered),
+        ("order-prepared", prepared),
+    )
+    files = {"font_probe.kicad_pro": (source / "font_probe.kicad_pro").read_bytes()}
+    native = KicadCli(Path(_kicad.cli()))
+    observed: dict[str, tuple[str, str, int]] = {}
+    for label, board_root in cases:
+        folder = tmp_path / label
+        folder.mkdir()
+        board = folder / "font_probe.kicad_pcb"
+        board.write_bytes(dumps(board_root).encode())
+        run = native.refill(board, files=files)
+        assert run.run.ok and run.board is not None
+        saved = parse_bytes(run.board)
+        zones = [z for z in saved.nodes("zone") if dt._derived(z)]
+        outlines = sorted(repr(dt._tree(z.nodes("polygon")[0])) for z in zones)
+        fills = sorted(repr(tuple(dt._tree(f) for f in z.nodes("filled_polygon"))) for z in zones)
+        observed[label] = (
+            hashlib.sha256(repr(outlines).encode()).hexdigest(),
+            hashlib.sha256(repr(fills).encode()).hexdigest(),
+            len(zones),
+        )
+    assert observed["baseline"][2] == 3
+    assert observed["baseline-repeat"] == observed["baseline"]
+    assert observed["stub-last"] == observed["baseline"]
+    assert observed["leaving-tracks-reordered"][0] != observed["baseline"][0]  # order alone moves an outline
+    assert observed["leaving-tracks-reordered"][2] == observed["baseline"][2]
+    assert observed["order-prepared"] == observed["baseline"]
+    (tmp_path / "junction-track-order.json").write_text(
+        json.dumps({"native_version": version, "cases": observed}, indent=2, sort_keys=True) + "\n"
     )

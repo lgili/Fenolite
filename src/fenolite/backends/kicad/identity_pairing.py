@@ -83,8 +83,10 @@ def _single_pad_name(name: str, ref: str, number: str, pin: str | None) -> bool:
     return bool(pin) and re.fullmatch(pattern + re.escape(number) + r"\)", name) is not None
 
 
-def net_keys(root: Node) -> NetKeys:
+def net_keys(root: Node, shared: frozenset[str] = frozenset()) -> NetKeys:
     """The pairing key of every declared net (approved by the coordinator 2026-11-05, c0384).
+
+    A name in ``shared`` (declared verbatim on both boards) is its own key and takes no rule.
 
     ``slash``: a ``{slash}`` in a stored name is the ``/`` of its label text (``netnames.model_name``; KiCad's
     parity test reads both as one, ``docs/formats/kicad/drc.md``). ``unconnected-single-pad``: a net whose
@@ -105,7 +107,9 @@ def net_keys(root: Node) -> NetKeys:
     canonical: list[tuple[str, str, str]] = []
     for code, name in names.items():
         key = name
-        if name.startswith(UNCONNECTED_PREFIX):
+        if name in shared:
+            pass
+        elif name.startswith(UNCONNECTED_PREFIX):
             carried = pads.get(code, [])
             if len(carried) != 1:
                 raise ValueError("unconnected net does not carry exactly one pad; pairing refused")
@@ -214,7 +218,9 @@ class Pairing:
 
 def pair(source: Node, target: Node) -> Pairing:
     """The complete feature-keyed pairing of ``target`` onto ``source``; ``ValueError`` when refused."""
-    na, nb = net_keys(source), net_keys(target)
+    da, db = declarations(source), declarations(target)
+    shared = frozenset(da.values()) & frozenset(db.values())
+    na, nb = net_keys(source, shared), net_keys(target, shared)
     a, b = objects(source, na.names, na.keys), objects(target, nb.names, nb.keys)
     if {k: len(v) for k, v in a.items()} != {k: len(v) for k, v in b.items()}:
         raise ValueError("electrical objects differ; pairing refused")
@@ -295,9 +301,54 @@ def _reorder(target: Node, moved: tuple[tuple[str, str, int, int], ...]) -> Node
     )
 
 
+_UUID = re.compile(r"[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}")
+
+
+def _mentions(node: Node) -> Counter[str]:
+    """How many atoms name each value: the atom's own value and every UUID written inside a longer one."""
+    found: Counter[str] = Counter()
+    stack: list[Node | Atom] = [node]
+    while stack:
+        item = stack.pop()
+        if isinstance(item, Atom):
+            found.update({item.value, *_UUID.findall(item.value)})
+        else:
+            stack.extend(item.children)
+    return found
+
+
+def _without_own_identities(root: Node) -> Counter[str]:
+    """The multiset of root children with the own identity of every root segment, arc, via and footprint
+    pad left out: what the preparation must keep (every normal fill and editable field included)."""
+
+    def strip(node: Node) -> Node:
+        return node.with_children(
+            tuple(c for c in node.children if not (isinstance(c, Node) and c.name in IDS))
+        )
+
+    kept: Counter[str] = Counter()
+    for child in root.children:
+        if isinstance(child, Node) and child.name in ROOT_KINDS:
+            child = strip(child)
+        elif isinstance(child, Node) and child.name == "footprint":
+            child = child.with_children(
+                tuple(strip(c) if isinstance(c, Node) and c.name == "pad" else c for c in child.children)
+            )
+        kept[dumps(child, style="compact") if isinstance(child, Node) else repr(child)] += 1
+    return kept
+
+
 def apply(target: Node, pairing: Pairing, *, order: bool = True) -> Node:
     """``target`` with the moved root objects in their source order (unless ``order`` is false) and the
-    rewritten objects' own identity fields changed; nothing else."""
+    rewritten objects' own identity fields changed; nothing else.
+
+    Refused (c0384 1.3): a rewritten identity that anything else in ``target`` names (reference closure), a
+    written identity that the result names more than once (collision closure), and any change of the
+    multiset of root children apart from those identity fields."""
+    mentions = _mentions(target)
+    if any(mentions[old] != 1 for _, old, _ in pairing.rewritten):
+        raise ValueError("a rewritten identity is referenced elsewhere in the board; preparation refused")
+    before = _without_own_identities(target)
     if order and pairing.moved:
         target = _reorder(target, pairing.moved)
     mapping = {old: new for _, old, new in pairing.rewritten}
@@ -324,6 +375,11 @@ def apply(target: Node, pairing: Pairing, *, order: bool = True) -> Node:
     if seen != set(mapping):
         raise ValueError("pairing does not match the board")
     assert isinstance(result, Node)
+    written = _mentions(result)
+    if any(written[new] != 1 for _, _, new in pairing.rewritten):
+        raise ValueError("a written identity collides with another in the board; preparation refused")
+    if _without_own_identities(result) != before:
+        raise ValueError("preparation would change more than identities and order; refused")
     return result
 
 

@@ -210,3 +210,40 @@ def test_an_object_net_name_contradicting_its_canonical_declaration_refuses() ->
     )
     with pytest.raises(ValueError, match="contradicts"):
         pair(board(SOURCE, na="/A"), target)
+
+
+def test_a_rewritten_identity_named_elsewhere_refuses_the_preparation() -> None:
+    target = board(
+        TARGET, extra=f'(group "" (uuid "11111111-0000-4000-8000-0000000000ab") (members "{TARGET["s1"]}"))'
+    )
+    pairing = pair(board(SOURCE), target)
+    with pytest.raises(ValueError, match="referenced elsewhere"):
+        apply(target, pairing)
+
+
+def test_a_written_identity_that_collides_with_another_in_the_board_refuses() -> None:
+    clash = f'(gr_text "x" (at 0 0) (layer "F.SilkS") (uuid "{SOURCE["v1"]}"))'
+    target = board(TARGET, extra=clash)
+    pairing = pair(board(SOURCE), target)
+    with pytest.raises(ValueError, match="collides"):
+        apply(target, pairing)
+
+
+ZONE = '(zone (net 1) (net_name "A") (layer "F.Cu") (uuid "11111111-0000-4000-8000-0000000000cd"))'
+
+
+def test_a_preparation_keeps_every_root_child_but_the_own_identities() -> None:
+    from fenolite.backends.kicad.identity_pairing import _without_own_identities
+
+    target = board(TARGET, extra=ZONE)  # a zone is not an electrical object: it keeps its identity
+    prepared = apply(target, pair(_swap_roots(board(SOURCE, extra=ZONE), 0, 3), target))
+    assert prepared.nodes("zone") == target.nodes("zone")
+    assert _without_own_identities(prepared) == _without_own_identities(target)
+
+
+def test_a_net_name_both_boards_declare_verbatim_takes_no_canonical_rule() -> None:
+    # the public RoyalBlue J1 case: one pin, two physical pads numbered alike, on an unconnected-( net that
+    # both sides spell alike; it pairs by its name and is never refused as a multi-pad unconnected net
+    name = "unconnected-(R1-Pad1)"
+    pairing = pair(board(SOURCE, na=name, twin=True), board(TARGET, na=name, twin=True))
+    assert pairing.canonical_nets == () and len(pairing.rewritten) == 7

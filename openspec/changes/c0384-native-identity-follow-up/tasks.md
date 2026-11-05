@@ -59,7 +59,7 @@
     public RoyalBlue import/build on this head: all 428 physical pads keep their exact annotation
     sequences (389 annotated: 319 pinfunction, 389 pintype; 71 footprints with equal ordered pad
     sequences). Level 7 stays visible as a finding.
-- [ ] 1.1 (from c0355 1.1) Author native pad/via/track/junction UUID/order controls with complete electrical
+- [x] 1.1 (from c0355 1.1) Author native pad/via/track/junction UUID/order controls with complete electrical
   and geometry proofs, and the changed and ambiguous negatives.
   - 2026-11-05 partial: `tests/kicad/board/test_native_identity_controls.py` (native10.0.6) authors two
     0.5 mm pads on two nets 0.3 mm apart with tracks leaving both, the class of the 16 RoyalBlue fill-only
@@ -72,7 +72,19 @@
     one name (`tests/unit/backends/kicad/test_native_identity_pairing.py`). A second native case, two 0.45 mm
     vias of two nets 0.3 mm apart, shows the same for via UUIDs, and the pairing restores it. Still open:
     an authored track-order (junction) positive, so far observed only on RoyalBlue.
-- [ ] 1.3 (from c0355 1.3) Prove full object correspondence, no first-match, collision/reference closure and
+  - 2026-11-05 track-order positive: on a copy of the unfilled public RoyalBlue source, swapping only the
+    0.35 mm GND stub from the exposed pad's via pad to a junction with the 1.2 mm track leaving the junction
+    to a pin changes one outline; swapping either with the junction's other leaving track does not.
+    Authored anew (`test_track_order_at_a_junction_changes_a_teardrop_outline_and_order_preparation_restores_it`,
+    native 10.0.6): a 3.6 mm pad with a 0.5 mm through-hole pad inside, the stub to a junction inside the
+    large pad and two tracks leaving it down and left to 0.8 x 0.25 mm pins. The small pad's teardrop runs
+    along the stub and continues along whichever leaving track comes first in file order: reordering only
+    those two moves an outline (3 regions either way), the stub's place does not, one repeat is equal, and
+    the order preparation (`identity_pairing`, 2 moved, nothing rewritten) restores the baseline exactly.
+    Scratch sweep of four pad sizes and junction offsets, all six orders: the same split every time.
+    Negatives: `tests/unit/backends/kicad/test_native_identity_pairing.py` and `test_identity_pairing.py`
+    (changed, missing, extra, duplicate and ambiguous objects refuse).
+- [x] 1.3 (from c0355 1.3) Prove full object correspondence, no first-match, collision/reference closure and
   unchanged normal-fill/editable field multisets before any private rewrite.
   - 2026-11-05 partial, read-only on the public RoyalBlue source and its fresh generated board: keyed by
     declared net name (codes differ, e.g. 15 versus 1), with the unique pad net child placed by its
@@ -85,6 +97,18 @@
     so a 2.1 rewrite would have to carry them object by object, given zero references: a coordinator
     decision. The rewrite touches only the paired objects' own identity fields (unit test: the paired
     board equals the source), so ordinary fills and editable fields are unchanged by construction.
+  - 2026-11-05 closure in code (`identity_pairing.apply`): refused before anything is written, a rewritten
+    identity that any other atom of the copy names (reference closure, UUIDs inside longer strings
+    included), a written identity the result would name more than once (collision closure), and any change
+    of the multiset of root children apart from the own identity fields (every normal fill and editable
+    field included). Full correspondence and no first-match stay with `pair` (complete key multisets;
+    duplicates refused except the 2.1(c) pair). Proofs: `test_identity_pairing.py` (reference, collision,
+    multiset). Read-only on the public boards with this code: RoyalBlue 1522 rewritten, 1125 moved; flat_hierarchy
+    625 and 378; on both, zero outside references, zero collisions, multisets equal.
+    Found while measuring: as committed in 30da426f the `unconnected_single_pad` rule refused RoyalBlue,
+    whose `unconnected-(J1-Pin_3-Pad3)` carries the two physical pads of J1 pin 3 and is spelled alike on
+    both sides. The rules now apply only to names not declared verbatim on both boards (a shared name is
+    its own key); flat_hierarchy then lists 56 single-pad nets per side and 4 `slash` nets, RoyalBlue none.
 
 - [ ] 1.4 Fidelity finding (not geometry), from the flat_hierarchy replay: the build spells single-pad nets
   `unconnected-(J1-1-Pad1)` where the 9.0.9.1 source has `unconnected-(J1-Pad1)` (the pad's pin name is
@@ -92,6 +116,17 @@
   writer should keep the source's spelling for an imported board, or whether KiCad 9 and 10 name these
   nets differently, citing the public KiCad sources that show it; record the fact in
   `docs/formats/kicad/` with its source and evidence label before any writer change.
+  - 2026-11-05 checked (coordinator asked to start): KiCad 9 and 10 name these nets alike; the source's
+    spelling is KiCad's own, and the build's board disagrees with KiCad's netlist of the build's own generated
+    schematic: `pcb drc --schematic-parity` (10.0.6) on the built flat_hierarchy reports 67 `net_conflict`.
+    (a) KiCad's default pin net name carries the pin name only when it is not empty and differs from the pin
+    number (S-1490, `eeschema/sch_pin.cpp` at 9.0.9.1 and 10.0.6, read for facts only); new authored probe
+    `sch-unconnected-samename` is `absent` (name left out) on 9.0.9 (pinned image) and 10.0.6, while
+    `netnames.unconnected_name` writes `J1-1-Pad1`: 56 nets here, exactly the pins named like their number.
+    Fact row in `docs/formats/kicad/schematic.md`, probe ledgers, H-K-SCH-UNCONNECTED note. (b) the board
+    writer writes every `/` of a created net as `{slash}`, also in a sheet-path name (`/pic_programmer/VPP_ON`)
+    that KiCad's netlist of the generated hierarchical sheet keeps with `/` (4 nets, 11 pads). Writer fixes
+    (a) and (b) wait for the coordinator's decision; nothing in the writer changed.
 
 ## 2. One focused approved implementation
 
