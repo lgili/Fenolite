@@ -146,6 +146,10 @@
   actual required library CI/publication and release gates remain open.
   Task 4.3 is not checked by this local schema-audit result.
 
+  Local 2026-11-04, library `c58cdf2`, local stand-in runner for the `run:` steps of `check.yml` (act is not installed; KiCad 10.0.6 CLI, Python 3.12, core `e7673c81` in a clean venv), library branch `cac/library-completion`: the `blocks` job (record-file check, version
+  rules, usage builds and tests, import graph, no side effects) and the root `audit` exit 0 with the
+  `FenoliteBlocks:resistor_link` item. Open: the library's pull request on GitHub (nothing pushed).
+
 ## 5. Closing
 
 - [x] 5.1 Run `uv run pytest tests/residue -q` and update evidence labels. Proof:

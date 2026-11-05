@@ -59,6 +59,11 @@ All notable changes to Fenolite are documented here. The format follows
   operation's gate is off. Part J phase B (`written/`, `faults/`, `expected-b.md`) is built from the
   saved phase A files. The edit observations of the phase A run (S-1420) are recorded `INFERRED` in
   `docs/formats/altium/pcb-document.md`; task 1.2 and the native phase B run stay with the maintainer.
+- `library review --accept` of a device record stores the digest of the record as written (c0266, task 6.2): a device keeps its evidence in two places and only one was updated, so a seeded device accepted on a later day was refused by the library audit as unreviewed.
+
+- Review sheets no longer change with the Python version (c0266, task 6.1): the packed scenes of a page are gzipped with a fixed header (operating system 255, as Python 3.13 writes it), so a `sheet_sha256` accepted on one interpreter stays fresh on 3.11, 3.12 and Windows.
+
+- Fenolite's optional nightly job `library-bench` and `tools/library_bench.py` benchmark three boards of the newest fenolite-library release with the head of `dev`; the release job compares the shipped licence list with the library's `licences.toml` before it builds (c0279, tasks 3.2 and 4.4).
 
 - Archive c0170-convert-slots-obstacles: slots and cut-outs in conversions, slotted drills to Altium, generated hole footprints and slot obstacles, with `H-K-CONV-SLOTS` proved in CI (task 3.3).
 

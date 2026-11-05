@@ -1026,6 +1026,10 @@ def review_command(args: argparse.Namespace, ctx: Context) -> Result:
             header = replace(header, evidence=f"CORPUS-VERIFIED (review {entry.date})", reviewed_by=(entry,))
         if item.record is not None:
             record = replace(item.record, header=header)
+            if isinstance(record, records.DeviceRecord):
+                # A device record holds its evidence in the header and in the device; both are written as one
+                # key, so the digest below must see the new value in both (c0266 task 6.2).
+                record = replace(record, device=replace(record.device, evidence=header.evidence))
             if not args.revoke:
                 latest = replace(header.reviewed_by[-1], record_sha256=records.record_digest(record))
                 record = replace(record, header=replace(header, reviewed_by=(latest,)))

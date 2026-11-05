@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+import base64
+import gzip
 import json
 import shutil
 import subprocess
@@ -36,6 +38,19 @@ def test_round_trip(board: Path) -> None:
     assert expand(small)["prims"] == scene["prims"]
     assert unpack(pack(scene))["prims"] == scene["prims"]
     assert _size(small["p1"]) < _size(scene["prims"])
+
+
+def test_packed_bytes_do_not_depend_on_the_interpreter() -> None:
+    """A review sheet embeds packed scenes and its review accepts the sheet's SHA-256 (c0266 6.1): the gzip
+    header is fixed (Python 3.11 and 3.12 wrote the host's operating-system byte, 3.13 writes 255)."""
+    scene = {"prims": [["F.Cu", "s", [1, 2, 3, 4, 5], -1, -1, "track 1"]], "meta": {}}
+    raw = base64.b64decode(pack(scene)[3:])
+    assert raw[:10] == bytes.fromhex("1f8b08000000000002ff")
+    assert raw[9] == 0xFF
+    text = json.dumps(compact(scene), separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+    assert gzip.decompress(raw) == text
+    assert unpack(pack(scene))["prims"] == scene["prims"]
+    assert pack(scene) == pack(json.loads(json.dumps(scene)))
 
 
 def test_unfit_scene_stays_v0() -> None:

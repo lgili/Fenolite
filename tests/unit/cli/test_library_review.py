@@ -228,3 +228,38 @@ def test_accept_plan_refuses_changed_referenced_record(monkeypatch, tmp_path, tr
     code, _, error, _ = run(monkeypatch, tmp_path, *args, "--confirm", "--plan", planned["result"]["plan_id"])
     assert code == 4 and error["code"] == "FEN-4002"
     assert path.read_bytes() == before
+
+
+def test_device_review_on_a_later_day_keeps_its_digest(monkeypatch, tmp_path, nested_tree):
+    """c0266 task 6.2: a device record holds its evidence twice (header and device). A renewed acceptance on
+    another day must store the digest of the record as written, or a record with an origin is refused by
+    every strict read (the library audit) as unreviewed."""
+    from fenolite.catalog import records
+
+    path = nested_tree["device"]
+    origin = 'origin = { library = "Synthetic", version = "1", element = "e1", licence = "CC0-1.0" }\n'
+    text = path.read_text().replace('licence = "CC0-1.0"\n', 'licence = "CC0-1.0"\n' + origin, 1)
+    path.write_text(text.replace('evidence = "INFERRED"', 'evidence = "UNVERIFIED"'))
+    for day in ("2026-11-02", "2026-11-04"):
+        sha = check(monkeypatch, tmp_path, path)[1]["result"]["items"][0]["sheet"]["sha256"]
+        code = run(
+            monkeypatch,
+            tmp_path,
+            "library",
+            "review",
+            str(path),
+            "--accept",
+            "--reviewer",
+            "human-reviewer",
+            "--sheet",
+            sha[:12],
+            "--timestamp",
+            f"{day}T00:00:00Z",
+            "--confirm",
+        )[0]
+        assert code == 0
+        written = path.read_text()
+        assert f'evidence = "CORPUS-VERIFIED (review {day})"' in written
+        record = records.parse_record(written, file=str(path))
+        assert record.header.reviewed_by[-1].record_sha256 == records.record_digest(record)
+        assert check(monkeypatch, tmp_path, path)[1]["result"]["items"][0]["review"]["state"] == "accepted"

@@ -157,3 +157,38 @@ jobs:
             ${{ env.YARDSTICK_OUT }}/record.json
             ${{ env.YARDSTICK_OUT }}/yardstick-run/replies
           retention-days: 90
+
+  library-bench:
+    # A few boards of the newest fenolite-library release, replayed with this Fenolite and proved again
+    # (change c0279, design section 5): tools/library_bench.py picks the three boards with the fewest files and
+    # writes the table of the library's bench.yml. Optional: it never gates a merge, a failing board is kept in
+    # the artefact, and while the library has no release the job records that nothing ran.
+    name: library-bench (newest fenolite-library release, kicad-cli 10.0.6)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    continue-on-error: true
+    container:
+      image: kicad/kicad:10.0.6@sha256:18693567392b80da435f9fa952ce3a3e534c66eb5a6033f5b9c80aa3b19dd3ec
+      options: --user 0
+    env:
+      HOME: /root
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - name: Sync (locked)
+        run: uv sync --locked --extra dev --extra geo
+      - name: kicad-cli version
+        run: |
+          kicad-cli version
+          kicad-cli version | grep -F 10.0.6
+      - name: Benchmark the newest library release
+        run: uv run python tools/library_bench.py --out "$RUNNER_TEMP/library-bench" --boards 3
+      - name: Upload the table and the replies
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-bench
+          path: ${{ runner.temp }}/library-bench
+          retention-days: 90

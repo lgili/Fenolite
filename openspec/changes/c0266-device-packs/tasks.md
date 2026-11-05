@@ -93,6 +93,11 @@ Entry facts (2026-11-01; initial base 8dea6432, resolved prerequisite 7a2f6746):
   `docs/royal-historical-metadata-reconciliation-20261103.json`. That result
   repairs historical Royal metadata only, not its separate fresh L7 findings.
   Actual required external CI/publication remains unproved; task 4.1 stays open.
+  Local 2026-11-04, library `c58cdf2`, local stand-in runner for the `run:` steps of `check.yml` (act is not installed; KiCad 10.0.6 CLI, Python 3.12, core `e7673c81` in a clean venv), library branch `cac/library-completion`: `records`, `regenerate`, `versions` and `origin`
+  exit 0 over the device items, `renders` exit 0. They first failed: `records` on the four LibrePCB sheets
+  (accepted on Python 3.13, the CI runs 3.12: task 6.1), then `audit`/`versions`/`origin` on the device after
+  re-review (task 6.2). The library pins core `e7673c81` and records the maintainer-approved sheet renewal
+  (`docs/librepcb-sheet-renewal-20261104.json`). Open: the library's first pull request on GitHub (nothing pushed).
 - [ ] 4.2 First device items (authored `FenoliteDevices` items and, after review of the run, a seeded LibrePCB set), released by c0279's release job. Proof: `fenolite library audit . --json` exits 0 in the library on the release tag.
 
   Local prerequisites already proved — 2026-11-03: authored FenoliteDevices
@@ -105,6 +110,10 @@ Entry facts (2026-11-01; initial base 8dea6432, resolved prerequisite 7a2f6746):
   root audit on library `5edffa6` exits 0, but it was a local checkout audit,
   not the release-tag proof required here. No release job/tag or required
   external CI success is inferred; task 4.2 remains open.
+
+  Local 2026-11-04: `fenolite library audit . --json` exits 0 on library `c58cdf2` (the commit prepared as
+  `v1.0.0`, not tagged); the release build is reproducible (see c0279 3.3). Open: the tag and release job need
+  the maintainer's approval, and c0279 4.5's board blockers stop `release.yml` first.
 
 ## 5. Closing
 
@@ -174,3 +183,29 @@ Catalog bytes equal the incoming library candidate. All four generators reproduc
 11,993 bytes/154 lines, within the unchanged budget. Static source checks and residue pass. This
 candidate excludes the separately owned c0282 geometry and later CI census changes. Root still owns
 the complete local gate and exact-head CI; no external publication or human review is claimed.
+
+## 6. Cross-version corrections
+
+- [x] 6.1 Make review-sheet bytes independent of the Python version and host: `view.compact.pack` writes
+  its gzip member with a fixed RFC 1952 header (deflate, no flags, time 0, best compression, operating
+  system 255) instead of `gzip.compress(mtime=0)`, whose operating-system byte is zlib's host code (3 on
+  Unix, 10 on Windows) on Python 3.11 and 3.12 and 255 on 3.13. The bytes equal what 3.13 wrote, so sheets
+  accepted on 3.13 keep their hashes. Proof: `uv run pytest tests/unit/view/test_scene_v1.py -q` on Python
+  3.11, 3.12 and 3.13.
+
+  Found 2026-11-04 by the library's `records` job run locally (Python 3.12, the library CI's version): the
+  four LibrePCB reviews were `library.review-stale` with unchanged record digests. The approval-time core
+  99a972bb reproduces the four approved sheet hashes exactly on 3.13 and not on 3.12; the only byte that
+  differs in the embedded `gz:` scenes is header byte 9. Proof passed on 3.11, 3.12 and 3.13 (5 passed
+  each); the new `_gzip` equals `gzip.compress(data, mtime=0)` of 3.13 for empty, short and 128 KiB inputs.
+
+- [x] 6.2 `library review --accept` (and `--revoke`) of a device record updates both places a device record
+  holds its evidence (header and device) before computing the stored `record_sha256`, so the digest is that
+  of the record as written. Proof: `uv run pytest tests/unit/cli/test_library_review.py -q`.
+
+  Found 2026-11-04 by the library's `audit`, `versions` and `origin` jobs after renewing the four LibrePCB
+  reviews: `LibrePCBBaseReview:Resistor_1608__0603_` was refused with `library.provenance-invalid` ("a record
+  with an origin stays UNVERIFIED until a review of its current digest"), while the symbol and footprints
+  passed. The new test (a device with an origin accepted on 2026-11-02 and again on 2026-11-04, each written
+  record parsed strictly) failed before the fix on the first acceptance and passes after it (23 passed in the
+  file; `tests/unit/library/test_audit_devices.py` 9 passed, `tests/unit/cli/test_library_check.py` 12 passed).
