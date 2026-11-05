@@ -1932,12 +1932,13 @@ and the native PDF/output-job flow; these are instructions for a future native s
   copper pads on the Top or Bottom Layer with the mask from the rule. A copy with cut-outs or slots is
   `panel.altium-cutout` (error) while board cut-out regions stay behind `pcbdoc.CUTOUT_REGIONS`. Level:
   `ORACLE-VERIFIED(kicad-cli)` (10.0.6, `H-A-PANEL-FLAT`); Altium's view of it is kit case Q11.
-- **The Embedded Board Array is behind a gate.** `pcbdoc.EMBEDDED_ARRAYS = False`: `--altium-panel embedded`
-  exits 7 (`FEN-7001`, hint `--altium-panel flat`), and so does it with a `.kicad_pcb` board. No public page
-  gives the array's records and no public document of the corpus holds one, so they are measured from the
-  documents the maintainer saves in Altium Designer 26.5 (Part Q of `docs/evidence/altium-pcb.md`, phase A),
-  and the gate opens only when he reports Q7, Q8 and Q9 as passed. Until then nothing about the array is
-  `ALTIUM-VERIFIED`: `H-A-PANEL-RECORD` and `H-A-PANEL-LAYERKIND` are `UNKNOWN`, `H-A-PANEL-KIT` is
-  `INFERRED`. If the stop rules of the change fire, the flattened panel stays what ships.
+- **The Embedded Board Array.** `pcbdoc.EMBEDDED_ARRAYS = True` since Part Q cases Q7, Q8 and Q9
+  (`docs/evidence/altium-pcb.md`) passed in Altium Designer 24.5.2.23 on 2026-11-05 (change c0389, task
+  3.3). A panel of a `.PcbDoc` board with an unturned, unmirrored grid is the array, naming the board by its
+  path relative to the output folder; any other is the flattened panel, and `--altium-panel embedded` then
+  exits 7 (`FEN-7001`, hint `--altium-panel flat`). The records were measured from documents saved in
+  Altium (Part Q, phase A). That was an agent run, so nothing about the array is `ALTIUM-VERIFIED`:
+  `H-A-PANEL-RECORD` and `H-A-PANEL-LAYERKIND` are `UNKNOWN`, `H-A-PANEL-KIT` is `INFERRED`. Limitation:
+  Altium rereads a changed board only after it is restarted (Q8).
 - `mirror=True` of `grid()` is the array's Mirrored property; no form written today holds it (exit 7).
 - The panel's Gerber and NC drill files are Altium's outputs; `fenolite export` does not run Altium.

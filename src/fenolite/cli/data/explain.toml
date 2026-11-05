@@ -4755,8 +4755,8 @@ fix = "Panel the board for KiCad, or remove its cut-outs and slots."
 see = "panel"
 
 ["altium.panel-flattened"]
-meaning = "The Altium panel is written flattened (copies of every item of the board), not as Altium's Embedded Board Array, which waits on the maintainer's kit (pcbdoc.EMBEDDED_ARRAYS). 'message' gives the reason."
-fix = "Nothing to do; Altium can still place an array by hand on the flattened panel."
+meaning = "The Altium panel is written flattened (copies of every item of the board), not as Altium's Embedded Board Array: the board is a .kicad_pcb, the grid is turned or mirrored, the board has no path relative to the output folder, or --altium-panel flat was given. 'message' gives the reason."
+fix = "For the array, build the board with --target altium and panel the .PcbDoc with an unturned, unmirrored grid; otherwise nothing to do."
 see = "panel"
 
 ["panel.output-changed"]

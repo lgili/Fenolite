@@ -265,16 +265,24 @@ fixtures with every pad, track, via, route and score line at the KiCad panel's p
 (`H-A-PANEL-FLAT`). That KiCad reads it is not that Altium opens it: Altium's view of it is case Q11 of the
 kit.
 
-### The Embedded Board Array (behind its gate)
+### The Embedded Board Array
 
-`--altium-panel embedded` asks for the array. It is refused with exit 7 (`FEN-7001`, hint
-`--altium-panel flat`) while `pcbdoc.EMBEDDED_ARRAYS = False`, and for a `.kicad_pcb` board (an array
-references a `.PcbDoc`). The gate is a constant, not an option: it opens only when the maintainer reports
-cases Q7, Q8 and Q9 of Part Q (`docs/evidence/altium-pcb.md`) as passed in Altium Designer 26.5. Until then
-nothing about the array is claimed: its rows are `UNKNOWN` or `INFERRED` (`H-A-PANEL-RECORD`,
-`H-A-PANEL-LAYERKIND`, `H-A-PANEL-KIT`). If the records cannot be tied to what Fenolite sets, the attempt
-stops (the stop rules of the change's design) and the flattened panel stays what ships. An Altium user can
-still place an array by hand on the board.
+`--altium-panel auto` (the default) and `embedded` write the array when the board is a `.PcbDoc` and the
+grid is neither turned nor mirrored: `<name>.PcbDoc` holds the panel's own items and one array that names
+the board by its path relative to the output folder, and the board is not copied. Otherwise `auto` writes
+the flattened panel with `altium.panel-flattened` naming the reason, and `embedded` is refused with exit 7
+(`FEN-7001`, hint `--altium-panel flat`): a `.kicad_pcb` board (an array references a `.PcbDoc`), a turned
+or mirrored grid (Part Q measured neither), or a board on another drive.
+
+The gate `pcbdoc.EMBEDDED_ARRAYS` is on since cases Q7, Q8 and Q9 of Part Q (`docs/evidence/altium-pcb.md`)
+passed in Altium Designer 24.5.2.23 on 2026-11-05 (change c0389, task 3.3). That was an agent run, so the
+rows keep their levels (`H-A-PANEL-RECORD`, `H-A-PANEL-LAYERKIND`, `H-A-PANEL-KIT`) and nothing about the
+array is `ALTIUM-VERIFIED`.
+
+**Limitation.** Altium rereads a changed board only after it is restarted. Reopening the panel in the same
+session keeps the old copies (Q8). Restart Altium after you rebuild the board, before the panel's outputs.
+The separate plated and non-plated drill files and the `V-Cut` Gerber are output settings of Altium, not
+of the document: turn them on in NC Drill Setup and Gerber Setup (Q9).
 
 The outputs of an Altium panel (Gerber, NC drill) are Altium's: `fenolite export` does not run Altium.
 

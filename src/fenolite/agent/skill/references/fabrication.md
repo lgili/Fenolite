@@ -199,7 +199,10 @@ fenolite panel blink_panel.py --out panel --target 10 --dry-run --json
 fenolite panel blink_panel.py --out panel --target 10 --confirm --json
 ```
 
-- `--target` is the major the board was built for, or `altium` (a flattened panel document).
+- `--target` is the major the board was built for, or `altium`. With a `.PcbDoc` board and an unturned,
+  unmirrored grid, `altium` writes Altium's Embedded Board Array, which references the board by a relative
+  path; otherwise a flattened panel document (`altium.panel-flattened` says why). Altium rereads a changed
+  board only after it is restarted: reopening the panel keeps the old copies.
 - The checks run first: `panel.vscore-copper`, `panel.tab-copper`, `panel.gap` and the other `panel.*`
   errors plan no write (exit 5). Their limits cite public fabricator figures; `Panel(limits={...})` takes
   your fabricator's. `fenolite explain <code>` gives each fix.

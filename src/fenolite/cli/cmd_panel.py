@@ -42,6 +42,8 @@ EVIDENCE_KICAD = panel_build.EVIDENCE
 """A KiCad panel board: loaded, drilled and net-checked by kicad-cli 9.0.9 and 10.0.6 (task 4.2)."""
 EVIDENCE_FLAT = panel_build.EVIDENCE_FLAT
 """A flattened Altium panel: imported by kicad-cli 10.0.6 at the KiCad panel's places (task 6.2)."""
+EVIDENCE_EMBEDDED = panel_build.EVIDENCE_EMBEDDED
+"""An Altium panel with an Embedded Board Array: Part Q's rows, at their register levels (c0389, task 3.3)."""
 EXAMPLE_PANEL = str(Path(fenolite.__file__).resolve().parents[2] / "tests/data/panels/tabs.py")
 EXAMPLE_OUT = "fenolite-panel"
 KINDS = {
@@ -198,7 +200,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             hint="drop mirror=True",
         )
     out = _absolute(args.out, ctx)
-    output = _output(model, source, args)
+    output = _output(model, source, out, args)
     issues: list[Issue] = [*output.issues, *output.notes]
     files = dict(output.files)
     if files and not args.discard_layout:
@@ -233,20 +235,18 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     )
 
 
-def _output(model: Any, source: Path, args: argparse.Namespace) -> PanelOutput:
-    from fenolite.backends.altium.pcbdoc import EMBEDDED_ARRAYS
-    from fenolite.panel.build import altium_panel, kicad_panel
+def _output(model: Any, source: Path, out: Path, args: argparse.Namespace) -> PanelOutput:
+    from fenolite.panel.build import EmbeddedRefused, altium_panel, kicad_panel
 
     if args.target == "altium":
-        if args.altium_panel == "embedded" and (not EMBEDDED_ARRAYS or source.suffix.lower() != ".pcbdoc"):
-            reason = (
-                "the Embedded Board Array waits on the maintainer's kit (pcbdoc.EMBEDDED_ARRAYS is off)"
-                if not EMBEDDED_ARRAYS
-                else "an Embedded Board Array references a .PcbDoc, and the board is a .kicad_pcb"
-            )
-            raise CliError("FEN-7001", reason, where="--altium-panel", hint="use --altium-panel flat")
         try:
-            return altium_panel(model, source, pour=args.altium_pour)
+            return altium_panel(
+                model, source, pour=args.altium_pour, out=out, form=args.altium_panel or "auto"
+            )
+        except EmbeddedRefused as error:
+            raise CliError(
+                "FEN-7001", str(error), where="--altium-panel", hint="use --altium-panel flat"
+            ) from error
         except BackendUnavailable as error:
             raise CliError(
                 "FEN-6001",
@@ -269,6 +269,8 @@ def _output(model: Any, source: Path, args: argparse.Namespace) -> PanelOutput:
 def _evidence(output: PanelOutput) -> Evidence:
     if output.form == "kicad":
         return EVIDENCE_KICAD
+    if output.form == "embedded":
+        return EVIDENCE_EMBEDDED
     summary = output.pour.pour if output.pour is not None else None
     if summary is not None and summary.poured:
         return Evidence.combine(EVIDENCE_FLAT, summary.evidence)

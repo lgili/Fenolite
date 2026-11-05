@@ -95,12 +95,13 @@ cut-out regions (change c0168, Decision 5). False until the maintainer's kit cas
 (``docs/evidence/altium-pcb.md``) are reported as passed: until then each cut-out is reported with
 ``altium.not-lowered`` and counted under ``cutout``. A constant, not an option: no user writes an
 unconfirmed form (open question 4)."""
-EMBEDDED_ARRAYS: Final = False
+EMBEDDED_ARRAYS: Final = True
 """Whether ``fenolite panel --target altium`` writes Altium's Embedded Board Array (change c0173, Decision 8).
-False until the maintainer's kit cases Q7, Q8 and Q9 of Part Q (``docs/evidence/altium-pcb.md``) are
-reported as passed: until then every Altium panel is the flattened one, and ``--altium-panel embedded`` is
-refused (exit 7). A constant, not an option: no user writes an unconfirmed form. Release 0.5.0 waits on it
-(the maintainer's decision of 2026-10-16)."""
+True since Part Q cases Q7, Q8 and Q9 (``docs/evidence/altium-pcb.md``) passed in Altium Designer 24.5.2.23
+on 2026-11-05 (S-1585, S-1593; change c0389, task 3.3): a panel of a ``.PcbDoc`` board with an unturned,
+unmirrored grid is the array that references the board (``panel.build.embedded_reason``); any other Altium
+panel is the flattened one. Altium rereads a changed board only after it is restarted (Q8). A constant,
+not an option: no user writes an unconfirmed form."""
 COPPER_STORAGES: tuple[str, ...] = ("Vias6", "Polygons6", "Classes6", "Rules6")
 """Storages of the copper (change c0038): ``Header`` is the record count, and ``Data`` is empty when the
 spec holds no such object."""
@@ -283,10 +284,9 @@ for KiCad's importer and for the author. ``H-A-SLOT-PAD`` and ``H-A-CUTOUT-REGIO
 the board cut-out region of change c0168, measured with KiCad's importer; ``H-A-SLOT-KIT`` is the
 maintainer's Part S, which decides ``CUTOUT_REGIONS``. ``H-A-PANEL-FLAT`` is the flattened panel document of
 change c0173, measured with KiCad's importer; ``H-A-PANEL-KIT`` is the maintainer's Part Q, which decides
-``EMBEDDED_ARRAYS``. ``H-A-PANEL-RECORD`` and ``H-A-PANEL-LAYERKIND`` keep their register levels until the
-maintainer's report of Part Q: the array's record is written by ``pcbrecords.embedded_board_array`` from an
-agent's phase A files (S-1422, ``INFERRED`` rows) behind the gate, and no build writes it, so they are not
-named here."""
+``EMBEDDED_ARRAYS``. ``H-A-PANEL-RECORD`` and ``H-A-PANEL-LAYERKIND`` are named by the panel's own evidence
+(``panel.build.EVIDENCE_EMBEDDED``): the array's record is written by ``pcbrecords.embedded_board_array``
+only for a panel, never for a board, so they are not named here."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -579,9 +579,9 @@ class PcbDocSpec:
     (``H-A-PCBX-BODY-SHORT``); no command and no option of a build selects it."""
     embedded_arrays: tuple[bytes, ...] = ()
     """The Embedded Board Array records of ``EmbeddedBoards6`` (``pcbrecords.embedded_board_array``, change
-    c0173, task 7.2), each in the document's own units. Empty for every build and for every panel while
-    ``EMBEDDED_ARRAYS`` is false: the storage then has ``Header`` 0 and an empty ``Data``; the kit of Part Q
-    phase B fills it with the gate forced on."""
+    c0173, task 7.2), each in the document's own units. Empty for every build and for a flattened panel:
+    the storage then has ``Header`` 0 and an empty ``Data``; ``panel.altium.embedded_files`` fills it when
+    ``EMBEDDED_ARRAYS`` is true."""
     connect_styles: tuple[tuple[Field, ...], ...] = ()
     """The Polygon Connect Style records of a document that was read (the board's ``polygon_connect``
     pairs, change c0215), each its keys from ``RULEKIND`` on. A computed pour writes them back when every

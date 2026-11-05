@@ -63,7 +63,10 @@ def test_error_findings_plan_no_write(tmp_path: Path) -> None:
     assert _plan(env, out) == []
 
 
-def test_embedded_form_while_the_gate_is_off(tmp_path: Path) -> None:
+def test_embedded_form_while_the_gate_is_off(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from fenolite.backends.altium import pcbdoc
+
+    monkeypatch.setattr(pcbdoc, "EMBEDDED_ARRAYS", False)
     out = tmp_path / "P"
     args = (
         "panel",
@@ -76,7 +79,25 @@ def test_embedded_form_while_the_gate_is_off(tmp_path: Path) -> None:
         "embedded",
     )
     code, _, err = run(*args, "--dry-run")
-    assert code == 7 and "FEN-7001" in err and "--altium-panel flat" in err
+    assert code == 7 and "FEN-7001" in err and "--altium-panel flat" in err and "EMBEDDED_ARRAYS" in err
+    assert not out.exists()
+
+
+def test_embedded_form_of_a_kicad_board(tmp_path: Path) -> None:
+    """An Embedded Board Array references a ``.PcbDoc``: the array of a ``.kicad_pcb`` board is refused."""
+    out = tmp_path / "P"
+    args = (
+        "panel",
+        str(PANELS / "tabs.py"),
+        "--out",
+        str(out),
+        "--target",
+        "altium",
+        "--altium-panel",
+        "embedded",
+    )
+    code, _, err = run(*args, "--dry-run")
+    assert code == 7 and "FEN-7001" in err and ".kicad_pcb" in err
     assert not out.exists()
 
 

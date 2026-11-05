@@ -5,6 +5,7 @@ change c0173, task 7.2; ``H-A-PANEL-RECORD``, ``INFERRED`` from Part Q phase A, 
 
 from __future__ import annotations
 
+import os
 import struct
 from functools import cache
 from pathlib import Path
@@ -135,10 +136,10 @@ def test_array_refuses_mirror_and_turns(board: Path) -> None:
         array_record(layout(model, design), DOCUMENT)
 
 
-def test_gate_off(tmp_path: Path) -> None:
+def test_gate_off(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Scenario "Gate off": with ``EMBEDDED_ARRAYS`` false, ``--altium-panel auto`` writes the flattened
     panel, whose ``EmbeddedBoards6`` has ``Header`` 0 and an empty ``Data``."""
-    assert pcbdoc.EMBEDDED_ARRAYS is False
+    monkeypatch.setattr(pcbdoc, "EMBEDDED_ARRAYS", False)
     out = tmp_path / "out"
     code, envelope, err = run(
         "panel", str(PANELS / "tabs.py"), "--out", str(out), "--target", "altium", "--altium-panel", "auto",
@@ -149,3 +150,65 @@ def test_gate_off(tmp_path: Path) -> None:
     assert compound.read("EmbeddedBoards6/Header") == struct.pack("<I", 0)
     assert compound.read("EmbeddedBoards6/Data") == b""
     assert "altium.panel-flattened" in str(envelope)
+    assert "EMBEDDED_ARRAYS is off" in str(envelope)
+
+
+def test_gate_is_on() -> None:
+    """Part Q cases Q7, Q8 and Q9 passed in Altium Designer 24.5.2.23 (change c0389, task 3.3); the report
+    is checked by ``test_part_q_gate_follows_the_report``."""
+    assert pcbdoc.EMBEDDED_ARRAYS is True
+
+
+def _script(folder: Path, board: Path, *, grid: str = "2, 2, gap=mm(2)") -> Path:
+    folder.mkdir(parents=True, exist_ok=True)
+    script = folder / "panel.py"
+    board_path = Path(os.path.relpath(board, folder)).as_posix()
+    script.write_text(
+        "from fenolite.dsl import Panel, mm\n\n"
+        f'panel = Panel("panel", board="{board_path}")\n'
+        f"panel.grid({grid})\n"
+        'panel.separate("tabs", between="columns")\n',
+        encoding="utf-8",
+    )
+    return script
+
+
+def test_auto_writes_the_array_of_a_pcbdoc(board: Path, tmp_path: Path) -> None:
+    """With the gate on, ``--altium-panel auto`` over a ``.PcbDoc`` board writes the panel document with one
+    array that names the board by its path relative to the output folder, and copies no board."""
+    before = board.read_bytes()
+    script = _script(tmp_path / "S", board)
+    out = tmp_path / "P"
+    code, envelope, err = run(
+        "panel", str(script), "--out", str(out), "--target", "altium", "--confirm", "--no-backup"
+    )  # fmt: skip
+    assert code == 0, (envelope.get("issues"), err)
+    assert "altium.panel-flattened" not in str(envelope)
+    result = envelope["result"]
+    assert isinstance(result, dict) and result["panel"]["form"] == "embedded", result
+    evidence = envelope["evidence"]
+    assert isinstance(evidence, dict) and "H-A-PANEL-KIT" in str(evidence), evidence
+    assert {p.name for p in out.iterdir() if p.is_file()} >= {"panel.PcbDoc", "panel.PrjPcb"}
+    assert not (out / "board.PcbDoc").exists()
+    count, (found,) = records((out / "panel.PcbDoc").read_bytes())
+    document = Path(os.path.relpath(board, out)).as_posix()
+    assert count == 1 and found.get("DOCUMENTPATH") == document
+    assert (found.get("ROWCOUNT"), found.get("COLCOUNT")) == ("2", "2")
+    assert (out / document).resolve() == board.resolve()
+    assert board.read_bytes() == before
+
+
+def test_turned_or_mirrored_grids_fall_back(board: Path, tmp_path: Path) -> None:
+    """A turned or mirrored grid is no array: ``auto`` writes the flattened panel and says why, and
+    ``embedded`` is refused with ``FEN-7001`` (exit 7)."""
+    script = _script(tmp_path / "S", board, grid="2, 2, gap=mm(2), rot=90")
+    out = tmp_path / "P"
+    code, envelope, err = run("panel", str(script), "--out", str(out), "--target", "altium", "--dry-run")
+    assert code == 0, (envelope.get("issues"), err)
+    assert "turned or mirrored" in str(envelope) and "altium.panel-flattened" in str(envelope)
+    embedded = ("--target", "altium", "--altium-panel", "embedded", "--dry-run")
+    code, _, err = run("panel", str(script), "--out", str(out), *embedded)
+    assert code == 7 and "FEN-7001" in err and "--altium-panel flat" in err
+    mirrored = _script(tmp_path / "M", board, grid="2, 2, gap=mm(2), mirror=True")
+    code, _, err = run("panel", str(mirrored), "--out", str(out), *embedded)
+    assert code == 7 and "FEN-7001" in err

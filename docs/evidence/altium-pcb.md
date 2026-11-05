@@ -664,9 +664,11 @@ measures them by observation: the maintainer makes panels of a board built by Fe
 Altium Designer 26.5 and saves one document per variant, each differing from the baseline by one
 property; Fenolite reads the saved files with its own reader (`fenolite diff A B --view records`, and a
 dump of the opaque `EmbeddedBoards6` stream). Phase B (after task 7.2) asks Altium to open what Fenolite
-writes. Releases write no array until Q7, Q8 and Q9 pass (`pcbdoc.EMBEDDED_ARRAYS`), and release 0.5.0
-waits on them (the maintainer's decision of 2026-10-16); if the stop rules of the design end the array
-work, the flattened panel is what ships.
+writes. Releases wrote no array until Q7, Q8 and Q9 passed (`pcbdoc.EMBEDDED_ARRAYS`, the maintainer's
+decision of 2026-10-16). They passed in Altium Designer 24.5.2.23 on 2026-11-05 (S-1585, S-1593), and the
+gate is on (change c0389, task 3.3): a panel of a `.PcbDoc` board with an unturned, unmirrored grid is
+written as the array. **Limitation:** Altium rereads a changed board only after it is restarted;
+reopening the panel in the same session keeps the old copies (Q8).
 
 **Files of phase A.** Built outside the repository by `FENOLITE_ALTIUM_PART_Q=~/fenolite-altium-checks/session-6/Q-panels
 uv run pytest tests/unit/backends/altium/test_part_q.py -k phase_a`: `board/`, the fixture
@@ -704,12 +706,16 @@ Work on a copy of the folder. For each case report `as expected` or what differe
 7. **Q7** Open `written/panel.PrjPcb` and `panel.PcbDoc`. Expected: no repair message; one array of
    `board.PcbDoc`, 2 × 2, with the properties of `expected.md`.
 8. **Q8** Move one track of `board.PcbDoc`, save, return to `panel.PcbDoc` and refresh (or reopen).
-   Expected: all four copies show the move. Then select the two mechanical layers. Expected: types V Cut
+   Expected: all four copies show the move. A restart of Altium counts as the reopen (coordinator's
+   decision of 2026-11-05): Altium rereads a changed board only after it is restarted. Then select the two mechanical layers. Expected: types V Cut
    and Route Tool Path when task 7.2 writes them, otherwise unassigned with the names `V-Cut` and
    `Route Tool Path`.
-9. **Q9** Gerber Files and NC Drill Files of `written/panel.PcbDoc` with their defaults. Expected: four
-   copies; the mouse-bite and tooling holes in the non-plated drill file; the `V-Cut` layer in its own
-   Gerber file.
+9. **Q9** Gerber Files and NC Drill Files of `written/panel.PcbDoc`, with NC Drill Setup's "Generate
+   separate NC Drill files for plated & non-plated holes" on and the `V-Cut` layer ticked in Gerber Setup.
+   Expected: four copies; the mouse-bite and tooling holes in the non-plated drill file; the `V-Cut` layer
+   in its own Gerber file. Note (2026-11-05): the coordinator's decision, by the maintainer's delegation,
+   turns both options on, because neither is stored in the PCB document (S-1593); the first text asked for
+   the defaults.
 10. **Q10** **Tools » Design Rule Check** on `written/panel.PcbDoc`. Expected: report every message; none
     is expected to block the outputs.
 11. **Q11** Open `flat/panel.PcbDoc` (the flattened panel), run Q9 and Q10 on it. Expected: it opens
@@ -887,9 +893,20 @@ about `X`. `panel-link` gives the same hits as `panel-a`, because the fixture bo
 bottom-left corner. Copper and silkscreen start more than 5 mm inside that corner, so the reference is not
 the bottom-left of those objects.
 
-`H-A-PANEL-RECORD`, `H-A-PANEL-LAYERKIND` and `H-A-PANEL-KIT` keep their levels. `EMBEDDED_ARRAYS` stays
-`False`: Q9 with defaults gives one drill file and no `V-Cut` Gerber, and Q8 needs a restart. The saved files
-and outputs stay in the agent's folder `claude-2026-11-05/rounds/`, outside the repository.
+Judged by the coordinator's decision of 2026-11-05, given by the maintainer's delegation: a restart
+counts as Q8's reopen, and Q9 is judged with the separate drill files and the `V-Cut` Gerber on, because
+those options are not stored in the PCB document. Both observations of each case stay recorded.
+
+| case | expected | observed | result |
+|---|---|---|---|
+| Q7 | opens with no repair message; one 2 × 2 array of `board.PcbDoc` as `expected.md` | as S-1585: no message, one 2 × 2 array of `../board/board.PcbDoc` with the properties of `expected.md` | as expected |
+| Q8 | after a saved move in `board.PcbDoc` and a reopen (a restart counts), all four copies show it | within one session, closing and reopening the panel keeps the old track; after Altium is restarted, all four copies show the move | as expected |
+| Q9 | with the separate drill files and `V-Cut` on: four copies; the mouse-bite and tooling holes in the non-plated drill file; `V-Cut` in its own Gerber | with defaults, one drill file `panel.TXT` and no `V-Cut` Gerber (partial, as S-1585); with the options on, `panel-Plated.TXT` holds 4 × 0.3 mm and 8 × 0.9 mm, `panel-NonPlated.TXT` holds 40 × 0.6 mm and 4 × 3.0 mm, and `panel.GM2` holds the 2 rail score lines | as expected |
+
+With Q7, Q8 and Q9 as expected, `EMBEDDED_ARRAYS` is set to `True` (change c0389, task 3.3). Limitation:
+Altium rereads a changed board only after it is restarted. `H-A-PANEL-RECORD`, `H-A-PANEL-LAYERKIND` and
+`H-A-PANEL-KIT` keep their levels, because this was an agent run. The saved files and outputs stay in the
+agent's folder `claude-2026-11-05/rounds/`, outside the repository.
 
 ### 2026-11-05, actual `AD24.5.2.23`, Parts D and C, step X8.6 and the long via (source S-1601)
 

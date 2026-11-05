@@ -14,8 +14,8 @@ Embedded Board Array"; change c0173, task 2.3; ``H-A-PANEL-RECORD``, ``H-A-PANEL
 ``phase_b(folder)`` writes phase B (task 7.3) beside it, from the same ``board/``:
 
 - ``written/``: ``panel.PcbDoc`` and ``panel.PrjPcb``, the panel's own items and one Embedded Board Array of
-  ``../board/board.PcbDoc`` (``panel.altium.embedded_files``), the gate ``pcbdoc.EMBEDDED_ARRAYS`` forced on
-  for the kit only: no release and no command writes it;
+  ``../board/board.PcbDoc`` (``panel.altium.embedded_files``), written as the kit was before
+  ``pcbdoc.EMBEDDED_ARRAYS`` was set (change c0389, task 3.3), with the gate forced on for the kit;
 - ``flat/``: the flattened panel of the same script (``panel.altium_panel``);
 - ``expected.md``: the array's properties and the cases Q7 to Q12, and ``SHA256SUMS`` again.
 
@@ -35,7 +35,6 @@ from pathlib import Path
 import pytest
 from _panels import PANELS, build_board, committed_board
 
-from fenolite.backends.altium import pcbdoc
 from fenolite.backends.altium import pcbrecords as rec
 from fenolite.backends.altium.read.cfb import open_compound
 from fenolite.backends.altium.read.pcb import read_pcbdoc
@@ -233,7 +232,6 @@ def test_phase_b_kit(tmp_path: Path) -> None:
     if HANDOVER:
         assert ROOT not in folder.resolve().parents, "the kit is written outside the repository"
     folder.mkdir(parents=True, exist_ok=True)
-    assert pcbdoc.EMBEDDED_ARRAYS is False, "phase B forces the gate for the kit only"
     sums = phase_b(folder)
     assert {"written/panel.PcbDoc", "written/panel.PrjPcb", "flat/panel.PcbDoc", "expected.md"} <= set(sums)
     lines = (folder / "SHA256SUMS").read_text(encoding="utf-8").splitlines()

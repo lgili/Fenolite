@@ -4587,9 +4587,10 @@ fiducials and tooling holes (change c0173; `docs/panels.md`). `PANEL.py` is a pa
   major. `--target altium`: `<name>.PcbDoc` and `<name>.PrjPcb` holding the panel document alone. Both write
   `<name>.panel.json`, the model panel (schema `schemas/fenolite.model.v0/panel.json`).
 - **The Altium form.** `--altium-panel auto` (default) writes Altium's Embedded Board Array when
-  `pcbdoc.EMBEDDED_ARRAYS` is true and the source is a `.PcbDoc`, otherwise the flattened panel with one
-  `altium.panel-flattened` info naming the reason. `embedded` while the gate is off, or with a `.kicad_pcb`
-  source, is exit 7 (`FEN-7001`); so is `mirror=True` for any flattened form. `--altium-pour` is the pour
+  `pcbdoc.EMBEDDED_ARRAYS` is true (it is, since change c0389), the source is a `.PcbDoc` with a path
+  relative to `DIR`, and the grid is neither turned nor mirrored; otherwise the flattened panel with one
+  `altium.panel-flattened` info naming the reason. `embedded` in any of those other cases is exit 7
+  (`FEN-7001`); so is `mirror=True` for any flattened form. `result.panel.form` is `embedded` or `flat`. `--altium-pour` is the pour
   mode of a flattened panel's document, as for `build` (change c0215), and `result.panel.pour` says what it
   did; exit 6 for an explicit `computed` without the `geo` extra.
 - **Writes.** `--dry-run` plans every file under `DIR`; `--confirm` writes them all or none, with

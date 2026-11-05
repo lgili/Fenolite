@@ -105,7 +105,9 @@ def test_panel_project_files(tmp_path: Path) -> None:
     )
     (tmp_path / "S" / "board.PcbDoc").unlink()
     out = tmp_path / "P"
-    code, envelope, err = run("panel", str(script), "--out", str(out), "--target", "altium", "--confirm")
+    code, envelope, err = run(
+        "panel", str(script), "--out", str(out), "--target", "altium", "--altium-panel", "flat", "--confirm"
+    )
     assert code == 0, err
     assert (out / "tabs.PcbDoc").is_file() and (out / "tabs.PrjPcb").is_file()
     project = (out / "tabs.PrjPcb").read_text(encoding="ascii")

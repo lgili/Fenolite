@@ -342,9 +342,9 @@ def embedded_files(
     """``<name>.PcbDoc`` and ``<name>.PrjPcb`` of the panel as an Embedded Board Array of ``document`` (a
     path relative to the panel document): the panel's own items of ``flat_files`` (the rectangle, the
     routed gaps, the score lines, the holes and the fiducials) and one array record, no copy of the board
-    (``H-A-PANEL-RECORD``). The caller holds the gate: ``pcbdoc.EMBEDDED_ARRAYS``, or the kit of Part Q
-    phase B with the gate forced on for the kit only. Pours are written as outlines. ``ValueError`` for a
-    mirrored or turned array (no file of phase A shows how its copies lie)."""
+    (``H-A-PANEL-RECORD``). The caller holds the gate: ``pcbdoc.EMBEDDED_ARRAYS``
+    (``panel.build.altium_panel``), or the kit of Part Q phase B. Pours are written as outlines.
+    ``ValueError`` for a mirrored or turned array (no file of phase A shows how its copies lie)."""
     if panel.array.mirrored:
         raise ValueError("a mirrored array is not written as an Embedded Board Array")
     design, issues = panel_design(panel, dataclasses.replace(laid, copies=()), board_design)
