@@ -148,6 +148,39 @@ run, and in this run they are skipped: they also name steps of the other samples
 K1.8 and K2.1 to K2.5, plus K3.1 and K3.2 for `H-A-KIT-COMPILE` and K6.1 for `H-A-KIT-RESAVE`. The earlier
 runs that passed them used other kit digests. Restoring them needs those steps on the current kit.
 
+## One-run rerun of 2026-11-05 (c0389, after task 2.7)
+
+A Claude agent reran kit steps K1.1 to K1.8, K2.1 to K2.5, K3.1, K3.2, K5.1 and K6.1 in one run at the
+maintainer's request (delegation of 2026-11-04), relayed by the coordinator. It used Altium Designer
+24.5.2.23 (Trial) in the maintainer's Parallels Windows VM (S-1608). The run is recorded as
+`2026-11-05-074713b5.json`. The kit was the one of the board6 rerun above (built at `cdf2f84c`, digest
+`14c30ba1…`), copied again with empty `results/` and no `results/script.log`.
+
+- K1.1 to K1.7: `flat.SchDoc`, `flat.PcbDoc`, `libs.SchLib`, `libs.PcbLib`, the project `flat.PrjPcb`, the
+  ASCII `flat.SchDoc` and the four sheets of `tree` were saved with File » Save As or File » Save Project
+  As into `results/`. Altium offered the document's own format first and no other type was chosen. Each
+  project was closed with Don't Save.
+- K1.8 = false: no repair prompt, upgrade prompt or error dialog came up while these documents were opened
+  or saved. The only dialog was "Unsaved Changes" when a project was closed after Save As.
+- K2.1 to K2.5: `FenoliteKitRun` from File » Run Script, once per sample with its project focused. No error
+  dialog came up, and `script.log` holds `K2.1 done` to `K2.5 done`. Each `messages.txt` reports "Compile
+  successful, no errors found". `tree` also reports two warnings of nets with no driving source.
+- K3.1: a new PCB was added to `flat` and saved as `results/flat/eco.PcbDoc`. Design » Update PCB Document
+  listed 12 changes (four components, four nets, one component class, one net class and two rules). All
+  of them validated, they were executed with no dialog, and the document was saved. K3.2 = 0.
+- K5.1: `board6.PcbDoc` was saved as `results/board6/board6.PcbDoc`.
+- K6.1: Tools » Polygon Pours » Repour All on `routed.PcbDoc`. An authored read-only DelphiScript counted
+  0 poured regions in the polygon `GND_L02_P000` (Bottom Layer, `GND`) before the repour and 1 after it.
+  The document was saved as `results/routed/routed.PcbDoc`.
+
+`kit verify` exits 0: these 17 steps pass and the other 33 are skipped. The privacy scan finds the VM work
+folder in the saved boards and library, and a Windows home folder in `eco.PcbDoc`. The archive is not
+published. `kit record --confirm` decides 14 rows. It restores the five rows that the board6 rerun left at
+`INFERRED`: `H-A-WRITE-PCBDOC`, `H-A-PH-NO-CACHE`, `H-A-KIT-RESAVE`, `H-A-KIT-COMPILE` and
+`H-A-KIT-SCRIPT`. The other nine rows already hold the level of run `2026-11-05-e28d0bb1`, and the register
+keeps it. The archive (`074713b5…`, 1099794 bytes) stays in local storage, unpublished. Altium added
+`.PrjPcbStructure` files, a `History` folder and a project log in the VM copy, outside the verified folder.
+
 ## Author report of 2026-10-07 (opening only)
 
 On 2026-10-07 the author reported that the projects of the kit built from `5adad054` opened in Altium

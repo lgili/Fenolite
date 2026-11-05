@@ -1,0 +1,771 @@
+{
+  "altium_version": "AD 24.5",
+  "archive": {
+    "name": "altium-kit-2026-11-05-074713b5.zip",
+    "sha256": "074713b5cd583dfc2e41eaf81d25b82a8ffeb51bcdff501ab048801a9f3a419c",
+    "size": 1099794
+  },
+  "date": "2026-11-05",
+  "fenolite_version": "0.7.0.dev0",
+  "hypotheses": [
+    {
+      "form": true,
+      "id": "H-A-KIT-COMPILE",
+      "outcome": "pass"
+    },
+    {
+      "form": true,
+      "id": "H-A-KIT-DRC",
+      "outcome": "skipped"
+    },
+    {
+      "form": false,
+      "id": "H-A-KIT-REPOUR",
+      "outcome": "pass"
+    },
+    {
+      "form": false,
+      "id": "H-A-KIT-RESAVE",
+      "outcome": "pass"
+    },
+    {
+      "form": false,
+      "id": "H-A-KIT-SCRIPT",
+      "outcome": "pass"
+    },
+    {
+      "form": true,
+      "id": "H-A-OUTJOB-OPEN",
+      "outcome": "skipped"
+    },
+    {
+      "form": false,
+      "id": "H-A-OUTJOB-RUN",
+      "outcome": "skipped"
+    },
+    {
+      "form": false,
+      "id": "H-A-OUTJOB-RUN-2",
+      "outcome": "skipped"
+    },
+    {
+      "form": true,
+      "id": "H-A-PCBX-KEEPOUT",
+      "outcome": "skipped"
+    },
+    {
+      "form": false,
+      "id": "H-A-PCBX-REPOUR",
+      "outcome": "pass"
+    },
+    {
+      "form": true,
+      "id": "H-A-PCBX-STACK",
+      "outcome": "skipped"
+    },
+    {
+      "form": true,
+      "id": "H-A-PCBX-TEXT",
+      "outcome": "skipped"
+    },
+    {
+      "form": true,
+      "id": "H-A-PCBX-VIASPAN",
+      "outcome": "skipped"
+    },
+    {
+      "form": true,
+      "id": "H-A-PH-CHECKSUM",
+      "outcome": "pass"
+    },
+    {
+      "form": true,
+      "id": "H-A-PH-LAYOUT",
+      "outcome": "pass"
+    },
+    {
+      "form": false,
+      "id": "H-A-PH-NO-CACHE",
+      "outcome": "pass"
+    },
+    {
+      "form": true,
+      "id": "H-A-PH-ZERO-FIELDS",
+      "outcome": "pass"
+    },
+    {
+      "form": false,
+      "id": "H-A-POUR-ARC",
+      "outcome": "skipped"
+    },
+    {
+      "form": false,
+      "id": "H-A-POUR-CLEARANCE",
+      "outcome": "skipped"
+    },
+    {
+      "form": false,
+      "id": "H-A-POUR-CONNECT",
+      "outcome": "skipped"
+    },
+    {
+      "form": false,
+      "id": "H-A-POUR-DEAD",
+      "outcome": "skipped"
+    },
+    {
+      "form": false,
+      "id": "H-A-POUR-EDGE",
+      "outcome": "skipped"
+    },
+    {
+      "form": true,
+      "id": "H-A-POUR-ENGINE",
+      "outcome": "skipped"
+    },
+    {
+      "form": false,
+      "id": "H-A-POUR-ISLAND",
+      "outcome": "skipped"
+    },
+    {
+      "form": false,
+      "id": "H-A-POUR-KEEPOUT",
+      "outcome": "skipped"
+    },
+    {
+      "form": false,
+      "id": "H-A-POUR-KIT",
+      "outcome": "skipped"
+    },
+    {
+      "form": false,
+      "id": "H-A-POUR-NECK",
+      "outcome": "skipped"
+    },
+    {
+      "form": true,
+      "id": "H-A-POUR-OPEN",
+      "outcome": "skipped"
+    },
+    {
+      "form": false,
+      "id": "H-A-POUR-ORDER",
+      "outcome": "skipped"
+    },
+    {
+      "form": false,
+      "id": "H-A-POUR-OVER",
+      "outcome": "skipped"
+    },
+    {
+      "form": true,
+      "id": "H-A-POUR-REGION",
+      "outcome": "skipped"
+    },
+    {
+      "form": false,
+      "id": "H-A-POUR-RELIEF",
+      "outcome": "skipped"
+    },
+    {
+      "form": false,
+      "id": "H-A-POUR-SCRIPT",
+      "outcome": "skipped"
+    },
+    {
+      "form": false,
+      "id": "H-A-POUR-STEPS",
+      "outcome": "skipped"
+    },
+    {
+      "form": false,
+      "id": "H-A-POUR-VIAPAD",
+      "outcome": "skipped"
+    },
+    {
+      "form": false,
+      "id": "H-A-POUR-VOIDROT",
+      "outcome": "skipped"
+    },
+    {
+      "form": true,
+      "id": "H-A-RULE-KINDS",
+      "outcome": "skipped"
+    },
+    {
+      "form": true,
+      "id": "H-A-RULE-SCOPE",
+      "outcome": "skipped"
+    },
+    {
+      "form": false,
+      "id": "H-A-SCHDOT-OPEN",
+      "outcome": "skipped"
+    },
+    {
+      "form": true,
+      "id": "H-A-SCHDOT-STRINGS",
+      "outcome": "skipped"
+    },
+    {
+      "form": true,
+      "id": "H-A-SCHLIB-UPDATE",
+      "outcome": "skipped"
+    },
+    {
+      "form": false,
+      "id": "H-A-SCHX-TREE",
+      "outcome": "pass"
+    },
+    {
+      "form": true,
+      "id": "H-A-SLOT-KIT",
+      "outcome": "skipped"
+    },
+    {
+      "form": true,
+      "id": "H-A-WRITE-PCBDOC",
+      "outcome": "pass"
+    },
+    {
+      "form": true,
+      "id": "H-A-WRITE-PCBLIB",
+      "outcome": "pass"
+    },
+    {
+      "form": true,
+      "id": "H-A-WRITE-SCHDOC",
+      "outcome": "pass"
+    },
+    {
+      "form": true,
+      "id": "H-A-WRITE-SCHLIB",
+      "outcome": "pass"
+    }
+  ],
+  "kit_fenolite_version": "0.7.0.dev0",
+  "kit_resaved": [],
+  "kit_sha256": "14c30ba18cb033c33eab89a275f53fb2a831ed9cbd89b95737734a4ec2234424",
+  "kit_version": 1,
+  "os_family": "Windows",
+  "privacy_findings": 6,
+  "results": [
+    {
+      "path": "results/board6/board6.PcbDoc",
+      "sha256": "bdde7ef93413f64142b7c2771155088af3d33dfb073ec02cb92b175da814d883",
+      "size": 194560
+    },
+    {
+      "path": "results/board6/messages.txt",
+      "sha256": "247524ccb989676559965953d826b3cc63fc96938ac0d1b0e914c2a4b6dabe15",
+      "size": 75
+    },
+    {
+      "path": "results/flat/eco.PcbDoc",
+      "sha256": "12ff4bcac1a7deccd942db2b68c9d18f9ae40ee4140cee952edca9655fd2b9e0",
+      "size": 176128
+    },
+    {
+      "path": "results/flat/flat.PcbDoc",
+      "sha256": "0d684fc54d8b20f591010cac2dcb3088a8b668ccc4b2fe0aa612d56e0135d55d",
+      "size": 175104
+    },
+    {
+      "path": "results/flat/flat.PrjPcb",
+      "sha256": "00d583ee251243215a859d8bc7f3451f101c1694f65a333d11327818342c5ccb",
+      "size": 31113
+    },
+    {
+      "path": "results/flat/flat.SchDoc",
+      "sha256": "a6dd623e6ec3e10f4355996d97cd87f9239fe33d27bded7dfa7163b0105c7643",
+      "size": 35328
+    },
+    {
+      "path": "results/flat/flat_ascii.SchDoc",
+      "sha256": "c883dff659afb27079459674b71f8c3088b561890575a7abf40b00671530a32f",
+      "size": 35328
+    },
+    {
+      "path": "results/flat/messages.txt",
+      "sha256": "247524ccb989676559965953d826b3cc63fc96938ac0d1b0e914c2a4b6dabe15",
+      "size": 75
+    },
+    {
+      "path": "results/form.json",
+      "sha256": "ee85e17fbf3513b396432d3a4b227c42c20f2bdd9a24e8f0e763703e03f69d3b",
+      "size": 582
+    },
+    {
+      "path": "results/libs/libs.PcbLib",
+      "sha256": "f87b58964a52714c7b8cbf1ff82f993e96cc5802bbd7ff6bd1a88889e015aa19",
+      "size": 133120
+    },
+    {
+      "path": "results/libs/libs.SchLib",
+      "sha256": "8cd18d5477f601bab642b8c6989c7a2e9823bc8dd9d2c1d40c80083eaf4f6d1e",
+      "size": 18432
+    },
+    {
+      "path": "results/libs/messages.txt",
+      "sha256": "247524ccb989676559965953d826b3cc63fc96938ac0d1b0e914c2a4b6dabe15",
+      "size": 75
+    },
+    {
+      "path": "results/routed/messages.txt",
+      "sha256": "247524ccb989676559965953d826b3cc63fc96938ac0d1b0e914c2a4b6dabe15",
+      "size": 75
+    },
+    {
+      "path": "results/routed/routed.PcbDoc",
+      "sha256": "211805360bd6c8a6b95cb19f722ce1043a4675aca8b19b1f465703cfc2259556",
+      "size": 190976
+    },
+    {
+      "path": "results/script.log",
+      "sha256": "9a65083d4eccaf9cc18a4bc1402fd677d852c2d44d31ee978407e6f1ad3391bd",
+      "size": 55
+    },
+    {
+      "path": "results/tree/messages.txt",
+      "sha256": "6e73033b96d4c7be44b7807df40d3a391fa49695fca6d85e84d2a529ed720935",
+      "size": 230
+    },
+    {
+      "path": "results/tree/tree.SchDoc",
+      "sha256": "29def6ff57eb546379290b6f9c2718b7f1e505be2690bac718523e157a9e3f70",
+      "size": 26112
+    },
+    {
+      "path": "results/tree/tree_io.SchDoc",
+      "sha256": "8c8e4fe789093c6995def1807fbd809abdc93b26c881d33360a1a5732d964ca2",
+      "size": 22528
+    },
+    {
+      "path": "results/tree/tree_io.leds.SchDoc",
+      "sha256": "03d345ba398fc4c072d17ae4395bad61c2edbd4bfcb2c511475ed75b9c7dc216",
+      "size": 26112
+    },
+    {
+      "path": "results/tree/tree_power.SchDoc",
+      "sha256": "21530ad464d1ed402e31c8e7d73c6238e75b53f085ce286354892a9989dc0f87",
+      "size": 31232
+    }
+  ],
+  "run_id": "2026-11-05-074713b5",
+  "samples": {
+    "board6": "703f744e550c70fb45d98bd9de99124f1cea66632c9efc010177eb37e934d44e",
+    "flat": "d06a59a54729ffee8f8dda61665b47d79721556b2501b0ba595a09573768f4d7",
+    "libs": "d49ef8ad77b4186de7a7150654290d17351182f4e1bfa23cba9ddff04ec6b8bf",
+    "pour": "8f070f2502e441f157433de0d2b96b1dd9075d2c3856504cb388150eb7c00bbf",
+    "pour4": "40b956ee5c8a669c66a0acb4d2052aee2a8b6346207a92d251962f6a9b9523ab",
+    "routed": "3fc10dcbff9bfa1a7b78d634284294a2000307d18485c0fbf77569b513d53cbe",
+    "slots": "6a02244099b3455df9ed09bdd2d9059fbc5dee632c4aa1e2305ccb9f7bce90bf",
+    "tree": "db1da44ffe604addb23ac3f9249faa6e88605ce669d043711caebfa5237e77b5"
+  },
+  "schema": "fenolite.altium-kit-run.v0",
+  "script_sha256": "843f93f77ad67e1a3b6ed1001b3ba105a283d85960f8184deac53744a9f20c22",
+  "steps": [
+    {
+      "id": "K1.1",
+      "kind": "file",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": false,
+      "source": "d06a59a54729ffee8f8dda61665b47d79721556b2501b0ba595a09573768f4d7"
+    },
+    {
+      "id": "K1.2",
+      "kind": "file",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": false,
+      "source": "d06a59a54729ffee8f8dda61665b47d79721556b2501b0ba595a09573768f4d7"
+    },
+    {
+      "id": "K1.3",
+      "kind": "file",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": false,
+      "source": "d49ef8ad77b4186de7a7150654290d17351182f4e1bfa23cba9ddff04ec6b8bf"
+    },
+    {
+      "id": "K1.4",
+      "kind": "file",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": false,
+      "source": "d49ef8ad77b4186de7a7150654290d17351182f4e1bfa23cba9ddff04ec6b8bf"
+    },
+    {
+      "id": "K1.5",
+      "kind": "file",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": false,
+      "source": "d06a59a54729ffee8f8dda61665b47d79721556b2501b0ba595a09573768f4d7"
+    },
+    {
+      "id": "K1.6",
+      "kind": "file",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": false,
+      "source": "d06a59a54729ffee8f8dda61665b47d79721556b2501b0ba595a09573768f4d7"
+    },
+    {
+      "id": "K1.7",
+      "kind": "file",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": false,
+      "source": "db1da44ffe604addb23ac3f9249faa6e88605ce669d043711caebfa5237e77b5"
+    },
+    {
+      "id": "K1.8",
+      "kind": "form",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": false,
+      "source": "d06a59a54729ffee8f8dda61665b47d79721556b2501b0ba595a09573768f4d7"
+    },
+    {
+      "id": "K2.1",
+      "kind": "file",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": true,
+      "source": "d06a59a54729ffee8f8dda61665b47d79721556b2501b0ba595a09573768f4d7"
+    },
+    {
+      "id": "K2.2",
+      "kind": "file",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": true,
+      "source": "db1da44ffe604addb23ac3f9249faa6e88605ce669d043711caebfa5237e77b5"
+    },
+    {
+      "id": "K2.3",
+      "kind": "file",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": true,
+      "source": "3fc10dcbff9bfa1a7b78d634284294a2000307d18485c0fbf77569b513d53cbe"
+    },
+    {
+      "id": "K2.4",
+      "kind": "file",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": true,
+      "source": "703f744e550c70fb45d98bd9de99124f1cea66632c9efc010177eb37e934d44e"
+    },
+    {
+      "id": "K2.5",
+      "kind": "file",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": true,
+      "source": "d49ef8ad77b4186de7a7150654290d17351182f4e1bfa23cba9ddff04ec6b8bf"
+    },
+    {
+      "id": "K3.1",
+      "kind": "file",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": false,
+      "source": "d06a59a54729ffee8f8dda61665b47d79721556b2501b0ba595a09573768f4d7"
+    },
+    {
+      "id": "K3.2",
+      "kind": "form",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": false,
+      "source": "d06a59a54729ffee8f8dda61665b47d79721556b2501b0ba595a09573768f4d7"
+    },
+    {
+      "id": "K4.1",
+      "kind": "form",
+      "outcome": "skipped",
+      "pending": [],
+      "scripted": false,
+      "source": "3fc10dcbff9bfa1a7b78d634284294a2000307d18485c0fbf77569b513d53cbe"
+    },
+    {
+      "id": "K4.2",
+      "kind": "file",
+      "outcome": "skipped",
+      "pending": [],
+      "scripted": false,
+      "source": "3fc10dcbff9bfa1a7b78d634284294a2000307d18485c0fbf77569b513d53cbe"
+    },
+    {
+      "id": "K4.3",
+      "kind": "form",
+      "outcome": "skipped",
+      "pending": [],
+      "scripted": false,
+      "source": "3fc10dcbff9bfa1a7b78d634284294a2000307d18485c0fbf77569b513d53cbe"
+    },
+    {
+      "id": "K4.4",
+      "kind": "form",
+      "outcome": "skipped",
+      "pending": [],
+      "scripted": false,
+      "source": "3fc10dcbff9bfa1a7b78d634284294a2000307d18485c0fbf77569b513d53cbe"
+    },
+    {
+      "id": "K5.1",
+      "kind": "file",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": false,
+      "source": "703f744e550c70fb45d98bd9de99124f1cea66632c9efc010177eb37e934d44e"
+    },
+    {
+      "id": "K5.2",
+      "kind": "form",
+      "outcome": "skipped",
+      "pending": [],
+      "scripted": false,
+      "source": "703f744e550c70fb45d98bd9de99124f1cea66632c9efc010177eb37e934d44e"
+    },
+    {
+      "id": "K5.3",
+      "kind": "form",
+      "outcome": "skipped",
+      "pending": [],
+      "scripted": false,
+      "source": "703f744e550c70fb45d98bd9de99124f1cea66632c9efc010177eb37e934d44e"
+    },
+    {
+      "id": "K5.4",
+      "kind": "form",
+      "outcome": "skipped",
+      "pending": [],
+      "scripted": false,
+      "source": "703f744e550c70fb45d98bd9de99124f1cea66632c9efc010177eb37e934d44e"
+    },
+    {
+      "id": "K5.5",
+      "kind": "form",
+      "outcome": "skipped",
+      "pending": [],
+      "scripted": false,
+      "source": "703f744e550c70fb45d98bd9de99124f1cea66632c9efc010177eb37e934d44e"
+    },
+    {
+      "id": "K5.6",
+      "kind": "form",
+      "outcome": "skipped",
+      "pending": [],
+      "scripted": false,
+      "source": "6a02244099b3455df9ed09bdd2d9059fbc5dee632c4aa1e2305ccb9f7bce90bf"
+    },
+    {
+      "id": "K5.7",
+      "kind": "form",
+      "outcome": "skipped",
+      "pending": [],
+      "scripted": false,
+      "source": "6a02244099b3455df9ed09bdd2d9059fbc5dee632c4aa1e2305ccb9f7bce90bf"
+    },
+    {
+      "id": "K5.8",
+      "kind": "form",
+      "outcome": "skipped",
+      "pending": [],
+      "scripted": false,
+      "source": "6a02244099b3455df9ed09bdd2d9059fbc5dee632c4aa1e2305ccb9f7bce90bf"
+    },
+    {
+      "id": "K5.9",
+      "kind": "form",
+      "outcome": "skipped",
+      "pending": [],
+      "scripted": false,
+      "source": "6a02244099b3455df9ed09bdd2d9059fbc5dee632c4aa1e2305ccb9f7bce90bf"
+    },
+    {
+      "id": "K5.10",
+      "kind": "form",
+      "outcome": "skipped",
+      "pending": [],
+      "scripted": false,
+      "source": "6a02244099b3455df9ed09bdd2d9059fbc5dee632c4aa1e2305ccb9f7bce90bf"
+    },
+    {
+      "id": "K5.11",
+      "kind": "form",
+      "outcome": "skipped",
+      "pending": [],
+      "scripted": false,
+      "source": "6a02244099b3455df9ed09bdd2d9059fbc5dee632c4aa1e2305ccb9f7bce90bf"
+    },
+    {
+      "id": "K5.12",
+      "kind": "file",
+      "outcome": "skipped",
+      "pending": [],
+      "scripted": false,
+      "source": "6a02244099b3455df9ed09bdd2d9059fbc5dee632c4aa1e2305ccb9f7bce90bf"
+    },
+    {
+      "id": "K5.13",
+      "kind": "form",
+      "outcome": "skipped",
+      "pending": [],
+      "scripted": false,
+      "source": "6a02244099b3455df9ed09bdd2d9059fbc5dee632c4aa1e2305ccb9f7bce90bf"
+    },
+    {
+      "id": "K6.1",
+      "kind": "file",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": false,
+      "source": "3fc10dcbff9bfa1a7b78d634284294a2000307d18485c0fbf77569b513d53cbe"
+    },
+    {
+      "id": "K6.2",
+      "kind": "file",
+      "outcome": "skipped",
+      "pending": [],
+      "scripted": false,
+      "source": "8f070f2502e441f157433de0d2b96b1dd9075d2c3856504cb388150eb7c00bbf"
+    },
+    {
+      "id": "K6.3",
+      "kind": "file",
+      "outcome": "skipped",
+      "pending": [],
+      "scripted": false,
+      "source": "8f070f2502e441f157433de0d2b96b1dd9075d2c3856504cb388150eb7c00bbf"
+    },
+    {
+      "id": "K6.4",
+      "kind": "file",
+      "outcome": "skipped",
+      "pending": [],
+      "scripted": false,
+      "source": "8f070f2502e441f157433de0d2b96b1dd9075d2c3856504cb388150eb7c00bbf"
+    },
+    {
+      "id": "K6.5",
+      "kind": "form",
+      "outcome": "skipped",
+      "pending": [],
+      "scripted": false,
+      "source": "8f070f2502e441f157433de0d2b96b1dd9075d2c3856504cb388150eb7c00bbf"
+    },
+    {
+      "id": "K6.6",
+      "kind": "form",
+      "outcome": "skipped",
+      "pending": [],
+      "scripted": false,
+      "source": "8f070f2502e441f157433de0d2b96b1dd9075d2c3856504cb388150eb7c00bbf"
+    },
+    {
+      "id": "K6.7",
+      "kind": "file",
+      "outcome": "skipped",
+      "pending": [],
+      "scripted": false,
+      "source": "8f070f2502e441f157433de0d2b96b1dd9075d2c3856504cb388150eb7c00bbf"
+    },
+    {
+      "id": "K6.8",
+      "kind": "form",
+      "outcome": "skipped",
+      "pending": [],
+      "scripted": false,
+      "source": "8f070f2502e441f157433de0d2b96b1dd9075d2c3856504cb388150eb7c00bbf"
+    },
+    {
+      "id": "K6.9",
+      "kind": "file",
+      "outcome": "skipped",
+      "pending": [],
+      "scripted": false,
+      "source": "40b956ee5c8a669c66a0acb4d2052aee2a8b6346207a92d251962f6a9b9523ab"
+    },
+    {
+      "id": "K6.10",
+      "kind": "file",
+      "outcome": "skipped",
+      "pending": [],
+      "scripted": false,
+      "source": "40b956ee5c8a669c66a0acb4d2052aee2a8b6346207a92d251962f6a9b9523ab"
+    },
+    {
+      "id": "K6.11",
+      "kind": "file",
+      "outcome": "skipped",
+      "pending": [],
+      "scripted": false,
+      "source": "40b956ee5c8a669c66a0acb4d2052aee2a8b6346207a92d251962f6a9b9523ab"
+    },
+    {
+      "id": "K7.1",
+      "kind": "form",
+      "outcome": "skipped",
+      "pending": [],
+      "scripted": false,
+      "source": "3fc10dcbff9bfa1a7b78d634284294a2000307d18485c0fbf77569b513d53cbe"
+    },
+    {
+      "id": "K7.2",
+      "kind": "file",
+      "outcome": "skipped",
+      "pending": [],
+      "scripted": false,
+      "source": "3fc10dcbff9bfa1a7b78d634284294a2000307d18485c0fbf77569b513d53cbe"
+    },
+    {
+      "id": "K8.1",
+      "kind": "file",
+      "outcome": "skipped",
+      "pending": [],
+      "scripted": false,
+      "source": "2e91c3a6a142146a32c898f14e7cd3a05dc56c2b8782a6095bfad455138b94fb"
+    },
+    {
+      "id": "K8.2",
+      "kind": "form",
+      "outcome": "skipped",
+      "pending": [],
+      "scripted": false,
+      "source": "d06a59a54729ffee8f8dda61665b47d79721556b2501b0ba595a09573768f4d7"
+    },
+    {
+      "id": "K8.3",
+      "kind": "form",
+      "outcome": "skipped",
+      "pending": [],
+      "scripted": false,
+      "source": "d06a59a54729ffee8f8dda61665b47d79721556b2501b0ba595a09573768f4d7"
+    },
+    {
+      "id": "K9.1",
+      "kind": "file",
+      "outcome": "skipped",
+      "pending": [],
+      "scripted": false,
+      "source": "d49ef8ad77b4186de7a7150654290d17351182f4e1bfa23cba9ddff04ec6b8bf"
+    },
+    {
+      "id": "K9.2",
+      "kind": "form",
+      "outcome": "skipped",
+      "pending": [],
+      "scripted": false,
+      "source": "d49ef8ad77b4186de7a7150654290d17351182f4e1bfa23cba9ddff04ec6b8bf"
+    }
+  ],
+  "synthetic": false
+}
