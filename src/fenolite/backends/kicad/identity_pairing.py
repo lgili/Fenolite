@@ -27,6 +27,8 @@ a proof after this preparation measures geometry once identity and order are ali
 Fenolite keeps the source's identities or order.
 """
 
+# evidence: none, it pairs two board readings for a private proof copy and states no format fact
+
 from __future__ import annotations
 
 from collections import Counter
