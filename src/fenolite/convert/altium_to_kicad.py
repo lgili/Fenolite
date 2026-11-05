@@ -459,6 +459,15 @@ def prepare(source: SourceProject, name: str, target: int, ledger: Ledger) -> De
     for hole in board.holes:
         ledger.drop("hole", hole.id, "a standalone hole has no footprint")
     board = dataclasses.replace(board, footprints=tuple(footprints), holes=())
+    from fenolite.convert import altium_zones  # change c0409: the pour settings of the Altium rules
+
+    board = altium_zones.connect_zones(
+        board, design, altium_zones.board_styles(source.design.board), refs, ledger
+    )
+    board = altium_zones.zone_clearances(board, design, ledger)
+    from fenolite.convert import altium_strings  # change c0409, B10
+
+    board = altium_strings.board_strings(board, ledger)
     rules = design.rules
     if rules is not None:
         from fenolite.backends.kicad.lowering import lower_rules
@@ -512,7 +521,7 @@ def footprint_files(
     from fenolite.backends.kicad.embed import local_footprint
     from fenolite.backends.kicad.libs import LibRow, LibTable, write_lib_table
     from fenolite.backends.kicad.mod import read_footprint, write_footprint
-    from fenolite.backends.kicad.sexpr import Atom, dumps, parse
+    from fenolite.backends.kicad.sexpr import Atom, Node, dumps, parse
     from fenolite.backends.kicad.versions import FORMAT_VERSIONS, FileKind
 
     board = design.board
@@ -534,6 +543,10 @@ def footprint_files(
                 *local.children[1:],
             )
         )
+        placed = (placements or {}).get(fp.id, ())
+        if placed:  # the board's footprint holds the same models (change c0409); the placements write them
+            models = [child for child in local.children if isinstance(child, Node) and child.name == "model"]
+            local = local.with_children(child for child in local.children if child not in models)
         definition = read_footprint(dumps(local))
         pattern = fp.lib_ref.rsplit(":", 1)[-1]
         properties = {**definition.properties, "Reference": "REF**", "Value": pattern}
@@ -542,7 +555,7 @@ def footprint_files(
             name=pattern,
             library=name,
             properties=properties,
-            placements=(placements or {}).get(fp.id, ()),
+            placements=placed,
         )
         written = write_footprint(definition, target=target, allow_lossy=True)
         # Reference/value positions are useful in the library; board-specific identifiers are not.

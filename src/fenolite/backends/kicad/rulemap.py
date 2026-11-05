@@ -24,7 +24,7 @@ from fenolite.core.errors import Issue, Severity
 from fenolite.core.ids import derived_id
 from fenolite.core.units import Nm, format_length, parse_length
 from fenolite.model.base import Modeled, Slot
-from fenolite.model.rules import Rule, RuleKind, RuleSeverity, Selector, SelectorOp
+from fenolite.model.rules import NO_NET, Rule, RuleKind, RuleSeverity, Selector, SelectorOp
 
 KIND_MAP: Mapping[RuleKind, str] = MappingProxyType(
     {
@@ -259,6 +259,12 @@ def _term(selector: Selector, side: str, target: int, rule: Rule, issues: list[I
         return ""
 
     op = selector.op
+    if selector == NO_NET:  # change c0409: an item without a net has the empty net name (``H-K-DRU-NONET``)
+        if "net" not in KIND_SELECTORS[rule.kind].leaves:
+            return refuse(f"a {rule.kind} rule takes no net selector, so no select.no_net()")
+        if not _supported("net", target):
+            return refuse(f"select.no_net() is not proved for KiCad {target}")
+        return f"{side}.NetName == ''"
     if op in ("and", "or"):
         if not _supported(op, target):
             return refuse(f"'{op}' is not proved for KiCad {target}")
@@ -406,6 +412,8 @@ class _Parse:
             if value not in _TYPE_KINDS:
                 raise ValueError(f"type {value!r} is outside the closed grammar")
             value = _TYPE_KINDS[value]
+        if not value and op == "net":  # change c0409: the empty net name is an item without a net
+            return ("leaf", (side, NO_NET))
         if not value:
             raise ValueError("empty value")
         return ("leaf", (side, Selector(op, value)))  # type: ignore[arg-type]

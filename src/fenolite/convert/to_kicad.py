@@ -22,6 +22,8 @@ from __future__ import annotations
 
 import dataclasses
 from collections import Counter, defaultdict
+from collections.abc import Mapping
+from decimal import Decimal
 from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING
 
@@ -51,10 +53,10 @@ from fenolite.core.trig import FULL_TURN
 from fenolite.geometry.errors import BackendUnavailable, GeometryError
 from fenolite.geometry.rings import MERGE_TOL, CurvedRing, merge_groups, overlap_groups
 from fenolite.model import holes as model_holes
-from fenolite.model.board import FootprintAttribute, FootprintInstance, Hole, OutlineArc
+from fenolite.model.board import FootprintAttribute, FootprintInstance, Hole, ModelRef, OutlineArc
 from fenolite.model.circuit import Component
 from fenolite.model.design import Design
-from fenolite.model.library import FootprintDef, ModelPlacement
+from fenolite.model.library import PPM, FootprintDef, ModelPlacement
 
 EVIDENCE = Evidence(Level.KICAD_VERIFIED, hypotheses=("H-K-CONV-RETARGET", "H-K-PCB-WRITE"))
 """The board writer's re-target: a KiCad 9 project converted to 10 loads in 10.0.6 and gives the DRC of the
@@ -270,6 +272,13 @@ SHARED_FOOTPRINT_KIND = "shared-footprint"
 SHARED_FOOTPRINT_REASON = "the source links several footprints to one component"
 PAD_MARGIN_KIND = "pad-margin"
 """The report kind of an imported pad whose margin is not certain (change c0223, ``convert.openings``)."""
+FOOTPRINT_GRAPHIC_KIND = "footprint-graphic"
+"""The report kind of a line, arc, circle, rectangle or region of an imported footprint (change c0409): the
+footprint's own graphics, written as its ``fp_*`` children on the layer ``map_layers`` gives them."""
+FOOTPRINT_TEXT_KIND = "footprint-text"
+FOOTPRINT_TEXT_REASON = "a text of the footprint itself (not a designator or comment field) is not written"
+"""Why an imported footprint's own text is lost (change c0409): a created footprint writes its fields and
+graphics, not free texts."""
 MODEL_KIND = "model"
 """The report kind of an embedded 3D model of an imported footprint (change c0223, ``convert.models``)."""
 PLATED_REASON = "a plated hole is written as a pad of its footprint without a net"
@@ -450,6 +459,9 @@ def write_altium(source: SourceProject, options: Options) -> Written:
         counts[PAD_MARGIN_KIND] = sum(len(fp.pads) for fp in source_board.footprints)
         bodies = [body for fp in source_board.footprints for body in fp.bodies]
         counts[MODEL_KIND] = sum(1 for body in bodies if body.kind == "model")
+        # change c0409: the footprints' own graphics are written; their own texts are counted and reported
+        counts[FOOTPRINT_GRAPHIC_KIND] = sum(len(fp.graphics) for fp in source_board.footprints)
+        counts[FOOTPRINT_TEXT_KIND] = sum(len(fp.texts) for fp in source_board.footprints)
         # change c0371: a component that several footprints link reads back as several components
         linked = Counter(fp.component_id for fp in source_board.footprints)
         shared = [fp.id for fp in source_board.footprints if linked[fp.component_id] > 1]
@@ -467,6 +479,10 @@ def write_altium(source: SourceProject, options: Options) -> Written:
     source = dataclasses.replace(source, design=merged)
     name = options.name or source.name
     design = prepare(source, name, options.kicad_version, ledger)
+    assert design.board is not None
+    for fp in design.board.footprints:  # change c0409: no created footprint writes a text of its own
+        for footprint_text in fp.texts:
+            ledger.drop(FOOTPRINT_TEXT_KIND, footprint_text.id, FOOTPRINT_TEXT_REASON)
     # the holes join the prepared board as placed footprints, which ``prepare`` would derive and clean
     assert design.board is not None
     design, holes, plated = generated_holes(
@@ -475,8 +491,9 @@ def write_altium(source: SourceProject, options: Options) -> Written:
     for ident in plated:
         ledger.change(HOLE_KIND, ident, PLATED_REASON)
     issues: list[Issue] = []
-    texts = write_triad(design, name=name, target=options.kicad_version, allow_lossy=True, issues=issues)
     placed = _placed_models(source, design, name)
+    design = _with_models(design, placed.placements)  # change c0409: the board's footprints hold them too
+    texts = write_triad(design, name=name, target=options.kicad_version, allow_lossy=True, issues=issues)
     texts.update(
         footprint_files(
             design,
@@ -542,6 +559,42 @@ def _placed_models(source: SourceProject, design: Design, name: str) -> Placed:
         name,
         lambda fp: names.get(fp.id, fp.lib_ref.rsplit(":", 1)[-1]),
     )
+
+
+def _scale_text(ppm: int) -> str:
+    """A scale in ppm as the decimal a ``ModelRef`` holds: 1 000 000 → ``"1"``, 1 250 000 → ``"1.25"``."""
+    return format((Decimal(ppm) / PPM).normalize(), "f")
+
+
+def _with_models(design: Design, placements: Mapping[str, tuple[ModelPlacement, ...]]) -> Design:
+    """``design`` whose board footprints hold the models ``placements`` gives them (change c0409, B9): the
+    board writes them as its footprints' ``model`` children, so an import, which derives its library from the
+    board, keeps them as the derived library does."""
+    board = design.board
+    if board is None or not placements:
+        return design
+    footprints = tuple(
+        dataclasses.replace(
+            fp,
+            models=tuple(
+                ModelRef(
+                    placement.path,
+                    placement.offset,
+                    placement.rotation,
+                    (
+                        _scale_text(placement.scale[0]),
+                        _scale_text(placement.scale[1]),
+                        _scale_text(placement.scale[2]),
+                    ),
+                )
+                for placement in placements[fp.id]
+            ),
+        )
+        if placements.get(fp.id)
+        else fp
+        for fp in board.footprints
+    )
+    return dataclasses.replace(design, board=dataclasses.replace(board, footprints=footprints))
 
 
 def placed_in(text: str, key: str) -> list[ModelPlacement]:

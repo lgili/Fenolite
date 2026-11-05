@@ -6,9 +6,9 @@ summary: Net classes against minimums, rules with selectors, the stack-up, whose
 
 # Design rules: classes, minimums and selectors
 
-Fenolite ships no design-rule value. Every limit comes from the script, and the script's author takes
-it from the fabricator's capabilities and from the requirements of the product. **Every number on this
-page is an example**: it shows where a value goes, not what the value should be.
+Fenolite ships no design-rule value. Every limit comes from the script, whose author takes it from the
+fabricator's capabilities and the product's requirements. **Every number on this page is an example**:
+it shows where a value goes, not what it should be.
 
 ## Three kinds of statement
 
@@ -18,8 +18,8 @@ page is an example**: it shows where a value goes, not what the value should be.
 | `design.rules.minimum(...)` | what the check must refuse, for the board or for one class | KiCad's design-rule check, `fenolite check` |
 | `design.rules.rule(name, kind, ...)` | one rule of any kind, for the items a selector names | the same |
 
-A class is a wish and a minimum is a limit. A track of a class with `track_width` 0.5 mm (example) is
-drawn 0.5 mm wide; only a minimum makes a narrower one a finding.
+A class is a wish and a minimum a limit. A track of a class with `track_width` 0.5 mm (example) is drawn
+0.5 mm wide; only a minimum makes a narrower one a finding.
 
 ## A script with rules
 
@@ -58,6 +58,7 @@ design.rules.minimum(clearance=mm(0.25), track_width=mm(0.4), netclass="PWR")
 design.rules.rule("ring", "annular_width", where=select.item("via"), min=mm(0.15))
 design.rules.rule("holes", "hole_to_hole", min=mm(0.3))
 design.rules.rule("court", "courtyard_clearance", where=select.ref(j1), min=mm(0.5))
+design.rules.rule("nonet", "clearance", where=select.no_net(), min=mm(0.3))
 # The severity of one check of KiCad's DRC, written into the project file.
 design.rules.severity("kicad.drc.silk-overlap", "ignore")
 # One finding accepted with a reason: it stays listed, as `info`, and no longer counts.
@@ -98,19 +99,18 @@ d1.place(mm(15), mm(6), rot=180)
 
 - **Kinds:** the six of `minimum()`, and `hole_to_hole`, `hole_clearance`, `annular_width`,
   `courtyard_clearance`, `silk_clearance` and `creepage`.
-- **Selectors** come from `select`: `select.net(name)`, `select.netclass(name)`, `select.ref(part)`,
-  `select.item("track")` (or `"via"`, `"pad"`, `"zone"`), and `select.ALL`, the default. `&`, `|` and
-  `~` combine them, and a name may hold `*`.
-- **`between=`** names the second item of a `clearance` or `creepage` rule: the distance between the
-  nets of one class and those of another.
-- **`severity`** is `error`, `warning` or `ignore`.
-- What a target cannot check stops the build with exit 7 instead of being dropped in silence. A
-  `creepage` rule is written for KiCad 10 only (page `recovery`, exit 7).
+- **Selectors** from `select`: `select.net(name)`, `select.netclass(name)`, `select.ref(part)`,
+  `select.item("track")` (or `"via"`, `"pad"`, `"zone"`), `select.no_net()` (no net), `select.ALL`,
+  the default; `&`, `|`, `~` combine them; names may hold `*`.
+- **`between=`** names the second item of a `clearance` or `creepage` rule, as another class's nets.
+- **`severity`**: `error`, `warning` or `ignore`.
+- What a target cannot check stops the build with exit 7, never dropped in silence. A `creepage`
+  rule is written for KiCad 10 only (page `recovery`, exit 7).
 - **`design.rules.severity(code, level)`** sets the severity (`error`, `warning` or `ignore`) of one
   check of KiCad's DRC, named by the code `check` prints (`kicad.drc.<type>`). A `copper.*` finding
   takes none, and `kicad.drc.clearance` cannot be ignored.
 - **`design.waive(code, *items, reason=)`** accepts one finding of `check` or of the build's copper
-  guard, named by its code and the `where` of its items (page `checks`).
+  guard, named by its code and its items' `where` (page `checks`).
 
 ## The stack-up
 
@@ -123,8 +123,8 @@ floats. Fenolite supplies no thickness and no material; a script without `stacku
 A preset gives the whole build-up as one public fabricator page states it: `stack.preset(name)`
 returns its entries and `stack.PRESETS` lists the names (`two-layer-1.6mm`, `four-layer-1.6mm`,
 `six-layer-1.6mm`). The board's copper count must be the preset's, and the finish is still yours. A
-preset is what one page said on the day it was read (`INFERRED`); your fabricator's sheet for your order
-is the one that counts.
+preset is what one page said when it was read (`INFERRED`); your fabricator's sheet for your order
+counts.
 
 ```fenolite-design
 from fenolite.dsl import Design, Net, Part, connect, mm, stack

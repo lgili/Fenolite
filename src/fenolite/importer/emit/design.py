@@ -89,6 +89,7 @@ from fenolite.model.board import (
     ZoneSettings,
 )
 from fenolite.model.design import Design
+from fenolite.model.rules import NO_NET as NO_NET_SELECTOR
 from fenolite.model.rules import Rule, Selector
 
 COPPER_COUNTS = tuple(range(2, 33, 2))
@@ -577,6 +578,7 @@ def _minimum_of(rule: Rule, classes: set[str]) -> tuple[str | None, str] | None:
 SELECT_ITEMS = ("track", "via", "pad", "zone")
 """The item kinds ``select.item()`` takes."""
 _WRITTEN_NAME = re.compile(r"^fenolite_\d+_(.+)$")
+_WRITTEN_PRIORITY = re.compile(r"^fenolite_(\d+)_.+$")
 _PRECEDENCE = {"or": 1, "and": 2, "not": 3}
 
 
@@ -586,6 +588,8 @@ def _selector(selector: Selector, classes: set[str], parent: int = 0) -> str | N
     op, value = selector.op, selector.value
     if op == "all":
         return "select.ALL" if parent == 0 else None
+    if selector == NO_NET_SELECTOR:  # change c0409
+        return "select.no_net()"
     leaf = {"net": "net", "netclass": "netclass", "ref": "ref", "area": "area", "diff_pair": "pair"}
     if op in leaf:
         if op == "netclass" and value != "Default" and "*" not in value and value not in classes:
@@ -634,15 +638,51 @@ def _rule_call(rule: Rule, classes: set[str], taken: set[str]) -> Call | None:
     return Call("design.rules.rule", (text(name), text(str(rule.kind))), tuple(kwargs))
 
 
+def _ranked(rules: Sequence[Rule]) -> tuple[Rule, ...]:
+    """``rules`` in file order with the priority their written name ``fenolite_<p>_<name>`` gives, when every
+    rule has one and the priorities give the file's order within each kind (priority 0 first, then from the
+    highest number down; change c0409, B4): a conversion keeps the source's own numbers, Altium's included.
+    Otherwise the reader's priorities, which give the file's order too."""
+    found: list[Rule] = []
+    last: dict[str, tuple[bool, int]] = {}
+    for rule in rules:
+        match = _WRITTEN_PRIORITY.match(rule.name)
+        if match is None:
+            return tuple(rules)
+        priority = int(match.group(1))
+        key = (priority != 0, -priority)
+        if key < last.get(str(rule.kind), key):
+            return tuple(rules)
+        last[str(rule.kind)] = key
+        found.append(dataclasses.replace(rule, priority=priority))
+    return tuple(found)
+
+
+def _foldable(rule: Rule, scope: str | None, rules: Sequence[Rule]) -> bool:
+    """Whether ``design.rules.minimum()`` keeps the rank of ``rule`` among the rules of its kind (change
+    c0409, B4). A board minimum is written first (priority 0) and governs least, so the rule must be the first
+    of its kind and no other one of priority 0; a class minimum is written last (priority 1) and governs every
+    rule of its class (c0403, F2), so the rule must be the last of its kind and no other one of priority 1.
+    Any other one-sided rule is written by ``design.rules.rule()`` with its own priority."""
+    same = [other for other in rules if other.kind == rule.kind]
+    others = [other for other in same if other is not rule]
+    if scope is None:
+        return same[0] is rule and all(other.priority != 0 for other in others)
+    return same[-1] is rule and all(other.priority != 1 for other in others)
+
+
 def _minimums(source: Source, classes: set[str], ledger: Ledger, writer: _Writer) -> list[list[str]]:
-    """``design.rules.minimum()`` calls: the custom rules that are plain minimums, then the project's
-    board-setup minimums that differ from a new project's and that no rule gave; then a
-    ``design.rules.rule()`` call for each other custom rule the DSL can write."""
+    """``design.rules.minimum()`` calls: the custom rules that are plain minimums whose rank a minimum
+    keeps, then the project's board-setup minimums that differ from a new project's and that no rule gave;
+    then a ``design.rules.rule()`` call for each other custom rule the DSL can write, with its priority."""
     scopes: dict[str | None, dict[str, int]] = {}
     others: list[Call] = []
     taken: set[str] = set()
-    for rule in source.custom_rules:
+    rules = _ranked(source.custom_rules)
+    for rule in rules:
         found = _minimum_of(rule, classes)
+        if found is not None and not _foldable(rule, found[0], rules):
+            found = None
         if found is None or found[1] in scopes.get(found[0], {}):
             made = _rule_call(rule, classes, taken)
             if made is None:

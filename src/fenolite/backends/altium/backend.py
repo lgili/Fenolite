@@ -286,6 +286,7 @@ class AltiumBackend:
             file=path.name,
             sha256=_digest(path.read_bytes()),
             extra_boards=extra,
+            parameters=tuple((p.name, p.value) for p in loaded.project.parameters if p.name),
         )
         design = import_project(project, issues=found)
         return ReadResult(design, (*found, *design.validate()), EVIDENCE)

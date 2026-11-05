@@ -126,6 +126,10 @@ class Source:
     """Checked native project bytes decoded as UTF-8 for explicit import emission; not canonical data."""
     project_resources: Mapping[str, str] = field(default_factory=lambda: {})
     """Only exact declared worksheet snapshots; native pointers retain their separate scopes."""
+    model_files: Mapping[str, bytes] = field(default_factory=lambda: {})
+    """The 3D model files an in-memory conversion placed (``<library>.3dshapes/<file>.step`` → bytes), which
+    the import writes at the same paths, so the ``${KIPRJMOD}`` model paths of its footprints resolve as in
+    the converted project (change c0409, B9)."""
 
 
 def _sha(data: bytes) -> str:

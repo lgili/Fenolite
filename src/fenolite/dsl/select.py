@@ -17,7 +17,7 @@ from fenolite.dsl.interfaces import Interface
 from fenolite.dsl.items import RuleArea
 from fenolite.dsl.part import Net, Part
 from fenolite.model.pairs import PAIR_ROLES, coupled_name, pair_base
-from fenolite.model.rules import Selector
+from fenolite.model.rules import NO_NET, Selector
 
 ITEM_KINDS: tuple[str, ...] = ("track", "via", "pad", "zone")
 """The values of ``item()``."""
@@ -98,6 +98,13 @@ def area(area: str | RuleArea) -> Select:
     return Select(Selector("area", name))
 
 
+def no_net() -> Select:
+    """The items without a net: a pad that no net reaches, a netless track or zone (change c0409). KiCad
+    names such an item's net with the empty name, so the build writes ``A.NetName == ''``. The model selector
+    is ``model.rules.NO_NET``, ``not(net "*")``."""
+    return Select(NO_NET)
+
+
 def pair(x: Interface | str) -> Select:
     """The items on the two nets of a differential pair: a ``DiffPair``, a ``USB2`` or another interface
     of a pair kind, whose base is taken from its net names; or a base as text, ``"*"`` for every pair.
@@ -130,4 +137,4 @@ def pair(x: Interface | str) -> Select:
     return Select(Selector("diff_pair", base))
 
 
-__all__ = ["ALL", "ITEM_KINDS", "Select", "area", "item", "net", "netclass", "pair", "ref"]
+__all__ = ["ALL", "ITEM_KINDS", "Select", "area", "item", "net", "netclass", "no_net", "pair", "ref"]

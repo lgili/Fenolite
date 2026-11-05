@@ -464,6 +464,12 @@ Function: `select.netclass(name: 'str') -> 'Select'`
 
 The items on the nets of a net class declared with `design.rules.netclass`.
 
+### select.no_net
+
+Function: `select.no_net() -> 'Select'`
+
+The items without a net: a pad that no net reaches, a netless track or zone.
+
 ### select.pair
 
 Function: `select.pair(x: 'Interface \| str') -> 'Select'`

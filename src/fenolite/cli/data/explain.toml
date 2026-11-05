@@ -1499,7 +1499,7 @@ fix = "Nothing to do; repour the polygons in the target tool. result.report list
 see = "convert"
 
 ["convert.lossy"]
-meaning = "The converted project does not hold items of a kind that changes the board made or its bill of materials ('where' names the kind); --allow-lossy accepted the loss. The message counts them per reason."
+meaning = "The converted project does not hold items of a kind that changes the board made or its bill of materials ('where' names the kind); --allow-lossy accepted the loss, or the kind is a footprint's own drawing (footprint-graphic, footprint-text), whose loss warns without a refusal. The message counts them per reason."
 fix = "Read result.report; change the source so the target holds the items, or keep the loss."
 see = "convert"
 

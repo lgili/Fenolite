@@ -317,6 +317,16 @@
     "region": {
       "$ref": "#/$defs/RenderRegion"
     },
+    "svg_page": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
     "tool_version": {
       "anyOf": [
         {

@@ -93,8 +93,14 @@ def _per_reason(row: ReportRow, outcome: Literal["changed", "lost"]) -> str:
     return "; ".join(f"{r.count} {r.reason}" for r in row.reasons if r.outcome == outcome)
 
 
+WARNED_LOSSES: frozenset[str] = frozenset({"footprint-graphic", "footprint-text"})
+"""The ``report`` kinds whose losses still give a ``convert.lossy`` warning, without refusing (change
+c0409): a footprint's own drawing is on the board made, and an import of the conversion keeps its issues,
+not its report."""
+
+
 def lossy_issue(row: ReportRow) -> Issue:
-    """The ``convert.lossy`` warning of a ``refuse`` kind with losses."""
+    """The ``convert.lossy`` warning of a ``refuse`` kind, or a kind of ``WARNED_LOSSES``, with losses."""
     message = f"{row.lost} of {row.source} {row.kind} item(s) of the source are not converted: "
     return issue("convert.lossy", message + _per_reason(row, "lost"), where=row.kind)
 
@@ -182,6 +188,7 @@ def convert_project(
     lossy = tuple(lossy_issue(row) for row in report.rows if row.kind in report.refused)
     if lossy and not allow_lossy:
         raise LossyConversionError(lossy, report)
+    lossy += tuple(lossy_issue(row) for row in report.rows if row.kind in WARNED_LOSSES and row.lost)
     changed = tuple(changed_issue(row) for row in report.rows if row.changed)
     return Conversion(
         files=written.files,

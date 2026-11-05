@@ -166,6 +166,16 @@ def _fold_subject(subject: RuleSubject) -> RuleSubject:
     )
 
 
+def fold_selector(selector: Selector) -> Selector:
+    """``selector`` with its names in lower case, as Altium compares them (change c0409)."""
+    return _fold(selector)
+
+
+def fold_subject(subject: RuleSubject) -> RuleSubject:
+    """``subject`` with its names in lower case, as Altium compares them (change c0409)."""
+    return _fold_subject(subject)
+
+
 def governing_connection(
     styles: Sequence[ConnectStyle], item: RuleSubject, polygon: RuleSubject, kind: ObjectKind
 ) -> Connection | str:
@@ -346,6 +356,8 @@ __all__ = [
     "ObjectKind",
     "governing_connection",
     "connect_fields",
+    "fold_selector",
+    "fold_subject",
     "kept_mapping",
     "lower_zone_styles",
     "pad_overrides",

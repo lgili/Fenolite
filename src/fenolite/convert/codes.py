@@ -18,12 +18,12 @@ ISSUE_CODES: Mapping[str, tuple[Severity, ...]] = MappingProxyType(
         "convert.unexplained": ("error",),
     }
 )
-"""Every ``convert.*`` code with its only severity: ``convert.lossy`` per ``refuse`` kind with losses
-under ``allow_lossy``, ``convert.changed`` per kind with changes, ``convert.no-verify`` for a conversion
-that was not read back, ``convert.schematic-unverified`` for a written schematic that could not be compared
-with the source's (a KiCad downgrade whose sheets need ``kicad-cli`` for their netlist and found none), and
-``convert.unexplained`` per difference of the read-back that no loss and no
-rule explains."""
+"""Every ``convert.*`` code with its only severity: ``convert.lossy`` per ``refuse`` kind with losses under
+``allow_lossy`` and per ``footprint-graphic`` or ``footprint-text`` kind with losses (change c0409),
+``convert.changed`` per kind with changes, ``convert.no-verify`` for a conversion that was not read back,
+``convert.schematic-unverified`` for a written schematic that could not be compared with the source's (a KiCad
+downgrade whose sheets need ``kicad-cli`` for their netlist and found none), and ``convert.unexplained`` per
+difference of the read-back that no loss and no rule explains."""
 
 
 def issue(code: str, message: str, *, where: str = "", hint: str = "") -> Issue:

@@ -35,6 +35,7 @@ from fenolite.backends.kicad import via_protection as vialib
 from fenolite.backends.kicad import zones as zonelib
 from fenolite.backends.kicad._edgesign import edge_text, edge_uuid, outline_digest, outline_edges
 from fenolite.backends.kicad._fpmap import (
+    FP_GRAPHIC_HEADS,
     GR_GRAPHIC_HEADS,
     GRAPHIC_FIELDS,
     MARGIN_HEADS,
@@ -2344,7 +2345,8 @@ CANONICAL_ORDER: Mapping[str, tuple[str, ...]] = MappingProxyType(
         "group": ("name", "uuid", "locked", "members"),
         "title_block": ("title", "date", "rev", "company", "comment"),
         "footprint": (
-            *FOOTPRINT_POSITIONAL, "locked", "layer", "uuid", "at", "property", "path", "attr", "pad",
+            *FOOTPRINT_POSITIONAL, "locked", "layer", "uuid", "at", "property", "path", "attr",
+            *FP_GRAPHIC_HEADS, "pad",
         ),
         "property": ("name", "value", "at", "layer", "hide", "uuid", "effects"),
         "effects": ("font", "justify"),
@@ -2382,6 +2384,11 @@ CANONICAL_ORDER: Mapping[str, tuple[str, ...]] = MappingProxyType(
         "gr_circle": ("center", "end", "stroke", "fill", "layer", "net", "uuid"),
         "gr_rect": ("start", "end", "stroke", "fill", "layer", "net", "uuid"),
         "gr_poly": ("pts", "stroke", "fill", "layer", "net", "uuid"),
+        "fp_line": ("start", "end", "stroke", "layer", "uuid"),
+        "fp_arc": ("start", "mid", "end", "stroke", "layer", "uuid"),
+        "fp_circle": ("center", "end", "stroke", "fill", "layer", "uuid"),
+        "fp_rect": ("start", "end", "stroke", "fill", "layer", "uuid"),
+        "fp_poly": ("pts", "stroke", "fill", "layer", "uuid"),
         "stroke": ("width", "type"),
         "gr_text": (*TEXT_POSITIONAL, "at", "layer", "uuid", "effects"),
         "dimension": (
@@ -2436,7 +2443,10 @@ _WRITE_FIELDS: Mapping[str, Mapping[str, str | tuple[str, ...]]] = MappingProxyT
             **ROOT_FIELDS, "general": "general", "paper": "paper", "title_block": "title_block",
             "setup": "setup", "zone": ("zones", "keepouts"), "group": "groups",
         },
-        "footprint": {**FOOTPRINT_FIELDS, "locked": "locked", "property": ("fields", "properties")},
+        "footprint": {
+            **FOOTPRINT_FIELDS, "locked": "locked", "property": ("fields", "properties"),
+            **dict.fromkeys(FP_GRAPHIC_HEADS, "graphics"),
+        },
         "property": {**FIELD_FIELDS},
         "pad": {**BOARD_PAD_FIELDS, **MARGIN_HEADS, tdlib.HEAD: "teardrop", **SHAPE_HEADS},
         "segment": TRACK_FIELDS,
@@ -2445,6 +2455,7 @@ _WRITE_FIELDS: Mapping[str, Mapping[str, str | tuple[str, ...]]] = MappingProxyT
         "zone": {**ZONE_FIELDS, "placement": "placement"},
         "filled_polygon": FILL_FIELDS,
         **dict.fromkeys(GR_GRAPHIC_HEADS, _GRAPHIC_WRITE_FIELDS),
+        **dict.fromkeys(FP_GRAPHIC_HEADS, _GRAPHIC_WRITE_FIELDS),
         "gr_text": {**TEXT_FIELDS, "effects": "effects"},
         "dimension": DIMENSION_FIELDS,
         "image": IMAGE_FIELDS,
@@ -2487,6 +2498,8 @@ COLLECTION_FIELDS: frozenset[str] = frozenset(
 )
 """Fields that hold whole items; an opaque item never stands for a model value."""
 _KIND_HEADS: Mapping[str, str] = MappingProxyType({kind: head for head, kind in GR_GRAPHIC_HEADS.items()})
+_FP_HEADS: Mapping[str, str] = MappingProxyType({kind: head for head, kind in FP_GRAPHIC_HEADS.items()})
+"""The head of a created footprint graphic of each kind (change c0409)."""
 _FILLED_KINDS = frozenset({"circle", "rect", "polygon"})
 READ_ONLY_CODE = "kicad.board.projection-read-only"
 PROJECTED_PAIR: tuple[str, str] = ("fenolite.projected", "footprint-items")
@@ -2723,6 +2736,11 @@ def _child_locator(entity: Entity, slots: Sequence[Slot], index: int, head: str,
         else:
             k += _fragment_head(slot) == head
     return f"{_locator(entity)}/{head}[{k}]"
+
+
+def _netless(graphic: Graphic) -> Graphic:
+    """A footprint graphic as a created footprint writes it: an ``fp_*`` child holds no net."""
+    return dataclasses.replace(graphic, net_id=None) if graphic.net_id is not None else graphic
 
 
 def _write_order(entities: Iterable[E]) -> list[E]:
@@ -3117,6 +3135,10 @@ class _Writer:
             items["fields"] = [self.entity(f, "property") for f in _write_order(fp.fields)]
             items["properties"] = [] if fp.fields else self.properties(fp, component)
         items["pads"] = [self.entity(pad, "pad") for pad in _write_order(fp.pads)]
+        # a created footprint writes its own graphics (lines, arcs, circles, rectangles, polygons) in its
+        # frame, as an imported footprint holds them (change c0409); a read one keeps them in its slots
+        graphics = _write_order(fp.graphics) if created else []
+        items["graphics"] = [self.entity(_netless(g), _FP_HEADS[g.kind]) for g in graphics]
         return items
 
     def properties(self, fp: FootprintInstance, component: Component | None) -> list[Node | Atom]:

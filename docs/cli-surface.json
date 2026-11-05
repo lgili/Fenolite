@@ -7145,6 +7145,23 @@
           "required": true,
           "type": "string"
         },
+        "--page": {
+          "aliases": [
+            "--page"
+          ],
+          "choices": [
+            "auto",
+            "board",
+            "sheet"
+          ],
+          "default": "auto",
+          "deprecated": null,
+          "experimental": false,
+          "nargs": null,
+          "positional": false,
+          "required": false,
+          "type": "string"
+        },
         "--plan": {
           "aliases": [
             "--plan"
@@ -28384,6 +28401,10 @@
                 "required": true
               }
             ]
+          },
+          "no_net": {
+            "kind": "function",
+            "parameters": []
           },
           "pair": {
             "kind": "function",

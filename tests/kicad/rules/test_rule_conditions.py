@@ -12,6 +12,8 @@ import _rulecases as rc
 import pytest
 from _probes import run
 
+from fenolite.model.rules import NO_NET
+
 pytestmark = pytest.mark.needs_kicad
 
 
@@ -28,6 +30,18 @@ def test_condition(key: str) -> None:
         assert only.between("probe", None), f"{key}: the probe pair has no violation"
         assert not only.between("control", None), f"{key}: the control pair has a violation"
     assert run(f"dru-cond-{key}") == "present"
+
+
+def test_no_net() -> None:
+    """``A.NetName == ''`` selects the items without a net (change c0409, ``H-K-DRU-NONET``): a netless
+    track 4 mm from a netted one violates a 5 mm rule, a netted pair as far apart does not."""
+    made = rb.builder()
+    made.pair("probe", "", "NN1")
+    made.pair("control", "NN2", "NN3")
+    (result,) = (rc.run(made.build(), rc.lowered(rc.rule(a=NO_NET))),)
+    rb.require_canary(result.report, result.bench)
+    assert result.between("probe", None), "the netless track has no violation"
+    assert not result.between("control", None), "the netted pair has a violation"
 
 
 def test_letter_case_recorded() -> None:

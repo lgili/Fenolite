@@ -122,6 +122,7 @@ Back to [the command index](commands.md).
 - `--png`: top.png and bottom.png (rendered images)
 - `--width PX` (integer, default `1600`): PNG width (1600)
 - `--height PX` (integer, default `1200`): PNG height (1200)
+- `--page {auto,board,sheet}` (default `auto`): the page of the SVG plots: the drawing sheet, the board area alone, or auto (the board area when the board lies outside the sheet)
 - `--manifest`: also add the views to fenolite-artifacts.json in DIR
 - `--kicad-cli PATH`: the kicad-cli to run
 - `--timeout SECONDS` (number, default `300.0`): per kicad-cli run (300)

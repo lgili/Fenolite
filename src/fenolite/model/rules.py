@@ -122,6 +122,13 @@ def _glob(value: str | None, pattern: str) -> bool:
     return value is not None and fnmatch.fnmatchcase(value, pattern)
 
 
+NO_NET = Selector("not", items=(Selector("net", "*"),))
+"""The items without a net (change c0409, B7; ``fenolite.dsl.select.no_net()``): a net glob never matches an
+item without a net, so ``not(net "*")`` matches exactly those. Written with the frozen ops of model v0, it
+needs no new op; the KiCad target writes it as ``A.NetName == ''`` (``H-K-DRU-NONET``), not as a negated
+glob."""
+
+
 def selector_rank(selector: Selector) -> int:
     """Fenolite's specificity rank; this never changes rule precedence by itself."""
     if selector.op == "and":
@@ -1100,6 +1107,7 @@ __all__ = [
     "RigSink",
     "RigSupply",
     "LEAF_OPS",
+    "NO_NET",
     "ROLE_KEY",
     "ROLE_KINDS",
     "ROLE_LIMIT_UNITS",

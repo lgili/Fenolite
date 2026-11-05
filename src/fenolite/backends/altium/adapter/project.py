@@ -29,6 +29,7 @@ from fenolite.core.errors import FormatError, Issue
 from fenolite.model.board import Board, FootprintInstance
 from fenolite.model.circuit import Circuit, Component, Net, PinRef
 from fenolite.model.design import Design
+from fenolite.model.presentation import PARAM_NAME, TitleBlock
 from fenolite.model.rules import Rule, RuleSet
 
 KIND = "altium_prjpcb"
@@ -66,6 +67,8 @@ class ProjectInput:
     file: str = ""
     sha256: str = "0" * 64
     extra_boards: int = 0
+    parameters: tuple[tuple[str, str], ...] = ()
+    """The project parameters, ``(name, value)`` in file order (change c0409, B10)."""
 
 
 def _retarget(board: Board, components: dict[str, str], nets: dict[str, str]) -> Board:
@@ -272,6 +275,31 @@ def _extra_rules(inputs: Sequence[RulesInput], ids: Ids, issues: list[Issue]) ->
     return tuple(rules)
 
 
+def _with_parameters(
+    board: Board, parameters: Sequence[tuple[str, str]], file: str, found: list[Issue]
+) -> Board:
+    """``board`` with the project parameters as text variables of its title block (change c0409, B10;
+    ``docs/formats/altium/project.md``, ``H-A-RD-PRJ-PARAM``). A parameter whose name is no variable name
+    (``[A-Za-z_][A-Za-z0-9_]*``) is left out with ``altium.import.unmapped``; a later parameter of one name
+    replaces an earlier one."""
+    params: dict[str, str] = {}
+    left: list[str] = []
+    for name, value in parameters:
+        if PARAM_NAME.fullmatch(name):
+            params[name] = value
+        else:
+            left.append(name)
+    if left:
+        listed = ", ".join(repr(name) for name in left)
+        message = f"project parameters without a text variable: {listed}"
+        found.append(issue("altium.import.unmapped", message, file, "a name is [A-Za-z_][A-Za-z0-9_]*"))
+    if not params:
+        return board
+    block = board.title_block or TitleBlock()
+    block = dataclasses.replace(block, params={**params, **block.params})
+    return dataclasses.replace(board, title_block=block)
+
+
 def import_project(project: ProjectInput, *, issues: list[Issue] | None = None) -> Design:
     """The design of one project: the circuit of its sheets (``import_circuit`` with the project's net
     options) and the board, nets and rules of its PCB document, linked. A project without a PCB document
@@ -312,6 +340,7 @@ def import_project(project: ProjectInput, *, issues: list[Issue] | None = None) 
     found.extend(parts.census.issues(board.file))
     circuit, linked = link(built.circuit, built.by_path, built.repeated, parts, found, built.unlinkable)
     rules = (*parts.rules.rules, *_extra_rules(project.rules, ids, found))
+    linked = _with_parameters(linked, project.parameters, project.file, found)
     return Design(
         header=head, circuit=circuit, board=linked, rules=dataclasses.replace(parts.rules, rules=rules)
     )

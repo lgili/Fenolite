@@ -20,10 +20,14 @@ import re
 from dataclasses import dataclass
 from typing import Literal
 
+from fenolite.model.rules import NO_NET as NO_NET_SELECTOR
 from fenolite.model.rules import Selector, SelectorOp
 
 LEAF_FUNCTIONS: dict[str, SelectorOp] = {"InNet": "net", "InNetClass": "netclass", "InComponent": "ref"}
 """Membership functions with one quoted value, and the neutral selector each gives."""
+NO_NET = "No Net"
+"""The net name ``InNet`` takes for the objects without a net (``rule-file.md``, "Closed scope grammar";
+``H-A-RD-PRJ-SCOPE-NONET``, change c0409): ``InNet('No Net')`` is ``model.rules.NO_NET``."""
 ITEM_KINDS: dict[str, str] = {"IsTrack": "track", "IsVia": "via", "IsPad": "pad"}
 """Object-type checks without arguments, and the neutral item kind each selects."""
 AND_OPERATORS = ("And", "&&")
@@ -153,7 +157,10 @@ class _Parser:
         if name in ITEM_KINDS:
             return Selector("item_kind", ITEM_KINDS[name])
         if name in LEAF_FUNCTIONS:
-            return Selector(LEAF_FUNCTIONS[name], self.argument(name))
+            value = self.argument(name)
+            if name == "InNet" and value == NO_NET:
+                return NO_NET_SELECTOR
+            return Selector(LEAF_FUNCTIONS[name], value)
         if name.startswith("On"):
             raise _Refused(
                 f"the layer function {name} is not mapped: it needs the board's layer names, "

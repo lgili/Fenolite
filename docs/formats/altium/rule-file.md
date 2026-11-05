@@ -152,6 +152,7 @@ other text is refused with a reason and the rule is reported with the reason `sc
 |---|---|
 | `All` | `all` |
 | `InNet('v')` | `net v` |
+| `InNet('No Net')` | `not(net *)` (`NO_NET`) |
 | `InNetClass('v')` | `netclass v` |
 | `InComponent('v')` | `ref v` |
 | `IsTrack` | `item_kind track` |
@@ -168,6 +169,12 @@ rule (S-1531 states none); the public documents, which Altium saved, hold scopes
 `AND` (S-0580), and Altium's pages spell `And`, `AND` and `Not` in their examples. Altium states the
 precedence, highest first: brackets, `Not`, `And`, `Or`, then `&&` and `||`, ties from left to right
 (S-1531); the grammar still holds one kind of operator per parenthesis level, which needs no precedence.
+
+`InNet('No Net')` selects the objects without a net (change c0409, B7; `H-A-RD-PRJ-SCOPE-NONET`, INFERRED): an
+object without a net has the Net property `No Net` (S-1680), and no public source states that `InNet` reads the
+name that way. It is read as `model.rules.NO_NET`, `not(net *)` (a net glob never matches an object
+without a net), which `select.no_net()` names and the KiCad target writes as `A.NetName == ''`
+(`docs/formats/kicad/rules.md`, `H-K-DRU-NONET`); the Altium writer does not write it back as `InNet('No Net')`.
 
 **Unmapped forms on the public boards** (change c0377, task 1.1; S-0580 documents, read 2026-11-04 with
 Fenolite's own reader, counts only). Kinds with no neutral counterpart, per rule record: FanoutControl 40,

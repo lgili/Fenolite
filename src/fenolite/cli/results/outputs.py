@@ -189,6 +189,7 @@ class RenderViewsItem:
 class RenderResult(BuildResult):
     board: str = field(metadata={"optional": True})
     region: RenderRegion = field(metadata={"optional": True})
+    svg_page: None | str = field(metadata={"optional": True})
     tool_version: None | str = field(metadata={"optional": True})
     views: list[RenderViewsItem] = field(metadata={"optional": True})
 

@@ -120,7 +120,7 @@ class Builder:
             end=Point(x1, y),
             width=width,
             layer=layer,
-            net_id=self.net(net),
+            net_id=self.net(net) if net else None,  # "": a track without a net (change c0409)
         )
         self.tracks.append(track)
         self.items[label] = (kicad_uuid(track),)

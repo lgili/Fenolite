@@ -2565,13 +2565,17 @@ warning does not either, change c0116).
 
 ## render
 
-`fenolite render PATH --out DIR [--svg] [--png] [--width PX] [--height PX] [--manifest]
+`fenolite render PATH --out DIR [--svg] [--png] [--width PX] [--height PX] [--page auto|sheet|board] [--manifest]
 [--kicad-cli PATH] [--timeout SECONDS]` writes review views of the board, through `kicad-cli` on the same copy set and
 with the same protocol and tool errors as `export`. `--svg` plots `front.svg` (`F.Cu`, `F.SilkS`,
 `F.Fab`, `Edge.Cuts`) and `back.svg` (the back layers, mirrored) with `pcb export svg --mode-single`;
 `--png` renders `top.png` and `bottom.png` with `pcb render`, at most `--width` by `--height` pixels
-(defaults 1600 and 1200, each from 64 to 8192). A call with neither flag, nor `--region`, exits 2. `result`
-holds `board`, `out`, `views` (`path`, `kind`, `bytes`, `sha256`; sorted by path) and `tool_version`.
+(defaults 1600 and 1200, each from 64 to 8192). `--page` sets the page of the SVG plots: `sheet` the drawing
+page, `board` the board area alone (`--exclude-drawing-sheet --page-size-mode 2`), and `auto`, the default, the
+board area when the board's outline reaches outside its page, as a board at an Altium origin does (change c0409).
+A call with neither flag, nor `--region`, exits 2. `result` holds `board`, `out`, `views` (`path`, `kind`,
+`bytes`, `sha256`; sorted by path), `svg_page` (the page of the SVG plots, `null` without `--svg`) and
+`tool_version`.
 `--manifest` merges the views that were produced into `DIR/fenolite-artifacts.json` as `export` does, each
 with the kind `render`; a view that failed has no entry.
 

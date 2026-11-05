@@ -20,7 +20,7 @@ import tempfile
 from collections import Counter
 from collections.abc import Mapping, Sequence
 from contextlib import ExitStack, nullcontext
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 from fenolite import __version__
@@ -31,6 +31,7 @@ from fenolite.backends.kicad.symbol_contexts import check_paths
 from fenolite.cli.api import Command, Context, PlannedWrite, Result, depends_on
 from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
+from fenolite.convert.models import FOLDER_SUFFIX
 from fenolite.core.errors import FenoliteError, FormatError, Issue
 from fenolite.core.evidence import Evidence
 from fenolite.importer import EVIDENCE
@@ -151,8 +152,14 @@ def _altium(path: Path, args: argparse.Namespace, ctx: Context) -> tuple[Source,
         read, name=origin.path.stem, backend="altium", inputs=inputs, paths=tuple(files), folder=origin.root,
         sheets=0, native_rules_text=None,  # conversion-generated rules are not original KiCad input
     )  # fmt: skip
+    models = {
+        key: data
+        for key, data in conversion.files.items()
+        if PurePosixPath(key).parent.name.endswith(FOLDER_SUFFIX)  # change c0409, B9
+    }
     source = dataclasses.replace(
         source,
+        model_files=models,
         sheet_origins={
             component.ref: (component.provenance.file, component.provenance.locator)
             for component in origin.design.circuit.components
@@ -308,6 +315,8 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     )
     target = ctx.kicad_target if ctx.kicad_target_explicit or source.major not in (9, 10) else source.major
     emission = emit(source, Options(name, provenance, target=target))
+    if source.model_files:  # change c0409, B9: the models the footprints name, where they name them
+        emission = dataclasses.replace(emission, files={**emission.files, **source.model_files})
     if emission.unexpressed and not ctx.allow_lossy:
         raise LossyImportError(emission.unexpressed)
     issues += emission.issues
