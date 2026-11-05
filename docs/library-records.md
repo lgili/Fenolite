@@ -134,7 +134,23 @@ points = [["-2.54mm", "0mm"], ["-1.905mm", "1.05mm"]]
 `[[pin]]` takes `number`, `name`, `type`, and optionally `shape`, `hidden`, `unit`, `group`, `alternates`.
 `[symbol]` places every pin exactly once and lists its graphics; the symbol's properties are `Reference`,
 `Value` (default the name part of the id) and `Description` (the summary). `polarity = "anode-first"` marks
-the two-pin symbols with pin 1 at the anode. Without an explicit drawing or imported `symbol_file`, the
+the two-pin symbols with pin 1 at the anode. A `line` graphic may hold more than two points: it is one
+open polyline (change c0419).
+
+`[symbol]` may place the standard fields (change c0419); a field it does not place keeps the writer's
+default spot near the origin:
+
+```toml
+fields = [
+  { name = "Reference", at = ["2.54mm", "1.27mm"], justify = "left" },
+  { name = "Value", at = ["2.54mm", "-1.27mm"], justify = "left" },
+  { name = "Footprint", at = ["0mm", "0mm"], hide = true },
+]
+```
+
+`name` is `Reference`, `Value`, `Footprint`, `Datasheet` or `Description`, each at most once; `at` is in
+the symbol frame (Y up); `rotation` is `0deg` or `90deg`; `justify` is `left`, `right` or absent (centred);
+`hide` hides the field in KiCad. Without an explicit drawing or imported `symbol_file`, the
 record is a generated pin table (`docs/symbols.md`): rows also accept `side`, `bus` and `stacked`, and
 `[symbol]` may configure the generator instead of placing pins. Devices naming this table get a drawing
 under their own id, with their package as `Footprint` and its name as `ki_fp_filters`. Their authored

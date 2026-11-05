@@ -136,6 +136,22 @@ class SymbolGraphic:
     body_style: int = 0
 
 
+SYMBOL_FIELDS = ("Reference", "Value", "Footprint", "Datasheet", "Description")
+FieldJustify = Literal["", "left", "right"]
+
+
+@dataclass(frozen=True, slots=True)
+class SymbolField:
+    """Where a library symbol shows one of its standard fields (``SYMBOL_FIELDS``), in the symbol frame
+    (change c0419). ``rotation`` is in microdegrees; ``justify`` ``""`` is centred."""
+
+    name: str
+    at: Point
+    rotation: Udeg = 0
+    justify: FieldJustify = ""
+    hidden: bool = False
+
+
 @dataclass(frozen=True, slots=True)
 class SymbolDef(Entity):
     """A symbol of a library. A derived symbol read as written has ``extends`` set and no pins."""
@@ -154,6 +170,7 @@ class SymbolDef(Entity):
     units: tuple[SymbolUnit, ...] = field(default=(), metadata=ORDERED)
     pins: tuple[SymbolPin, ...] = field(default=(), metadata=ORDERED)
     graphics: tuple[SymbolGraphic, ...] = field(default=(), metadata=ORDERED)
+    fields: tuple[SymbolField, ...] = field(default=(), metadata=ORDERED)
 
     @property
     def lib_id(self) -> str:
@@ -527,7 +544,10 @@ __all__ = [
     "PowerKind",
     "Rating",
     "RatingUnit",
+    "SYMBOL_FIELDS",
+    "FieldJustify",
     "SymbolDef",
+    "SymbolField",
     "SymbolGraphic",
     "SymbolPin",
     "SymbolUnit",

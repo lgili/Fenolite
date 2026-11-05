@@ -37,6 +37,7 @@ from fenolite.core.quantities import QuantityError, angle_text, length_text, par
 from fenolite.model import canonical
 from fenolite.model.board import ComponentBody, Graphic, Pad, Padstack, PadstackLayer
 from fenolite.model.library import (
+    SYMBOL_FIELDS,
     DeviceDef,
     FootprintDef,
     FootprintKind,
@@ -44,6 +45,7 @@ from fenolite.model.library import (
     PinTable,
     Rating,
     SymbolDef,
+    SymbolField,
     SymbolGraphic,
     SymbolPin,
     SymbolUnit,
@@ -301,6 +303,7 @@ class SymbolDrawing:
     units: tuple[SymbolUnit, ...] = field(default=(SymbolUnit(1, 1),), metadata={"ordered": True})
     placements: tuple[PinPlacement, ...] = field(default=(), metadata={"ordered": True})
     graphics: tuple[SymbolGraphic, ...] = field(default=(), metadata={"ordered": True})
+    fields: tuple[SymbolField, ...] = field(default=(), metadata={"ordered": True})
 
 
 @dataclass(frozen=True, slots=True)
@@ -778,7 +781,34 @@ _PIN_SHAPES = ("line", "inverted", "clock", "inverted_clock", "input_low", "cloc
                "edge_clock_high", "non_logic")  # fmt: skip
 _PIN_KEYS = ("number", "name", "type", "shape", "hidden", "unit", "group", "alternates")
 _SYMBOL_KEYS = ("reference", "value", "pin_names_hidden", "pin_numbers_hidden", "pin_name_offset", "units",
-                "pins", "graphic")  # fmt: skip
+                "fields", "pins", "graphic")  # fmt: skip
+
+
+def _symbol_fields(read: _Reader, value: object) -> tuple[SymbolField, ...]:
+    """``[symbol] fields``: where the drawing shows its standard fields (change c0419)."""
+    found: list[SymbolField] = []
+    for index, item in enumerate(_tables(read, value, "symbol.fields")):
+        where = f"symbol.fields[{index}]"
+        _closed(read, item, ("name", "at", "rotation", "justify", "hide"), where)
+        name = _choice(read, item.get("name"), f"{where}.name", SYMBOL_FIELDS)
+        if any(f.name == name for f in found):
+            raise read.fail(f"{where}.name", f"places the field {name} twice")
+        rotation = _angle(read, item.get("rotation", "0deg"), f"{where}.rotation")
+        if rotation not in (0, 90_000_000):
+            raise read.fail(f"{where}.rotation", "is 0deg or 90deg")
+        justify = read.text(item.get("justify", ""), f"{where}.justify", empty=True)
+        if justify not in ("", "left", "right"):
+            raise read.fail(f"{where}.justify", "is left, right or absent (centred)")
+        found.append(
+            SymbolField(
+                name,
+                _point(read, item.get("at"), f"{where}.at"),
+                rotation,
+                cast("object", justify),  # type: ignore[arg-type]
+                _bool(read, item.get("hide", False), f"{where}.hide"),
+            )
+        )
+    return tuple(found)
 
 
 def _pins_record(read: _Reader, header: Header, data: Mapping[str, object]) -> PinsRecord:
@@ -891,6 +921,7 @@ def _pins_record(read: _Reader, header: Header, data: Mapping[str, object]) -> P
                 )
             )
         offset = table.get("pin_name_offset")
+        fields = _symbol_fields(read, table.get("fields", []))
         symbol = SymbolDrawing(
             reference=read.text(table.get("reference"), "symbol.reference"),
             value=read.text(table.get("value", header.name), "symbol.value", empty=True),
@@ -902,6 +933,7 @@ def _pins_record(read: _Reader, header: Header, data: Mapping[str, object]) -> P
             units=units,
             placements=tuple(sorted(placements, key=lambda found: numbers.index(found.number))),
             graphics=tuple(graphics),
+            fields=fields,
         )
     polarity = read.text(data.get("polarity", ""), "polarity", empty=True)
     if polarity not in ("", "anode-first"):
@@ -1473,6 +1505,18 @@ def _pins_text(record: PinsRecord) -> list[str]:
                 for u in drawing.units
             ]
             lines.append("units = [" + ", ".join(units) + "]")
+        if drawing.fields:
+            lines.append("fields = [")
+            for placed in drawing.fields:
+                pairs = [("name", _string(placed.name)), ("at", _pt(placed.at))]
+                if placed.rotation:
+                    pairs.append(("rotation", _ang(placed.rotation)))
+                if placed.justify:
+                    pairs.append(("justify", _string(placed.justify)))
+                if placed.hidden:
+                    pairs.append(("hide", "true"))
+                lines.append(f"  {_inline(pairs)},")
+            lines.append("]")
         lines.append("pins = [")
         for place in drawing.placements:
             pairs = [("number", _string(place.number)), ("at", _pt(place.at))]
@@ -1760,6 +1804,7 @@ def symbol_def(record: PinsRecord) -> SymbolDef:
             for pin in record.pins
         ),
         graphics=drawing.graphics,
+        fields=drawing.fields,
     )
 
 

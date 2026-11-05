@@ -1370,12 +1370,48 @@
           "items": {
             "$ref": "#/$defs/SymbolGraphic"
           }
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SymbolField"
+          }
         }
       },
       "additionalProperties": false,
       "required": [
         "id",
         "name"
+      ]
+    },
+    "SymbolField": {
+      "description": "Where a library symbol shows one of its standard fields (``SYMBOL_FIELDS``), in the symbol frame",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "at": {
+          "$ref": "#/$defs/Point"
+        },
+        "rotation": {
+          "type": "integer"
+        },
+        "justify": {
+          "enum": [
+            "",
+            "left",
+            "right"
+          ]
+        },
+        "hidden": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "at"
       ]
     },
     "SymbolGraphic": {

@@ -24095,6 +24095,70 @@
           },
           "readers": "graphics",
           "decision": "pending"
+        },
+        {
+          "name": "fields",
+          "type": "tuple[fenolite.model.library.SymbolField, ...]",
+          "default": {
+            "kind": "value",
+            "value": []
+          },
+          "readers": "fields",
+          "decision": "pending"
+        }
+      ],
+      "decision": "pending"
+    },
+    {
+      "class": "fenolite.model.library.SymbolField",
+      "fields": [
+        {
+          "name": "name",
+          "type": "<class 'str'>",
+          "default": {
+            "kind": "required"
+          },
+          "readers": "name",
+          "decision": "pending"
+        },
+        {
+          "name": "at",
+          "type": "<class 'fenolite.core.coords.Point'>",
+          "default": {
+            "kind": "required"
+          },
+          "readers": "at",
+          "decision": "pending"
+        },
+        {
+          "name": "rotation",
+          "type": "<class 'int'>",
+          "default": {
+            "kind": "value",
+            "value": 0
+          },
+          "readers": "rotation",
+          "decision": "pending"
+        },
+        {
+          "name": "justify",
+          "type": "Literal['', 'left', 'right']",
+          "default": {
+            "kind": "value",
+            "value": ""
+          },
+          "readers": "justify",
+          "decision": "pending"
+        },
+        {
+          "name": "hidden",
+          "type": "<class 'bool'>",
+          "default": {
+            "kind": "value",
+            "value": false
+          },
+          "readers": "hidden",
+          "decision": "pending"
         }
       ],
       "decision": "pending"

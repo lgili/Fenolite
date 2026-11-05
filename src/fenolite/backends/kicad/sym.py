@@ -42,6 +42,7 @@ from fenolite.model.library import (
     PinShape,
     PowerKind,
     SymbolDef,
+    SymbolField,
     SymbolGraphic,
     SymbolPin,
     SymbolUnit,
@@ -108,7 +109,8 @@ def write_symbol_library(symbols: Sequence[SymbolDef], *, target: int = 10) -> s
         stroke = f"(stroke (width {mm(width)}) (type default))"
         fill = "background" if graphic.filled else "none"
         if graphic.kind == "line":
-            body = f"(polyline (pts {xy(points[0])} {xy(points[1])}) {stroke} (fill (type {fill})))"
+            # every point of the line (change c0419); two points keep the bytes of change c0058
+            body = f"(polyline (pts {' '.join(xy(point) for point in points)}) {stroke} (fill (type {fill})))"
         elif graphic.kind == "rect":
             body = (
                 f"(rectangle (start {mm(points[0].x)} {mm(points[0].y)}) "
@@ -145,6 +147,14 @@ def write_symbol_library(symbols: Sequence[SymbolDef], *, target: int = 10) -> s
         effects = "(effects (font (size 1.27 1.27)) (justify left)" + (" (hide yes))" if hidden else ")")
         return [f"\t\t(property {q(key)} {q(value)}", f"\t\t\t(at 0 {mm(y)} 0)", f"\t\t\t{effects}", "\t\t)"]
 
+    def placed_text(key: str, value: str, placed: SymbolField) -> list[str]:
+        """A standard field where the definition places it (change c0419)."""
+        effects = "(effects (font (size 1.27 1.27))"
+        effects += f" (justify {placed.justify})" if placed.justify else ""
+        effects += " (hide yes))" if placed.hidden else ")"
+        at = f"(at {mm(placed.at.x)} {mm(placed.at.y)} {placed.rotation // 1_000_000})"
+        return [f"\t\t(property {q(key)} {q(value)}", f"\t\t\t{at}", f"\t\t\t{effects}", "\t\t)"]
+
     def symbol_text(symbol: SymbolDef) -> list[str]:
         out = [f"\t(symbol {q(symbol.name)}"]
         if symbol.extends:
@@ -155,6 +165,7 @@ def write_symbol_library(symbols: Sequence[SymbolDef], *, target: int = 10) -> s
             f"\t\t(on_board {'yes' if symbol.on_board else 'no'})",
         ]
         props = symbol.properties
+        placed = {f.name: f for f in symbol.fields}
         for key, default, y in (
             ("Reference", "U", 2_540_000),
             ("Value", symbol.name, 0),
@@ -167,7 +178,7 @@ def write_symbol_library(symbols: Sequence[SymbolDef], *, target: int = 10) -> s
             value = props.get(key, default)
             if key == "Description" and not value:
                 continue
-            out += property_text(key, value, y)
+            out += placed_text(key, value, placed[key]) if key in placed else property_text(key, value, y)
         for key in sorted(k for k in props if k not in _STANDARD_FIELDS):
             out += property_text(key, props[key], 0, hidden=True)
         if symbol.extends:

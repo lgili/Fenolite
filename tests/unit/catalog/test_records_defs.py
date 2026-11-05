@@ -22,6 +22,7 @@ from fenolite.catalog.records import (
     shipped_tree,
     symbol_def,
 )
+from fenolite.core.coords import Point
 from fenolite.core.errors import FormatError
 from fenolite.core.ids import derived_id
 
@@ -162,3 +163,49 @@ def test_project_records_build(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) 
     files = [row["path"] for row in envelope["result"]["device_files"]]  # type: ignore[index]
     assert files == ["devices/packages/two_pad.toml", "devices/pins/two_pin.toml"]
     shutil.rmtree(folder / "devices")
+
+
+FIELDS = """fields = [
+  { name = "Reference", at = ["2.54mm", "1.27mm"], justify = "left" },
+  { name = "Value", at = ["0mm", "-2.54mm"], rotation = "90deg" },
+  { name = "Footprint", at = ["0mm", "0mm"], hide = true },
+]
+pins = ["""
+
+
+def test_symbol_fields_from_a_pins_record() -> None:
+    """c0419: [symbol] fields place and hide standard fields and survive the canonical text."""
+    from fenolite.catalog.records import record_text
+    from fenolite.model.library import SymbolField
+
+    record = parse_record(TWO_PIN.replace("pins = [", FIELDS, 1))
+    assert isinstance(record, PinsRecord)
+    assert symbol_def(record).fields == (
+        SymbolField("Reference", Point(2_540_000, 1_270_000), justify="left"),
+        SymbolField("Value", Point(0, -2_540_000), rotation=90_000_000),
+        SymbolField("Footprint", Point(0, 0), hidden=True),
+    )
+    again = parse_record(record_text(record))
+    assert isinstance(again, PinsRecord)
+    assert symbol_def(again).fields == symbol_def(record).fields
+    assert symbol_def(parse_record(TWO_PIN)).fields == ()
+
+
+@pytest.mark.parametrize(
+    ("entry", "message"),
+    [
+        (
+            '{ name = "Reference", at = ["0mm", "0mm"] },\n  { name = "Reference", at = ["0mm", "1mm"] }',
+            "twice",
+        ),
+        ('{ name = "Comment", at = ["0mm", "0mm"] }', "must be one of"),
+        ('{ name = "Value", at = ["0mm", "0mm"], rotation = "45deg" }', "0deg or 90deg"),
+        ('{ name = "Value", at = ["0mm", "0mm"], justify = "top" }', "left, right"),
+        ('{ name = "Value", at = ["0mm", "0mm"], colour = "red" }', "colour"),
+    ],
+)
+def test_symbol_fields_refusals(entry: str, message: str) -> None:
+    text = TWO_PIN.replace("pins = [", f"fields = [\n  {entry},\n]\npins = [", 1)
+    with pytest.raises(FormatError) as caught:
+        parse_record(text, file="pins/two_pin.toml")
+    assert message in str(caught.value) and getattr(caught.value, "code", "") == "FEN-3004"

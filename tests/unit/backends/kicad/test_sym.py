@@ -274,3 +274,57 @@ def test_multi_unit_graphics_keep_their_unit_when_read() -> None:
     assert {(g.unit, g.body_style) for g in gate.graphics} <= {(u.unit, u.body_style) for u in gate.units}
     resistor = _by_name(V10)["Mini_R"]
     assert {(g.unit, g.body_style) for g in resistor.graphics} == {(0, 0)}
+
+
+def _resistor(**changes: object) -> SymbolDef:
+    from fenolite.dsl import Symbol, mm
+
+    authored = Symbol("Local", "R", reference="R")
+    authored.pin("1", "~", at=(mm(0), mm(3.81)), length=mm(1.27), rotation=270)
+    authored.pin("2", "~", at=(mm(0), mm(-3.81)), length=mm(1.27), rotation=90)
+    authored.rect((mm(-1.016), mm(-2.54)), (mm(1.016), mm(2.54)))
+    return dataclasses.replace(authored.definition, **changes)  # type: ignore[arg-type]
+
+
+def test_placed_and_hidden_fields() -> None:
+    """c0419: a placed field is written at its place, with its justify and hide; others as before."""
+    from fenolite.model.library import SymbolField
+
+    plain = write_symbol_library((_resistor(),))
+    fields = (
+        SymbolField("Reference", Point(2_540_000, 1_270_000), justify="left"),
+        SymbolField("Value", Point(1_778_000, 0), rotation=90_000_000),
+        SymbolField("Footprint", Point(0, 0), hidden=True),
+        SymbolField("Datasheet", Point(0, 0), hidden=True),
+    )
+    placed = write_symbol_library((_resistor(fields=fields),))
+    left = "(effects (font (size 1.27 1.27)) (justify left))"
+    assert f'(property "Reference" "R"\n\t\t\t(at 2.54 1.27 0)\n\t\t\t{left}' in placed
+    assert '(property "Value" ""\n\t\t\t(at 1.778 0 90)\n\t\t\t(effects (font (size 1.27 1.27)))' in placed
+    assert (
+        '(property "Footprint" ""\n\t\t\t(at 0 0 0)\n\t\t\t(effects (font (size 1.27 1.27)) (hide yes))'
+        in placed
+    )
+    # without fields, today's text; the unplaced fields of a placed symbol keep it too
+    assert f'(property "Reference" "R"\n\t\t\t(at 0 2.54 0)\n\t\t\t{left}' in plain
+    assert [line for line in placed.splitlines() if "Description" in line] == [
+        line for line in plain.splitlines() if "Description" in line
+    ]
+    assert (
+        read_symbol_library(placed, library="Local")[0].properties
+        == read_symbol_library(plain, library="Local")[0].properties
+    )
+
+
+def test_a_line_keeps_every_point() -> None:
+    """c0419 (G-5): a line of three points was written with its first two only."""
+    from fenolite.model.library import SymbolGraphic
+
+    zigzag = SymbolGraphic("line", (Point(0, 0), Point(1_270_000, 1_270_000), Point(2_540_000, 0)))
+    text = write_symbol_library((_resistor(graphics=(zigzag,)),))
+    assert "(polyline (pts (xy 0 0) (xy 1.27 1.27) (xy 2.54 0)) (stroke" in text
+    segment = SymbolGraphic("line", (Point(0, 0), Point(1_270_000, 0)))
+    assert (
+        "(polyline (pts (xy 0 0) (xy 1.27 0)) (stroke (width 0.254) (type default)) (fill (type none)))"
+        in (write_symbol_library((_resistor(graphics=(segment,)),)))
+    )
