@@ -874,6 +874,19 @@ changed `Board6` key for either option; Altium's resave adds only its usual reco
 are not stored in the PCB document, and a written panel cannot make them its defaults. Q9 as written
 (defaults) stays partial.
 
+Where the copies lie (change c0386, tasks 1.1 to 1.3, S-1592). Saved panels and Altium outputs per
+variant: `panel-a` has its saved file and the default Gerber and NC Drill outputs of the S-1576 run;
+`panel-rot90`, `panel-mirror` and `panel-link` have their saved files (S-1422) and an NC Drill output made
+this day with the separate plated file still on (`panel-<variant>-Plated.TXT`, the board having plated holes
+only); `panel-cols4`, `panel-rows3`, `panel-spacing`, `panel-margin`, `panel-move` and `panel-two` have
+saved files and no output. `tests/unit/backends/altium/test_panel_placement.py` reads each drill file and
+places the board's 3 drilled holes (the via and the 2 through-hole pads) by the array record. All 12 hits of
+each of the 4 variants lie within 0.001 mm of (`X`, `Y`) + (c · `COLSPACING`, r · `ROWSPACING`) +
+(p − the board's origin). `ROTATION` 90 turns the whole array about (`X`, `Y`), and `MIRROR` mirrors its X
+about `X`. `panel-link` gives the same hits as `panel-a`, because the fixture board's origin is its shape's
+bottom-left corner. Copper and silkscreen start more than 5 mm inside that corner, so the reference is not
+the bottom-left of those objects.
+
 `H-A-PANEL-RECORD`, `H-A-PANEL-LAYERKIND` and `H-A-PANEL-KIT` keep their levels. `EMBEDDED_ARRAYS` stays
 `False`: Q9 with defaults gives one drill file and no `V-Cut` Gerber, and Q8 needs a restart. The saved files
 and outputs stay in the agent's folder `claude-2026-11-05/rounds/`, outside the repository.

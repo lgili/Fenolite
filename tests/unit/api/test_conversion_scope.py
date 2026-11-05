@@ -90,6 +90,67 @@ def test_each_embedded_array_is_a_named_item(monkeypatch: pytest.MonkeyPatch) ->
     assert row.ids() == ("blink.PcbDoc#1:board.PcbDoc 1x1", "blink.PcbDoc#2:board.PcbDoc 3x2")
 
 
+def test_referenced_documents_are_read_beside_the_board(tmp_path: Path) -> None:
+    """change c0386, task 2.1: each array's document is taken relative to the board's document; a present
+    PCB document reads, and a missing, an unreadable and an absolute one are told apart."""
+    from fenolite.convert.to_kicad import referenced_document
+
+    panel = tmp_path / "panel.PcbDoc"
+    panel.write_bytes(b"")
+    (tmp_path / "sub").mkdir()
+    (tmp_path / "sub" / "board.PcbDoc").write_bytes(BLINK.with_suffix(".PcbDoc").read_bytes())
+    (tmp_path / "notes.PcbDoc").write_bytes(b"not a compound file")
+    assert referenced_document(panel, "sub\\board.PcbDoc") == (tmp_path / "sub" / "board.PcbDoc", "read")
+    assert referenced_document(panel, "sub/board.PcbDoc")[1] == "read"
+    assert referenced_document(panel, "absent.PcbDoc") == (None, "missing")
+    assert referenced_document(panel, "notes.PcbDoc") == (tmp_path / "notes.PcbDoc", "unreadable")
+    for absolute in ("C:\\work\\board.PcbDoc", "\\\\host\\share\\board.PcbDoc", "/work/board.PcbDoc", ""):
+        assert referenced_document(panel, absolute) == (None, "absolute"), absolute
+
+
+def test_each_array_names_how_its_document_reads(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """change c0386, task 2.1: the report's reason says whether each array's document reads, and an absolute
+    path is named by its file name only; every array stays a refused loss."""
+    import shutil
+    from fractions import Fraction
+
+    import fenolite.backends.altium.read.arrays as arrays
+    import fenolite.backends.altium.read.cfb as cfb
+    from fenolite.convert.report import (
+        EMBEDDED_BOARD_ABSOLUTE,
+        EMBEDDED_BOARD_MISSING,
+        EMBEDDED_BOARD_REASON,
+        EMBEDDED_BOARD_UNREADABLE,
+    )
+
+    for path in BLINK.parent.iterdir():
+        shutil.copyfile(path, tmp_path / path.name)
+    shutil.copyfile(BLINK.with_suffix(".PcbDoc"), tmp_path / "board.PcbDoc")
+    (tmp_path / "broken.PcbDoc").write_bytes(b"not a compound file")
+    one = arrays.BoardArray(
+        "board.PcbDoc", Fraction(0), Fraction(0), 0.0, False, 1, 1, Fraction(1), Fraction(1), False
+    )
+    found = (
+        one,
+        dataclasses.replace(one, document="gone.PcbDoc"),
+        dataclasses.replace(one, document="broken.PcbDoc"),
+        dataclasses.replace(one, document="D:\\vm\\work\\board.PcbDoc"),
+    )
+    monkeypatch.setattr(cfb, "holds_embedded_boards", lambda _data: True)
+    monkeypatch.setattr(arrays, "board_arrays", lambda _data: found)
+    conversion = convert_project(read_source(tmp_path / BLINK.name), to="kicad", allow_lossy=True)
+    row = next(row for row in conversion.report.rows if row.kind == "embedded-board")
+    assert (row.source, row.lost) == (4, 4)
+    reasons = {ident: reason.reason for reason in row.reasons for ident in reason.ids}
+    assert reasons == {
+        "blink.PcbDoc#1:board.PcbDoc 1x1": EMBEDDED_BOARD_REASON,
+        "blink.PcbDoc#2:gone.PcbDoc 1x1": EMBEDDED_BOARD_MISSING,
+        "blink.PcbDoc#3:broken.PcbDoc 1x1": EMBEDDED_BOARD_UNREADABLE,
+        "blink.PcbDoc#4:board.PcbDoc 1x1": EMBEDDED_BOARD_ABSOLUTE,
+    }
+    assert "vm" not in " ".join(reasons)
+
+
 def test_documents_without_arrays_hold_none() -> None:
     from fenolite.backends.altium.read.cfb import holds_embedded_boards
 

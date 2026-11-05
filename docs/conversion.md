@@ -149,7 +149,10 @@ The vocabulary is closed (`fenolite.convert.report.KINDS`), one table for every 
   `<document>#<n>:<referenced document> <columns>x<rows>` (the document's name alone when the records do
   not read); where the copies lie is not measured, so their components and copper are not converted. Each
   item is `lost` with a reason of `report.REFUSE_REASONS`: the conversion (and `import --to python` of
-  the project) exits 7 without `--allow-lossy` (change c0374). `shared-footprint`: each footprint of a
+  the project) exits 7 without `--allow-lossy` (change c0374). The referenced document is looked for at its
+  `DOCUMENTPATH` relative to the board's document, either separator; the item's reason says whether it
+  reads, is missing, does not read as a PCB document, or is stored as an absolute path, which is not
+  followed and is named by its file name only (change c0386). `shared-footprint`: each footprint of a
   source component that several footprints link, `changed`; it explains the `ref-ambiguous` of that
   reference (change c0371). With a written schematic, the board comparison covers placed components and
   the schematic comparison the others (change c0371).

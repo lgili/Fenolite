@@ -114,11 +114,31 @@ EMBEDDED_BOARD_REASON = (
     "the board places other PCB documents (an Embedded Board Array; the item names the array and its "
     "document), and where the copies lie is not measured: their components and copper are not converted"
 )
+EMBEDDED_BOARD_MISSING = (
+    "the board places another PCB document (an Embedded Board Array; the item names the array and its "
+    "document) that is not found at its path relative to the board's document: its copies are not converted"
+)
+EMBEDDED_BOARD_UNREADABLE = (
+    "the board places another PCB document (an Embedded Board Array; the item names the array and its "
+    "document) that does not read as a PCB document: its copies are not converted"
+)
+EMBEDDED_BOARD_ABSOLUTE = (
+    "the board places another PCB document (an Embedded Board Array; the item names the array and the "
+    "document's file name) by an absolute path, which a conversion does not follow: its copies are not "
+    "converted"
+)
 SCHEMATIC_REFUSED = "the schematic generator refused the imported circuit"
 REFUSE_REASONS: Mapping[str, frozenset[str]] = MappingProxyType(
     {
         "cutout": frozenset({OVERLAP_NO_UNION, OVERLAP_NOT_ONE_RING}),
-        "embedded-board": frozenset({EMBEDDED_BOARD_REASON}),  # change c0374
+        "embedded-board": frozenset(  # changes c0374 and c0386
+            {
+                EMBEDDED_BOARD_REASON,
+                EMBEDDED_BOARD_MISSING,
+                EMBEDDED_BOARD_UNREADABLE,
+                EMBEDDED_BOARD_ABSOLUTE,
+            }
+        ),
         "schematic": frozenset({SCHEMATIC_REFUSED}),  # change c0372
     }
 )

@@ -21,9 +21,10 @@ with ``allow_lossy``: the consent to a ``design`` loss is ``convert_project``'s,
 from __future__ import annotations
 
 import dataclasses
+import re
 from collections import Counter, defaultdict
-from pathlib import Path, PurePosixPath
-from typing import TYPE_CHECKING
+from pathlib import Path, PurePosixPath, PureWindowsPath
+from typing import TYPE_CHECKING, Literal
 
 from fenolite.backends.altium.pcbrecords import to_units
 from fenolite.backends.kicad import dru, resolver, sch, sym
@@ -37,14 +38,17 @@ from fenolite.convert.models import Placed, place_models
 from fenolite.convert.report import (
     DOWNGRADE_KINDS,
     DOWNGRADE_PREFIX,
+    EMBEDDED_BOARD_ABSOLUTE,
+    EMBEDDED_BOARD_MISSING,
     EMBEDDED_BOARD_REASON,
+    EMBEDDED_BOARD_UNREADABLE,
     OVERLAP_NO_UNION,
     OVERLAP_NOT_ONE_RING,
     ConversionReport,
     census,
 )
 from fenolite.convert.sources import KICAD, SourceProject
-from fenolite.core.errors import Issue
+from fenolite.core.errors import FormatError, Issue
 from fenolite.core.evidence import Evidence, Level
 from fenolite.core.ids import derived_id
 from fenolite.core.trig import FULL_TURN
@@ -421,17 +425,52 @@ def merged_cutouts(design: Design, ledger: Ledger) -> tuple[Design, int]:
     return dataclasses.replace(design, board=board), len(groups)
 
 
-def _array_items(name: str, data: bytes) -> tuple[str, ...]:
-    """One item per Embedded Board Array of the board document ``name``: ``<name>#<n>:<document>
-    <columns>x<rows>`` in record order (``read.arrays``); the document's name alone when its records do
-    not read as arrays (change c0374)."""
+ReferenceStatus = Literal["read", "missing", "unreadable", "absolute"]
+"""How the PCB document that an Embedded Board Array references reads (change c0386, task 2.1)."""
+
+
+def referenced_document(panel: Path, document: str) -> tuple[Path | None, ReferenceStatus]:
+    """The PCB document that an array of the board document ``panel`` references by ``DOCUMENTPATH``
+    (``document``), taken relative to ``panel``'s folder with either separator, and how it reads: ``read``,
+    ``missing`` (no file there), ``unreadable`` (not a PCB document that Fenolite reads) or ``absolute`` (a
+    drive, share or root path, which is not followed: S-1422 measured relative paths only)."""
+    from fenolite.backends.altium.read.pcb import read_pcbdoc
+
+    if not document or PureWindowsPath(document).anchor or document.startswith(("/", "\\")):
+        return None, "absolute"
+    target = panel.parent.joinpath(*(part for part in re.split(r"[\\/]", document) if part))
+    if not target.is_file():
+        return None, "missing"
+    try:
+        read_pcbdoc(target.read_bytes(), file=target.name, strict=True)
+    except (FormatError, OSError, ValueError):
+        return target, "unreadable"
+    return target, "read"
+
+
+def _array_items(panel: Path, data: bytes) -> tuple[tuple[str, str], ...]:
+    """One (item, reason) per Embedded Board Array of the board document ``panel``: the item is
+    ``<name>#<n>:<document> <columns>x<rows>`` in record order (``read.arrays``; the document's file name
+    only when its path is absolute), the reason says whether the referenced document reads (change c0386);
+    the document's name alone when its records do not read as arrays (change c0374)."""
     from fenolite.backends.altium.read.arrays import ArrayError, board_arrays
 
+    reasons = {
+        "read": EMBEDDED_BOARD_REASON,
+        "missing": EMBEDDED_BOARD_MISSING,
+        "unreadable": EMBEDDED_BOARD_UNREADABLE,
+        "absolute": EMBEDDED_BOARD_ABSOLUTE,
+    }
     try:
         found = board_arrays(data)
     except ArrayError:
-        return (name,)
-    return tuple(f"{name}#{n}:{a.document} {a.cols}x{a.rows}" for n, a in enumerate(found, 1)) or (name,)
+        return ((panel.name, EMBEDDED_BOARD_REASON),)
+    items: list[tuple[str, str]] = []
+    for n, array in enumerate(found, 1):
+        _, status = referenced_document(panel, array.document)
+        named = re.split(r"[\\/]", array.document)[-1] if status == "absolute" else array.document
+        items.append((f"{panel.name}#{n}:{named} {array.cols}x{array.rows}", reasons[status]))
+    return tuple(items) or ((panel.name, EMBEDDED_BOARD_REASON),)
 
 
 def write_altium(source: SourceProject, options: Options) -> Written:
@@ -463,10 +502,10 @@ def write_altium(source: SourceProject, options: Options) -> Written:
                 ledger.change(SHARED_FOOTPRINT_KIND, ident, SHARED_FOOTPRINT_REASON)
     document = board_document(source, source.design)
     if document is not None and holds_embedded_boards(data := document.read_bytes()):  # change c0374
-        items = _array_items(document.name, data)
+        items = _array_items(document, data)
         counts[EMBEDDED_BOARD_KIND] = len(items)
-        for ident in items:
-            ledger.drop(EMBEDDED_BOARD_KIND, ident, EMBEDDED_BOARD_REASON)
+        for ident, reason in items:
+            ledger.drop(EMBEDDED_BOARD_KIND, ident, reason)
     merged, cutouts = merged_cutouts(source.design, ledger)
     if cutouts:
         counts[CUTOUT_KIND] = cutouts
