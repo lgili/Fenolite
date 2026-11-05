@@ -553,7 +553,7 @@ A search candidate has `source=search` and the existing measured facts, no rank 
 under the existing `route.proposal-open` finding. A complete route longer than `max-length` is not
 emitted. Reaching a bound means exploration is incomplete, not that a physical route is impossible.
 The sparse grid can miss narrower or off-grid paths. Search returns one completed path per subject;
-role costs and negotiated rerouting remain separate proposed changes.
+negotiated rerouting remains a separate proposed change.
 
 The direct routing API returns explored/discovered counts and termination in `RoutingResult.log`;
 `RoutingJob.extra["cancelled"]` may provide a callable returning true to stop work. A job timeout
@@ -563,3 +563,44 @@ so timing is not a byte-repeatability or exhaustive-search guarantee.
 
 See [search evidence](evidence/router-search.md) for sources, authored proofs and oracle limits,
 and [router roadmap](router-roadmap.md) for remaining work.
+
+### Role-aware search fields (c0366)
+
+Opt-in search compiles declared/confirmed roles into immutable hard exclusions and nonnegative
+preferences. Inferred roles remain unknown. Sensitive signals cannot violate the existing switching
+profile distance or overlap switching copper on adjacent layers. Other signals receive a soft
+switching-exposure penalty. There is no inferred high-voltage clearance: missing or unresolved user
+pair distances refuse that victim with `search-role-limit`.
+
+`route --requirements FILE` reuses the existing requirements TOML schema. It requires octilinear
+opt-in search in `--propose`, `--accept` or `--reject` mode. Repeat the requirements path and search
+options when preparing a decision. Explicit pair distances also bind nets without HV roles. The
+maximum declared clearance, creepage, embedded and laminate insulation distance is conservatively
+projected onto XY across all layers; this is not a creepage field solver or a laminate certification.
+Existing copper remains fixed. Aggressor zones use their outline envelope and disclose that
+conservative approximation. No electrical distance value is added by this change.
+
+`result.role_fields` lists its payload `fingerprint`, `provenance` fingerprints (board, roles, profile,
+fill), hard `limits` (victim, aggressor, distance_nm, kind, origin), soft `preferences` (victim,
+aggressor, within_nm), `unknowns` and `missing_limits`. Candidate `facts.role_fields` repeats this
+context for the proposed board, adds `input_fingerprint` and `input_provenance`, and measures:
+
+- `confirmed_reference_length_lower_bound_nm`: length wholly inside validated saved ground copper
+  on an adjacent physical layer, including the track's swept width;
+- `unconfirmed_reference_length_nm`: the remaining track length, not a claim that it is uncovered;
+- `switching_exposure_upper_bound_nm`: whole-segment conservative exposure near switching copper.
+
+Missing, stale, island-marked or validation-limited fills never count as confirmed reference.
+Software costs add unconfirmed-reference length (when a confirmed ground policy exists) and
+switching exposure to geometric length; penalties are nonnegative integer quantities. These costs
+are internal exploration heuristics, not candidate scores, rankings or safety certification. A
+reference lower bound can undercount coverage across several adjacent polygons.
+
+Fixed-pattern candidates in fallback mode pass these hard fields before maze fallback is decided.
+Both existing copper and confirmed-group role judgments remain final authorities. Refused candidates
+emit `search-role-refused`; mismatched direct-API field packets emit `search-role-stale`.
+Unconfirmed group findings are reported without making inferred roles binding. Confirmation tracks
+requirements, roles (including creation of a default role document), the profile source, project
+rules and built-model sidecars as plan inputs. Any edit invalidates the reviewed plan (`FEN-4002`).
+
+See [role-field evidence](evidence/router-role-fields.md) for local proofs and pending CI coverage.

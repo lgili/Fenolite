@@ -44,6 +44,7 @@ from fenolite.model.circuit import NetClass
 from fenolite.model.design import Design
 from fenolite.model.rules import RoleSet, RuleSubject
 from fenolite.roles.judge import Judged, run, split_roles
+from fenolite.roles.measure import Inputs
 from fenolite.roles.routes import (
     CriticalPlan,
     CriticalRoute,
@@ -158,11 +159,14 @@ class Judge:
         circuit: object | None,
         stored: RoleSet | None,
         declared: RoleSet | None,
+        *,
+        inputs: Inputs | None = None,
     ) -> None:
         self.pads = tuple(pads)
         self.circuit = circuit
         self.stored = stored
         self.declared = declared
+        self.inputs = inputs
         self._memo: dict[int, tuple[Design, Judged]] = {}
 
     def judged(self, design: Design) -> Judged:
@@ -172,7 +176,14 @@ class Judge:
             from fenolite.model.circuit import Circuit
 
             circuit = self.circuit if isinstance(self.circuit, Circuit) else None
-            found = run(design, self.pads, circuit=circuit, stored=self.stored, declared=self.declared)
+            found = run(
+                design,
+                self.pads,
+                circuit=circuit,
+                stored=self.stored,
+                declared=self.declared,
+                inputs=self.inputs,
+            )
             held = (design, found)
             self._memo[key] = held
         return held[1]

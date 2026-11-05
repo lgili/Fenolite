@@ -1151,3 +1151,31 @@ def test_bounded_search_options_have_tested_agent_instructions() -> None:
     ):
         assert word in page.text, word
     assert cmd_problems(page) == []
+
+
+def test_role_search_inputs_and_facts_have_tested_instructions() -> None:
+    """c0366: teach user limits, conservative facts and final refusal reasons."""
+    page = guide.page("board-routing")
+    for word in (
+        "--requirements FILE",
+        "result.role_fields",
+        "facts.role_fields",
+        "fingerprint",
+        "provenance",
+        "limits",
+        "preferences",
+        "unknowns",
+        "missing_limits",
+        "input_fingerprint",
+        "input_provenance",
+        "confirmed_reference_length_lower_bound_nm",
+        "unconfirmed_reference_length_nm",
+        "switching_exposure_upper_bound_nm",
+        "search-role-limit",
+        "search-role-stale",
+        "search-role-refused",
+        "saved fill",
+        "invalidate the reviewed plan",
+    ):
+        assert word in page.text, word
+    assert cmd_problems(page) == []

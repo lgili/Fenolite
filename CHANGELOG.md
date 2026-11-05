@@ -888,6 +888,10 @@ All notable changes to Fenolite are documented here. The format follows
 
 - Add offline library rules, waivers, deterministic HTML review sheets, stable-id comparisons and human acceptance with automatic review staleness (c0262). Review metadata uses `[[reviewed_by]]` and binds the accepted sheet SHA-256; the entry separates implemented APIs from archival.
 - **Public URL paths in residue scans** (c0316): distinguish HTTP(S) path components from local user paths while retaining file URI, query, fragment, private-token, blob and other structural checks across supported encodings, archives and history.
+- Opt-in octilinear search respects confirmed role exclusions and user pair distances through
+  `route --requirements FILE`, uses conservative saved-ground and switching preference fields,
+  reports measured bounds/provenance/unknowns, retains final copper/role judges and invalidates
+  reviewed plans when field inputs change (c0366). No electrical limit is invented.
 
 ### Added
 

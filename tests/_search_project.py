@@ -37,7 +37,7 @@ def cli(*words: str) -> tuple[int, dict[str, Any], str]:
     return code, json.loads(out.getvalue() or "{}"), err.getvalue()
 
 
-def project(folder: Path, layers: int, *, bottom: bool = False):
+def project(folder: Path, layers: int, *, bottom: bool = False, extra: str = ""):
     return bench(
         folder,
         "search_maze",
@@ -60,5 +60,6 @@ b.place(mm(20),mm(10),rot=90,side="{"bottom" if bottom else "top"}")
 c.place(mm(22),mm(16))
 design.track("wall_a",(mm(8),mm(1)),(mm(8),mm(12)),width=mm("0.25"),net=fence)
 design.track("wall_b",(mm(16),mm(8)),(mm(16),mm(19)),width=mm("0.25"),net=fence)
+{extra}
 """,
     )

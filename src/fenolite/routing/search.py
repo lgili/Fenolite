@@ -19,6 +19,7 @@ from fenolite.geometry import Location, point_in_ring
 from fenolite.model.pairs import net_bases, pair_nets
 from fenolite.routing.octilinear import Polyline, World, length, shapes, simplify
 from fenolite.routing.protocol import JobSubject, RoutingJob
+from fenolite.routing.search_fields import Evaluator, Fields, board_fingerprint
 from fenolite.routing.search_grid import SearchResult, State, Stop, astar
 
 DIRECTIONS = ((1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1), (0, -1), (1, -1))
@@ -120,6 +121,8 @@ class _Graph:
     ) -> None:
         self.job, self.subject, self.world, self.limits = job, subject, world, limits
         self.rings, self.stop = rings, stop
+        fields = job.extra.get("search_fields")
+        self.fields = Evaluator(fields) if isinstance(fields, Fields) else None
         self.allowed = tuple(
             i for i, layer in enumerate(job.layers) if layer in subject.layers and layer not in world.planes
         )
@@ -135,6 +138,10 @@ class _Graph:
 
     def fits(self, layer: int, points: Polyline, width: int, incoming: int = -1) -> bool:
         if self.stop() is not None or not all(self.inside(p) for p in points):
+            return False
+        if self.fields is not None and not self.fields.allows(
+            self.subject.net, self.job.layers[layer], points, width
+        ):
             return False
         directions = tuple(_direction(a, b) for a, b in zip(points, points[1:], strict=False))
         if directions and (
@@ -153,6 +160,13 @@ class _Graph:
 
         def add(there: State, points: Polyline, cost: int | None = None) -> None:
             value = _cost(points) if cost is None else cost
+            if cost is None and self.fields is not None:
+                value += (
+                    1000
+                    * self.fields.measure(
+                        self.subject.net, self.job.layers[state.layer], points, self.subject.width
+                    ).penalty
+                )
             previous = found.get(there)
 
             def key(entry: tuple[int, Polyline]) -> tuple[int, tuple[tuple[int, int], ...]]:
@@ -247,6 +261,16 @@ def search(
     """Return one complete path, or an explicit refusal; never mutate the routing world."""
     if subject.kind != "connection" or subject.net in coupled_nets(job):
         return Outcome(reason="search-unsupported")
+    fields = job.extra.get("search_fields")
+    if fields is not None:
+        if (
+            not isinstance(fields, Fields)
+            or fields.provenance.board != board_fingerprint(job.design)
+            or fields.layers != job.layers
+        ):
+            return Outcome(reason="search-role-stale")
+        if any(net == subject.net for net, _ in fields.missing):
+            return Outcome(reason="search-role-limit")
     raw = job.extra.get("outline")
     if not isinstance(raw, tuple) or not raw:
         return Outcome(reason="search-geometry")

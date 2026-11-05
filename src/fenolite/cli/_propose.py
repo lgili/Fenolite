@@ -34,6 +34,7 @@ from typing import Any, cast
 from fenolite.analysis.boundary import board_boundary
 from fenolite.analysis.connectivity import connectivity
 from fenolite.analysis.pour import DEFAULT_GRID_NM, PourCopper, covers, pour_copper, rejoin
+from fenolite.analysis.requirements import Requirements
 from fenolite.backends.base import BoardPad, DesignRules
 from fenolite.backends.kicad.frame import board_pads
 from fenolite.backends.kicad.layers import plane_layers as board_plane_layers
@@ -42,6 +43,7 @@ from fenolite.backends.kicad.pcb import write_board
 from fenolite.cli import _gate, _roleroute
 from fenolite.cli._documents import built_cache
 from fenolite.cli._kicadtool import DEFAULT_TIMEOUT
+from fenolite.cli._search_fields import compile_fields
 from fenolite.cli.api import Context, PlannedWrite, Result, depends_on
 from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
@@ -52,13 +54,15 @@ from fenolite.core.ids import content_hash, derived_id
 from fenolite.core.units import Nm, format_length
 from fenolite.geometry import GeometryError, Thick, thick_closer_than
 from fenolite.model.board import Keepout, Track, Via
+from fenolite.model.canonical import LAYER_FILES, to_data
 from fenolite.model.design import Design
 from fenolite.model.rules import RoleSet
 from fenolite.roles import profile
 from fenolite.roles.judge import Judged
-from fenolite.roles.measure import RoleBoard, power_pads
+from fenolite.roles.measure import Inputs, RoleBoard, power_pads
 from fenolite.roles.proposals import Attach, OpenGroup, Subject, SubjectPlan, ZoneCopper, subjects
 from fenolite.roles.routes import plan_critical
+from fenolite.roles.store import document_path
 from fenolite.routing import decisions as record_io
 from fenolite.routing.decisions import (
     Decisions,
@@ -88,6 +92,7 @@ from fenolite.routing.protocol import (
     router_features,
 )
 from fenolite.routing.registry import routers
+from fenolite.routing.search_fields import FIELD_EVIDENCE, Evaluator, Fields, rejection
 
 MODES = ("propose", "accept", "replay", "forget")
 REGION_MARGIN: Nm = 2_000_000
@@ -118,6 +123,9 @@ REASONS = {
     "budget": "--timeout ended before it",
     "cancelled": "the routing job was cancelled",
     "state-limit": "the explicit search state bound was reached",
+    "search-role-limit": "a declared distance is missing or cannot be resolved",
+    "search-role-stale": "the role field data does not match the current board",
+    "search-role-refused": "the role fields or final copper/role judge refused the candidate",
     "search-unsupported": "search does not support this subject or an independent pair leg",
     "search-geometry": "search needs valid board geometry and endpoint attachments",
 }
@@ -270,6 +278,74 @@ def check(args: argparse.Namespace, router: Router) -> None:
 # --- the board ----------------------------------------------------------------------------------------------
 
 
+def _field_context(fields: Fields) -> dict[str, Any]:
+    return {
+        "fingerprint": fields.fingerprint,
+        "provenance": to_data(fields.provenance),
+        "limits": [
+            {
+                "victim": row.victim,
+                "aggressor": row.aggressor,
+                "distance_nm": row.distance,
+                "kind": row.kind,
+                "origin": row.origin,
+            }
+            for row in fields.spacings
+        ],
+        "preferences": [
+            {"victim": row.victim, "aggressor": row.aggressor, "within_nm": row.distance}
+            for row in fields.influences
+        ],
+        "unknowns": list(fields.unknowns),
+        "missing_limits": [list(row) for row in fields.missing],
+    }
+
+
+def _field_facts(before: Fields, after: Fields, candidate: Candidate, design: Design) -> dict[str, Any]:
+    names = {net.id: net.name for net in design.circuit.nets}
+    evaluation = Evaluator(after)
+    measured = [
+        evaluation.measure(names.get(t.net_id or "", ""), t.layer, (t.start, t.end), t.width)
+        for t in candidate.tracks
+    ]
+    reference = sum(row.reference_lower_bound for row in measured)
+    total = sum(row.length for row in measured)
+    result = _field_context(after)
+    result.update(
+        {
+            "input_fingerprint": before.fingerprint,
+            "input_provenance": to_data(before.provenance),
+            "confirmed_reference_length_lower_bound_nm": reference,
+            "unconfirmed_reference_length_nm": total - reference,
+            "switching_exposure_upper_bound_nm": sum(row.switching_upper_bound for row in measured),
+        }
+    )
+    return result
+
+
+def _field_dependencies(board: Board) -> tuple[Path, ...]:
+    if not board.search_active:
+        return ()
+    return (
+        (
+            board.requirements_file,
+            board.path.with_suffix(".kicad_pro"),
+            board.path.with_suffix(".kicad_dru"),
+            document_path(board.path),
+            Path(profile.__file__),
+            *(board.path.parent / ".fenolite" / file for file, _, _ in LAYER_FILES),
+        )
+        if board.requirements_file
+        else (
+            board.path.with_suffix(".kicad_pro"),
+            board.path.with_suffix(".kicad_dru"),
+            document_path(board.path),
+            Path(profile.__file__),
+            *(board.path.parent / ".fenolite" / file for file, _, _ in LAYER_FILES),
+        )
+    )
+
+
 @dataclass
 class Board:
     """What the proposal mode reads of a board."""
@@ -293,6 +369,9 @@ class Board:
     judge: _roleroute.Judge
     roles_file: Path | None
     issues: list[Issue] = field(default_factory=lambda: [])
+    requirements: Requirements | None = None
+    requirements_file: Path | None = None
+    search_active: bool = False
 
     @property
     def name(self) -> str:
@@ -335,6 +414,17 @@ def _board(
     defaults: Sequence[Nm],
 ) -> Board:
     declared, confirmed, circuit, roles_file = _roleroute.roles_of(args, ctx, board_path)
+    from fenolite.cli.cmd_analyze import requirements_option
+
+    requirements_name = getattr(args, "requirements", None)
+    requirements = requirements_option(requirements_name, ctx.cwd)
+    requirements_file = (
+        (Path(requirements_name) if Path(requirements_name).is_absolute() else ctx.cwd / requirements_name)
+        if requirements_name
+        else None
+    )
+    mode = dict(word.split("=", 1) for word in args.router_option).get("search", "off")
+
     pads = tuple(board_pads(design, issues=[]))
     layers = tuple(
         layer.name
@@ -360,9 +450,12 @@ def _board(
         built,
         net_values,
         defaults,
-        _roleroute.Judge(pads, circuit, confirmed, declared),
+        _roleroute.Judge(pads, circuit, confirmed, declared, inputs=Inputs(requirements=requirements)),
         roles_file,
         list(read_issues),
+        requirements,
+        requirements_file,
+        mode != "off",
     )
 
 
@@ -392,6 +485,7 @@ class Found:
     nets: dict[str, JobNet]
     issues: list[Issue]
     cut: int = 0
+    fields: Fields | None = None
 
 
 def _job_attach(attach: Attach) -> JobAttach:
@@ -500,9 +594,16 @@ def find(
     started = time.monotonic() if started is None else started
     design = board.design
     assert design.board is not None
-    pour = pour_copper(design, pads=board.pads, boundary=board_boundary(design.board), grid=DEFAULT_GRID_NM)
-    groups, routes, nets = _open_groups(board, router)
     roles = board.judge.judged(design).resolved.roles
+    fields: Fields | None = None
+    if board.search_active:
+        compiled = compile_fields(design, board.pads, roles, requirements=board.requirements)
+        fields, pour = compiled.fields, compiled.pour
+    else:
+        pour = pour_copper(
+            design, pads=board.pads, boundary=board_boundary(design.board), grid=DEFAULT_GRID_NM
+        )
+    groups, routes, nets = _open_groups(board, router)
     widths = {net.name: board.values(net.name)[0] for net in design.circuit.nets}
     judged = board.judge.judged(design)
     power = power_pads(RoleBoard(design, board.pads, roles, judged.resolved.classes))
@@ -561,6 +662,8 @@ def find(
             "role_check": board.judge.findings,
             "zone_copper": copper.covers,
         }
+        if fields is not None:
+            extra["search_fields"] = fields
         given = dict(options)
         if args.candidates is not None:
             given["candidates"] = str(args.candidates)
@@ -592,7 +695,7 @@ def find(
             proposal.candidates = by_subject.get(key, [])
             if key in refused and not proposal.reason:
                 proposal.reason, proposal.blockers = refused[key]
-    found = Found(plan, proposals, pour, routes, nets, issues)
+    found = Found(plan, proposals, pour, routes, nets, issues, fields=fields)
     _measure(args, board, found, facts_of=facts_of, started=started)
     return found
 
@@ -845,6 +948,11 @@ def _measure(
                 closes = list(subject.routes)
             elif row_after < row_before:
                 closes = [subject.key.split(":", 1)[1]]
+            if found.fields is not None:
+                after_fields = compile_fields(
+                    after, board.pads, roles, requirements=board.requirements
+                ).fields
+                facts["role_fields"] = _field_facts(found.fields, after_fields, candidate, after)
             facts["closes"] = closes
             facts["open"] = {"before": before_open, "after": report.total}
             box = _box(candidate, largest)
@@ -1205,6 +1313,8 @@ def reply(
             f"fenolite route {board.name} --router octilinear --reject ID --reason TEXT --dry-run",
         ],
     }
+    if found.fields is not None:
+        result["role_fields"] = _field_context(found.fields)
     return result, issues
 
 
@@ -1274,6 +1384,24 @@ def _with_items(design: Design, items: RoutingResult, areas: Sequence[Keepout]) 
     if areas:
         merged = _roleroute.with_corridors(merged, {"proposal": list(areas)})
     return merged
+
+
+def _field_acceptance(board: Board, after: Design, candidates: Sequence[Candidate]) -> str:
+    """Recompile joint copper: a newly accepted aggressor can invalidate another candidate."""
+    if not candidates or not board.search_active:
+        return ""
+    roles = board.judge.judged(board.design).resolved.roles
+    fields = compile_fields(after, board.pads, roles, requirements=board.requirements).fields
+    combined = dataclasses.replace(
+        candidates[0],
+        tracks=tuple(t for candidate in candidates for t in candidate.tracks),
+        arcs=tuple(a for candidate in candidates for a in candidate.arcs),
+        vias=tuple(v for candidate in candidates for v in candidate.vias),
+    )
+    job = RoutingJob(
+        board.design, (), board.layers, extra={**board.checks, "role_check": board.judge.findings}
+    )
+    return rejection(job, combined, fields)
 
 
 def run_accept(
@@ -1388,6 +1516,15 @@ def run_accept(
             kept = [
                 (p, c, a) for (p, c, a), unit in zip(kept, units, strict=True) if not (unit & gated.dropped)
             ]
+    if kept and (why := _field_acceptance(board, after, [c for _, c, _ in kept])):
+        issues.append(
+            Issue(
+                "route.proposal-conflict",
+                "error",
+                f"the combined accepted copper fails {why}; nothing is planned",
+                hint="review candidates together; accept a compatible set",
+            )
+        )
     failed = any(i.severity == "error" for i in issues)
     decision = decision_id(board.input.sha256 or "", [c.id for _, c, _ in kept])
     locked = [
@@ -1421,6 +1558,8 @@ def run_accept(
                 Issue("route.fill-stale", "info", "routing changed copper; run fenolite fill before check")
             )
     evidence = gate_evidence or Evidence(Level.UNVERIFIED, router.name, hypotheses=("H-G-PROP-FACTS",))
+    if found.fields is not None:
+        evidence = Evidence.combine(evidence, FIELD_EVIDENCE)
     return Result(
         result={
             "mode": "accept",
@@ -1438,7 +1577,11 @@ def run_accept(
         input=board.input,
         writes=writes,
         depends=depends_on(
-            ctx.cwd, board.path, board.roles_file, board.record_path if board.record_path.is_file() else None
+            ctx.cwd,
+            board.path,
+            board.roles_file,
+            board.record_path if board.record_path.is_file() else None,
+            *_field_dependencies(board),
         ),
     )
 
@@ -1672,10 +1815,17 @@ def run_propose(
     return Result(
         result=result,
         issues=(*board.issues, *found.issues, *issues),
-        evidence=Evidence(Level.UNVERIFIED, router.name, hypotheses=("H-G-PROP-LEFTOVERS", "H-G-PROP-FACTS")),
+        evidence=Evidence.combine(
+            Evidence(Level.UNVERIFIED, router.name, hypotheses=("H-G-PROP-LEFTOVERS", "H-G-PROP-FACTS")),
+            FIELD_EVIDENCE if found.fields is not None else Evidence(),
+        ),
         input=board.input,
         depends=depends_on(
-            ctx.cwd, board.path, board.roles_file, board.record_path if board.record_path.is_file() else None
+            ctx.cwd,
+            board.path,
+            board.roles_file,
+            board.record_path if board.record_path.is_file() else None,
+            *_field_dependencies(board),
         ),
     )
 

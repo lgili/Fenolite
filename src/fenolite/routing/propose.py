@@ -37,6 +37,7 @@ from typing import cast
 
 from fenolite.core.coords import Point
 from fenolite.core.errors import Issue
+from fenolite.core.evidence import Evidence
 from fenolite.core.ids import content_hash, derived_id
 from fenolite.core.units import Nm, parse_length
 from fenolite.geometry import Location, dist2_point_segment, point_in_ring, rotate_point
@@ -56,6 +57,7 @@ from fenolite.routing.roleroute import refusal, route_roles, z_shapes
 from fenolite.routing.search import SEARCH_OPTIONS, coupled_nets
 from fenolite.routing.search import options as search_options
 from fenolite.routing.search import search as maze_search
+from fenolite.routing.search_fields import FIELD_EVIDENCE, Fields, board_fingerprint, rejection
 from fenolite.routing.search_grid import StopReason
 
 CANDIDATES = 4
@@ -554,6 +556,20 @@ def propose(job: RoutingJob, world: World, pads: Sequence[object], tool: str) ->
         return "budget" if budget is not None and budget.left() <= 0 else None
 
     protected_pairs: frozenset[str] = coupled_nets(job) if limits is not None else frozenset()
+    given_fields = job.extra.get("search_fields")
+    fields = given_fields if isinstance(given_fields, Fields) else None
+    evidence = Evidence.combine(EVIDENCE, FIELD_EVIDENCE) if fields is not None else EVIDENCE
+    if given_fields is not None and (
+        fields is None
+        or fields.provenance.board != board_fingerprint(job.design)
+        or fields.layers != job.layers
+    ):
+        return RoutingResult(
+            tool=tool,
+            tool_version="builtin",
+            evidence=evidence,
+            refusals=tuple((s.key, "search-role-stale", ()) for s in job.subjects),
+        )
     logs: list[str] = []
     keep, max_length = propose_options(job.options, issues)
     search = _Search(job, world, pads, max_length, keep)
@@ -561,6 +577,35 @@ def propose(job: RoutingJob, world: World, pads: Sequence[object], tool: str) ->
     candidates: list[Candidate] = []
     refusals: list[tuple[str, str, tuple[str, ...]]] = []
     base = (list(world.placed), {k: list(v) for k, v in world.ends.items()})
+
+    def filtered(subject: JobSubject, shaped: list[_Shape], tally: _Tally) -> tuple[list[_Shape], str]:
+        if fields is None:
+            return shaped, ""
+        if any(net == subject.net for net, _ in fields.missing):
+            for net, detail in fields.missing:
+                if net == subject.net:
+                    tally.block(detail)
+            return [], "search-role-limit"
+        net_id = search.net_ids.get(subject.net)
+        held: list[_Shape] = []
+        made: list[Candidate] = []
+        clearance = world.clearance(world.subject(subject.net, ""), world.subject(subject.net, ""))
+        reason = ""
+        for shape in shaped:
+            if stopped := stop():
+                return held, stopped
+            candidate = _candidate(job, subject, net_id, shape)
+            refused = rejection(job, candidate, fields)
+            if refused:
+                reason = refused
+                tally.block(refused)
+            elif distinct(candidate, made, clearance):
+                held.append(shape)
+                made.append(candidate)
+                if len(held) >= keep:
+                    break
+        return held, reason if not held else ""
+
     for subject in job.subjects:
         world.placed, world.ends = list(base[0]), {k: list(v) for k, v in base[1].items()}
         tally = _Tally()
@@ -578,9 +623,11 @@ def propose(job: RoutingJob, world: World, pads: Sequence[object], tool: str) ->
                     shaped = search.plain(subject, tally)
                     if subject.kind == "fanout":
                         shaped += search.fanout(subject, tally)
+            shaped, field_reason = filtered(subject, shaped, tally)
+            reason = field_reason or reason
             if limits is not None and not shaped:
                 outcome = maze_search(job, subject, world, limits, max_length=max_length, stop=stop)
-                reason = outcome.reason
+                reason = (reason or outcome.reason) if fields is not None else outcome.reason
                 if outcome.stats is not None:
                     stats = outcome.stats
                     detail = (
@@ -591,7 +638,10 @@ def propose(job: RoutingJob, world: World, pads: Sequence[object], tool: str) ->
                     if outcome.reason:
                         tally.block(detail)
                 if outcome.runs or outcome.vias:
-                    shaped.append(_Shape("search", outcome.runs, outcome.vias))
+                    shaped, final_reason = filtered(
+                        subject, [_Shape("search", outcome.runs, outcome.vias)], tally
+                    )
+                    reason = final_reason or ("" if shaped else reason)
         net = nets.get(subject.net)
         net_id = net.net_id if net is not None else search.net_ids.get(subject.net)
         clearance = world.clearance(world.subject(subject.net, ""), world.subject(subject.net, ""))
@@ -609,7 +659,7 @@ def propose(job: RoutingJob, world: World, pads: Sequence[object], tool: str) ->
         issues=tuple(issues),
         tool=tool,
         tool_version="builtin",
-        evidence=EVIDENCE,
+        evidence=evidence,
         candidates=tuple(candidates),
         refusals=tuple(refusals),
         log=tuple(logs),

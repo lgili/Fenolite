@@ -153,6 +153,12 @@ def _register(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument("--router-python", metavar="PATH", help="Python interpreter for the external router")
     parser.add_argument(
+        "--requirements",
+        metavar="FILE",
+        default=None,
+        help="user requirements TOML for opt-in search proposals and decisions",
+    )
+    parser.add_argument(
         "--router-option", action="append", default=[], metavar="KEY=VALUE", help="router-specific option"
     )
     parser.add_argument(
@@ -412,6 +418,16 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             search_options(options)
         except ValueError as error:
             raise CliError("FEN-2001", str(error), where="--router-option") from None
+    if args.requirements is not None and (
+        args.router != "octilinear"
+        or not (args.propose or args.accept or args.reject)
+        or options.get("search", "off") == "off"
+    ):
+        raise CliError(
+            "FEN-2001",
+            "--requirements needs opt-in search in proposal or decision mode",
+            where="--requirements",
+        )
     escape_patterns = tuple(args.escape)
     for pattern in escape_patterns:
         try:

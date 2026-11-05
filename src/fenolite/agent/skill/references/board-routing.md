@@ -131,6 +131,23 @@ fenolite tidy board --report --json
 fenolite tidy board --prune --straighten --chamfer --gate drc --dry-run --json
 ```
 
+## Role-aware search
+
+Search uses declared/confirmed roles; inferred roles stay unknown. Add `--requirements FILE`
+for user pair distances (same TOML as `analyze`); repeat it for `--accept`/`--reject`. Hard limits bind. Missing HV distances give `search-role-limit`; stale field packets give
+`search-role-stale`; final copper/role rejection gives `search-role-refused`.
+
+```fenolite-cmd
+fenolite route board --router octilinear --propose --requirements limits.toml --router-option search=only --router-option search-grid=0.5mm --router-option search-max-states=50000 --router-option search-max-vias=0 --json
+```
+
+`result.role_fields` lists `fingerprint`, `provenance`, `limits`, `preferences`, `unknowns`,
+`missing_limits`. Candidate `facts.role_fields` adds `input_fingerprint`, `input_provenance`,
+`confirmed_reference_length_lower_bound_nm`, `unconfirmed_reference_length_nm` and
+`switching_exposure_upper_bound_nm`. Only validated saved fill counts; unconfirmed length is not
+proven uncovered. Conservative bounds give no electrical certification or score. Changed
+requirements, roles, profile or project rules invalidate the reviewed plan.
+
 ## Sensitive nets
 
 - **Keep amplifier inputs, references, feedback and clock lines away from the switching nodes.**
