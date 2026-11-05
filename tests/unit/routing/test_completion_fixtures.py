@@ -60,7 +60,9 @@ def _build(tmp_path: Path, *, seed: int, layers: int, parts: int):
         code = cli_main.main(["build", str(script), "--out", str(out), "--confirm", "--json"])
     envelope = json.loads(stdout.getvalue() or "{}")
     assert code == 0, (code, stderr.getvalue())
-    assert envelope["issues"] == []
+    # a sheet too large for the wired layout on A0 falls back to readable with one info (change c0406)
+    assert [i for i in envelope["issues"] if i["code"] != "build.schematic-wired-fallback"] == []
+    assert all(i["severity"] == "info" for i in envelope["issues"])
     (board,) = sorted(out.glob("*.kicad_pcb"))
     return envelope["result"], read_board(board.read_text(encoding="utf-8"), file=board.name)
 

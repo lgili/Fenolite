@@ -52,7 +52,8 @@ def test_sheets_and_grammar() -> None:
     assert list(parity_inputs.read_sheets(HIER / "top.kicad_sch")) == ["top.kicad_sch", "child.kicad_sch"]
     wired = parity_inputs.read_sheets(FLAT)
     reasons = [i.message.split(":", 1)[0] for i in parity_inputs.grammar_issues(wired)]
-    assert "wire" in reasons
+    # since c0406 wires are read: a hand-drawn sheet is refused for the wire forms outside the grammar
+    assert {"wire-end", "wire-unlabelled"} <= set(reasons)
     with pytest.raises(sch_netlist.NetlistUnsupportedError):
         parity_inputs.schematic_side(FLAT)
     # a sheet that no reference of the root names is outside the grammar (c0070)

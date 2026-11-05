@@ -1101,24 +1101,32 @@ class _WiredDesign:
                     buses.add(net_id)
         roles: dict[str, str] = {}
         flag_nets: list[Net] = []
+        supplies = power_interface_nets(circuit)
         for net in circuit.nets:
             power_pin = False
             driven = False
             fitted = False
+            powered = False
             for member in net.members:
                 component = components.get(member.component_id)
-                if component is None or component.dnp:
+                if component is None:
+                    continue
+                pins = [pin for pin in component.pins if pin.number == member.pin]
+                # a power input of any drawn part, fitted or not, is one KiCad's ERC sees
+                powered = powered or any(pin.etype == "power_in" for pin in pins)
+                if component.dnp:
                     continue
                 fitted = True
-                for pin in component.pins:
-                    if pin.number == member.pin:
-                        power_pin = power_pin or pin.etype in ("power_in", "power_out")
-                        driven = driven or pin.etype == "power_out"
+                power_pin = power_pin or any(pin.etype in ("power_in", "power_out") for pin in pins)
+                driven = driven or any(pin.etype == "power_out" for pin in pins)
             role = schwired.net_role(
                 netnames.stored_name(net.name), power_pin=power_pin, declared=declared.get(net.id, "")
             )
             roles[net.id] = role
-            if schwired.is_supply(role) and fitted and not driven:
+            # A power symbol holds a power input, so it alone would make KiCad report an undriven supply on
+            # a net of passive pins: such a net gets a flag. A net on which a part's own power input has no
+            # driver keeps that finding, as in the readable layout, unless a Power interface declares it.
+            if schwired.is_supply(role) and fitted and not driven and (net.id in supplies or not powered):
                 flag_nets.append(net)
         return _WiredDesign(
             MappingProxyType(roles),
@@ -1224,6 +1232,26 @@ def _wired_sheet(
                 "is drawn with the readable layout",
                 where,
                 "remove the placements of this sheet to draw it with wires",
+            )
+        )
+        return None
+    off_grid = sorted(
+        {
+            item.component.ref
+            for item in items
+            for pin in item.part.symbol.pins_of(item.unit, 1)
+            if pin.position.x % schwired.GRID or pin.position.y % schwired.GRID
+        }
+    )
+    if off_grid:
+        # the wires and labels lie on the grid; a pin off it would carry a label that touches no pin
+        issues.append(
+            issue(
+                "build.schematic-wired-fallback",
+                f"sheet {where}: the pins of {', '.join(off_grid)} lie off the 1.27 mm grid "
+                "of the wires, so the sheet is drawn with the readable layout",
+                where,
+                "put the symbol's pins on the 1.27 mm grid to draw the sheet with wires",
             )
         )
         return None

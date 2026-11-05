@@ -1636,14 +1636,23 @@ def layout_sheet(
         fx = _down(box[0] + 2 * STEP, STEP)
         fy = _up(bottom + 4 * STEP, STEP)
         flag_half = _up(len(FLAG_VALUE) * CHAR // 2 + GRID // 2)
+        here = {found.id for found in nets.values()}
         for net in flags:
             # a power symbol of the net, a wire to the right, and the flag standing on its end
             start = Point(fx, fy)
-            _power(drawing, net, start, _natural(net.role))
-            value_half = _up(len(net.value) * CHAR // 2 + GRID // 2)
-            length = max(2 * STEP, _up(value_half + flag_half + GRID, STEP))
-            at = _step(start, 0, length)
-            _wire(drawing, net.id, start, at)
+            if net.id in here:
+                _power(drawing, net, start, _natural(net.role))
+                value_half = _up(len(net.value) * CHAR // 2 + GRID // 2)
+                length = max(2 * STEP, _up(value_half + flag_half + GRID, STEP))
+                at = _step(start, 0, length)
+                _wire(drawing, net.id, start, at)
+            else:
+                # No pin of this sheet is on the net: KiCad reports the hidden pin of a power symbol whose
+                # net holds only power symbols on the sheet as unconnected, so a global label of the net
+                # lies on the flag's pin, as in the readable layout.
+                at = _step(start, 0, _up(len(net.text) * CHAR + 2 * STEP, STEP))
+                drawing.labels.append(WLabel(net.id, at, 180, 0))
+                drawing.rooms.append(schlayout.label_room(at, 180, len(net.text)))
             value_at = Point(at.x, at.y - FLAG_VALUE_RISE)
             drawing.flags.append(WFlag(net.id, at, value_at))
             drawing.rooms += [
@@ -1672,6 +1681,7 @@ def layout_sheet(
         origins[key] = SymbolPlacement(at.x + dx, at.y + dy)
     page = (0, 0, chosen[1], chosen[2] - TITLE_BAND + PAGE_MARGIN)
     wires, junctions, labels, fallbacks = _route(sheet, clusters, offsets, drawing, (dx, dy), page)
+    labels = (*labels, *drawing.labels)
     for key, placed in drawing.units.items():
         origins[key] = placed.place
     return WiredLayout(

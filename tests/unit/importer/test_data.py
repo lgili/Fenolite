@@ -17,7 +17,9 @@ def test_two_sheet_is_a_fresh_build(tmp_path: Path) -> None:
     work = tmp_path / "data" / "src"
     shutil.copytree(DATA / "src", work)
     shutil.copytree(DATA.parent / "libs", tmp_path / "libs")
-    reply = run("build", "two_sheet.py", "--out", "../two_sheet", "--confirm", cwd=work, timestamp=STAMP)
+    # the committed project is the readable build of the script (c0406 made wired the default)
+    args = ("--out", "../two_sheet", "--schematic-layout", "readable", "--confirm")
+    reply = run("build", "two_sheet.py", *args, cwd=work, timestamp=STAMP)
     assert reply.exit_code == 0, reply.error
     made = tmp_path / "data" / "two_sheet"
     committed = sorted(p.relative_to(TWO_SHEET).as_posix() for p in TWO_SHEET.rglob("*") if p.is_file())

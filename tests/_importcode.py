@@ -43,6 +43,9 @@ def copy_project(tmp: Path, name: str = "src", *, native_target: int = 10) -> Pa
             "--confirm",
             "--kicad-version",
             str(native_target),
+            # the committed target-10 project is a readable build; its target-9 twin is drawn the same way
+            "--schematic-layout",
+            "readable",
             cwd=work,
             timestamp=STAMP,
         )

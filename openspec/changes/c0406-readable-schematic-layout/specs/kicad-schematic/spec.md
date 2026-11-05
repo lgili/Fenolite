@@ -40,7 +40,7 @@ On a wired sheet each pin on a supply net (design D2 of change c0406: a net of a
 - **Symbols.** `symembed.power_symbol(kind, target, library=FLAG_LIBRARY) -> EmbeddedSymbol` MUST give `GND` (kind `"ground"`) or `RAIL` (kind `"rail"`), authored for Fenolite: flagged `power` (`power global` for target 10), with one hidden `power_in` pin of length 0 at the origin and a visible Value. They MUST be embedded in the flag library (`symembed.flag_library`) beside `PWR_FLAG`, and each instance MUST have `in_bom` and `on_board` false, the Reference `#PWR<nnn>` numbered from 001 over the whole design, and the Value `netnames.stored_name` of its net.
 - **Direction.** The glyph MUST continue its stub away from the pin. Ground and negative supplies MUST point down and rails up where the pin points that way or a vertical two-pin part ends there; a pin on a side edge MAY take a glyph pointing outwards.
 - **Adjacent pins.** Adjacent pins of one anchor side on one supply net, with no other connected pin between them, MUST share one power symbol through a wire that joins their stubs.
-- **Flags.** Each supply net drawn with power symbols on which no `power_out` pin of a fitted part lies MUST give one power flag on the root sheet, joined by one wire to a power symbol of its net; the flags of "Generated sheet content" for declared supplies are among them.
+- **Flags.** Each supply net drawn with power symbols on which no `power_out` pin of a fitted part lies MUST give one power flag on the root sheet when a `Power` interface declares it or when no `power_in` pin of a part lies on it; a net with an undriven part power input and no declaration MUST give no flag, so KiCad's ERC reports it as for the readable layout. The flag MUST be joined by one wire to a power symbol of its net, or, when no pin of the root sheet is on the net, carry a global label of its net on its pin.
 
 #### Scenario: Value names the net
 - **GIVEN** an authored sheet with two instances of `RAIL` whose Values are `+5V` and `VBAT`, each on a pin end of a resistor, and a global label `VBAT` on the other pin of the second resistor
@@ -66,7 +66,7 @@ On a wired sheet each connected group of a signal net SHALL carry exactly one la
 - **THEN** the module's sheet holds one global label of the net and the root one, and KiCad joins the three pins
 
 ### Requirement: Wired layout fallbacks
-A sheet with a unit named by `schematic-placements.toml`, or whose wired drawing fits no paper of `schlayout.PAPERS`, SHALL be drawn with the `"readable"` layout, and the build SHALL report one `build.schematic-wired-fallback` issue of severity `info` per such sheet, naming the sheet and the reason.
+A sheet with a unit named by `schematic-placements.toml`, a symbol pin whose library position is off the 1.27 mm grid, or whose wired drawing fits no paper of `schlayout.PAPERS`, SHALL be drawn with the `"readable"` layout, and the build SHALL report one `build.schematic-wired-fallback` issue of severity `info` per such sheet, naming the sheet and the reason.
 
 #### Scenario: Placed unit
 - **GIVEN** the authored design `transistor_switch` with a symbol placement for `R1`

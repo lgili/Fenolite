@@ -4,6 +4,11 @@
 
 The complete maps prove only .pro and its paired manifest changed; every physical
 file and all Altium files retain their immutable baseline bytes.
+
+Change c0406 makes wired the default schematic layout: the four KiCad maps were
+recorded again on 2026-11-05, and only the schematic, ``lib/fenolite.kicad_sym``
+(Fenolite's power symbols beside the flag) and ``build.json`` differ from the
+96d687d1 maps; the Altium maps are unchanged.
 """
 
 from __future__ import annotations
@@ -23,10 +28,10 @@ ROOT = Path(__file__).resolve().parents[3]
 @pytest.mark.parametrize(
     "example,target,expected",
     (
-        ("blink_2layer", 9, "a9ebec6035e6be6c530e2754482225dac71eea11ea7c1b3a96b9e971d87df413"),
-        ("blink_2layer", 10, "cf761b2bd534acd7cd819a29c53abed470ca50ee99fcef289d55d1dfa3ae94f0"),
-        ("blink_routed", 9, "2e7d755f1107dd887cc1d300c2ef011d5eafbadc29a0e7ab7a14aef9a4ba2f85"),
-        ("blink_routed", 10, "1e9d7244200e79eb87e7ebba0210da7cb45b840a524bcb4883a7c1380f280343"),
+        ("blink_2layer", 9, "cafb646d96fd3ecb7e8b75225294cc3ef86863d6b07fcb97c05feb1d902d5f22"),
+        ("blink_2layer", 10, "cb7067beb8c6008da95c19c7cc73d729074cd485e701628a337cc701891a3f50"),
+        ("blink_routed", 9, "e2e385b2cb73ff639fb9284d82afd5f7962602625850c26db483408a69f8c01a"),
+        ("blink_routed", 10, "c78de63e2cbe51e0bedb244b5ea9940d86ae5941998209b5dfe6a8d7574c2de9"),
         ("blink_2layer", "altium", "3a1e39ac04eb48f4cbad82d49570ba3b02ee769e2d7f02655d79483df879373f"),
         ("blink_routed", "altium", "3e0554d61440dc1573dee7bbc505c93710b3223b08ac89775193a311acef20f1"),
     ),

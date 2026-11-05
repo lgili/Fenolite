@@ -43,9 +43,14 @@ wire. Ground and negative supplies are drawn pointing down and rails pointing up
 allows it (a pin on the bottom or top edge, a two-pin part placed vertically, or a side pin whose
 neighbour in that direction is free); otherwise the glyph points outwards from a side pin.
 
-A supply net drawn with power symbols needs a driver for ERC: each such net that no fitted `power_out`
-pin drives gets one power flag on the root sheet, joined to a power symbol of its net by a wire (the
-declared supplies of c0061 are a subset).
+A power symbol holds a hidden `power_in` pin, so on a net of passive pins it alone would make KiCad
+report `power_pin_not_driven`. Each supply net drawn with power symbols that no fitted `power_out` pin
+drives gets one power flag on the root sheet when a `Power` interface declares it (the flags of c0061)
+or when no part's own `power_in` pin lies on it. A net on which a part's power input has no driver and no
+declaration keeps KiCad's finding, as in the readable layout: the wired sheet adds no ERC error and hides
+none. The flag is joined by one wire to a power symbol of its net; when no pin of the root sheet is on
+the net, a global label of the net lies on the flag's pin instead, because KiCad reports the hidden pin
+of a power symbol whose net holds only power symbols on the sheet as unconnected (`pin_not_connected`).
 
 ### D4. Clusters
 
@@ -142,8 +147,8 @@ without a junction, a pin on the inside of a wire, and other power symbols stay 
 
 ### D10. Fallbacks
 
-A sheet with a unit named by `schematic-placements.toml`, or whose wired drawing does not fit A0, is drawn
-with the `"readable"` layout, reported by `build.schematic-wired-fallback` (info). `sync` of an edited
+A sheet with a unit named by `schematic-placements.toml`, a symbol pin off the 1.27 mm grid of the wires,
+or whose wired drawing does not fit A0, is drawn with the `"readable"` layout, reported by `build.schematic-wired-fallback` (info). `sync` of an edited
 wired sheet keeps symbol positions only; the next build then draws that sheet as `"readable"`.
 
 ### D11. Measures
@@ -154,6 +159,35 @@ crossings (two wires of different groups meeting inside both), wires over a pin 
 junctions with four or more directions, T joints without a junction, and overlaps between the boxes of
 texts, labels, power symbols and bodies of different owners (text extents estimated: one character
 height per character, 2 mm per line).
+
+## Changed expectations
+
+Fixes after the full suite of `cac/lote-21` (CI run 42026500866), and the tests whose expectation the
+wired default changes on purpose:
+
+- Power flags (D3): flagging every undriven supply hid `power_pin_not_driven` where a part's own power
+  input has no source (`tests/kicad/check/test_flag_library_erc.py`, the control without a supply; the
+  agent guide's stated check results in `tests/unit/agent/test_pages_kicad.py`). Fixed in the flag rule.
+- Flags on a root sheet without the net's pins (D3): `board_40parts` drew a power symbol beside each flag
+  on a root that holds only sheet references, and KiCad reported its pin unconnected (`check` exit 5 in
+  `tests/kicad/acceptance/test_finished.py` and `tests/routing/test_acceptance_loop.py`). Fixed: a global
+  label on the flag's pin.
+- Off-grid pins (D10): a symbol whose pins lie off the 1.27 mm grid got labels on grid points that touch
+  no pin, and the build's netlist guard refused the sheet
+  (`tests/kicad/build/test_seed_numeric_functions.py`). Fixed: such a sheet falls back to readable.
+- `tests/data/catalog/golden.json`: with the narrower flag rule the catalog example, which declares no
+  `Power` interface, has no flag on U1's `IN` and `GND`, and KiCad reports both inputs undriven, as it
+  did for the readable sheet before this change (checked with `kicad-cli` 10.0.6 on both). The
+  schematic, `lib/Fenolite.kicad_sym` and `build.json` of that example are recorded again.
+- `tests/unit/backends/kicad/test_parity_inputs.py`: the reader now reads wires, so a hand-drawn sheet is
+  refused for `wire-end` and `wire-unlabelled` rather than for wires as such.
+- `tests/unit/routing/test_completion_fixtures.py`: the 150-part acceptance sheet fits no paper when wired
+  and reports the `build.schematic-wired-fallback` info; the test accepts that one info.
+- `tests/unit/importer/test_data.py` and `tests/_importcode.copy_project`: the committed two-sheet project
+  is a readable build, and its target-9 twin is built readable too; every pinned import digest holds.
+- `tests/unit/lens/test_unused_keys.py` and `tests/unit/lens/test_footprint_identity_bytes.py`: the
+  schematic, `lib/fenolite.kicad_sym` (now holding the power symbols) and `build.json` change; the maps
+  were compared with the commit before this change and every other file is byte-equal. Recorded again.
 
 ## Risks
 
