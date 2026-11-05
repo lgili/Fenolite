@@ -6,6 +6,7 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Close c0385 on CI 41992043326 (`b0640aac`, every required job green) and archive it; the same run validates c0332's removal of the codex/cac-next geometry deferral.
 - Close the router changes c0365–c0370 on CI 41968083051 (`5f46b8d7`): the router's KiCad checks pass on KiCad 9 and 10 with their scale records, and the router evidence pages and hypothesis rows name the run. The proposal-viewer references move from `UNKNOWN` to `INFERRED`, not to a verified level.
 - Close the 2026-11-05 batch on CI 41968083051 (`5f46b8d7`, every required job green): the exact-head tasks of c0092, c0172, c0175, c0215, c0241, c0258, c0266, c0267, c0273, c0278, c0279, c0318, c0327, c0332, c0337, c0340, c0351, c0352, c0380 and c0381 are ticked with the run; c0355's moved tasks are ticked "Moved to c0384"; c0220 1.3 records the release-commit history scan (one known chance match in a test image, no waiver). `docs/ci.md` records the run's job durations and receipts (c0380).
 - `H-K-FID-ZONE-OUTLINE` is `KICAD-VERIFIED (10.0.x)`: the kicad-10 CI job upgraded, refilled and compared the authored fixture at level 7 with no zone difference. KiCad 9.0 has no `pcb upgrade`, so 9.0.x is out of scope (c0278, c0401).

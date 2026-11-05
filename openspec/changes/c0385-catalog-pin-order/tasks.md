@@ -117,7 +117,9 @@
   note above for this row, it is set back to `INFERRED`; the script fix and a K2 rerun are c0389 task 6.1.
   `kit status` lists no stale row; `gen_altium_graduation.py --check` passes; the four proof files, plus
   `tests/unit/test_altium_rows.py` and `tests/unit/verify/kit`: 265 passed.
-- [ ] 5.3 Full validation (`make check`) on the pushed commit in GitHub CI, after 5.2.
+- [x] 5.3 Full validation (`make check`) on the pushed commit in GitHub CI, after 5.2. Done: CI 41992043326
+  on `b0640aac` (branch `cac/lote-17`, c0385 squashed as `2105005e`), every required job green, `ci-complete`
+  included.
 - [x] 5.4 `tests/kicad/roles/test_critical_drc.py::test_critical_routes_pass_drc[half_bridge]` failed once
   on local KiCad 10.0.6 before the rebase onto `cac/lote-16`. It has one `unconnected_items`. After the
   rebase it passes on the base `7ced9816` and on this branch, one focused run each through `fenolite-heavy`
