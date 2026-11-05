@@ -226,7 +226,7 @@ Only their unreported supplementary measurements remain below.
 | Bodies X8.6 | counts from the native saved file | measured: 3 plain/3 shape-based, 0 original MODELID retained, 3 nonzero checksums, 35 keys each; X8.1-X8.5/X8.7 prior reports retained |
 | Via supplementary measurement | nine further bytes of the long via record before/after removing shapes and changing end-layer options | pending; Part V's layer-id mask already reported as expected |
 | OutJob | Gerber counts/extensions, O6 border observation and exact-version confirmation of the historic empty-Gerber case | pending; current output generation/settings already reported |
-| Rules | optional planted DRC, c0125 per-layer matrix and c0130 object-type matrix | pending |
+| Rules | optional planted DRC, c0125 per-layer matrix and c0130 object-type matrix | c0125/c0130 ran on 2026-10-14 (AD 26.5, S-0744); planted DRC observed by an agent on AD 24.5.2.23 on 2026-11-04 (S-1584, below) |
 | Project reader | five Net Identifier Scope values and exported RUL fields/encoding | pending |
 | Templates | native-template logo/font/color appearance and imported custom border | pending; prior W report remains valid for its original case |
 | Part T PADSTACK | connector masks and broader stack coverage | Full Stack four-layer case and PcbLib placement passed; masks pending |
@@ -234,6 +234,28 @@ Only their unreported supplementary measurements remain below.
 | Part T DIFAT | T1-T6 on the large converted document | pending |
 | Formal kit K1-K9 | actual execution, verified saved files and recorded run | complete: 32 passed, zero failed/pending; recorded run 2026-10-13-462b38ba |
 | Altium 365 Viewer | binary-project ZIP V2, No ERC N4 and copper C5 | uploaded in isolated browser; all three remain processing after five minutes, native-saved control also stalls; no rendered acceptance |
+
+### Planted DRC, 2026-11-04 evening (source S-1584)
+
+A Claude agent ran Part U's planted DRC (steps U4 and U5 of `docs/evidence/altium-pcb.md`) at the
+maintainer's request of 2026-11-04/05. It used the actual Altium Designer 24.5.2.23 (Trial) in the
+maintainer's VM. This is not the maintainer's own review. The input is the Fenolite-authored Part U board
+`rules/routed.PcbDoc` (`abe6d0b1…`, the digest in Part U), on a VM copy. All six files matched their
+digests before and after the run. The agent opened the project, ran Tools » Polygon Pours » Repour All
+(no message) and Tools » Design Rule Check » Run Design Rule Check with the existing options. It read the
+violations with a read-only DelphiScript.
+
+- The DRC reports 49 violations.
+- Of the written rule kinds, only two are named. `Width_PWR` is named twice, once for each `VIN` track:
+  "Actual Width = 19.685mil, Target Width = 23.622mil". `Clearance_net_LED_DRV_to_net_LED_A` is named four
+  times: pad–pad, via–pad and track–pad at `R1`, and track–via.
+- No other rule of the table is named. The remaining 43 come from rules outside the table: 31
+  MinimumSolderMaskSliver, 10 SilkToSolderMaskClearance and 2 NetAntennae (the two `VIN` tracks).
+- U5: each `VIN` track's width violation names `Width_PWR`, not `Width`.
+- One `VIN` track is reported on Bottom Layer and the other on `Mid-Layer 1`.
+
+These are agent observations under the approved 24.5 scope. `H-A-RULE-SCOPE` and `H-A-RULE-PRIORITY`
+keep their levels.
 
 ## Measured results
 
