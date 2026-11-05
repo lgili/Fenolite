@@ -169,6 +169,8 @@ def _brief(commands: Mapping[str, Command], *, no_tools: bool) -> dict[str, Any]
     size grows with the number of commands only (``docs/cli-contract.md``, "Discovery")."""
     target = next(a for a in describe.describe(commands["build"]).arguments if "--target" in a.flags)
     kicad = registry.get("kicad").capabilities().to_json()
+    from fenolite.cli._external_candidates import capability as candidate_capability
+
     routers: list[dict[str, Any]] = []
     for router in routing_routers().values():
         status = None if no_tools else router.available()
@@ -177,6 +179,7 @@ def _brief(commands: Mapping[str, Command], *, no_tools: bool) -> dict[str, Any]
                 "name": router.name,
                 "available": None if status is None else status.available,
                 "reason": None if status is None else (status.reason or None),
+                "external_candidates": candidate_capability(router, status),
             }
         )
     return {
@@ -236,6 +239,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
 
     from fenolite.backends import matrix  # its rows import the claims of every backend package
     from fenolite.backends.altium import claims
+    from fenolite.cli._external_candidates import capability as candidate_capability
     from fenolite.convert import DIRECTIONS
     from fenolite.lens.altium import ALTIUM_BUILD_EVIDENCE, EXPERIMENTAL, PCB_BUILD_EVIDENCE, PCB_EXPERIMENTAL
 
@@ -303,6 +307,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
                 "builtin": router.__class__.__module__.startswith("fenolite."),
                 # what the router takes beyond single nets, read without running it (change c0110)
                 "features": sorted(router_features(router)),
+                "external_candidates": candidate_capability(router),
             }
             for router in routing_routers().values()
         ],

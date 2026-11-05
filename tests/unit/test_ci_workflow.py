@@ -337,6 +337,8 @@ def test_routing_job_runs_pinned_tool_and_oracle_loop() -> None:
     assert "sha256sum --check" in job
     assert "FENOLITE_REQUIRE: kicad,router" in job
     assert "--suite routing-${{ matrix.target }} --workers 0" in job
+    runner = Path(__file__).resolve().parents[2] / "tools" / "ci_tests.py"
+    assert "tests/kicad/routing/test_external_candidates.py" in runner.read_text(encoding="utf-8")
 
 
 FETCH_STEP = "run: uv run fenolite fetch freerouting --dir /tmp/freerouting --confirm --json"

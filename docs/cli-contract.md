@@ -1034,6 +1034,12 @@ differential pair and no escape request unless it lists the feature. `short` (ch
 of short connections, not of whole boards, and `roles` (change c0244) a router that takes the role routes of
 `--roles`: `octilinear` lists `pairs`, `roles` and `short`.
 
+External candidate discovery (c0368) adds `external_candidates` to each router entry, null for
+unsupported adapters. The object reports `supported`, `available` (null when not queried),
+`projection` (`board` or `copper`), supported `scope`, `arcs`, `pairs`, `groups`, `local_only`
+and `automatic_acceptance`. The brief view queries installed-tool availability unless `--no-tools`;
+the full view describes candidate capabilities without an extra router preflight.
+
 ### The brief view and the command view
 
 The default result grows with every backend and file kind. Two other views of the same command answer
@@ -1222,6 +1228,30 @@ group of the plan, sorted by tier and name: `group`, `kind` (`gate_loop`, `kelvi
 `text`, `command`, `region`) when not routed, `copper` and `corridors` (ids), and `propose` (change c0280). `plane_fanout` is `null`. The
 role options of `octilinear` are `gate-vias`, `kelvin-vias`, `keep-away`, `z-shapes`, `rounds` and
 `max-length` (no default in role mode); see `docs/routing.md`, "Role mode".
+
+**Local external proposals** (c0368). Repeat `--propose-with freerouting` and/or
+`--propose-with kicadroutingtools` with `--router octilinear --propose`. Only installed local
+jars/checkouts are used; there is no implicit download, container pull, upload or acceptance.
+Missing requested tools give `FEN-6001`, exit 6. Ordinary pad-to-pad connections are supported
+when exactly the selected two original pad-containing components merge. Pair/group subjects,
+track/zone endpoints, anonymous islands and arc outputs are explicitly refused. The whole-board
+delta preserves pads, footprints, outline, layers/stackup/rules, opaque state and old copper,
+independently of returned IDs; SES is a checked copper-only projection. Unselected additions,
+invalid geometry/full-barrel vias or final copper/role regressions reject the whole candidate.
+
+`--candidates N` still bounds internal candidates; one external alternative per requested adapter
+may be added separately. Repeat an explicit limit during external-decision regeneration, or use
+`result.next`, which preserves it. External candidate rows add `tool` with `router`, `version`, tool-byte fingerprint `inputs`, job
+fingerprint `job` and `deterministic=false`. Their source is `external:<router>`; accepted rows
+retain `source` and `tool`. `result.external` lists `requested`, explicit `refusals` (subject, router,
+reason, details) and clock-truncated `not_attempted` work. No score/rank is assigned. One timeout
+(default 900 s with this option) covers all work and tool/version subprocesses; interrupted output
+supplies no candidate. `--router-path` and `--router-python` may configure exactly one requested
+adapter; otherwise use the adapters' individual environment variables. Router options configure
+octilinear, not the external process. Repeat adapter/selection controls for `--accept`/`--reject`
+regeneration, or use `result.next`. A changed external result may require proposing again.
+`--confirm --plan` consumes staged bytes without rerunning tools; changed declared tool files
+and board/role/profile/requirements/rule/sidecar inputs invalidate the plan.
 
 **Proposal mode** (change c0280). `--propose` lists every open connection after the power copper and the
 critical routes as a proposal with candidates and their facts, without a score, and writes nothing (no
@@ -5025,6 +5055,28 @@ every part placed so that `fenolite route --router direct` closes its three nets
 | 0 | none | a dry run or a confirmed write |
 | 2 | `FEN-2001` | an unknown starter (the hint names them); a name that is not a design name (the hint names `--name`); `DIR/design.py` exists and `--force` is not given |
 | 4 | `FEN-4001` | neither `--dry-run` nor `--confirm` |
+
+
+### Proposal viewer regeneration controls (c0369)
+
+Octilinear proposal `result.controls` has schema `fenolite.proposal_controls.v0` and fields
+`router_options`, `external_routers`, `nets`, `kinds`, `groups`, `candidate_limit`, `requirements`,
+`timeout`, `gate`, `portable`. Decision regeneration accepts the original `--kind`, `--nets`,
+`--group` and `--candidates` selectors for internal as well as external alternatives. Confirmation
+still consumes staged bytes without regeneration. Explicit router/tool paths make controls nonportable.
+
+The additive `fenolite.view_proposals.v0` scene retains input `sha256`, `controls`, `notes`,
+`bundles`, candidate `bundle`, `tool`, `locked`, `unknown_geometry`, subject `ends` and optional via
+`drill`. Geometry is integer micrometres; facts retain their source units and absent facts stay unknown.
+The served scene adds `stale` after a project write. Per-layer dashed overlays and escaped text do not
+constitute validation or ranking. Static exports expose no write actions.
+
+Served route actions validate structured controls against a closed allowlist and root-contained
+requirements paths; no `result.next` command string is executed. Missing controls allow only legacy
+fixed-pattern decisions. Unknown families, stale/unbound input hashes and nonportable controls cannot
+write. Complete `b-...` IDs are accepted by both route actions; bundle members and their parent proposal
+IDs are refused. Invalid or incomplete bundle metadata is inspection-only. Preview writes nothing;
+explicit confirmation uses the existing reviewed-plan and FEN-4002 changed-input guard.
 
 ### Design-testing additions (c0256, experimental)
 

@@ -67,7 +67,7 @@ from fenolite.backends.kicad.pcb import read_board, source_info, write_board
 from fenolite.backends.kicad.projectset import resolve_board
 from fenolite.checks.clearance import ClearanceResolver
 from fenolite.checks.copper import check_copper, frame_edges
-from fenolite.cli import _gate, _propose, _roleroute, plans
+from fenolite.cli import _external_candidates, _gate, _propose, _roleroute, plans
 from fenolite.cli._boardview import to_json
 from fenolite.cli._examples import EXAMPLE_UNROUTED
 from fenolite.cli._kicadtool import DEFAULT_TIMEOUT
@@ -385,11 +385,12 @@ def _plan_evidence(evidence: Evidence, *, oracle: str, complete: bool) -> Eviden
 
 
 def _run(args: argparse.Namespace, ctx: Context) -> Result:
+    _external_candidates.check(args)
     if args.out and Path(args.out).is_absolute():
         raise CliError("FEN-2001", "--out must be relative to the working directory")
-    if args.router_path and args.router not in ("kicadroutingtools", "freerouting"):
+    if args.router_path and not args.propose_with and args.router not in ("kicadroutingtools", "freerouting"):
         raise CliError("FEN-2001", "--router-path is only supported by kicadroutingtools and freerouting")
-    if args.router_python and args.router != "kicadroutingtools":
+    if args.router_python and not args.propose_with and args.router != "kicadroutingtools":
         raise CliError("FEN-2001", "--router-python is only supported by kicadroutingtools")
     if args.timeout is not None and not (math.isfinite(args.timeout) and args.timeout > 0):
         raise CliError(
@@ -434,7 +435,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     if args.requirements is not None and (
         args.router != "octilinear"
         or not (args.propose or args.accept or args.reject or args.replay)
-        or (not args.replay and options.get("search", "off") == "off")
+        or (not args.replay and not args.propose_with and options.get("search", "off") == "off")
     ):
         raise CliError(
             "FEN-2001",

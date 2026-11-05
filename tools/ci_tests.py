@@ -48,8 +48,8 @@ def selection(suite: str) -> list[str]:
         ],
         "kicad-10": [],  # The plugin keeps all native tests plus whole resource-bearing unit files.
         "kicad-9": ["tests/kicad"],
-        "routing-9": ["tests/routing"],
-        "routing-10": ["tests/routing"],
+        "routing-9": ["tests/routing", "tests/kicad/routing/test_external_candidates.py"],
+        "routing-10": ["tests/routing", "tests/kicad/routing/test_external_candidates.py"],
         "viewer": ["tests/visual"],
         "mcp": ["tests/unit/mcp", "tests/unit/cli/test_mcp_cmd.py"],
     }[suite]

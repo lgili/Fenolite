@@ -82,7 +82,7 @@ def test_brief_view(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     assert result["targets"] == {"build": ["altium", "kicad"], "kicad": [9, 10], "default": 10}
     assert result["tools"] == {} and result["sends_data_offsite"] is False
     assert [r["name"] for r in result["routers"]] == sorted(routers())
-    assert all(list(r) == ["name", "available", "reason"] for r in result["routers"])
+    assert all(list(r) == ["name", "available", "reason", "external_candidates"] for r in result["routers"])
     assert all(r["available"] is None and r["reason"] is None for r in result["routers"])
     assert "direct" in [r["name"] for r in result["routers"]]
     assert result["guide"][0]["topic"] == "start"
@@ -110,7 +110,12 @@ def test_brief_routers_availability(monkeypatch: pytest.MonkeyPatch, tmp_path: P
     _no_subprocess(monkeypatch)
     result = _result(monkeypatch, tmp_path, "--brief")
     found = {r["name"]: r for r in result["routers"]}
-    assert found["direct"] == {"name": "direct", "available": True, "reason": None}
+    assert found["direct"] == {
+        "name": "direct",
+        "available": True,
+        "reason": None,
+        "external_candidates": None,
+    }
     assert found["freerouting"]["available"] is False and found["freerouting"]["reason"]
     assert result["tools"] == {"kicad-cli": None, "java": None, "docker": None, "gmsh": None}
 
@@ -148,7 +153,7 @@ def test_default_view_is_unchanged(monkeypatch: pytest.MonkeyPatch, tmp_path: Pa
     ]  # fmt: skip
     assert all("summary" not in entry and "arguments" not in entry for entry in result["commands"])
     # change c0110 adds the features of each router
-    keys = {"name", "description", "sends_data_offsite", "builtin", "features"}
+    keys = {"name", "description", "sends_data_offsite", "builtin", "features", "external_candidates"}
     assert all(set(r) == keys for r in result["routers"])
     assert result["backends"] and result["experimental"] and result["matrix"]
 

@@ -273,7 +273,10 @@ def test_full_suite_scopes_retain_the_prepartition_baselines() -> None:
     assert runner.selection("mcp") == ["tests/unit/mcp", "tests/unit/cli/test_mcp_cmd.py"]
     assert runner.selection("viewer") == ["tests/visual"]
     for major in (9, 10):
-        assert runner.selection(f"routing-{major}") == ["tests/routing"]
+        assert runner.selection(f"routing-{major}") == [
+            "tests/routing",
+            "tests/kicad/routing/test_external_candidates.py",  # c0368 pinned external candidates.
+        ]
     units = [name for name in runner.FULL if name.startswith("unit-")]
     assert len(units) == 5
     assert all(runner.selection(name) == [] for name in units)

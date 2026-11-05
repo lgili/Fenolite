@@ -656,3 +656,16 @@ Additional refusal reasons are `negotiate-subjects`, `negotiate-unsupported`, `n
 `negotiate-judge-missing` and `negotiate-refused`; existing resource/role reasons still apply. A bound
 means unresolved exploration. See [negotiation evidence](evidence/router-negotiation.md) for authored
 proofs and pending pinned CI, and `fenolite guide route-proposals --text` for executable instructions.
+
+### Local external candidates (c0368)
+
+`fenolite route BOARD --router octilinear --propose --propose-with kicadroutingtools`
+adds independent local-tool alternatives; repeat with `freerouting` for a local jar. No tool is
+downloaded or uploaded to. Candidate source/version/input fingerprints and explicit refusal or
+unattempted work are visible. Scope is an ordinary pad-to-pad connection, not an atomic pair or
+critical group. Entire out-of-scope board deltas are rejected before selected copper is lifted.
+One deadline includes Java-version preflight and every routing process; killed output is discarded.
+Review `result.next` and prepare acceptance with `--dry-run`; confirmation writes stored bytes.
+Tool-byte changes invalidate the plan. External geometry is not promised deterministic. See the
+agent guide `route-proposals` for scope limits, discovery, refusal reasons and replay controls.
+Native pinned-router CI is still pending; no native compatibility claim is made by unit tests.

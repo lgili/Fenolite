@@ -40,7 +40,7 @@ from fenolite.backends.kicad.frame import board_pads
 from fenolite.backends.kicad.layers import plane_layers as board_plane_layers
 from fenolite.backends.kicad.outline import board_outline
 from fenolite.backends.kicad.pcb import write_board
-from fenolite.cli import _gate, _roleroute
+from fenolite.cli import _external_candidates, _gate, _roleroute
 from fenolite.cli._documents import built_cache
 from fenolite.cli._kicadtool import DEFAULT_TIMEOUT
 from fenolite.cli._search_fields import compile_fields
@@ -64,6 +64,7 @@ from fenolite.roles.proposals import Attach, OpenGroup, Subject, SubjectPlan, Zo
 from fenolite.roles.routes import plan_critical
 from fenolite.roles.store import document_path
 from fenolite.routing import decisions as record_io
+from fenolite.routing.budget import Budget
 from fenolite.routing.decisions import (
     Decisions,
     Locked,
@@ -75,6 +76,9 @@ from fenolite.routing.decisions import (
     RecordVia,
     Rejected,
 )
+from fenolite.routing.external_candidates import EVIDENCE as EXTERNAL_EVIDENCE
+from fenolite.routing.external_candidates import Outcome as ExternalOutcome
+from fenolite.routing.external_candidates import generate_external
 from fenolite.routing.layers import allowed_layers, routing_layers
 from fenolite.routing.merge import RoutingError, apply
 from fenolite.routing.octilinear import fresh
@@ -147,6 +151,13 @@ def register(parser: argparse.ArgumentParser) -> None:
         help="list every open connection with candidate shapes and their facts, no score; writes nothing",
     )
     parser.add_argument(
+        "--propose-with",
+        action="append",
+        default=[],
+        metavar="ROUTER",
+        help="also generate reviewed candidates with a supported local external router (repeatable)",
+    )
+    parser.add_argument(
         "--accept", action="append", default=[], metavar="ID", help="lock this candidate (repeatable; plan)"
     )
     parser.add_argument(
@@ -177,14 +188,14 @@ def register(parser: argparse.ArgumentParser) -> None:
         action="append",
         default=[],
         choices=SUBJECT_KINDS,
-        help="with --propose: subjects of this kind only (repeatable)",
+        help="filter proposal/decision subjects by kind (repeatable)",
     )
     parser.add_argument(
         "--candidates",
         type=int,
         default=None,
         metavar="N",
-        help="with --propose: candidates per subject, 1 to 8 (default 4)",
+        help="internal candidates per subject, 1 to 8 (default 4); --propose-with adds external alternatives",
     )
     parser.add_argument(
         "--show-rejected", action="store_true", help="with --propose: list rejected candidates too"
@@ -253,10 +264,6 @@ def check(args: argparse.Namespace, router: Router) -> None:
                 where=option,
                 hint="proposals reach the board only through --accept and a reviewed plan",
             )
-    negotiating_decision = (
-        current == "accept"
-        and dict(word.split("=", 1) for word in args.router_option).get("negotiate") == "on"
-    )
     if current != "propose":
         for value, option in (
             (args.kind, "--kind"),
@@ -265,7 +272,9 @@ def check(args: argparse.Namespace, router: Router) -> None:
             (args.nets, "--nets"),
             (args.group, "--group"),
         ):
-            if value and not (negotiating_decision and option in ("--kind", "--nets", "--group")):
+            if value and not (
+                current == "accept" and option in ("--kind", "--nets", "--group", "--candidates")
+            ):
                 raise CliError(
                     "FEN-2001", f"{option} goes with --propose", where=option, hint="add --propose"
                 )
@@ -479,7 +488,7 @@ def _board(
         list(read_issues),
         requirements,
         requirements_file,
-        mode != "off",
+        mode != "off" or bool(getattr(args, "propose_with", [])),
     )
 
 
@@ -512,6 +521,8 @@ class Found:
     fields: Fields | None = None
     bundles: tuple[Bundle, ...] = ()
     negotiated: bool = False
+    external: ExternalOutcome = ExternalOutcome()
+    tool_paths: tuple[Path, ...] = ()
 
 
 def _job_attach(attach: Attach) -> JobAttach:
@@ -620,6 +631,12 @@ def find(
     started = time.monotonic() if started is None else started
     design = board.design
     assert design.board is not None
+    limit = args.timeout if args.timeout is not None else 900.0
+    external_budget = Budget(
+        max(1e-9, limit - (time.monotonic() - started)), cancelled=lambda: time.monotonic() - started >= limit
+    )
+    prepared = _external_candidates.prepare(args, external_budget)
+    external = ExternalOutcome()
     roles = board.judge.judged(design).resolved.roles
     fields: Fields | None = None
     if board.search_active:
@@ -732,24 +749,42 @@ def find(
         given = dict(options)
         if args.candidates is not None:
             given["candidates"] = str(args.candidates)
-        result = router.route(
-            RoutingJob(
-                design,
-                tuple(job_nets.values()),
-                board.layers,
-                given,
-                extra,
-                plane_layers=board.planes,
-                progress=ctx.progress,
-                budget=(
-                    None
-                    if args.timeout is None
-                    else max(1e-9, args.timeout - (time.monotonic() - (started or time.monotonic())))
-                ),
-                roles=tuple(group_routes),
-                subjects=tuple(job_subjects),
-            )
+        job = RoutingJob(
+            design,
+            tuple(job_nets.values()),
+            board.layers,
+            given,
+            extra,
+            plane_layers=board.planes,
+            progress=ctx.progress,
+            budget=(
+                None
+                if args.timeout is None
+                else max(1e-9, args.timeout - (time.monotonic() - (started or time.monotonic())))
+            ),
+            roles=tuple(group_routes),
+            subjects=tuple(job_subjects),
         )
+        result = router.route(job)
+        if prepared.adapters:
+
+            def external_judge(subject: JobSubject, candidate: Candidate) -> str:
+                try:
+                    after = apply(design, RoutingResult(tracks=candidate.tracks, vias=candidate.vias))
+                except RoutingError:
+                    return "external-merge"
+                return _external_candidates.scope(
+                    design, after, subject, board.pads, pour
+                ) or _field_acceptance(board, after, (candidate,))
+
+            external = generate_external(
+                job, tuple(job_subjects), prepared.adapters, budget=external_budget, judge=external_judge
+            )
+            if not prepared.unchanged():
+                raise CliError(
+                    "FEN-4002", "external tool inputs changed during candidate generation; review again"
+                )
+            result = dataclasses.replace(result, candidates=(*result.candidates, *external.candidates))
         bundles = result.bundles
         issues += [i for i in result.issues if i.code != "route.proposal-open"]
         by_subject: dict[str, list[Candidate]] = {}
@@ -771,6 +806,8 @@ def find(
         fields=fields,
         bundles=bundles,
         negotiated=options.get("negotiate") == "on",
+        external=external,
+        tool_paths=prepared.paths,
     )
     _measure(args, board, found, facts_of=facts_of, started=started)
     return found
@@ -1322,7 +1359,10 @@ def reply(
                 left_out += 1
                 if not args.show_rejected:
                     continue
-            rows.append(_candidate_json(proposal, candidate, gone))
+            row = _candidate_json(proposal, candidate, gone)
+            if candidate.id in dict(found.external.provenance):
+                row["tool"] = dataclasses.asdict(dict(found.external.provenance)[candidate.id])
+            rows.append(row)
         if proposal.candidates and not [r for r in rows if not r["rejected"]] and not args.show_rejected:
             proposal.reason = "all-rejected"
         reason = proposal.reason if not rows or proposal.reason == "all-rejected" else ""
@@ -1384,7 +1424,7 @@ def reply(
                 hint="run again with a longer --timeout, or narrow with --kind, --nets or --group",
             )
         )
-    result = {
+    result: dict[str, Any] = {
         "mode": "propose",
         "order": "generation",
         "open": {"before": found.plan.open},
@@ -1420,6 +1460,58 @@ def reply(
         result["next"] = [
             join([*base, flag, b.id, "--dry-run"]) for b in visible for flag in ("--accept", "--reject")
         ]
+    if getattr(args, "propose_with", []):
+        from shlex import join
+
+        result["external"] = {
+            "requested": sorted(set(args.propose_with)),
+            "refusals": [
+                {"subject": key, "reason": reason, "router": names[0], "details": list(names[1:])}
+                for key, reason, names in found.external.refusals
+            ],
+            "not_attempted": [{"subject": key, "router": name} for key, name in found.external.not_attempted],
+        }
+        base = ["fenolite", "route", args.path, "--router", args.router]
+        for name in sorted(set(args.propose_with)):
+            base += ["--propose-with", name]
+        for option in args.router_option:
+            base += ["--router-option", option]
+        for flag, values in (("--nets", args.nets or ()), ("--kind", args.kind), ("--group", args.group)):
+            for value in values:
+                base += [flag, value]
+        for flag, value in (
+            ("--candidates", args.candidates),
+            ("--router-path", args.router_path),
+            ("--router-python", args.router_python),
+            ("--requirements", args.requirements),
+            ("--timeout", args.timeout),
+            ("--gate", args.gate),
+        ):
+            if value is not None:
+                base += [flag, str(value)]
+        visible_ids = [
+            c.id for p in found.proposals for c in p.candidates if not c.bundle and c.id not in rejected_ids
+        ]
+        visible_ids += [b.id for b in found.bundles if b.id not in rejected_ids]
+        result["next"] = [
+            join([*base, flag, ident, "--dry-run"])
+            for ident in visible_ids
+            for flag in ("--accept", "--reject")
+        ]
+    result["controls"] = {
+        "schema": "fenolite.proposal_controls.v0",
+        "router_options": list(args.router_option),
+        "external_routers": list(getattr(args, "propose_with", [])),
+        "nets": list(args.nets or []),
+        "kinds": list(args.kind),
+        "groups": list(args.group),
+        "candidate_limit": args.candidates,
+        "requirements": args.requirements,
+        "timeout": args.timeout,
+        "gate": args.gate,
+        "portable": args.router == "octilinear"
+        and not (args.router_path or args.router_python or args.kicad_cli),
+    }
     if found.fields is not None:
         result["role_fields"] = _field_context(found.fields)
     return result, issues
@@ -1587,7 +1679,11 @@ def run_accept(
     accepted_rows: list[dict[str, Any]] = []
     for proposal, candidate in chosen:
         facts = proposal.facts.get(candidate.id, {})
-        accepted_rows.append({"candidate": candidate.id, "subject": proposal.subject.key, "facts": facts})
+        row: dict[str, Any] = {"candidate": candidate.id, "subject": proposal.subject.key, "facts": facts}
+        if candidate.id in dict(found.external.provenance):
+            row["source"] = candidate.source
+            row["tool"] = dataclasses.asdict(dict(found.external.provenance)[candidate.id])
+        accepted_rows.append(row)
         named = [row["code"] for row in facts.get("copper_check", {}).get("new", [])]
         named += [row["code"] for row in facts.get("roles", {}).get("new", []) if row["severity"] != "info"]
         if named:
@@ -1735,6 +1831,8 @@ def run_accept(
     if found.fields is not None:
         evidence = Evidence.combine(evidence, FIELD_EVIDENCE)
     evidence = _bundle_evidence(evidence, found.negotiated)
+    if getattr(args, "propose_with", []):
+        evidence = Evidence.combine(evidence, EXTERNAL_EVIDENCE)
     result = Result(
         result={
             "mode": "accept",
@@ -1757,6 +1855,7 @@ def run_accept(
             board.roles_file,
             board.record_path,
             *_field_dependencies(board),
+            *found.tool_paths,
         ),
     )
 
@@ -2067,6 +2166,8 @@ def run_propose(
     if found.fields is not None:
         evidence = Evidence.combine(evidence, FIELD_EVIDENCE)
     evidence = _bundle_evidence(evidence, found.negotiated)
+    if getattr(args, "propose_with", []):
+        evidence = Evidence.combine(evidence, EXTERNAL_EVIDENCE)
     return Result(
         result=result,
         issues=(*board.issues, *found.issues, *issues),
@@ -2078,6 +2179,7 @@ def run_propose(
             board.roles_file,
             board.record_path,
             *_field_dependencies(board),
+            *found.tool_paths,
         ),
     )
 
