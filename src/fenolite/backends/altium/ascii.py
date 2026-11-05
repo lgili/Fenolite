@@ -54,13 +54,22 @@ def _printable(text: str) -> bool:
     return all(FIRST_PRINTABLE <= ord(ch) <= LAST_PRINTABLE for ch in text)
 
 
-def format_record(fields: Sequence[Field]) -> str:
-    """One record as its line, without the line end: ``|KEY=VALUE`` per field, no trailing ``|``."""
+def _valid_key(key: str, *, spaced: bool = False) -> bool:
+    """A key is printable 7-bit ASCII without ``|``, ``=`` or a space. With ``spaced`` a space may stand
+    inside it, not at an end: the keys of a PCB rule record kept as Altium wrote it (the Routing Layers
+    keys ``TOP LAYER_V5``, ``docs/formats/altium/rule-file.md``; change c0424)."""
+    banned = "|=" if spaced else "|= "
+    return bool(key) and _printable(key) and not any(ch in key for ch in banned) and key == key.strip(" ")
+
+
+def format_record(fields: Sequence[Field], *, spaced_keys: bool = False) -> str:
+    """One record as its line, without the line end: ``|KEY=VALUE`` per field, no trailing ``|``
+    (``spaced_keys``: ``_valid_key``)."""
     if not fields:
         raise ValueError("a record needs at least one field")
     parts: list[str] = []
     for key, value in fields:
-        if not key or not _printable(key) or any(ch in key for ch in "|= "):
+        if not _valid_key(key, spaced=spaced_keys):
             raise ValueError(f"invalid record key {key!r}")
         if not _printable(value) or "|" in value:
             raise ValueError(f"the value {value!r} of {key} is not printable 7-bit ASCII without '|'")
@@ -91,7 +100,7 @@ def in_code_page(ch: str) -> bool:
     return True
 
 
-def record_bytes(fields: Sequence[Field]) -> bytes:
+def record_bytes(fields: Sequence[Field], *, spaced_keys: bool = False) -> bytes:
     """One record of the binary form as bytes, without its NUL (change c0086, "Text outside ASCII"): a
     field whose value is printable 7-bit ASCII is the text of ``format_record``; a field whose value holds
     another printable character is written twice, first as ``|%UTF8%<KEY>=`` and the value in
@@ -103,9 +112,9 @@ def record_bytes(fields: Sequence[Field]) -> bytes:
     parts: list[bytes] = []
     for key, value in fields:
         if _printable(value):
-            parts.append(format_record(((key, value),)).encode("ascii"))
+            parts.append(format_record(((key, value),), spaced_keys=spaced_keys).encode("ascii"))
             continue
-        if not key or not _printable(key) or any(ch in key for ch in "|= "):
+        if not _valid_key(key, spaced=spaced_keys):
             raise ValueError(f"invalid record key {key!r}")
         if "|" in value or not all(ch.isprintable() for ch in value):
             raise ValueError(f"the value {value!r} of {key} holds an unrepresentable character")

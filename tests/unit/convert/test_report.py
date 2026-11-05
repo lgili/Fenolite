@@ -18,6 +18,8 @@ from fenolite.convert.report import (
     SOURCE,
     ConversionReport,
     Explainer,
+    Reason,
+    ReportRow,
     merge,
 )
 
@@ -101,3 +103,21 @@ def test_explainer_locates_lost_pads(monkeypatch: pytest.MonkeyPatch) -> None:
     assert explainer.explain("position", ref, "0,0", "1,1") is None
     assert explainer.explain("ref-ambiguous", "X", "2", "2") == SOURCE
     assert explainer.explain("ref-ambiguous", "X", "1", "2") is None
+
+
+def test_kept_items_are_not_losses() -> None:
+    """Scenario "Kept items are not losses" (capability design-conversion, "Conversion report"; change
+    c0424)."""
+    report = ConversionReport.of(
+        source={"rule": 2}, kept={"rule": {"KiCad has no routing topology rule": ["rul-1"]}}
+    )
+    row = report.row("rule")
+    assert row is not None
+    assert (row.source, row.written, row.changed, row.lost, row.kept) == (2, 1, 0, 0, 1)
+    assert [r.outcome for r in row.reasons] == ["kept"]
+    assert not report.lossy and report.refused == ()
+    assert row.to_json()["kept"] == 1
+    plain = ConversionReport.of(source={"rule": 1}).row("rule")
+    assert plain is not None and "kept" not in plain.to_json()
+    twice = (Reason(row.reasons[0].reason, "kept", ("rul-1", "rul-1")),)
+    assert merge(report, report).row("rule") == ReportRow("rule", 4, 2, 0, 0, twice, 2)

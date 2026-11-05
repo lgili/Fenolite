@@ -272,9 +272,10 @@ def short_string(text: str) -> bytes:
     return string_block(text)[4:]
 
 
-def property_block(fields: Sequence[Field]) -> bytes:
-    """One property block: c0033's ``binary.frame_record``."""
-    return frame_record(fields)
+def property_block(fields: Sequence[Field], *, spaced_keys: bool = False) -> bytes:
+    """One property block: c0033's ``binary.frame_record`` (``spaced_keys``: a rule record kept as Altium
+    wrote it, change c0424)."""
+    return frame_record(fields, spaced_keys=spaced_keys)
 
 
 def text_block(text: str) -> bytes:

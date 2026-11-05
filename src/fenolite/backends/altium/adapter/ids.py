@@ -34,6 +34,7 @@ EXT_KEYS: tuple[str, ...] = (
     "plane_cuts",
     "origin",
     "polygon_connect",
+    "kept_rule",
     "stack_mode",
     "corner_percent",
     "shape",
@@ -66,6 +67,7 @@ EXT_KEYS: tuple[str, ...] = (
     "rule_kind",
     "cell",
     "cells_not_lifted",
+    "kept_record",
 )
 """The closed table of extension-bag keys, in bag order; each is a row of
 ``docs/formats/altium/import.md``, "Extension-bag keys"."""

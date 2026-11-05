@@ -765,6 +765,14 @@ a board that the script forbids.
   ("Copper"), which judges the script's rules by KiCad's grammar: a `via_drill` rule with `opt`, which
   Routing Via Style needs, refuses that build. Such a script cannot hold a via style rule yet; a design
   without copper intents, or one built with `--copper-from`, can.
+- **Kept records (change c0424).** A rule record of an imported PCB document that the build cannot
+  rebuild from the neutral rules (a kind with no row above, such as Routing Topology or the test point
+  rules; a disabled record; a Hole To Hole Clearance that allows stacked micro vias; a Routing Layers
+  record) is kept on the board and written back as it is, after the records of its kind, with the next
+  priority of that kind. So a kept record keeps its place below the rules of its kind that the build
+  writes, not its old number among them. A conversion to KiCad reports each such record as `kept`
+  (`convert.kept`), a declared format limit (`docs/formats/altium/rule-file.md`, "Fates in a
+  conversion"). An import to a script goes through KiCad and keeps none of them.
 - **A rule file.** `fenolite export <KiCad project> --out DIR --altium-rul` writes the same rules as
   `<stem>.RUL` (`docs/exports.md`), which the PCB Rules editor imports into a board you keep.
 - **Reading.** The same kinds are read from a PCB document and a rule file ("Reading Altium files");

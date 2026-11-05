@@ -72,14 +72,17 @@ way to write a design of 10 for 9: `build`, `place`, `route` and `fill` keep ref
 `result.report` holds one row per kind that the source holds or the write touches, in the order of the
 table below: `source` (what the source holds), `written` (what the target holds as it was; the writer's
 own count where it keeps one), `changed` (written in another form that compares equal), `lost` (not
-written) and `reasons`, each reason with its `outcome` (`changed` or `lost`) and its `count`, sorted by
+written), `kept` (not written because the target cannot hold it, kept in the model for a write in the
+source's format: a declared format limit; present only when above 0) and `reasons`, each reason with its
+`outcome` (`changed`, `lost` or `kept`) and its `count`, sorted by
 count and then by reason. Every item is counted under its own reason. `--report-ids` adds the ids of the
 items. `lossy` is true when any row has a loss, and `refused` names the `refuse` kinds with losses.
 
 A loss of a `refuse` kind changes the board that is made or its bill of materials: without
 `--allow-lossy` the conversion exits 7 (`FEN-7001`) with one `convert.lossy` issue per such kind; with it
 the same issues are warnings. A loss of a `report` kind is in the report only. Each kind with changes
-gives one `convert.changed` info.
+gives one `convert.changed` info, and each kind with kept items one `convert.kept` info. An Altium
+rule record has one fate (`docs/formats/altium/rule-file.md`, "Fates in a conversion").
 
 The vocabulary is closed (`fenolite.convert.report.KINDS`), one table for every direction:
 

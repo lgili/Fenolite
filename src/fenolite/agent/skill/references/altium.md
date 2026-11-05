@@ -158,6 +158,10 @@ fenolite kit status --json
 fenolite convert blink/altium/lamp.PrjPcb --to kicad --out converted --dry-run --json
 ```
 
+The report gives each Altium rule record one outcome. `convert.kept` (info) counts records KiCad cannot
+hold, such as routing topology or a disabled rule: the model keeps them, and a build for Altium writes
+them back. They are a declared format limit, not a loss.
+
 
 ## A drawing beside the script
 

@@ -22,7 +22,7 @@ from fenolite.model.design import Design
 
 Group = Literal["circuit", "footprint", "copper", "board", "presentation", "project", "downgrade"]
 LossClass = Literal["refuse", "report"]
-Outcome = Literal["changed", "lost"]
+Outcome = Literal["changed", "lost", "kept"]
 Scope = Literal["ref", "pin", "net", "net-pins", "footprint-nets", "same"]
 GROUPS: tuple[Group, ...] = (
     "circuit",
@@ -183,7 +183,7 @@ several components share, on both sides alike)."""
 
 @dataclass(frozen=True, slots=True)
 class Reason:
-    """The items of one kind changed or lost for one reason."""
+    """The items of one kind changed, lost or kept for one reason."""
 
     reason: str
     outcome: Outcome
@@ -203,7 +203,9 @@ class Reason:
 @dataclass(frozen=True, slots=True)
 class ReportRow:
     """One kind: how many items the source holds, how many the target holds as they were (``written``),
-    in another form that compares equal (``changed``) or not at all (``lost``), and the reasons."""
+    in another form that compares equal (``changed``) or not at all (``lost``), and the reasons. ``kept``
+    counts the items the target cannot hold and the model keeps for a write back to the source's format
+    (change c0424): a declared format limit, not a loss."""
 
     kind: str
     source: int
@@ -211,6 +213,7 @@ class ReportRow:
     changed: int
     lost: int
     reasons: tuple[Reason, ...] = ()
+    kept: int = 0
 
     @property
     def group(self) -> Group:
@@ -237,6 +240,7 @@ class ReportRow:
             "written": self.written,
             "changed": self.changed,
             "lost": self.lost,
+            **({"kept": self.kept} if self.kept else {}),
             "reasons": [reason.to_json(ids=ids) for reason in self.reasons],
         }
 
@@ -245,9 +249,14 @@ Items = Mapping[str, Mapping[str, Iterable[str]]]
 """Kind → reason → the ids of the items (``lower.AltiumInputs.lost``)."""
 
 
-def _reasons(changed: Mapping[str, Iterable[str]], lost: Mapping[str, Iterable[str]]) -> tuple[Reason, ...]:
+def _reasons(
+    changed: Mapping[str, Iterable[str]],
+    lost: Mapping[str, Iterable[str]],
+    kept: Mapping[str, Iterable[str]] | None = None,
+) -> tuple[Reason, ...]:
     found = [Reason(reason, "changed", tuple(ids)) for reason, ids in changed.items()]
     found += [Reason(reason, "lost", tuple(ids)) for reason, ids in lost.items()]
+    found += [Reason(reason, "kept", tuple(ids)) for reason, ids in (kept or {}).items()]
     return tuple(sorted((r for r in found if r.ids), key=lambda r: (-r.count, r.reason, r.outcome)))
 
 
@@ -266,29 +275,32 @@ class ConversionReport:
         written: Mapping[str, int] | None = None,
         changed: Items | None = None,
         lost: Items | None = None,
+        kept: Items | None = None,
     ) -> ConversionReport:
         """The report of the counts ``source`` (what the source holds, per kind), ``written`` (the
         writer's own count of what it wrote, per kind, where it keeps one) and the items ``changed`` and
         ``lost`` per kind and reason. A kind without a count in ``source`` holds what was written, changed
-        and lost; a kind without a count in ``written`` wrote what was neither changed nor lost."""
-        written, changed, lost = written or {}, changed or {}, lost or {}
-        kinds = set(source) | set(written) | set(changed) | set(lost)
+        and lost; a kind without a count in ``written`` wrote what was neither changed nor lost. ``kept``
+        holds the items the model keeps for the source's format (change c0424), per kind and reason."""
+        written, changed, lost, kept = written or {}, changed or {}, lost or {}, kept or {}
+        kinds = set(source) | set(written) | set(changed) | set(lost) | set(kept)
         order = [row.name for row in KINDS] + sorted(kinds - {row.name for row in KINDS})
         rows: list[ReportRow] = []
         for kind in order:
             if kind not in kinds:
                 continue
-            reasons = _reasons(changed.get(kind, {}), lost.get(kind, {}))
+            reasons = _reasons(changed.get(kind, {}), lost.get(kind, {}), kept.get(kind, {}))
             n_changed = sum(r.count for r in reasons if r.outcome == "changed")
             n_lost = sum(r.count for r in reasons if r.outcome == "lost")
+            n_kept = sum(r.count for r in reasons if r.outcome == "kept")
             if kind in source:
                 n_source = source[kind]
             else:
-                n_source = written.get(kind, 0) + n_changed + n_lost
-            n_written = written[kind] if kind in written else max(n_source - n_changed - n_lost, 0)
-            if not (n_source or n_written or n_changed or n_lost):
+                n_source = written.get(kind, 0) + n_changed + n_lost + n_kept
+            n_written = written[kind] if kind in written else max(n_source - n_changed - n_lost - n_kept, 0)
+            if not (n_source or n_written or n_changed or n_lost or n_kept):
                 continue
-            rows.append(ReportRow(kind, n_source, n_written, n_changed, n_lost, reasons))
+            rows.append(ReportRow(kind, n_source, n_written, n_changed, n_lost, reasons, n_kept))
         return cls(tuple(rows))
 
     def row(self, kind: str) -> ReportRow | None:
@@ -318,14 +330,15 @@ def merge(*reports: ConversionReport) -> ConversionReport:
     written: dict[str, int] = {}
     changed: dict[str, dict[str, list[str]]] = {}
     lost: dict[str, dict[str, list[str]]] = {}
+    kept: dict[str, dict[str, list[str]]] = {}
     for report in reports:
         for row in report.rows:
             source[row.kind] = source.get(row.kind, 0) + row.source
             written[row.kind] = written.get(row.kind, 0) + row.written
             for reason in row.reasons:
-                into = changed if reason.outcome == "changed" else lost
+                into = {"changed": changed, "lost": lost, "kept": kept}[reason.outcome]
                 into.setdefault(row.kind, {}).setdefault(reason.reason, []).extend(reason.ids)
-    return ConversionReport.of(source=source, written=written, changed=changed, lost=lost)
+    return ConversionReport.of(source=source, written=written, changed=changed, lost=lost, kept=kept)
 
 
 def census(design: Design) -> dict[str, int]:

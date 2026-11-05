@@ -35,14 +35,18 @@ pytestmark = pytest.mark.needs_corpus
 ROWS = manifest_items("altium-pcbdoc")
 NEW_KINDS = {"BoardOutlineClearance": 63, "HoleToHoleClearance": 52, "MinimumAnnularRing": 19, "HoleSize": 42}
 MAPPED = {
-    "altium-third-party-pcbdoc-04": {"edge_clearance": 2, "annular_width": 1},
+    "altium-third-party-pcbdoc-01": {"hole_to_hole": 1},
+    "altium-third-party-pcbdoc-02": {"hole_to_hole": 1},
+    "altium-third-party-pcbdoc-03": {"hole_to_hole": 1},
+    "altium-third-party-pcbdoc-04": {"edge_clearance": 2, "annular_width": 1, "hole_to_hole": 1},
     "altium-third-party-pcbdoc-05": {"edge_clearance": 1, "annular_width": 2, "hole_to_hole": 1},
-    "altium-third-party-pcbdoc-06": {"edge_clearance": 1},
-    "altium-third-party-pcbdoc-07": {"edge_clearance": 1, "annular_width": 1},
+    "altium-third-party-pcbdoc-06": {"edge_clearance": 1, "hole_to_hole": 1},
+    "altium-third-party-pcbdoc-07": {"edge_clearance": 1, "annular_width": 1, "hole_to_hole": 1},
 }
 """Row → the rules of the three kinds of c0084 that its records give (census of 2026-10-06; change c0377
 added the edge clearance scoped `not InNet(...)` of the fourth row and the annular ring scoped `NOT IsVia`
-of the fifth, scopes in lower and upper case)."""
+of the fifth, scopes in lower and upper case; change c0424 maps the Hole To Hole Clearance that allows
+stacked micro vias, one record in each row but the fifth, and keeps its record)."""
 C0084 = ("edge_clearance", "hole_to_hole", "annular_width")
 
 

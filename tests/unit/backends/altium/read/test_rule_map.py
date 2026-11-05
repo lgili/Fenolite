@@ -197,7 +197,8 @@ def test_kinds_of_c0084() -> None:
     assert reasons(
         [
             matrix,
-            record("HoleToHoleClearance", ("GAP", "10mil"), ("ALLOWSTACKEDMICROVIAS", "TRUE")),
+            # TRUE maps since change c0424; a value outside the table does not
+            record("HoleToHoleClearance", ("GAP", "10mil"), ("ALLOWSTACKEDMICROVIAS", "1")),
             record("HoleToHoleClearance", ("GAP", "10mil")),
             record("MinimumAnnularRing"),
             record("BoardOutlineClearance", NETSCOPE="DifferentNets"),

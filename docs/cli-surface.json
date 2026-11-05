@@ -12300,6 +12300,12 @@
         "info"
       ]
     },
+    "convert.kept": {
+      "experimental": false,
+      "severities": [
+        "info"
+      ]
+    },
     "convert.lossy": {
       "experimental": false,
       "severities": [

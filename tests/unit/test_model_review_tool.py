@@ -112,7 +112,11 @@ def test_actual_approved_model0_shapes_are_preserved_by_migration_candidate():
     for name in added_classes:  # a class added by a later change is reached only through a defaulted field
         assert name.startswith("fenolite.model."), name
     assert len(shapes["fenolite.model.migrate.Step"]["fields"]) == 4
-    assert len(approved["extension_keys"]) == approved["extension_key_count"] == 40
+    assert len(approved["extension_keys"]) == approved["extension_key_count"]
+    # the 40 keys of the review stay; a key added later carries its own approval (c0424: kept_rule and
+    # kept_record, approved 2026-11-05 by the coordinator under the maintainer's delegation)
+    assert sum(1 for e in approved["extension_keys"] if "approved" not in e) == 40
+    assert all(e["approved"].startswith("approved 20") for e in approved["extension_keys"] if "approved" in e)
     assert {(e["backend"], e["key"]) for e in approved["extension_keys"]} == {
         (e["backend"], e["key"]) for e in actual["extension_keys"]
     }

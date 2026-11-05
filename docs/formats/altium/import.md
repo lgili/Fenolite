@@ -117,6 +117,7 @@ The closed table `adapter.EXT_KEYS`. A value is text of the record or a decimal 
 | `plane_cuts` | layer | the number of free primitives on the layer of an internal plane that the import left out: they cut the plane and are no copper |
 | `origin` | board | `ORIGINX,ORIGINY` as written |
 | `polygon_connect` | board | one pair per Polygon Connect Style record (rule kind 20), in record order: its keys from `RULEKIND` on, as written, `KEY=VALUE` joined by `\|`. A rewrite with a computed pour writes the records back when every one maps (change c0215; `pcb-pour.md`, "Polygon Connect Style records"); it enters no id |
+| `kept_rule` | board | one pair per rule record that the Altium writer cannot rebuild from the neutral rules, in record order: its kind number, then its keys from `RULEKIND` on, `KEY=VALUE` joined by `\|` (`rule-file.md`, "Kept rule records"); the writer writes it back as it is (change c0424) |
 | `stack_mode` | pad | the stack mode when it is not 0 |
 | `corner_percent` | pad | the corner percentage of a rounded rectangle |
 | `shape` | pad | the shape number of a `custom` pad |
@@ -149,6 +150,7 @@ The closed table `adapter.EXT_KEYS`. A value is text of the record or a decimal 
 | `rule_kind` | rule | `RULEKIND` |
 | `cell` | rule | the pair of item kinds of a rule that holds one cell of a Clearance record's object matrix, such as `via-via` (change c0130) |
 | `cells_not_lifted` | rule | on the rule of a Clearance record's generic value: the entries of its object matrix that no rule holds, as written and joined by `;` (an object kind the copper check holds no item of; change c0130) |
+| `kept_record` | rule | `1` on a rule given by a kept record (a Hole To Hole Clearance that allows stacked micro vias, a Routing Layers record): the Altium writer leaves the rule out and writes the record back (change c0424) |
 
 ## The copper check and the parity comparison
 

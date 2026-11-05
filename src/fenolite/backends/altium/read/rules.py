@@ -52,6 +52,8 @@ HEADER_KEYS = (
 """The keys every rule record of a PCB document holds after its common keys (``rule-file.md``)."""
 SAME_LAYER = "SameLayer"
 ALL = "All"
+TOP_LAYER_ID, BOTTOM_LAYER_ID = 1, 32
+"""The Altium ids of the top and the bottom signal layer (``pcb-records.md``, "Layer ids")."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -93,6 +95,16 @@ class KindMap:
     net_scope: str
     conditions: tuple[Condition, ...] = ()
     binary: bool = False
+    patterns: tuple[str, ...] = ()
+    """Regular expressions of further keys that are allowed and unused (the per-layer widths of a
+    Differential Pairs Routing record, the layer keys of a Routing Layers record; change c0424)."""
+    pair_scope: bool = False
+    """The rules select differential pairs: the scope ``All`` is ``diff_pair *``, another scope is joined
+    to ``diff_pair *`` with ``and`` (change c0424)."""
+
+    def allows(self, key: str) -> bool:
+        """Whether ``key`` matches one of ``patterns``."""
+        return any(re.fullmatch(pattern, key) for pattern in self.patterns)
 
     @property
     def cells(self) -> bool:
@@ -109,12 +121,27 @@ class KindMap:
 
 @dataclass(frozen=True, slots=True)
 class CopperLayer:
-    """One copper layer of a board: the name the document gives it, its neutral name, and whether it is an
-    internal signal layer (neither the top, nor the bottom, nor an internal plane)."""
+    """One copper layer of a board: the name the document gives it, its neutral name, whether it is an
+    internal signal layer (neither the top, nor the bottom, nor an internal plane), and its Altium layer id
+    (0: not known), which names its key in a Routing Layers record (``routing_key``, change c0424)."""
 
     document_name: str
     name: str
     inner_signal: bool = False
+    altium_id: int = 0
+
+    @property
+    def routing_key(self) -> str:
+        """The key of this layer in a Routing Layers record: ``TOP LAYER_V5`` (id 1), ``MID LAYER <n>_V5``
+        (id ``n + 1``) or ``BOTTOM LAYER_V5`` (id 32); empty for another id (``rule-file.md``, "Routing
+        Layers"; ``H-A-RD-RULE-ROUTINGLAYERS``)."""
+        if self.altium_id == TOP_LAYER_ID:
+            return "TOP LAYER_V5"
+        if self.altium_id == BOTTOM_LAYER_ID:
+            return "BOTTOM LAYER_V5"
+        if TOP_LAYER_ID < self.altium_id < BOTTOM_LAYER_ID:
+            return f"MID LAYER {self.altium_id - 1}_V5"
+        return ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -157,6 +184,19 @@ ONE_OBJECT_KINDS = frozenset({"Width", "RoutingVias", "HoleSize", "MinimumAnnula
 net scope, which relates the nets of two objects, does not change what they select (change c0377,
 ``H-A-RD-PRJ-NETSCOPE-ONE``, ``INFERRED``); a record of one of them maps with either value of
 ``NET_SCOPES``."""
+WRITTEN_KINDS = frozenset(
+    {
+        "Clearance", "Width", "RoutingVias", "HoleSize", "BoardOutlineClearance", "HoleToHoleClearance",
+        "MinimumAnnularRing",
+    }
+)  # fmt: skip
+"""The Altium kinds the writer rebuilds from neutral rules: those of ``rulemap.KIND_ORDER``, named here so
+that the import, which may not import the writer, tells which records to keep (change c0424; a test holds
+the two equal)."""
+NET_SCOPE_FREE = frozenset({"SilkToSilkClearance", "ComponentClearance", "DiffPairsRouting", "RoutingLayers"})
+"""The kinds of change c0424 that map with either value of ``NET_SCOPES``: silkscreen and component
+bodies hold no net, a pair rule selects pairs, and a routing layer rule limits one track
+(``H-A-RD-PRJ-NETSCOPE-ONE``, ``INFERRED``)."""
 NET_SCOPES = ("AnyNet", "DifferentNets")
 """The values of ``NETSCOPE`` that the public documents hold."""
 CELL_PAIR = "cell"
@@ -213,9 +253,33 @@ RULE_KIND_MAP: dict[str, KindMap] = {
     "HoleToHoleClearance": KindMap(
         (NeutralLimits("hole_to_hole", "GAP", None, None),),
         "AnyNet",
-        (Condition("ALLOWSTACKEDMICROVIAS", ("FALSE",), required=True),),
+        (Condition("ALLOWSTACKEDMICROVIAS", ("FALSE", "TRUE"), required=True),),
     ),
     "MinimumAnnularRing": KindMap((NeutralLimits("annular_width", "MINIMUMRING", None, None),), "AnyNet"),
+    "SilkToSilkClearance": KindMap(
+        (NeutralLimits("silk_clearance", "SILKTOSILKCLEARANCE", None, None),), "AnyNet", binary=True
+    ),
+    "ComponentClearance": KindMap(
+        (NeutralLimits("courtyard_clearance", "GAP", None, None),),
+        "AnyNet",
+        (Condition("VERTICALGAP"), Condition("COLLISIONCHECKMODE"), Condition("SHOWDISTANCES")),
+        binary=True,
+    ),
+    "DiffPairsRouting": KindMap(
+        (
+            NeutralLimits("diff_pair_gap", "MINLIMIT", "MOSTFREQGAP", "MAXLIMIT"),
+            NeutralLimits("diff_pair_uncoupled", None, None, "MAXUNCOUPLEDLENGTH"),
+        ),
+        "AnyNet",
+        (
+            Condition("IMPEDANCEPROFILEDRIVEN"),
+            Condition("IMPEDANCEPROFILEID"),
+            Condition("IMPEDANCEPROFILEVALUE"),
+        ),
+        patterns=(r"[A-Z0-9]+_(?:MIN|MAX|PREF)WIDTH",),
+        pair_scope=True,
+    ),
+    "RoutingLayers": KindMap((), "AnyNet", patterns=(r"[A-Z][A-Z0-9 ]*_V5",)),
 }
 """The closed table of the kinds that map (``rule-file.md``, "Rule kinds that map";
 ``H-A-RD-PRJ-RULE-MAP``; the last three kinds are those of change c0084, ``H-A-RULE-KINDS``). It holds
@@ -410,7 +474,7 @@ def matrix_problem(text: str, gap: str | None) -> str:
 def _check_keys(fields: Sequence[Field], kind: str, table: KindMap) -> None:
     first = next(position for position, (key, _value) in enumerate(fields) if key == "RULEKIND")
     allowed = {key for key, _value in fields[:first]} | set(HEADER_KEYS) | table.keys
-    unknown = sorted({key for key, _value in fields} - allowed)
+    unknown = sorted(key for key in {key for key, _value in fields} - allowed if not table.allows(key))
     if unknown:
         raise _Refusal("keys", f"the keys {', '.join(unknown)} are not in the table of {kind}")
     for condition in table.conditions:
@@ -451,7 +515,7 @@ def _limits(
             groups.append((limits, tuple(values)))
     if kind in ("Clearance", "BoardOutlineClearance") and not _has(fields, "GAP"):
         raise _Refusal("value", f"the {kind} has no GAP")
-    if not groups:
+    if not groups and table.rules:
         raise _Refusal("value", f"the {kind} gives no limit")
     return groups
 
@@ -539,7 +603,7 @@ def _map_one(fields: Sequence[Field], index: int, origin: str, layers: CopperLay
     if enabled != "TRUE":
         raise _Refusal("disabled", f"ENABLED={enabled}: a disabled rule is skipped and the next one applies")
     net_scope = _get(fields, "NETSCOPE")
-    one_object = kind in ONE_OBJECT_KINDS and net_scope in NET_SCOPES
+    one_object = (kind in ONE_OBJECT_KINDS or kind in NET_SCOPE_FREE) and net_scope in NET_SCOPES
     if net_scope != table.net_scope and not one_object:
         raise _Refusal("net-scope", f"NETSCOPE={net_scope}; the table needs {table.net_scope}")
     layer_kind = _get(fields, "LAYERKIND")
@@ -548,6 +612,10 @@ def _map_one(fields: Sequence[Field], index: int, origin: str, layers: CopperLay
     _check_keys(fields, kind, table)
     groups = _limits(fields, kind, table)
     selector_a, selector_b, on_layers = _scopes(fields, table, layers)
+    if table.pair_scope:
+        selector_a = _pairs(selector_a)
+    if kind == "RoutingLayers":
+        groups, on_layers = _routing_layers(fields, layers)
     unique_id = _get(fields, "UNIQUEID")
     native = {BACKEND: unique_id} if unique_id else {}
     record = ("record", record_text(fields))
@@ -596,6 +664,36 @@ def _map_one(fields: Sequence[Field], index: int, origin: str, layers: CopperLay
                 )
             )
     return rules
+
+
+PAIRS = Selector("diff_pair", "*")
+"""Every differential pair (``model.rules``: the value ``*`` of a ``diff_pair`` leaf)."""
+
+
+def _pairs(selector: Selector) -> Selector:
+    """``selector`` narrowed to the nets of differential pairs (``KindMap.pair_scope``)."""
+    return PAIRS if selector.op == "all" else Selector("and", items=(PAIRS, selector))
+
+
+def _routing_layers(
+    fields: Sequence[Field], layers: CopperLayers | None
+) -> tuple[list[tuple[NeutralLimits, tuple[Nm | None, ...]]], tuple[str, ...]]:
+    """One ``no_tracks`` group on the copper layers of the board whose key a Routing Layers record sets to
+    ``FALSE``, or no group when it disallows none of them (``rule-file.md``, "Routing Layers"). A key of a
+    layer the board does not hold applies to no object; an internal plane (an id past the signal layers)
+    has no key and takes no track."""
+    if layers is None or any(not layer.altium_id for layer in layers.layers):
+        raise _Refusal(
+            "no-layer", "a Routing Layers record needs the Altium ids of the board's copper layers"
+        )
+    closed = tuple(
+        layer.name
+        for layer in layers.layers
+        if layer.routing_key and _get(fields, layer.routing_key) == "FALSE"
+    )
+    if not closed:
+        return [], ()
+    return [(NeutralLimits("no_tracks", None, None, None), (None, None, None))], closed
 
 
 def _of_kind(selector: Selector, kind: str) -> Selector:

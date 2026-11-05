@@ -7,7 +7,7 @@
   "schemas/fenolite.capabilities.v0.json": "36e6d7ead0ae4336f9086cc2891d01423a70ca4454543ef731a48eb9d3865bac",
   "schemas/fenolite.catalog.v0.json": "f89f431137d02639df352f8898cad27bd334b75a72c0d60e9deb52ba6cc2ad10",
   "schemas/fenolite.check.v0.json": "8e67486414ed11f851394468dfd7341872370635dadc8660d1de81f3f0d6a02f",
-  "schemas/fenolite.convert.v0.json": "8f1467e50bd197e165e02009880bf2488d7c83d102d0434d0561af1b72e5a77d",
+  "schemas/fenolite.convert.v0.json": "f159140c395d791f47d7a247465ada0e1598b7f79a92c596b1439f2a67fdd778",
   "schemas/fenolite.copper.v0.json": "68cc46641898798a23bae979c005e1d475255d68a77d91c263069333f1418b46",
   "schemas/fenolite.diff.v0.json": "f459ab57d413ed14121670fc71b6bb6743ac5504daeafaa02095d35184b53628",
   "schemas/fenolite.doctor.v0.json": "ca600f8b48a1c6e6b278f0a395345efdc3b19caa0091cfee9561bcea46e4d32a",

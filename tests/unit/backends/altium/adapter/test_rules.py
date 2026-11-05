@@ -164,7 +164,10 @@ def test_layer_conditions_take_the_layers_of_the_board() -> None:
         "1 rule(s) of kind Clearance are not mapped (no-layer 1)"
     ]
     layers = LayerMap.from_board(board).copper_layers()
-    assert layers.layers == (CopperLayer("Top Layer", "F.Cu"), CopperLayer("Bottom Layer", "B.Cu"))
+    assert layers.layers == (
+        CopperLayer("Top Layer", "F.Cu", False, 1),
+        CopperLayer("Bottom Layer", "B.Cu", False, 32),
+    )
     assert copper_layers_of(design.board.layers) == layers
 
 

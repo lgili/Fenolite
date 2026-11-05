@@ -56,11 +56,11 @@ def header_record(count: int) -> tuple[Field, ...]:
     return (("HEADER", HEADER_TEXT), ("WEIGHT", str(count)))
 
 
-def frame_record(fields: Sequence[Field]) -> bytes:
+def frame_record(fields: Sequence[Field], *, spaced_keys: bool = False) -> bytes:
     """One property-list record: the length word with type 0, the record's text and its NUL. A value
     outside 7-bit ASCII is written in the code page with its ``%UTF8%`` twin (``ascii.record_bytes``,
     change c0086); a record of 7-bit values keeps the bytes of ``ascii.format_record``."""
-    payload = record_bytes(fields) + b"\0"
+    payload = record_bytes(fields, spaced_keys=spaced_keys) + b"\0"
     if len(payload) > MAX_PAYLOAD:
         raise ValueError(f"a record payload of {len(payload)} bytes is over {MAX_PAYLOAD} bytes")
     return struct.pack("<I", PROPERTY_LIST << 24 | len(payload)) + payload

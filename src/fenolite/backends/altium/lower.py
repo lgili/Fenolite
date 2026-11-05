@@ -462,6 +462,15 @@ def _connect_styles(board: Board) -> tuple[tuple[tuple[str, str], ...], ...]:
     return tuple(connectstyle.connect_fields(str(text)) for key, text in payload if key == "polygon_connect")
 
 
+def _kept_rules(board: Board) -> tuple[tuple[int, tuple[tuple[str, str], ...]], ...]:
+    """The kept rule records of a board that was read (its ``kept_rule`` pairs, change c0424)."""
+    from fenolite.backends.altium.adapter.rules import KEPT_RULE, kept_fields  # noqa: PLC0415
+
+    bag = board.ext.get(BACKEND)
+    payload = bag.payload if bag is not None else ()
+    return tuple(kept_fields(str(text)) for key, text in payload if key == KEPT_RULE)
+
+
 def pairs_of(entity: object) -> dict[str, str]:
     """The pairs of the ``altium`` bag of a model entity (the last value of a repeated key)."""
     bag = getattr(entity, "ext", {}).get(BACKEND)
@@ -1848,6 +1857,7 @@ def _document(
         allow_full_drill=rewrite,
         bodies=tuple(placed_bodies),
         connect_styles=_connect_styles(board) if read else (),
+        kept_rules=_kept_rules(board) if read else (),
         body_form=options.body_form if options is not None and placed_bodies else "saved",
     )
 

@@ -1503,6 +1503,11 @@ meaning = "Items of the kind that 'where' names are written in another form that
 fix = "Nothing to do; repour the polygons in the target tool. result.report lists every reason."
 see = "convert"
 
+["convert.kept"]
+meaning = "Items of the kind that 'where' names cannot be held by the target, and the model keeps them for a write back to the source's format: a declared format limit, not a loss (an Altium rule KiCad has no rule for, or a disabled rule). The message counts them per reason."
+fix = "Nothing to do for a write back to the source's format. To check them in the target, add an equivalent rule there; result.report lists every reason."
+see = "convert"
+
 ["convert.lossy"]
 meaning = "The converted project does not hold items of a kind that changes the board made or its bill of materials ('where' names the kind); --allow-lossy accepted the loss, or the kind is a footprint's own drawing (footprint-graphic, footprint-text) or a component body or 3D model (body, model), whose loss warns without a refusal. The message counts them per reason."
 fix = "Read result.report; change the source so the target holds the items, or keep the loss."

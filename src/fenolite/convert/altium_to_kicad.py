@@ -21,16 +21,20 @@ from fenolite.model.board import FootprintInstance, Layer, Pad
 from fenolite.model.circuit import Component, Net, PinRef
 from fenolite.model.design import Design
 from fenolite.model.library import FootprintDef, ModelPlacement, SymbolDef
-from fenolite.model.rules import Rule
 
 
 class Ledger:
     def __init__(self) -> None:
         self.lost: dict[str, dict[str, list[str]]] = defaultdict(lambda: defaultdict(list))
         self.changed: dict[str, dict[str, list[str]]] = defaultdict(lambda: defaultdict(list))
+        self.kept: dict[str, dict[str, list[str]]] = defaultdict(lambda: defaultdict(list))
 
     def drop(self, kind: str, ident: str, reason: str) -> None:
         self.lost[kind][reason].append(ident)
+
+    def keep(self, kind: str, ident: str, reason: str) -> None:
+        """An item the target cannot hold, kept in the model for an Altium write (change c0424)."""
+        self.kept[kind][reason].append(ident)
 
     def change(self, kind: str, ident: str, reason: str) -> None:
         """An entity is counted once per kind: a second change of ``ident`` joins its earlier reason, so
@@ -545,22 +549,9 @@ def prepare(source: SourceProject, name: str, target: int, ledger: Ledger) -> De
     board = altium_strings.board_strings(board, ledger)
     rules = design.rules
     if rules is not None:
-        from fenolite.backends.kicad.lowering import lower_rules
-        from fenolite.core.errors import FenoliteError
+        from fenolite.convert import altium_rules  # change c0424: the fate of every rule
 
-        kept_rules: list[Rule] = []
-        for rule in rules.rules:
-            try:
-                result = lower_rules(
-                    dataclasses.replace(rules, rules=(rule,)), target=target, allow_lossy=True
-                )
-                if any(issue.severity in ("warning", "error") for issue in result.issues):
-                    ledger.drop("rule", rule.id, "the target cannot write this imported rule")
-                    continue
-                kept_rules.append(rule)
-            except (FenoliteError, ValueError) as error:
-                ledger.drop("rule", rule.id, f"the target cannot write this imported rule: {error}")
-        rules = dataclasses.replace(rules, rules=tuple(kept_rules))
+        rules = altium_rules.lower_rules(rules, target, ledger, source.design.rules)
     components = tuple(
         dataclasses.replace(c, lib_footprint_ref=links.get(c.id, c.lib_footprint_ref))
         for c in design.circuit.components

@@ -186,10 +186,10 @@ class ConvertFile:
 
 @dataclass(frozen=True)
 class ReportReason:
-    """The items of one kind changed or lost for one reason."""
+    """The items of one kind changed, lost or kept for one reason."""
 
     reason: str
-    outcome: Literal["changed", "lost"]
+    outcome: Literal["changed", "lost", "kept"]
     count: int = dataclasses.field(metadata={"minimum": 1})
     ids: list[str] = dataclasses.field(
         default_factory=lambda: [], metadata={"optional": True, "description": "with --report-ids"}
@@ -207,6 +207,14 @@ class ReportRowReply:
     written: int = dataclasses.field(metadata=_COUNT)
     changed: int = dataclasses.field(metadata=_COUNT)
     lost: int = dataclasses.field(metadata=_COUNT)
+    kept: int = dataclasses.field(
+        default=0,
+        metadata={
+            **_COUNT,
+            "optional": True,
+            "description": "items kept in the model for the source's format; shown when above 0 (c0424)",
+        },
+    )
     reasons: list[ReportReason] = dataclasses.field(default_factory=lambda: [])
 
 

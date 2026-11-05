@@ -38,6 +38,15 @@ known to `kicad-cli`, so nothing here is `ORACLE-VERIFIED`, and the meaning of t
 | A count of `OBJECTCLEARANCES` is 0.0001 mil (2.54 nm, the unit of the document's coordinates), and a cell that the text leaves out holds the generic value; so a text whose every entry holds the length of `GAP` says one clearance | S-0558, S-0175, S-0176, S-0187 | INFERRED | H-A-RULE-CLEARANCE-FORMS |
 | The matrix of the Clearance rule has a row and a column per object kind (track, arc, surface pad, through-hole pad, via, fill, polygon, region, hole); a simple view shows arc with track as one entry, and fill, polygon and region as one | S-0558 | INFERRED | H-A-RULE-CLEARANCE-CELLS |
 | The object kinds named by the entries of the public Clearance matrices are `Arc`, `Track`, `SMDPad`, `THPad`, `Via`, `Fill`, `Poly`, `Region`, `Text` and `Hole`, and no other. Two of the four matrices give different values to object kinds of one item kind of the copper check (a through-hole pad and a surface pad; an arc and a track); the two others do not | S-0175, S-0176, S-0187 | CORPUS-VERIFIED (2026-10-07; test_altium_rule_kinds.py) | H-A-RULE-CLEARANCE-CELLS |
+| Hole To Hole Clearance, Silk To Silk Clearance, Silk To Solder Mask Clearance, Minimum Solder Mask Sliver and Layer Pairs are checked by the DRC; an option of Hole To Hole Clearance allows stacked micro vias | S-1830 | INFERRED | H-A-RD-RULE-C0424 |
+| Short Circuit reports touching primitives of different nets unless it allows the short; Net Antennae reports open-ended stubs up to its tolerance; Un-Routed Net checks routing completion | S-1831 | INFERRED | H-A-RD-RULE-C0424 |
+| Routing Layers allows routing per signal layer; Differential Pairs Routing holds the least, preferred and greatest gap, per-layer widths, an impedance profile and the greatest uncoupled length; Routing Topology, Routing Priority, Routing Corners and Fanout Control guide the router | S-1832 | INFERRED | H-A-RD-RULE-C0424 |
+| Component Clearance holds a horizontal and a vertical clearance between components, measured on their 3D bodies by default or on their boundaries; Height holds a component height range | S-1833 | INFERRED | H-A-RD-RULE-C0424 |
+| Plane Clearance, Plane Connect Style, Solder Mask Expansion and Paste Mask Expansion apply when outputs are generated, not in the DRC | S-1834, S-1835 | INFERRED | H-A-RD-RULE-C0424 |
+| The fabrication and assembly test point rules are checked by the DRC | S-1836 | INFERRED | H-A-RD-RULE-C0424 |
+| A disabled rule is not considered; within one rule type the lower priority number wins and the first rule whose scope matches applies | S-1837 | INFERRED | H-A-RD-RULE-C0424 |
+| The keys of the records of the public documents: `SILKTOSILKCLEARANCE` (Silk To Silk Clearance); `GAP`, `VERTICALGAP`, `COLLISIONCHECKMODE`, `SHOWDISTANCES` (Component Clearance); `MINLIMIT`, `MOSTFREQGAP`, `MAXLIMIT`, `MAXUNCOUPLEDLENGTH`, `<LAYER>_MINWIDTH`, `<LAYER>_MAXWIDTH`, `<LAYER>_PREFWIDTH` and the `IMPEDANCE…` keys (Differential Pairs Routing); `MINSOLDERMASKWIDTH`; `MINSILKSCREENTOMASKGAP`, `CLEARANCETOEXPOSEDCOPPER`; `EXPANSION` (mask and paste); `CLEARANCE` (Plane Clearance); `ALLOWED` (Short Circuit); `NETANTENNAETOLERANCE`; `MINHEIGHT`, `PREFHEIGHT`, `MAXHEIGHT`. Silk To Board Region Clearance and Unpoured Polygon records hold header keys only | S-1838, S-0297 | INFERRED | H-A-RD-RULE-C0424 |
+| A Routing Layers record holds one key per signal layer: `TOP LAYER_V5` (layer id 1), `MID LAYER <n>_V5` (id n + 1) and `BOTTOM LAYER_V5` (id 32), each `TRUE` or `FALSE`; an internal plane has no key | S-1838, S-1832 | INFERRED | H-A-RD-RULE-ROUTINGLAYERS |
 | `Arc` and `Track` are the tracks and arcs of the import, `SMDPad` and `THPad` its pads, `Via` its vias, and `Poly` the poured copper of a polygon, which the import reads as the fills of a zone; `Fill`, `Region`, `Text` and `Hole` are objects the copper check holds no item of | S-0558 | INFERRED | H-A-RULE-CLEARANCE-CELLS |
 
 ## Header keys
@@ -66,8 +75,12 @@ on it, S-0580).
 | `RoutingVias` | `via_drill` | `MINHOLEWIDTH` | `HOLEWIDTH` | `MAXHOLEWIDTH` | `AnyNet` | `VIASTYLE` is `Through Hole` |
 | `HoleSize` | `hole_size` | `MINLIMIT` | — | `MAXLIMIT` | `AnyNet` | `ABSOLUTEVALUES` is `TRUE`; `MINPERCENT` and `MAXPERCENT` allowed and unused |
 | `BoardOutlineClearance` | `edge_clearance` | `GAP` | — | — | `DifferentNets` | `OBJECTCLEARANCES` absent or empty; `GENERICCLEARANCE` absent or equal to `GAP`; `IGNOREPADTOPADCLEARANCEINFOOTPRINT` absent or `FALSE` |
-| `HoleToHoleClearance` | `hole_to_hole` | `GAP` | — | — | `AnyNet` | `ALLOWSTACKEDMICROVIAS` is `FALSE` |
+| `HoleToHoleClearance` | `hole_to_hole` | `GAP` | — | — | `AnyNet` | `ALLOWSTACKEDMICROVIAS` is `FALSE` or `TRUE` (with `TRUE` the record is also kept: "Kept rule records") |
 | `MinimumAnnularRing` | `annular_width` | `MINIMUMRING` | — | — | `AnyNet` | — |
+| `SilkToSilkClearance` | `silk_clearance` | `SILKTOSILKCLEARANCE` | — | — | `AnyNet` | — |
+| `ComponentClearance` | `courtyard_clearance` | `GAP` | — | — | `AnyNet` | `VERTICALGAP`, `COLLISIONCHECKMODE` and `SHOWDISTANCES` allowed and unused |
+| `DiffPairsRouting` | `diff_pair_gap` | `MINLIMIT` | `MOSTFREQGAP` | `MAXLIMIT` | `AnyNet` | `IMPEDANCEPROFILEDRIVEN`, `IMPEDANCEPROFILEID` and `IMPEDANCEPROFILEVALUE` allowed and unused |
+| `DiffPairsRouting` | `diff_pair_uncoupled` | — | — | `MAXUNCOUPLEDLENGTH` | `AnyNet` | as the row above: `IMPEDANCEPROFILEDRIVEN`, `IMPEDANCEPROFILEID`, `IMPEDANCEPROFILEVALUE` |
 
 `rules.PENDING_KINDS`: kinds that have a neutral counterpart but no permitted source for their keys,
 reported apart with the reason `no-verified-keys`. The table is empty since change c0084, which found the
@@ -76,7 +89,17 @@ keys of `BoardOutlineClearance` in public PCB documents; the reason stays for a 
 The last three kinds of the table are those of change c0084: the table holds every Altium kind of an
 `exact` row of `rulemap.TABLE` (`pcb-copper.md`, "The lowering table"), so what Fenolite writes it reads.
 A Hole To Hole Clearance with `ALLOWSTACKEDMICROVIAS=TRUE` exempts the holes of stacked microvias, which
-the neutral rule does not, so it is reported with the reason `keys`.
+the neutral rule does not: since change c0424 it maps, and its record is kept for an Altium write. The last
+four rows are those of change c0424; a key of a Routing Layers record for a layer the board does not hold
+applies to no object.
+
+Of the kinds of change c0424, Silk To Silk Clearance and Component Clearance are binary (two scopes) and
+map with `NETSCOPE` `AnyNet` or `DifferentNets` (`rules.NET_SCOPE_FREE`: the net scope selects nothing
+more for these objects). The rules of Differential Pairs Routing select differential pairs (`diff_pair *`,
+joined to another scope with `and`), and its per-layer keys `<LAYER>_MINWIDTH`, `_MAXWIDTH` and
+`_PREFWIDTH` are allowed and unused. A Routing Layers record (`RoutingLayers`, no limit) gives one
+`no_tracks` rule on the board's signal layers whose key is `FALSE`, none when no key is `FALSE`; its layer
+keys are allowed, and without the Altium ids of the board's layers it is refused with `no-layer`.
 
 ## Rule kinds seen
 
@@ -93,8 +116,8 @@ lowered").
 | `AssemblyTestPointUsage` | export (2) | S-0297 | no |
 | `BoardOutlineClearance` | PCB documents (8 in 5 documents) | S-0174, S-0175, S-0187, S-0199, S-0200 | yes: `edge_clearance` |
 | `Clearance` | export (1); summary (2 files) | S-0297, S-0298, S-0188 | yes: `clearance` |
-| `ComponentClearance` | export (1) | S-0297 | no |
-| `DiffPairsRouting` | export (1) | S-0297 | no |
+| `ComponentClearance` | export (1) | S-0297 | yes: `courtyard_clearance` |
+| `DiffPairsRouting` | export (1) | S-0297 | yes: `diff_pair_gap` and `diff_pair_uncoupled` |
 | `FabricationTestpoint` | export (1) | S-0297 | no |
 | `FabricationTestPointUsage` | export (1) | S-0297 | no |
 | `FanoutControl` | export (5) | S-0297 | no |
@@ -112,17 +135,55 @@ lowered").
 | `PolygonConnect` | export (1) | S-0297 | no |
 | `RoomDefinition` | export (9) | S-0297 | no |
 | `RoutingCorners` | export (1) | S-0297 | no |
-| `RoutingLayers` | export (1) | S-0297 | no |
+| `RoutingLayers` | export (1) | S-0297 | yes: `no_tracks` |
 | `RoutingPriority` | export (1) | S-0297 | no |
 | `RoutingTopology` | export (1) | S-0297 | no |
 | `RoutingVias` | export (1) | S-0297 | yes: `via_diameter` and `via_drill` |
 | `ShortCircuit` | export (1); summary (2 files) | S-0297, S-0298, S-0188 | no |
 | `SilkToBoardRegionClearance` | export (1) | S-0297 | no |
-| `SilkToSilkClearance` | export (1) | S-0297 | no |
+| `SilkToSilkClearance` | export (1) | S-0297 | yes: `silk_clearance` |
 | `SilkToSolderMaskClearance` | export (1) | S-0297 | no |
 | `SolderMaskExpansion` | export (1); summary (2 files) | S-0297, S-0298, S-0188 | no |
 | `UnRoutedNet` | export (1) | S-0297 | no |
 | `Width` | export (1); summary (2 files) | S-0297, S-0298, S-0188 | yes: `track_width` |
+
+## Kept rule records
+
+Change c0424: a record of a PCB document that the Altium writer cannot rebuild from the neutral rules is
+kept on the board as one `kept_rule` pair (`import.md`, "Extension-bag keys"): its kind number, then its
+keys from `RULEKIND` on (`adapter.rules.kept_text`). These are the records that give no rule (every reason
+of "Reasons" but `malformed`), the records of a kind the writer has no row for (`rulemap.KIND_ORDER`), and
+a Hole To Hole Clearance that allows stacked micro vias. The rules a kept record gives carry
+`kept_record=1`, and the writer leaves them out: `pcbdoc.rule_records` writes the kept record back as it
+is, after the records of its kind, with the next priority of that kind (`_kept` added to its name when the
+writer made one of the same name). A Polygon Connect Style record stays in its own `polygon_connect` pair
+(change c0215).
+
+## Fates in a conversion
+
+`convert.altium_rules` (change c0424) gives each record of an Altium board one outcome in the report of a
+conversion to KiCad. Kept means a declared format limit: KiCad cannot hold the record, and the model keeps
+it for an Altium write.
+
+| record | outcome |
+|---|---|
+| a rule KiCad's lowering writes | written |
+| Component Clearance; Differential Pairs Routing; Hole To Hole Clearance that allows stacked micro vias | changed (vertical gap and body check; per-layer widths; the allowance) |
+| a rule with a limit its KiCad constraint does not take (`opt` of a via drill) | changed: the other limits are written |
+| the first enabled Solder Mask or Paste Mask Expansion of scope All | changed: the pads' margins |
+| Short Circuit of scope All that allows no short | changed: KiCad's own check of shorting items |
+| Routing Layers that disallows no layer of the board | written: KiCad needs no rule |
+| a disabled record | kept: KiCad has no disabled rule that leaves the next one in force |
+| Plane Clearance, Plane Connect Style | kept: the conversion gives an internal plane no zone |
+| Height, Minimum Solder Mask Sliver, Silk To Solder Mask Clearance, Silk To Board Region Clearance, Net Antennae | kept: no KiCad constraint of that meaning |
+| Routing Topology, Routing Priority, Routing Corners, Fanout Control, the test point rules, Supply Nets, Un-Routed Net, Unpoured Polygon, Layer Pairs, Matched Lengths and every other kind | kept: KiCad has no rule of the kind |
+| Polygon Connect Style that reads | changed: the connection, thermal gap and spoke width of each zone and pad it governs (change c0409) |
+| Polygon Connect Style that does not read | kept |
+| a record without kind or name | lost |
+
+Altium's priority 1 governs and so does the last rule of KiCad's file; the rules keep Altium's order
+through the names `fenolite_<priority>_<name>` (change c0409). A `rules.shadowed` notice after an import
+names the rule Altium applies as the governing one, so it changes no meaning.
 
 ## Reasons
 

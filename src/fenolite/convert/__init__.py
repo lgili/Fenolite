@@ -89,7 +89,7 @@ class Conversion:
     schematic: str | None = None
 
 
-def _per_reason(row: ReportRow, outcome: Literal["changed", "lost"]) -> str:
+def _per_reason(row: ReportRow, outcome: Literal["changed", "lost", "kept"]) -> str:
     return "; ".join(f"{r.count} {r.reason}" for r in row.reasons if r.outcome == outcome)
 
 
@@ -109,6 +109,13 @@ def changed_issue(row: ReportRow) -> Issue:
     """The ``convert.changed`` info of a kind with changes."""
     message = f"{row.changed} {row.kind} item(s) are converted in another form: "
     return issue("convert.changed", message + _per_reason(row, "changed"), where=row.kind)
+
+
+def kept_issue(row: ReportRow) -> Issue:
+    """The ``convert.kept`` info of a kind with kept items (change c0424): items the target cannot hold,
+    kept in the model for a write back to the source's format."""
+    message = f"{row.kept} {row.kind} item(s) are kept in the model, not in the target (a format limit): "
+    return issue("convert.kept", message + _per_reason(row, "kept"), where=row.kind)
 
 
 def direction_for(backend: str, to: str) -> Direction:
@@ -190,6 +197,7 @@ def convert_project(
         raise LossyConversionError(lossy, report)
     lossy += tuple(lossy_issue(row) for row in report.rows if row.kind in WARNED_LOSSES and row.lost)
     changed = tuple(changed_issue(row) for row in report.rows if row.changed)
+    changed += tuple(kept_issue(row) for row in report.rows if row.kept)
     return Conversion(
         files=written.files,
         report=report,
@@ -218,6 +226,7 @@ __all__ = [
     "SourceProject",
     "TargetLimitError",
     "changed_issue",
+    "kept_issue",
     "convert_project",
     "direction_for",
     "lossy_issue",

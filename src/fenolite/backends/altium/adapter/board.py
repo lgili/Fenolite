@@ -443,6 +443,7 @@ def read_board(doc: PcbDocument, *, file: str, sha256: str, ids: Ids) -> BoardIm
             )
         )
 
+    kept: list[str] = []
     rules = import_rules(
         [r.fields for r in doc.rules],
         ids,
@@ -450,6 +451,8 @@ def read_board(doc: PcbDocument, *, file: str, sha256: str, ids: Ids) -> BoardIm
         sha256=sha256,
         issues=ctx.issues,
         layers=layers.copper_layers(),
+        numbers=[r.kind_number for r in doc.rules],
+        kept=kept,
     )
     for name, streams in sorted(doc.storages.items()):
         if name and name not in DECODED_STORAGES and any(streams.get(s) for s in streams if s != "Header"):
@@ -461,6 +464,7 @@ def read_board(doc: PcbDocument, *, file: str, sha256: str, ids: Ids) -> BoardIm
     if x_text is not None and y_text is not None:
         origin.append(("origin", f"{x_text},{y_text}"))
     origin += [("polygon_connect", text) for text in connect_texts([r.fields for r in doc.rules])]
+    origin += [("kept_rule", text) for text in kept]
     board_provenance = ctx.provenance("Board6/Data#0")
     stack = stackup(doc.board, layers, ids, board_provenance, ctx.issues)
     board = Board(

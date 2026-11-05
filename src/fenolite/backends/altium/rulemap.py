@@ -447,6 +447,12 @@ def governing_order(rules: Sequence[Rule]) -> tuple[Rule, ...]:
     return tuple(reversed(rising))
 
 
+def _kept(rule: Rule) -> bool:
+    """Whether ``rule`` came from a kept record of an imported board (``adapter.rules.KEPT_RECORD``)."""
+    held = rule.ext.get("altium")
+    return held is not None and ("kept_record", "1") in held.payload
+
+
 def lower(rules: Sequence[Rule]) -> Lowered:
     """The rule records of ``rules`` and the rules that are not written, each with one reason.
 
@@ -454,7 +460,9 @@ def lower(rules: Sequence[Rule]) -> Lowered:
     ``error`` and it gives exactly the limits of the row; nothing is approximated. A ``via_diameter`` and
     a ``via_drill`` rule of the same selector share one Routing Via Style record; either one alone is not
     written. Names come from the kind and the scope (``Width``, ``Width_PWR``, ``Clearance_net_A_to_B``);
-    a repeated name gets ``_2``, ``_3``…"""
+    a repeated name gets ``_2``, ``_3``… A rule of a kept record (the pair ``kept_record`` of an imported
+    rule, change c0424) is left out without a reason: the record is written back as it was read."""
+    rules = [rule for rule in rules if not _kept(rule)]
     refused: dict[str, NotLowered] = {}
     drafts: list[_Draft] = []
     waiting: dict[tuple[RuleKind, str], list[int]] = {}

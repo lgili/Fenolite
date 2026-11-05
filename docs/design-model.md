@@ -17,6 +17,21 @@ Every entity (`fenolite.model.base.Entity`) carries:
 Entities are frozen dataclasses; change them with `dataclasses.replace` and
 `Design.replace_entity`.
 
+### Extension-bag keys
+
+The fixed keys of each backend's bag are listed in `docs/formats/<backend>/import.md` ("Extension-bag
+keys") and in the model review (`openspec/changes/archive/2026-11-04-c0218-model-schema-1-0/`,
+`model0-approved.json`). The 40 keys of that review keep their names and meanings. A key added later is
+appended with its own approval:
+
+| backend | key | entity | approved | reason |
+|---|---|---|---|---|
+| `altium` | `kept_rule` | board | 2026-11-05, c0424, coordinator under the maintainer's delegation | an Altium rule record that the writer cannot rebuild from the neutral rules (a kind KiCad and the model have no rule for, a disabled record, a record whose meaning the neutral rule narrows) is held opaque, as Altium wrote it from `RULEKIND` on, so an Altium write-back keeps it. Re-reading the source document at write time was refused: it needs the source at hand, which the lossless goal cannot assume |
+| `altium` | `kept_record` | rule | 2026-11-05, c0424, coordinator under the maintainer's delegation | `1` on a neutral rule given by a kept record: the Altium writer writes the record back instead of the rule |
+
+Both keys are additive: a bag holds them only when the board has such records, so a design without one
+serialises to the bytes it had.
+
 ## Model schema versions
 
 The active canonical model schema is `1.0`, independently of package and CLI versions.

@@ -4555,7 +4555,7 @@ or none, with a `.bak` copy of each file it overwrites unless `--no-backup` is g
 | `source` | `path` (the file read: the board of a KiCad project, the project file or document of an Altium one), `backend`, `kind` (`kicad_pcb`, `kicad_pro`, `altium_prjpcb`, `altium_pcbdoc`) and `format_version` (a KiCad board's header version, else `null`) |
 | `target` | `backend`, and `major`: the KiCad major of a KiCad target, else `null` |
 | `files` | `{name, bytes}` per file of the converted project |
-| `report` | `lossy`, `refused` (the `refuse` kinds with losses) and `rows`: per kind, `kind`, `group`, `loss` (`refuse` or `report`), `source`, `written`, `changed`, `lost` and `reasons`, each `{reason, outcome, count}` (`ids` too with `--report-ids`), sorted by count and then reason |
+| `report` | `lossy`, `refused` (the `refuse` kinds with losses) and `rows`: per kind, `kind`, `group`, `loss` (`refuse` or `report`), `source`, `written`, `changed`, `lost`, `kept` (only when above 0) and `reasons`, each `{reason, outcome, count}` (`ids` too with `--report-ids`), sorted by count and then reason |
 | `equivalence` | `null` with `--no-verify`, else the `result` of `equivalent` with `explained` (the differences that a lost item explains, each with `by`, its kind) and `unexplained` (a count) |
 | `experimental` | `true` for a direction that writes Altium documents |
 
@@ -4563,6 +4563,7 @@ or none, with a `.bak` copy of each file it overwrites unless `--no-backup` is g
 |---|---|---|
 | `convert.lossy` | warning | with `--allow-lossy`: items of a `refuse` kind are not converted (one per kind, counts per reason) |
 | `convert.changed` | info | items of a kind are written in another form that compares equal (one per kind) |
+| `convert.kept` | info | items of a kind the target cannot hold are kept in the model for a write in the source's format: a declared format limit, not a loss (one per kind) |
 | `convert.no-verify` | warning | the conversion was not read back |
 | `convert.schematic-unverified` | warning | a KiCad downgrade: the written root schematic could not be compared with the source's (its netlist needs `kicad-cli`) |
 | `convert.unexplained` | error | a difference of the read-back that no lost item explains; nothing is planned |

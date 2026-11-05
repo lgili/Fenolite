@@ -120,7 +120,7 @@ class LayerMap:
         neutral name, and whether it is an internal signal layer (an id between top and bottom)."""
         return CopperLayers(
             tuple(
-                CopperLayer(self.altium_name(layer), self.copper[layer], TOP < layer < BOTTOM)
+                CopperLayer(self.altium_name(layer), self.copper[layer], TOP < layer < BOTTOM, layer)
                 for layer in self.chain
             )
         )
@@ -208,7 +208,7 @@ def copper_layers_of(layers: Iterable[Layer]) -> CopperLayers | None:
         ident = pairs.get("layer_id", "")
         if "altium_name" not in pairs or not (ident.isascii() and ident.isdigit()):
             return None
-        found.append(CopperLayer(pairs["altium_name"], layer.name, TOP < int(ident) < BOTTOM))
+        found.append(CopperLayer(pairs["altium_name"], layer.name, TOP < int(ident) < BOTTOM, int(ident)))
     return CopperLayers(tuple(found))
 
 

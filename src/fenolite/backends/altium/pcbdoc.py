@@ -598,6 +598,10 @@ class PcbDocSpec:
     """The Polygon Connect Style records of a document that was read (the board's ``polygon_connect``
     pairs, change c0215), each its keys from ``RULEKIND`` on. A computed pour writes them back when every
     one maps (``connect_records``); empty for every build."""
+    kept_rules: tuple[tuple[int, tuple[Field, ...]], ...] = ()
+    """The kept rule records of a document that was read (the board's ``kept_rule`` pairs, change c0424):
+    each its kind number and its keys from ``RULEKIND`` on. ``rule_records`` writes them back; empty for
+    every build."""
 
 
 def _u32(value: int) -> bytes:
@@ -1729,13 +1733,56 @@ def rule_records(spec: PcbDocSpec, filename: str) -> list[bytes]:
             out.append(
                 _rule(number, kind, name, first, priority, keys, filename, second=second, net_scope=net_scope)
             )
+    counts = {kind: sum(1 for rule in planned if rule[1] == kind) for kind in {rule[1] for rule in planned}}
+    names |= {rule[2] for rule in planned}
+    kept_kinds = {dict(fields).get("RULEKIND", "") for _number, fields in spec.kept_rules}
     if document_stack(spec).planes:
         for number, kind, keys in (
             (RULE_PLANE_CONNECT, "PlaneConnect", PLANE_CONNECT_KEYS),
             (RULE_PLANE_CLEARANCE, "PlaneClearance", PLANE_CLEARANCE_KEYS),
         ):
+            if kind in kept_kinds:
+                continue  # the document's own plane rule is written back (change c0424)
             name = f"{kind}_plane" if kind in names else kind
+            names.add(name)
+            counts[kind] = 1
             out.append(_rule(number, kind, name, ALL_SCOPE, 1, keys, filename, net_scope="AnyNet"))
+    out += _kept_records(spec.kept_rules, counts, names)
+    return out
+
+
+def _priority(fields: Sequence[Field]) -> int:
+    text = dict(fields).get("PRIORITY") or ""
+    return int(text) if text.isascii() and text.isdigit() else 0
+
+
+def _kept_records(
+    kept: Sequence[tuple[int, Sequence[Field]]], counts: dict[str, int], names: set[str]
+) -> list[bytes]:
+    """The kept rule records of a document that was read, written back (change c0424, capability
+    altium-pcb-writer, "Kept rule records written back"): a record of a kind the document already writes
+    takes the next priorities of that kind, in its original priority order; another keeps its own
+    priority. A name already written gets ``_kept``."""
+    out: list[bytes] = []
+    order = sorted(
+        range(len(kept)), key=lambda i: (dict(kept[i][1]).get("RULEKIND", ""), _priority(kept[i][1]), i)
+    )
+    written: dict[int, bytes] = {}
+    for index in order:
+        number, fields = kept[index]
+        kind = dict(fields).get("RULEKIND", "")
+        changed: dict[str, str] = {}
+        if kind in counts:
+            counts[kind] += 1
+            changed["PRIORITY"] = str(counts[kind])
+        name = dict(fields).get("NAME") or ""
+        if name in names:
+            changed["NAME"] = f"{name}_kept"
+        names.add(changed.get("NAME", name))
+        pairs = [(key, changed.get(key, value)) for key, value in fields]
+        block = rec.property_block([*common_fields("TOP"), *pairs], spaced_keys=True)
+        written[index] = struct.pack("<H", number) + block
+    out += [written[index] for index in range(len(kept))]
     return out
 
 

@@ -529,16 +529,18 @@ def write_altium(source: SourceProject, options: Options) -> Written:
     texts.update(schematic)
     issues.extend(notes)
     counts["schematic"] = 1
-    unmapped = [issue for issue in source.issues if issue.code == "altium.import.rule-unmapped"]
-    counts["rule"] = counts.get("rule", 0) + len(unmapped)
-    for index, issue in enumerate(unmapped):
-        ledger.drop("rule", f"unmapped-rule-group-{index}", f"unmapped imported rule group: {issue.message}")
+    from fenolite.convert import altium_rules  # change c0424: each rule record has its own fate
+
+    records = altium_rules.record_fates(source.design, ledger)
+    if records:
+        counts["rule"] = counts.get("rule", 0) + records
     report = ConversionReport.of(
         source=counts,
         changed={
             kind: {r: tuple(ids) for r, ids in reasons.items()} for kind, reasons in ledger.changed.items()
         },
         lost={kind: {r: tuple(ids) for r, ids in reasons.items()} for kind, reasons in ledger.lost.items()},
+        kept={kind: {r: tuple(ids) for r, ids in reasons.items()} for kind, reasons in ledger.kept.items()},
     )
     files = {key: value.encode("utf-8") for key, value in texts.items()}
     files.update(model_files)
