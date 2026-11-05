@@ -99,8 +99,8 @@ All notable changes to Fenolite are documented here. The format follows
 - Proposal inspection in the existing viewer: dashed layer-aware alternatives, endpoints,
   facts/unknowns, keyboard focus/cross-probing, independent visibility and whole atomic-bundle
   review. Served decisions use validated regeneration controls and explicit plan confirmation;
-  stale choices cannot write, and static exports stay read-only (c0369). Pinned CI visual
-  references remain pending.
+  stale choices cannot write, and static exports stay read-only (c0369). The two pinned CI visual
+  references come from the reviewed `viewer-differences` artifact of CI run 41947475460.
 
 - Opt-in local external route candidates via repeatable `--propose-with` (c0368), with
   immutable semantic board-delta guards, scoped connectivity/geometry/role checks, shared

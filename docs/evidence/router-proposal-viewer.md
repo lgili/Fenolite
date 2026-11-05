@@ -59,3 +59,14 @@ generated guides and the quick test selection passed. The new workflow recipe ad
 passed its 2 tests together with 57 guide tests. Exact-head full CI, the two reviewed pinned
 visual references and native external-router compatibility remain open. No commit or push
 was made for this implementation batch.
+
+## Pinned CI references — 2026-11-04
+
+`tests/visual/refs/proposal_alternatives.png` (SHA-256 `6bf154284d0aa6198d63a1615b4acbe8d1e9e9562aad2eeb6bf91fe3ac716c34`) and `tests/visual/refs/proposal_bundle.png`
+(SHA-256 `d510a36d35302db431f9844b3ca5876c7a51c51205a8877c6e13d781040a87a8`) are the 1100×700 screenshots of CI run 41947475460 (head 515ddc6a, job `viewer (visual tests)`,
+artifact `viewer-differences`, id 13380217763), where `test_proposals.py` failed only because no reference existed.
+Both copies in the artifact (`_0` and `current`) are byte-identical; no local screenshot was promoted. Reviewed against
+the c0369 board-viewer requirements: candidate copper is dashed cyan with square endpoints, distinct from committed
+copper; unmeasured facts read `unknown`; the panel states that nothing is selected for acceptance and offers no
+project-writing action; the bundle view names the atomic unit, both members and the bound input fingerprint; text is
+legible without overlap. The reference test passes only when the next pinned CI viewer job matches these bytes.

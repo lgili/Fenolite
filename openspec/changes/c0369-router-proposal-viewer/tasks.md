@@ -32,6 +32,7 @@ A passing focused test does not replace required exact-head CI or maintainer-onl
   Proof: `uv run pytest tests/visual/test_proposals.py -q`. Add a dated result note only after success.
 
   2026-11-03: pending pinned CI screenshots, artifact identity and difference-overlay review. Local Chromium interactions are not golden evidence; no push is authorized. Independent documentation can advance.
+  2026-11-04: references captured from CI run 41947475460 (head 515ddc6a, artifact `viewer-differences` 13380217763), reviewed against the board-viewer requirements and committed (`docs/evidence/router-proposal-viewer.md`). Tick after the pinned viewer job passes on the exact head.
 
 - [x] 7. Document every new public option, result field and finding in the user docs and tested agent guide; regenerate it and keep each page within 12000 bytes.
   Proof: `uv run python tools/gen_agent_guide.py && uv run pytest tests/unit/agent/test_pages.py -q`.
