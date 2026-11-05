@@ -8,7 +8,8 @@ major, with a report of what is kept, changed or lost, and verified (capability 
 The command parses its arguments, calls ``fenolite.api.convert`` and plans every file of the converted
 project under ``DIR``; the dispatcher writes them under ``--confirm``, all or none, and keeps a ``.bak`` of
 each file it overwrites. ``DIR`` never is the source's folder or a folder that holds it. A refused loss
-exits 7 (``FEN-7001``) with one ``convert.lossy`` issue per kind; a difference of the read-back that no
+exits 7 (``FEN-7001``) with one ``convert.lossy`` issue per refused kind, and an accepted one warns once per
+lost kind (change c0429); a difference of the read-back that no
 loss explains is a ``convert.unexplained`` error, which plans no write and exits 5. ``--altium-pour
 computed`` without the ``geo`` extra exits 6 (``FEN-6001``, change c0215).
 """

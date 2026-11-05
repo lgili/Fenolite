@@ -7,7 +7,9 @@ The folder holds ``design.py``, ``copper.py`` (the copper as tables), the vendor
 tables, ``design.lock`` and ``PROVENANCE.json``, and copies of the ``--licence-file`` files. Before anything
 is planned the emitted code is built in a private temporary folder and compared with the source at
 equivalence levels 1 to 5; an unexplained difference is ``import.unequal`` (exit 5) and nothing is written.
-An item the DSL cannot express refuses the import (exit 7, ``FEN-7001``) unless ``--allow-lossy``.
+An item the DSL cannot express refuses the import (exit 7, ``FEN-7001``) unless ``--allow-lossy``. An
+Altium source is converted to KiCad first: its refusal is convert's, and ``result.report`` is the
+conversion's report, the rows ``fenolite convert`` gives, with its ``convert.*`` issues (change c0429).
 """
 
 from __future__ import annotations
@@ -32,6 +34,7 @@ from fenolite.cli.api import Command, Context, PlannedWrite, Result, depends_on
 from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
 from fenolite.convert.models import FOLDER_SUFFIX
+from fenolite.convert.report import ConversionReport
 from fenolite.core.errors import FenoliteError, FormatError, Issue
 from fenolite.core.evidence import Evidence
 from fenolite.importer import EVIDENCE
@@ -116,10 +119,13 @@ def _check_out(out: Path, folder: Path) -> None:
         )
 
 
-def _altium(path: Path, args: argparse.Namespace, ctx: Context) -> tuple[Source, list[Issue]]:
+def _altium(
+    path: Path, args: argparse.Namespace, ctx: Context
+) -> tuple[Source, list[Issue], ConversionReport | None]:
     """An Altium project or PCB document read through Fenolite's Altium reader and converted in memory to
     a KiCad project (``fenolite.api.convert``, verified against the source), whose board the one emitter
-    imports; the inputs recorded are the Altium files (design decision 14)."""
+    imports; the inputs recorded are the Altium files (design decision 14). The conversion's issues and
+    report come with it (change c0429): its refusal is convert's, with the command's ``--allow-lossy``."""
     if args.adopt:
         raise CliError(
             "FEN-2001",
@@ -166,10 +172,13 @@ def _altium(path: Path, args: argparse.Namespace, ctx: Context) -> tuple[Source,
             if component.provenance is not None and component.provenance.file.lower().endswith(".schdoc")
         },
     )
-    return source, [i for i in found.issues if i.severity == "error" or i.code != "convert.no-verify"]
+    kept = [i for i in found.issues if i.severity == "error" or i.code != "convert.no-verify"]
+    return source, kept, conversion.report
 
 
-def _read(path: Path, args: argparse.Namespace, ctx: Context) -> tuple[Source, list[Issue]]:
+def _read(
+    path: Path, args: argparse.Namespace, ctx: Context
+) -> tuple[Source, list[Issue], ConversionReport | None]:
     try:
         kind = input_kind(path)
     except InputKindError as error:
@@ -177,7 +186,7 @@ def _read(path: Path, args: argparse.Namespace, ctx: Context) -> tuple[Source, l
     if kind == "altium":
         return _altium(path, args, ctx)
     upgrade = None if args.no_upgrade else upgrader(find_kicad_cli())
-    return read_kicad(path, upgrade=upgrade), []
+    return read_kicad(path, upgrade=upgrade), [], None
 
 
 _PROJECT = "native/project.kicad_pro"
@@ -279,7 +288,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             where="--adopt",
             hint="drop --no-verify",
         )
-    source, converted = _read(path, args, ctx)
+    source, converted, report = _read(path, args, ctx)
     name = design_name(args.name or source.name)
     issues: list[Issue] = [*source.issues, *converted]
     stamped = getattr(args, "timestamp", None) is not None
@@ -499,6 +508,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         "equivalence": equivalence,
         "provenance": {"licence": provenance.spdx, "source": args.source, "revision": args.revision},
         "adopted": None if adopted is None else {"board": f"adopted/{name}.kicad_pcb", **adopted.as_json()},
+        "report": None if report is None else report.to_json(),
     }
     return Result(
         result=result,

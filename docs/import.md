@@ -252,7 +252,9 @@ of a third-party board belongs in the library repository or your own folder.
 ## Not yet
 
 - An Altium document's rules and records that the model keeps opaque are the conversion's to report
-  (`convert.*`); native Altium drawing extraction remains unavailable.
+  (`convert.*`): `result.report` holds the conversion's report, the rows `fenolite convert` gives, and every
+  lost, changed or kept row has its `convert.*` issue (c0429). Native Altium drawing extraction remains
+  unavailable.
 - **Field placements** of an instance are not written as `Part.field()`: an instance whose fields moved is
   vendored as a variant footprint.
 

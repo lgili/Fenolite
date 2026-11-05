@@ -1600,8 +1600,11 @@ plan and `--confirm` receipt protocol, all files or none:
 `design`, `files` (`path`, `bytes`), `modules`, `counts` (`parts`, `nets`, `tracks`, `arcs`, `vias`,
 `zones`, `rule_areas`, `drawings`, `tables`), `unexpressed` (`kind`, `count`, `examples`), `upgrade`,
 `equivalence` (`levels`, `equivalent`; `null` with `--no-verify`), `provenance` (`licence`, `source`,
-`revision`) and `adopted` (`null` without `--adopt`, else `board`, `rewritten` by kind, `paths`,
-`unmatched`); `--limit` and `--cursor` page `files`. Evidence is `INFERRED`
+`revision`), `adopted` (`null` without `--adopt`, else `board`, `rewritten` by kind, `paths`,
+`unmatched`) and `report` (an Altium source: the report of its conversion to KiCad, the same rows as
+`convert` gives, each lost, changed or kept row with its `convert.*` issue; `null` for a KiCad source;
+c0429); `--limit` and `--cursor` page `files`. An Altium source whose conversion loses a `refuse` kind exits
+7 (`FEN-7001`) without `--allow-lossy`, with the issues of `convert`. Evidence is `INFERRED`
 (`H-G-IMPORT-CODE`). The declared inputs are the board, the project file, the rules file and every
 schematic sheet, by their original bytes: a sheet edited after the dry run makes `--confirm --plan` exit 4
 with `FEN-4002`.
@@ -4561,7 +4564,7 @@ or none, with a `.bak` copy of each file it overwrites unless `--no-backup` is g
 
 | code | severity | meaning |
 |---|---|---|
-| `convert.lossy` | warning | with `--allow-lossy`: items of a `refuse` kind are not converted (one per kind, counts per reason) |
+| `convert.lossy` | warning | items of a kind are not converted (one per lost kind, counts per reason); a `refuse` kind's loss needs `--allow-lossy` |
 | `convert.changed` | info | items of a kind are written in another form that compares equal (one per kind) |
 | `convert.kept` | info | items of a kind the target cannot hold are kept in the model for a write in the source's format: a declared format limit, not a loss (one per kind) |
 | `convert.no-verify` | warning | the conversion was not read back |

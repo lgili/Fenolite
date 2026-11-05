@@ -1509,7 +1509,7 @@ fix = "Nothing to do for a write back to the source's format. To check them in t
 see = "convert"
 
 ["convert.lossy"]
-meaning = "The converted project does not hold items of a kind that changes the board made or its bill of materials ('where' names the kind); --allow-lossy accepted the loss, or the kind is a footprint's own drawing (footprint-graphic, footprint-text) or a component body or 3D model (body, model), whose loss warns without a refusal. The message counts them per reason."
+meaning = "The converted project does not hold items of the kind that 'where' names. Every kind with lost items in result.report has one such warning. A kind that changes the board made or its bill of materials (loss 'refuse') needs --allow-lossy, which accepted the loss; any other kind's loss warns without a refusal. The message counts them per reason."
 fix = "Read result.report; change the source so the target holds the items, or keep the loss."
 see = "convert"
 

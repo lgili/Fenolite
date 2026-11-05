@@ -25,7 +25,7 @@
   "schemas/fenolite.get.v0.json": "58ca8a0a52269d8981feab90d41b1261f8566ff29d5875283f61a6bf4550e73d",
   "schemas/fenolite.guide.v0.json": "464f3f2782be17b08cbb0b4db4b414ab6b3df3accb1b121581818acbcf5fbb2b",
   "schemas/fenolite.impedance.v0.json": "e0b06b5ecf3099585c88af65e34ab3ecb34a0da11ed52e474b359f73710d375c",
-  "schemas/fenolite.import.v0.json": "e0604146a682cc177099606a882de51d56a6723245ed3a74ac8e85a210e996ee",
+  "schemas/fenolite.import.v0.json": "fde36065b8e24169023aa52832db74a07ffffcf7e8fd8ba447276d56f7ae551f",
   "schemas/fenolite.init.v0.json": "7a3bfeb3320c226c5e35d0df3e950dc9572dcc3c5c0917a19e543c7dfef15554",
   "schemas/fenolite.inspect.v0.json": "048fbc4b239d4fd6222c4e41b5919460a6dd6c1df5ca1da2a238a97f5eacbb14",
   "schemas/fenolite.kit.v0.json": "f4e7015275de6006b0db4716515d91bb867259eefec82cc568295385033c1263",

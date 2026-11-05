@@ -62,6 +62,16 @@
     "provenance": {
       "$ref": "#/$defs/ImportProvenance"
     },
+    "report": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ConvertReport"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "source": {
       "$ref": "#/$defs/ImportSource"
     },
@@ -112,6 +122,104 @@
         "rewritten",
         "paths",
         "unmatched"
+      ]
+    },
+    "ConvertReport": {
+      "type": "object",
+      "properties": {
+        "lossy": {
+          "type": "boolean"
+        },
+        "refused": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "rows": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ConvertReportRowsItem"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "lossy",
+        "refused",
+        "rows"
+      ]
+    },
+    "ConvertReportRowsItem": {
+      "type": "object",
+      "properties": {
+        "changed": {
+          "type": "integer"
+        },
+        "group": {
+          "type": "string"
+        },
+        "kept": {
+          "type": "integer"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "loss": {
+          "type": "string"
+        },
+        "lost": {
+          "type": "integer"
+        },
+        "reasons": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ConvertReportRowsItemReasonsItem"
+          }
+        },
+        "source": {
+          "type": "integer"
+        },
+        "written": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "changed",
+        "group",
+        "kind",
+        "loss",
+        "lost",
+        "reasons",
+        "source",
+        "written"
+      ]
+    },
+    "ConvertReportRowsItemReasonsItem": {
+      "type": "object",
+      "properties": {
+        "count": {
+          "type": "integer"
+        },
+        "ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "outcome": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "count",
+        "outcome",
+        "reason"
       ]
     },
     "ImportCounts": {

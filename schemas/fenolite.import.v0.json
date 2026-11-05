@@ -78,6 +78,16 @@
     "page": {
       "type": "object",
       "description": "with --limit"
+    },
+    "report": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ImportReport"
+        },
+        {
+          "type": "null"
+        }
+      ]
     }
   },
   "additionalProperties": false,
@@ -220,6 +230,130 @@
         "licence",
         "source",
         "revision"
+      ]
+    },
+    "ImportReport": {
+      "description": "The report of the conversion an Altium source goes through (``ReportReply`` of ``convert``, change",
+      "type": "object",
+      "properties": {
+        "lossy": {
+          "type": "boolean"
+        },
+        "refused": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "rows": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ImportReportRow"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "lossy",
+        "refused",
+        "rows"
+      ]
+    },
+    "ImportReportReason": {
+      "description": "The items of one kind changed, lost or kept for one reason (``ReportReason`` of ``convert``).",
+      "type": "object",
+      "properties": {
+        "reason": {
+          "type": "string"
+        },
+        "outcome": {
+          "enum": [
+            "changed",
+            "lost",
+            "kept"
+          ]
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "with --report-ids"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "reason",
+        "outcome",
+        "count"
+      ]
+    },
+    "ImportReportRow": {
+      "description": "One kind of the conversion report (``ReportRowReply`` of ``convert``).",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "group": {
+          "enum": [
+            "circuit",
+            "footprint",
+            "copper",
+            "board",
+            "presentation",
+            "project",
+            "downgrade"
+          ]
+        },
+        "loss": {
+          "enum": [
+            "refuse",
+            "report"
+          ]
+        },
+        "source": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "written": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "changed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "lost": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "kept": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "items kept in the model for the source's format; shown when above 0 (c0424)"
+        },
+        "reasons": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ImportReportReason"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "group",
+        "loss",
+        "source",
+        "written",
+        "changed",
+        "lost",
+        "reasons"
       ]
     },
     "ImportSource": {

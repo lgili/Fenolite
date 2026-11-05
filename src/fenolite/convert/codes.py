@@ -19,9 +19,9 @@ ISSUE_CODES: Mapping[str, tuple[Severity, ...]] = MappingProxyType(
         "convert.unexplained": ("error",),
     }
 )
-"""Every ``convert.*`` code with its only severity: ``convert.lossy`` per ``refuse`` kind with losses under
-``allow_lossy`` and per ``footprint-graphic`` or ``footprint-text`` kind with losses (change c0409),
-``convert.changed`` per kind with changes, ``convert.kept`` per kind with items kept in the model for the
+"""Every ``convert.*`` code with its only severity: ``convert.lossy`` per kind with losses, whatever its loss
+class (change c0429; a ``refuse`` kind's loss also needs ``allow_lossy``), ``convert.changed`` per kind with
+changes, ``convert.kept`` per kind with items kept in the model for the
 source's format (change c0424), ``convert.no-verify`` for a conversion that was not read back,
 ``convert.schematic-unverified`` for a written schematic that could not be compared with the source's (a KiCad
 downgrade whose sheets need ``kicad-cli`` for their netlist and found none), and ``convert.unexplained`` per

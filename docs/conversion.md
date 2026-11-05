@@ -80,7 +80,9 @@ items. `lossy` is true when any row has a loss, and `refused` names the `refuse`
 
 A loss of a `refuse` kind changes the board that is made or its bill of materials: without
 `--allow-lossy` the conversion exits 7 (`FEN-7001`) with one `convert.lossy` issue per such kind; with it
-the same issues are warnings. A loss of a `report` kind is in the report only. Each kind with changes
+the same issues are warnings. A loss of a `report` kind needs no consent and gives the same
+`convert.lossy` warning: every row with lost items has one (change c0429), so the issues and the report
+always name the same kinds. Each kind with changes
 gives one `convert.changed` info, and each kind with kept items one `convert.kept` info. An Altium
 rule record has one fate (`docs/formats/altium/rule-file.md`, "Fates in a conversion").
 
@@ -386,8 +388,8 @@ file of Fenolite's own writer (`backends.step`), one per footprint, in the same 
 Cylinders and spheres are faceted, every facet within 10 µm of the surface. Each body is a `body` change:
 "carried by its embedded model", "written as a generated STEP model" or "written as the prism over its
 outline" with the reason. A body whose geometry is not proved (`projection_unknown`) is a `body` loss. A
-`body` or `model` loss gives a `convert.lossy` warning, which `import --to python` keeps, so the import never
-loses one silently. The import also writes every model file the conversion writes.
+`body` or `model` loss gives a `convert.lossy` warning, like every loss, and `import --to python` keeps the
+issues and gives the conversion's report as `result.report`, so the import never loses one silently. The import also writes every model file the conversion writes.
 
 Unsupported imported rules are reported. Libraries and projects use
 relative paths. Loading with DRC (9.0.9 and 10.0.6), agreement with KiCad 10.0.6's own importer and

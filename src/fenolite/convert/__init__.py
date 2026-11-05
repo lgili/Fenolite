@@ -93,14 +93,8 @@ def _per_reason(row: ReportRow, outcome: Literal["changed", "lost", "kept"]) -> 
     return "; ".join(f"{r.count} {r.reason}" for r in row.reasons if r.outcome == outcome)
 
 
-WARNED_LOSSES: frozenset[str] = frozenset({"body", "footprint-graphic", "footprint-text", "model"})
-"""The ``report`` kinds whose losses still give a ``convert.lossy`` warning, without refusing (change
-c0409): a footprint's own drawing is on the board made, and an import of the conversion keeps its issues,
-not its report. A lost body or model (change c0423) warns, so that no import loses one silently."""
-
-
 def lossy_issue(row: ReportRow) -> Issue:
-    """The ``convert.lossy`` warning of a ``refuse`` kind, or a kind of ``WARNED_LOSSES``, with losses."""
+    """The ``convert.lossy`` warning of a kind with losses, whatever its loss class (change c0429)."""
     message = f"{row.lost} of {row.source} {row.kind} item(s) of the source are not converted: "
     return issue("convert.lossy", message + _per_reason(row, "lost"), where=row.kind)
 
@@ -116,6 +110,17 @@ def kept_issue(row: ReportRow) -> Issue:
     kept in the model for a write back to the source's format."""
     message = f"{row.kept} {row.kind} item(s) are kept in the model, not in the target (a format limit): "
     return issue("convert.kept", message + _per_reason(row, "kept"), where=row.kind)
+
+
+def report_issues(report: ConversionReport) -> tuple[Issue, ...]:
+    """The ``convert.*`` issues of a report (change c0429): one ``convert.lossy`` per row with lost items,
+    one ``convert.changed`` per row with changed items, one ``convert.kept`` per row with kept items, rows
+    in report order. ``convert`` and ``import`` both give these, so their issues and ``result.report``
+    agree for every kind."""
+    lossy = tuple(lossy_issue(row) for row in report.rows if row.lost)
+    changed = tuple(changed_issue(row) for row in report.rows if row.changed)
+    kept = tuple(kept_issue(row) for row in report.rows if row.kept)
+    return (*lossy, *changed, *kept)
 
 
 def direction_for(backend: str, to: str) -> Direction:
@@ -192,19 +197,16 @@ def convert_project(
         raise _no_board(read)
     written = direction.write(read, Options(kicad_version=kicad_version, bodies=bodies, name=name, pour=pour))
     report = written.report
-    lossy = tuple(lossy_issue(row) for row in report.rows if row.kind in report.refused)
-    if lossy and not allow_lossy:
-        raise LossyConversionError(lossy, report)
-    lossy += tuple(lossy_issue(row) for row in report.rows if row.kind in WARNED_LOSSES and row.lost)
-    changed = tuple(changed_issue(row) for row in report.rows if row.changed)
-    changed += tuple(kept_issue(row) for row in report.rows if row.kept)
+    refused = tuple(lossy_issue(row) for row in report.rows if row.kind in report.refused)
+    if refused and not allow_lossy:
+        raise LossyConversionError(refused, report)
     return Conversion(
         files=written.files,
         report=report,
         source=read,
         target=to,
         evidence=Evidence.combine(read.evidence, written.evidence or direction.evidence, EVIDENCE),
-        issues=(*read.issues, *written.issues, *lossy, *changed),
+        issues=(*read.issues, *written.issues, *report_issues(report)),
         direction=direction,
         design=written.design,
         read_back=written.read_back,
@@ -231,4 +233,5 @@ __all__ = [
     "direction_for",
     "lossy_issue",
     "profiles_text",
+    "report_issues",
 ]

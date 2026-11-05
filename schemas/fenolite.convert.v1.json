@@ -707,6 +707,9 @@
         "group": {
           "type": "string"
         },
+        "kept": {
+          "type": "integer"
+        },
         "kind": {
           "type": "string"
         },

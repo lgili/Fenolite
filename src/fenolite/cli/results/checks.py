@@ -1462,6 +1462,7 @@ class ConvertReportRowsItemReasonsItem:
 class ConvertReportRowsItem:
     changed: int
     group: str
+    kept: int = field(metadata={"optional": True})
     kind: str
     loss: str
     lost: int
@@ -1550,6 +1551,7 @@ class ImportResult(ProtocolResult):
     modules: list[str] = field(metadata={"optional": True})
     out: str = field(metadata={"optional": True})
     provenance: ImportProvenance = field(metadata={"optional": True})
+    report: ConvertReport | None = field(metadata={"optional": True})
     source: ImportSource = field(metadata={"optional": True})
     unexpressed: list[import_rows.ImportUnexpressed] = field(metadata={"optional": True})
     upgrade: list[import_rows.ImportUpgrade] = field(metadata={"optional": True})

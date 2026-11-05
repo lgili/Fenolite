@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import dataclasses
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
 
 _COUNT = {"minimum": 0}
 
@@ -88,6 +88,51 @@ class ImportProvenance:
 
 
 @dataclass(frozen=True)
+class ImportReportReason:
+    """The items of one kind changed, lost or kept for one reason (``ReportReason`` of ``convert``)."""
+
+    reason: str
+    outcome: Literal["changed", "lost", "kept"]
+    count: int = dataclasses.field(metadata={"minimum": 1})
+    ids: list[str] = dataclasses.field(
+        default_factory=lambda: [], metadata={"optional": True, "description": "with --report-ids"}
+    )
+
+
+@dataclass(frozen=True)
+class ImportReportRow:
+    """One kind of the conversion report (``ReportRowReply`` of ``convert``)."""
+
+    kind: str
+    group: Literal["circuit", "footprint", "copper", "board", "presentation", "project", "downgrade"]
+    loss: Literal["refuse", "report"]
+    source: int = dataclasses.field(metadata=_COUNT)
+    written: int = dataclasses.field(metadata=_COUNT)
+    changed: int = dataclasses.field(metadata=_COUNT)
+    lost: int = dataclasses.field(metadata=_COUNT)
+    kept: int = dataclasses.field(
+        default=0,
+        metadata={
+            **_COUNT,
+            "optional": True,
+            "description": "items kept in the model for the source's format; shown when above 0 (c0424)",
+        },
+    )
+    reasons: list[ImportReportReason] = dataclasses.field(default_factory=lambda: [])
+
+
+@dataclass(frozen=True)
+class ImportReport:
+    """The report of the conversion an Altium source goes through (``ReportReply`` of ``convert``, change
+    c0429). The importer may not import ``fenolite.api``, so the shape is repeated here; a unit test keeps
+    the two equal."""
+
+    lossy: bool
+    refused: list[str]
+    rows: list[ImportReportRow]
+
+
+@dataclass(frozen=True)
 class ImportReply:
     """The result of fenolite import."""
 
@@ -110,6 +155,13 @@ class ImportReply:
     )
     page: dict[str, Any] = dataclasses.field(
         default_factory=lambda: {}, metadata={"optional": True, "description": "with --limit"}
+    )
+    report: ImportReport | None = dataclasses.field(
+        default=None,
+        metadata={
+            "optional": True,
+            "description": "the conversion report of an Altium source, null for a KiCad source (c0429)",
+        },
     )
 
 
