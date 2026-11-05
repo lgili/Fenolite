@@ -211,12 +211,18 @@ def _toggle_mirror(text: Node) -> Node:
     return text.with_children([new_effects if c is effects else c for c in text.children])
 
 
+ANGLELESS_AT_HEADS: frozenset[str] = frozenset({"point"})
+"""Footprint children whose ``at`` takes no angle: KiCad 10.0.6 refuses to load a board with
+``(point (at x y θ))`` ("Expecting ')'"), so placement leaves their ``at`` as it is (c0279 task 4.6)."""
+
+
 def _angles(tree: Node, rotation: Udeg, *, bottom: bool) -> Node:
-    """Every child ``at`` angle made absolute: ``((−φ if bottom else φ) + θ) mod 360°``."""
+    """Every child ``at`` angle made absolute: ``((−φ if bottom else φ) + θ) mod 360°``; the ``at`` of
+    ``ANGLELESS_AT_HEADS`` children keeps no angle."""
     children: list[Node | Atom] = []
     for child in tree.children:
         at = child.find("at") if isinstance(child, Node) else None
-        if isinstance(child, Node) and at is not None:
+        if isinstance(child, Node) and at is not None and child.name not in ANGLELESS_AT_HEADS:
             atoms = at.atoms()
             local = _udeg(atoms[2]) if len(atoms) > 2 else 0
             angle = pcb.pad_angle_to_board((-local if bottom else local) % pcb.FULL_TURN, rotation)

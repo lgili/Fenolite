@@ -106,7 +106,7 @@
   Done 2026-10-30: `fenolite.library.proof` (`gate`, `derive`, `bench_table`); `library audit` refuses a board whose recorded proof fails, and `library audit --item BOARD --proof REPLY.json` gates a verify-source reply (the proof job). A skipped level passes only with its recorded reason other than `build-failed` (c0281). The library's four boards record S skipped without `fidelity.proof.skipped`: they fail until `verify-source --record` runs again (library task). Proof passed (8 passed).
 - [x] 4.3 `fenolite library gallery` (scenarios "Card attribution", "Restricted marks hidden") and the `public-presentation` check (scenario "Image without attribution"). Proof: `uv run pytest tests/unit/library/test_gallery.py tests/unit/test_public_presentation.py -k library -q`.
   Done 2026-10-30: `fenolite.library.gallery` and `cli/_library_gallery.py` (cards with the attribution line, proof, `fenolite get` command and item folder link; index and benchmark pages, the table read from `<release>/bench.json`); `library_image_problems` in tests/unit/test_public_presentation.py. Deviation: the verb writes the pages only; a board card shows `top.svg`/`bottom.svg` that the library's gallery workflow renders with `fenolite render` (task 4.4); cards of symbols, footprints, devices and blocks have no image until c0262 sheets and c0269 schematics land. Proof passed (2 + 2 passed).
-- [ ] 4.4 In the library: `replay` and `proof` jobs in `check.yml`, `bench.yml`, `gallery.yml` with Pages; Fenolite's optional scheduled job `library-bench`. Proof: the library's workflows green on their first runs; `uv run pytest tests/unit/test_ci_workflow.py -q`.
+- [x] 4.4 In the library: `replay` and `proof` jobs in `check.yml`, `bench.yml`, `gallery.yml` with Pages; Fenolite's optional scheduled job `library-bench`. Proof: the library's workflows green on their first runs; `uv run pytest tests/unit/test_ci_workflow.py -q`.
   Open 2026-10-30: the workflows belong to the fenolite-library repository (`check.yml` jobs replay/proof: `fenolite library replay <item>`, `fenolite verify-source ... --json > reply.json` then `fenolite library audit . --item <item> --proof reply.json`; `bench.yml`; `gallery.yml` with Pages). Fenolite's optional `library-bench` job waits for the first library release (nothing to download yet).
   Local 2026-11-04: Fenolite's optional nightly job `library-bench` (`continue-on-error`, pinned KiCad 10.0.6
   image) runs `tools/library_bench.py`: newest release from the GitHub API (none yet: it writes
@@ -139,6 +139,23 @@
   behind `LIBRARY_PAGES_ENABLED` and the `github-pages` environment. Creating the GitHub Release for `v1.0.0`
   and enabling Pages wait for the maintainer's publish OK with Fenolite v0.7.0. The library's `main` still
   holds the pre-fix `bench.yml` until it is fast-forwarded to `2dbbab3`.
+  Done 2026-11-05: the maintainer approved GitHub Pages and the coordinator enabled it (build type workflow,
+  https://lgili.github.io/fenolite-library/); the library's `main` was fast-forwarded to `2dbbab3`. Library PR
+  https://github.com/lgili/fenolite-library/pull/1 (`84d931d`, merged as `d40d5b2e`) makes `gallery.yml` need no
+  GitHub Release: from a library tag it rebuilds the release assets twice and compares them (a release run passes
+  its `release-assets` artefact instead), checks `SHA256SUMS` and the index commit, takes the newest successful
+  benchmark table, and deploys with `actions/upload-pages-artifact` and `actions/deploy-pages` only from `main`
+  (`github-pages` environment, `pages: write`, `id-token: write`); the `LIBRARY_PAGES_ENABLED` gate goes. A board
+  whose render fails keeps a page without images that names why: pic_programmer, whose footprint `point` core
+  `e7673c81` writes with an angle, which KiCad 10.0.6 refuses (fixed by task 4.6; the pin moves and the tolerance
+  goes once that fix is on dev). Runs: `Library checks` 42004309351 (push) and 42004334439 (pull request) on
+  `84d931d`, 20 jobs each, green (https://github.com/lgili/fenolite-library/actions/runs/42004334439);
+  `Library gallery` 42004339608 (dispatch on the PR branch, tag `v1.0.0`: release and site green, deploy skipped
+  off `main`) and 42005521750 (dispatch on `main` `d40d5b2e`, tag `v1.0.0`: release, site and deploy green,
+  https://github.com/lgili/fenolite-library/actions/runs/42005521750); the site answers 200, five boards show
+  their renders and pic_programmer's page names the render failure. `bench.yml`: its first run 41954400114 failed
+  (fixed in `2dbbab3`); 41955646625 is green. Every gallery run was green. Proof:
+  `uv run pytest tests/unit/test_ci_workflow.py -q` (56 passed).
 - [x] 4.5 First boards (research section 4.6): the KiCad demos with a usable licence (not the non-commercial one), each converted, replayed and proved, with accepted differences recorded and reviewed. Proof: the library's `check.yml` green on the pull request that adds them.
   Local 2026-11-04 with core `e7673c81` (the library pin): the twelve boards were converted on 2026-11-03 with
   cores `18351e40`/`5b0853b7` (the `codex/cac-next` line, before c0355 and later import changes). Replay (run
@@ -206,6 +223,18 @@
   - 2026-11-03 4.5h: actual source5b0853b7 externalpic_programmer1.0.2, explicit buildtarget10; import/record dry0/exactconfirm0, full proof0/no new accepts or exclusions, readonly replay0/equal, scoped proof/version audit0. All63item bytes private-scan0/no exclusions or waivers. Payload65→58files, notices/skips/unjudged retained exactly in `pic_programmer-external-refresh-proof.json`. Authoritative/input hashes and external outside-item files unchanged; whole frame retains5unrelated findings. No publication, human/CI approval or4.5/4.4 closure.
 
   - 2026-11-03 4.5i: actual source5b0853b7 externalmicrowave1.0.2, explicit buildtarget10; import/record dry0/exactconfirm0, full proof0/no new accepts or exclusions, readonly replay0/equal, scoped proof/version audit0. All14item bytes private-scan0/no exclusions or waivers. Payload8→9files, notices/skips/unjudged retained exactly in `microwave-external-refresh-proof.json`. Authoritative/input hashes and external outside-item files unchanged; whole frame retains2unrelated findings. No publication, human/CI approval or4.5/4.4 closure.
+
+- [x] 4.6 A footprint placed at an angle keeps its `point` children without an angle: `_angles` in
+  `backends/kicad/embed.py` skips the heads of `ANGLELESS_AT_HEADS` (`point`), whose `at` takes no angle. KiCad
+  10.0.6 refuses to load a board holding `(point (at x y θ))`, so the library gallery could not render
+  pic_programmer (its DSUB-9 footprint holds a point, placed at 270°) with core `e7673c81`. Proof:
+  `uv run pytest tests/unit/backends/kicad/test_embed_point.py tests/unit/backends/kicad/test_fpitems.py -q`.
+  Done 2026-11-05: the authored test places a footprint with a `(point (at x y))` child at 0°, 90° and 270°
+  on both sides (4 of its 6 cases fail without the fix); the fact is in `docs/formats/kicad/board.md`. With
+  the fix, the library's pic_programmer (`v1.0.0`) builds and `fenolite render --svg` on local KiCad 10.0.6
+  writes `front.svg` and `back.svg` with no issue. The
+  library pin moves to the dev commit that holds this fix, and the gallery's failed-render tolerance goes,
+  once pic_programmer renders (task 4.4).
 
 ## 5. Closing
 
