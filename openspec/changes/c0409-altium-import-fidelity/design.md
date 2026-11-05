@@ -86,7 +86,7 @@ from Altium's public query documentation.
 ## B10: project parameters and special strings
 
 `ProjectInput` gains the `[Parameter<n>]` entries; `import_project` puts them in the board's title block
-parameters, which the KiCad writer writes as text variables. A board text that is exactly `.NAME` or `=NAME`
+parameters, which the KiCad writer writes as text variables. A board text that is exactly `.NAME` (or `'.NAME'`)
 of a project parameter becomes `${NAME}`; a predefined special string is left as written and reported as a
 `text` change. The facts come from Altium's public special-string documentation.
 

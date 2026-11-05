@@ -22,7 +22,7 @@ change: no name, value, shape or file of that project. Every fixture is authored
   so `import --to python`, which derives its library from the board, had none either.
 - **B7 (medium).** A clearance rule scoped to items without a net (`InNet('No Net')`) was reported as
   unmapped: the DSL had no selector for netless items.
-- **B10 (low).** Altium special strings (`.NAME`, `=NAME`) were written literally and the `[ParameterN]`
+- **B10 (low).** Altium special strings (`.NAME`) were written literally and the `[ParameterN]`
   entries of a `.PrjPcb` were not imported.
 - **B11 (low, render).** `render --svg` plotted the board on the drawing sheet; a board at Altium's origin
   (negative Y) fell off the page and the views came out blank.
@@ -45,7 +45,7 @@ change: no name, value, shape or file of that project. Every fixture is authored
   vendors the model files.
 - B7: `fenolite.dsl.select.no_net()` and a model leaf `no_net`; `InNet('No Net')` maps to it and KiCad lowers
   it to `A.NetName == ''`.
-- B10: `[ParameterN]` entries become the project's text variables and a special string `.NAME` or `=NAME`
+- B10: `[ParameterN]` entries become the project's text variables and a special string `.NAME` (or `'.NAME'`)
   of a project parameter becomes `${NAME}`.
 - B11: `render --svg` plots the board area without the drawing sheet when the board does not lie inside the
   sheet, and `--page board` asks for it always.
