@@ -41,6 +41,7 @@
     - one-pin nets with a made-up name filled the Navigator; they are no longer listed there.
 - [ ] 2.4 The maintainer reviews the page on an Altium project of their own, against Altium Designer, through `fenolite view --serve`. The review covers the text size, the shapes of power ports, ports and sheet entries, and the title block. Proof: the record under this task.
   - 2026-10-25: WAITS on the maintainer.
+  - 2026-11-04 (S-1587): agent-run on a public project at the maintainer's request; not the maintainer's own project. In Altium 24.5.2.23, on `PCB-PiDP11IOExpander` (BSD-2-Clause), the page matches the parts, wires, text faces and sizes, and the power-port shapes. It leaves the title block's special strings unresolved (`=ProjectTitle`, `=ProjectRev`, `*`), omits the text note, draws the pin name `\INT` and draws no pin-type arrows. There are no ports or sheet entries in this project. Stays open: the task asks for the maintainer's own project. See `docs/evidence/viewer-public-project-2026-11-04.md`.
 
 ## 3. Docs
 

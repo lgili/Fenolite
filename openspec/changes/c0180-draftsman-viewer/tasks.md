@@ -35,6 +35,7 @@
     - **S-0785 assembly:** sheet 1 holds the outline with its arcs and 301 top parts; sheet 2 holds 239 bottom parts, mirrored. A click on U1 shows its comment, side and size. After `Q` the extent reads in mil.
     - **S-0785 fabrication:** six layer views of copper, the drill table of 15 sizes with their symbols, and the stack legend of 15 layers.
 - [ ] 2.4 The maintainer reviews a drawing of their own against Altium (round F0.5 of Part F). Proof: the record under this task.
+  - 2026-11-04 (S-1587): agent-run on a public project at the maintainer's request; not the maintainer's own project. The two drawings of `PCB-PiDP11IOExpander` were compared with Altium 24.5.2.23. The page has the same views, tables, notes and title blocks, and the same drill counts. It differs in the assembly top view (no silkscreen, no hatching of not-fitted parts), the empty bottom view, the right view's height (`43.2` against `11.43mm`), and a BOM with fewer columns and no variant applied. Stays open: round F0.5 asks for the maintainer's own drawing. See `docs/evidence/viewer-public-project-2026-11-04.md`.
 
 ## 3. Docs and closing
 
