@@ -1967,11 +1967,13 @@ design.dimension("width", (mm(0), mm(0)), (mm(50), mm(0)), offset=mm(-5))
   leaves it out (`copper.text-unchecked`, info). A graphic may go on a copper layer too and take
   `net=`, a `Net` that joins the design: the copper check judges it as copper of that net (of no net
   without one), so a copper shape across a pad of another net is a `copper.short`. A dimension stays
-  off copper. Lines and arcs may explicitly declare root `Edge.Cuts` graphics (c0349). Their complete
+  off copper. Lines, arcs and unfilled rectangles may explicitly declare root `Edge.Cuts` graphics
+  (c0349, c0401; a filled rectangle there is refused). Their complete
   reconstruction together with footprint edges must exactly match the logical `board()` outline;
   otherwise the writer refuses `kicad.board.outline-conflict`. On agreement it emits the explicit
-  physical edges and existing footprint edges, without synthetic outline duplicates. Other drawing
-  kinds still cannot target `Edge.Cuts`.
+  physical edges and existing footprint edges, without synthetic outline duplicates. An imported
+  board whose outline is one root `gr_rect` keeps it as `design.rect(..., layer="Edge.Cuts")` instead of
+  four lines (c0401). Other drawing kinds still cannot target `Edge.Cuts`.
 - **`text(key, text, at, *, layer="F.SilkS", size=None, thickness=None, rot=0, justify=None,
   knockout=False, bold=False, italic=False, face=None)`**: printable lines joined by `\n` (an empty text is
   kept, as KiCad keeps one), 1 mm high with a 0.15 mm stroke unless `size` and `thickness` say otherwise.

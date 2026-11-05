@@ -140,3 +140,22 @@ def test_items_are_keyed_by_span() -> None:
     assert {item.span for item in found["track"]} == {"top", "bottom"}
     assert {item.span for item in found["via"]} == {"top-bottom"}
     assert set(STRICT_RULE) == {"track", "arc", "via"}
+
+
+def test_coincident_tracks_match_as_a_multiset() -> None:
+    """Two tracks with the same ends and other widths, written in the other order on one side, are the same
+    multiset (c0401, kicad-demo-10-0-6-pcb-14); a changed width on one of them is still reported."""
+    source = routed()
+    held = board(source)
+    first = held.tracks[0]
+    narrow = dataclasses.replace(first, id=first.id + "-narrow", width=first.width - 30)
+    a = with_board(source, tracks=(*held.tracks, narrow))
+    others = tuple(t for t in held.tracks if t.id != first.id)
+    b = with_board(source, tracks=(narrow, *others, first))
+    assert [d for d in strict5(a, b).differences if not d.kind.startswith("route-")] == []
+    wider = dataclasses.replace(narrow, width=first.width + 10)
+    c = with_board(source, tracks=(wider, *others, first))
+    changed = [d for d in strict5(a, c).differences if not d.kind.startswith("route-")]
+    assert [(d.kind, d.a, d.b) for d in changed] == [
+        ("track-width", str(first.width - 30), str(first.width + 10))
+    ]

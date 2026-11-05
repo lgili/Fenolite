@@ -3308,7 +3308,9 @@ class _Writer:
 
             physical = dataclasses.replace(self.design, board=dataclasses.replace(board, outline=None))
             reconstructed = edge_outline(physical)
-            if reconstructed is not None and all(g.kind in ("line", "arc") and not g.filled for g in edges):
+            if reconstructed is not None and all(
+                g.kind in ("line", "arc", "rect") and not g.filled for g in edges
+            ):
                 expected = sorted(edge_text(e.start, e.end, e.mid) for e in outline_edges(outline))
                 actual = sorted(edge_text(e.start, e.end, e.mid) for e in outline_edges(reconstructed))
                 if actual == expected:

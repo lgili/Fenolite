@@ -157,11 +157,16 @@ def _near(one: Item, other: Item, tolerances: Tolerances) -> bool:
 
 
 def match(
-    a: Sequence[Item], b: Sequence[Item], tolerances: Tolerances
+    a: Sequence[Item],
+    b: Sequence[Item],
+    tolerances: Tolerances,
+    same: Callable[[Item, Item], bool] | None = None,
 ) -> tuple[list[tuple[Item, Item]], list[Item], list[Item]]:
     """The matched pairs, then the items of ``a`` and of ``b`` left unmatched: equal keys first (as a
     multiset, in key order), then each unmatched item of ``a`` with the first unmatched item of ``b`` within
-    the tolerance. A via's key is its position; a track's or an arc's its span and points."""
+    the tolerance. A via's key is its position; a track's or an arc's its span and points. Inside one equal
+    key, an item of ``a`` takes the first waiting item of ``b`` that ``same`` holds equal to it, else the
+    first waiting one, so coincident items match as a multiset of their compared fields (change c0401)."""
 
     def key(item: Item) -> tuple[object, ...]:
         return item.key[1:] if item.kind == "via" else item.key
@@ -175,7 +180,10 @@ def match(
     for item in a:
         found = waiting.get(key(item))
         if found:
-            index = found.pop(0)
+            at = 0
+            if same is not None and len(found) > 1:
+                at = next((k for k, index in enumerate(found) if same(item, b[index])), 0)
+            index = found.pop(at)
             taken[index] = True
             pairs.append((item, b[index]))
         else:
@@ -301,7 +309,12 @@ def compare_strict(a: Design, b: Design, pairing: NetPairing, tolerances: Tolera
     notices: list[Difference] = []
     summary: dict[str, dict[str, int]] = {}
     for kind in ("track", "arc", "via"):
-        pairs, only_a, only_b = match(items_a[kind], items_b[kind], tolerances)
+        rule = STRICT_RULE[kind]
+
+        def same(one: Item, other: Item, rule: tuple[tuple[str, Judge], ...] = rule) -> bool:
+            return all(judge(one, other, tolerances, paired) is None for _, judge in rule)
+
+        pairs, only_a, only_b = match(items_a[kind], items_b[kind], tolerances, same)
         missing = f"{kind}-missing"
         for item in only_a:
             differences.append(Difference(LEVEL, missing, item.where(), _FIELD[missing], item.where(), ""))

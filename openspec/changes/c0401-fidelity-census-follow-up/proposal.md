@@ -29,3 +29,8 @@ No tolerance, normalization, level subset or acceptance waiver is added to reach
 
 No code, model, public name or evidence level changes with this proposal. A design is written when the
 first attribution is made.
+
+Update 2026-11-05: the attributions are in `design.md`. Two Fenolite causes are fixed here (tasks 1.3
+and 1.4): strict level-5 matching pairs coincident items as a multiset of their compared fields, and a root
+Edge.Cuts `gr_rect` outline stays a rectangle (`design.rect` takes `Edge.Cuts` unfilled). No public name and
+no evidence level changes.

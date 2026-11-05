@@ -267,7 +267,8 @@ def _outline(design: Design) -> Outline | None:
 
 
 def _physical_edges(design: Design) -> bool:
-    """Whether chaining made an outline edge differ from its physical owner (c0349).
+    """Whether chaining made an outline edge differ from its physical owner (c0349), or a root edge is a
+    rectangle the outline would write as four lines (c0401).
 
     Exact source ownership remains explicit in Board.graphics instead of guessing which nearly
     coincident footprint graphic covers a generated edge. Existing exact representations keep bytes.
@@ -282,8 +283,10 @@ def _physical_edges(design: Design) -> bool:
     if outline is None:
         return False
     roots = [g for g in board.graphics if _kinds(board).get(g.layer) == "edge"]
-    if not roots or any(g.kind not in ("line", "arc") or g.width <= 0 or g.filled for g in roots):
+    if not roots or any(g.kind not in ("line", "arc", "rect") or g.width <= 0 or g.filled for g in roots):
         return False
+    if any(g.kind == "rect" for g in roots):
+        return True  # the outline writes lines; the writer proves the rectangle owns the outline
     native = [value for g in roots if (value := graphic_text(g)) is not None]
     for item in footprint_edges(board, ("Edge.Cuts",)):
         points = item.points

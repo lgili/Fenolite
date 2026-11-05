@@ -420,14 +420,11 @@ def rect(
     if a[0] == b[0] or a[1] == b[1]:
         raise DslError(f"{what}: start and end must differ in x and in y")
     filled = _fill(fill, what)
-    return GraphicSpec(
-        key,
-        "rect",
-        (a, b),
-        drawing_layer(layer, what, copper, user),
-        _width(width, what, stroked=not filled),
-        filled,
-    )
+    # an unfilled rectangle on Edge.Cuts is an explicit physical outline edge (changes c0349, c0401)
+    name = drawing_layer(layer, what, (*copper, "Edge.Cuts"), user)
+    if name == "Edge.Cuts" and filled:
+        raise DslError(f"{what}: a rectangle on Edge.Cuts is an outline edge and cannot be filled")
+    return GraphicSpec(key, "rect", (a, b), name, _width(width, what, stroked=not filled), filled)
 
 
 def circle(

@@ -362,6 +362,22 @@ def notched(tmp: Path) -> Path:
     return _variant(tmp, "notched", text)
 
 
+def boxed(tmp: Path) -> Path:
+    """The board whose four root ``Edge.Cuts`` lines are one ``gr_rect``, as the KiCad demo
+    ``test_pads_inside_pads`` draws its outline (change c0401)."""
+    text = BOARD.read_text(encoding="utf-8")
+    edges = re.findall(r"\t\(gr_line\n(?:\t\t.*\n)*?\t\t\(layer \"Edge\.Cuts\"\)\n(?:\t\t.*\n)*?\t\)\n", text)
+    assert len(edges) == 4
+    for edge in edges:
+        text = text.replace(edge, "", 1)
+    rect = (
+        "\t(gr_rect (start 100 100) (end 160 140) (stroke (width 0.1) (type solid)) (fill no)"
+        ' (layer "Edge.Cuts") (uuid "0e0e0e0e-0000-4000-8000-000000000401"))\n'
+    )
+    at = text.index("\t(gr_text ")
+    return _variant(tmp, "boxed", text[:at] + rect + text[at:])
+
+
 def built_for(tmp: Path, major: int) -> Path:
     """The authored two-sheet board built from its script for KiCad ``major`` in ``tmp``."""
     work = tmp / "data" / "src"

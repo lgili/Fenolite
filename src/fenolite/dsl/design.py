@@ -1977,7 +1977,8 @@ class Design(Container):
         fill: bool = False,
         net: Net | None = None,
     ) -> None:
-        """A rectangle with the opposite corners ``start`` and ``end``."""
+        """A rectangle with the opposite corners ``start`` and ``end``. Unfilled on Edge.Cuts it declares
+        an explicit physical root edge subject to complete logical outline reconstruction (c0349, c0401)."""
         found = itemlib.rect(
             self._drawing("rect", key),
             start,

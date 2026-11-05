@@ -6,7 +6,7 @@ schema = "fenolite.fidelity-ratchet.v0"
 
 [run]
 fenolite = "0.7.0.dev0"
-date = "2026-11-04"
+date = "2026-11-05"
 
 [[row]]
 id = "kicad-demo-10-0-6-pcb-02"
@@ -57,9 +57,21 @@ reason = "Strict all-level round trip on 2026-11-04 (KiCad 10.0.6): no differenc
 attribution = "fenolite"
 
 [[row]]
+id = "kicad-demo-10-0-6-pcb-14"
+counts = {}
+reason = "Strict all-level round trip on 2026-11-05 (KiCad 10.0.6): no differences after c0401 matched coincident tracks as a multiset."
+attribution = "fenolite"
+
+[[row]]
 id = "kicad-demo-9-0-9-1-pcb-03"
 counts = {}
 reason = "Strict all-level round trip on 2026-11-04 (KiCad 10.0.6): no differences."
+attribution = "fenolite"
+
+[[row]]
+id = "kicad-demo-9-0-9-1-pcb-05"
+counts = {}
+reason = "Strict all-level round trip on 2026-11-05 (KiCad 10.0.6): no differences after c0401 kept the rectangle outline."
 attribution = "fenolite"
 
 [[row]]
@@ -69,17 +81,15 @@ reason = "Strict all-level round trip on 2026-11-04 (KiCad 10.0.6): no differenc
 attribution = "fenolite"
 
 [pending]
-"kicad-demo-10-0-6-pcb-01" = "No reviewed baseline; the 2026-11-04 strict import reported error findings (FEN-5001); no comparison counts."
-"kicad-demo-10-0-6-pcb-05" = "No reviewed baseline; the 2026-11-04 strict import refused with FEN-3004; no comparison counts."
-"kicad-demo-10-0-6-pcb-06" = "No reviewed baseline; heavy input was skipped by the declared corpus policy."
-"kicad-demo-10-0-6-pcb-07" = "No reviewed baseline; the 2026-11-04 strict import reported error findings (FEN-5001); no comparison counts."
-"kicad-demo-10-0-6-pcb-09" = "No reviewed baseline; the 2026-11-04 strict verify-source refused with FEN-3004 (native project context missing on one side); no comparison counts."
-"kicad-demo-10-0-6-pcb-11" = "No reviewed baseline; the 2026-11-04 strict import reported error findings (FEN-5001); no comparison counts."
-"kicad-demo-10-0-6-pcb-13" = "No reviewed baseline; the 2026-11-04 strict comparison differs (7:opaque-count=1, 7:zone-field=1) and attribution remains undecided."
-"kicad-demo-10-0-6-pcb-14" = "No reviewed baseline; the 2026-11-04 strict comparison differs (5:track-width=4) and attribution remains undecided."
-"kicad-demo-10-0-6-pcb-17" = "No reviewed baseline; the 2026-11-04 strict import reported error findings (FEN-5001); no comparison counts."
-"kicad-demo-10-0-6-pcb-18" = "No reviewed baseline; heavy input was skipped by the declared corpus policy."
-"kicad-demo-9-0-9-1-pcb-01" = "No reviewed baseline; the 2026-11-04 strict comparison differs (7:opaque-count=1, 8:render-pixels=1) and attribution remains undecided."
-"kicad-demo-9-0-9-1-pcb-02" = "No reviewed baseline; the 2026-11-04 strict comparison differs (7:opaque-count=1, 7:zone-field=1) and attribution remains undecided."
+"kicad-demo-10-0-6-pcb-01" = "Refused, input (c0401 2.1): the import self-check refuses with FEN-5001 because the schematic puts a pin on a net that the board footprint has no pad for."
+"kicad-demo-10-0-6-pcb-05" = "Refused, corpus (c0401 2.1): the project declares a worksheet that the manifest does not fetch, so the import refuses with FEN-3004."
+"kicad-demo-10-0-6-pcb-06" = "Heavy row, refused (c0401 2.2): measured 2026-11-05 with FENOLITE_HEAVY=1; the import refuses with FEN-7001 (dimension styles, Dwgs.User drawings and placement rule areas the DSL cannot express)."
+"kicad-demo-10-0-6-pcb-07" = "Refused, input (c0401 2.1): KiCad 9 board and schematics with a project resaved by KiCad 10; the self-check targets 9 and refuses 10-only project keys (FEN-5001)."
+"kicad-demo-10-0-6-pcb-09" = "Refused, input (c0401 2.1): the board has no project of its own, so verify-source refuses with FEN-3004 (native project context missing on one side)."
+"kicad-demo-10-0-6-pcb-11" = "Refused, input (c0401 2.1): the board was not updated from the schematic (one pin on a net in the schematic, unconnected on the board); the self-check refuses with FEN-5001."
+"kicad-demo-10-0-6-pcb-13" = "Differs (7:opaque-count=1, 7:zone-field=1); owned by c0384 (derived teardrop caches)."
+"kicad-demo-10-0-6-pcb-17" = "Refused, input (c0401 2.1): KiCad 9 board and schematics with a project resaved by KiCad 10; the self-check targets 9 and refuses 10-only project keys (FEN-5001)."
+"kicad-demo-10-0-6-pcb-18" = "Heavy row, refused (c0401 2.2): measured 2026-11-05 with FENOLITE_HEAVY=1; the project declares a worksheet that the manifest does not fetch (FEN-3004)."
+"kicad-demo-9-0-9-1-pcb-01" = "Differs (7:opaque-count=1, 8:render-pixels=1), Fenolite (c0401 1.1): teardrop caches outside the derived-cache proof's scope, and an empty schematic footprint field the model cannot keep; fixes need their own changes."
+"kicad-demo-9-0-9-1-pcb-02" = "Differs (7:opaque-count=1, 7:zone-field=1), Fenolite (c0401 1.1): regenerated teardrop caches differ, the mechanism c0384 owns."
 "kicad-demo-9-0-9-1-pcb-04" = "No reviewed baseline; the manifest-declared malformed input was refused before comparison."
-"kicad-demo-9-0-9-1-pcb-05" = "No reviewed baseline; the 2026-11-04 strict comparison differs (7:graphic-missing=5) and attribution remains undecided."

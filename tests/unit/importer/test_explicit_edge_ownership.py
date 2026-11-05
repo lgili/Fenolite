@@ -8,7 +8,7 @@ import dataclasses
 from pathlib import Path
 
 import pytest
-from _importcode import build, imported, notched
+from _importcode import boxed, build, imported, notched
 
 from fenolite.backends.kicad.frame import footprint_edges
 from fenolite.backends.kicad.outline import edge_outline, graphic_text
@@ -17,6 +17,7 @@ from fenolite.backends.kicad.versions import LossyWriteError
 from fenolite.core.coords import Point
 from fenolite.core.ids import derived_id
 from fenolite.dsl import Design, mm
+from fenolite.dsl.errors import DslError
 from fenolite.importer.source import read_kicad
 from fenolite.model.design import Design as ModelDesign
 
@@ -69,6 +70,34 @@ def test_import_keeps_exact_root_not_synthetic_copies(tmp_path: Path, curved: bo
     original = footprint_edges(before.board, ("Edge.Cuts",))
     rebuilt = footprint_edges(after.board, ("Edge.Cuts",))
     assert [(e.kind, e.points) for e in rebuilt] == [(e.kind, e.points) for e in original]
+
+
+@pytest.mark.parametrize("target", (9, 10))
+def test_a_rectangle_outline_stays_a_rectangle(tmp_path: Path, target: int) -> None:
+    """A root ``gr_rect`` that owns the outline comes back as itself, not as four ``gr_line`` (c0401)."""
+    path = boxed(tmp_path / "source")
+    before = read_kicad(path).design
+    assert before.board is not None
+    assert [g.kind for g in before.board.graphics if g.layer == "Edge.Cuts"] == ["rect"]
+    reply = imported(tmp_path, path, "--confirm")
+    assert reply.exit_code == 0, reply.error
+    assert "design.rect(" in (tmp_path / "out/design.py").read_text(encoding="utf-8")
+    assert build(tmp_path / "out", "--kicad-version", str(target)).exit_code == 0
+    after = read_board(tmp_path / "out/built/boxed.kicad_pcb")
+    assert after.board is not None
+    edges = [(g.kind, g.points, g.width, g.filled) for g in after.board.graphics if g.layer == "Edge.Cuts"]
+    assert edges == [
+        (g.kind, g.points, g.width, g.filled) for g in before.board.graphics if g.layer == "Edge.Cuts"
+    ]
+
+
+def test_dsl_rect_takes_edge_cuts_unfilled_only() -> None:
+    design = Design("explicit")
+    design.board(mm(10), mm(10))
+    design.rect("edge", (mm(0), mm(0)), (mm(10), mm(10)), layer="Edge.Cuts", width=mm("0.05"))
+    assert len(design.drawings) == 1
+    with pytest.raises(DslError, match="cannot be filled"):
+        design.rect("solid", (mm(1), mm(1)), (mm(2), mm(2)), layer="Edge.Cuts", width=mm("0.05"), fill=True)
 
 
 def test_dsl_lines_and_arcs_explicitly_take_edge_cuts() -> None:

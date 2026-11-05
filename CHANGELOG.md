@@ -1176,6 +1176,14 @@ All notable changes to Fenolite are documented here. The format follows
 
 ### Fixed
 
+- **Coincident tracks in strict level 5** (c0401): tracks, arcs or vias with the same key now match first
+  with an item whose width, net and lock are equal, so two coincident tracks of different widths written
+  in another order are no longer reported as two `track-width` differences. A changed width is still
+  reported. This was the cause of `kicad-demo-10-0-6-pcb-14`'s four differences.
+- **Rectangle board outlines** (c0401): an imported board whose outline is one root `gr_rect` on Edge.Cuts
+  keeps it as `design.rect(..., layer="Edge.Cuts")`, and the build writes it back as one `gr_rect` instead
+  of four `gr_line`. `design.rect` takes `Edge.Cuts` unfilled; a filled one is refused. This was the cause
+  of `kicad-demo-9-0-9-1-pcb-05`'s five `graphic-missing` differences.
 - **Exact copper arcs and bottom chamfers** (c0282): copper pairs, rule areas and curved board edges use exact circular distances instead of polygonisation bands, removing arc-band false clearance findings near limits while preserving the injected tolerance. Copper graphic arcs retain the same exact cores. Engineering analyses retain their bounded arc polylines. Bottom placement and derivation mirror chamfer corner names and retain their ratios; builds using this new mirror carry inferred evidence pending KiCad oracle confirmation.
 - **KiCad-job tests after c0250, c0252, c0253 and c0269**: the expected `fenolite check` stage lists of `test_canary` and `test_built_blink_before_routing` hold `circuit.rules` right after `model.validate`; the device build oracle test and the `sensor_rails` read-back accept the info findings `circuit.rating-missing` (shipped devices carry no ratings) and `build.block-port-merged` and nothing else; `tools/catalog/golden.py` leaves out the files later changes added (`LATER`: the base record `fenolite-base.json`) and their entry in the `files` map of `.fenolite/build.json`, whose other bytes still equal the c0259 golden.
 - **ERC fact fixture after c0247**: the `pin_not_driven` control of the ERC facts (`tests/kicad/check/_erccases.py`) no longer edits the blink's former `no_connect(...)` line, which c0247 replaced with `u1.unused_no_connect()`; it connects the two input pins and lets the build's unused-pin request leave them unmarked. The recorded probe outcomes do not change.

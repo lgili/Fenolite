@@ -697,7 +697,8 @@ Everything below is a Fenolite choice built on the facts above; `pcb.WRITE_EVIDE
   property) `"kicad-out:<owner id>:<part>"`.
 - **Outline.** A non-empty `Board.outline` becomes one `gr_line` per edge of the outer ring and of each
   cutout, closing every ring, on `Edge.Cuts` with `(stroke (width 0.1) (type solid))` (the skeleton's
-  stroke), parts `outline:<ring>:<k>`. With explicit root lines/arcs on an `edge` layer (c0349),
+  stroke), parts `outline:<ring>:<k>`. With explicit root lines/arcs or unfilled rects on an `edge` layer
+  (c0349; rects c0401, so a `gr_rect` outline is written back as one `gr_rect`),
   the writer reconstructs the complete logical outline from root and footprint edges using the existing
   endpoint-chaining contract. Exact agreement of complete edge-text multisets emits the explicit root
   graphics without synthetic outline edges; failed, ambiguous or inconsistent reconstruction gives
