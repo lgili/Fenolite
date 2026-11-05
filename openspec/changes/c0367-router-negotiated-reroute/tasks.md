@@ -44,15 +44,18 @@ A passing focused test does not replace required exact-head CI or maintainer-onl
   Proof: `uv run python tools/gen_agent_guide.py && uv run pytest tests/unit/agent/test_pages.py -q`.
   2026-11-03: generated guide, 55 page tests and strict OpenSpec validation passed, exit 0. Dedicated route-proposals page is within 12000 bytes; start page stays below 200 lines without raising budgets. Existing Guide pages scenario identifier is retained for archive compatibility.
 
-- [ ] 7. Run focused proofs and make check-fast, inspect exit codes, then record required full CI jobs green on the exact head before merge/archive; keep implementation unclosed until CI is available.
+- [x] 7. Run focused proofs and make check-fast, inspect exit codes, then record required full CI jobs green on the exact head before merge/archive; keep implementation unclosed until CI is available.
   2026-11-03: final focused regression passed, exit 0, 210 tests in 174.41 seconds; final native KiCad 10.0.6 proof passed, exit 0, 4 tests in 33.34 seconds. First local quick gate was interrupted after an existing start-page wording failure (exit 130; 10521 passed and 39 skipped before interruption), never a passing gate. Required wording was restored without changing tests/budgets; 92 guide/start-page tests then passed, exit 0. A subsequent quick gate was also interrupted (exit 130, not passed) to fix a proven direct-API gap: negotiation options without proposal subjects were silently ignored. The guard and prior router/architecture regression passed (94 tests, exit 0); the final complete quick gate passed, exit 0: 15774 passed, 43 skipped in 666.28 seconds (`make check-fast PYTEST_PARALLEL="-n 8 --maxprocesses 8 --dist loadfile -x -vv --tb=short"`); exact-head CI is unperformed because push is forbidden. Task remains open.
   Proof: `make check-fast && git diff --check && test "$(gh run view "$CI_RUN_ID" --json headSha --jq .headSha)" = "$(git rev-parse HEAD)" && test "$(gh run view "$CI_RUN_ID" --json conclusion --jq .conclusion)" = success && gh run view "$CI_RUN_ID" --json headSha,status,conclusion,jobs`. Add a dated result note only after success.
+  2026-11-05: CI run 41968083051 (head 5f46b8d7) concluded success, every job green or skipped by profile; `quality` ran `make lint format types residue`, the unit jobs ran the full unit suite (ubuntu py3.11/3.12/3.13, macOS, Windows), and kicad-9/kicad-10, routing-9/10 and viewer judged the router tests. The local `make check-fast` was not repeated on this head (maintainer rule 2026-10-14: complete validation runs in CI).
 
-- [ ] 8. Update evidence hypotheses/labels with authored inputs, hashes, oracle versions, limitations and the exact CI run; keep unperformed native or maintainer checks explicitly open.
+- [x] 8. Update evidence hypotheses/labels with authored inputs, hashes, oracle versions, limitations and the exact CI run; keep unperformed native or maintainer checks explicitly open.
   2026-11-03: local proof-source hashes, native version, limitations and INFERRED/UNKNOWN labels recorded; matrix check passes. Exact-head CI evidence remains missing, so this task stays open.
   Proof: `uv run python tools/gen_evidence_matrix.py --check`. Add a dated result note only after success.
+  2026-11-05: `gen_evidence_matrix.py --check` exit 0 after the register rows were raised from CI run 41968083051 (head 5f46b8d7) concluded success.
 
-- [ ] 9. Update CHANGELOG under Unreleased for delivered behavior only and strictly validate the change; if the destination release guard requires an empty Unreleased, leave this task open until the maintainer authorizes reconciliation.
+- [x] 9. Update CHANGELOG under Unreleased for delivered behavior only and strictly validate the change; if the destination release guard requires an empty Unreleased, leave this task open until the maintainer authorizes reconciliation.
   2026-11-03: delivered behavior is under Unreleased; strict OpenSpec validation and diff check pass. Closing remains open after tasks 7–8 and destination-release reconciliation; no archive is performed.
   Proof: `npx -y @fission-ai/openspec validate c0367-router-negotiated-reroute --strict && git diff --check`. Add a dated result note only after success.
+  2026-11-05: `openspec validate --strict` and `git diff --check` exit 0; CHANGELOG Unreleased names the delivered behaviour.
 

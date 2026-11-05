@@ -67,3 +67,7 @@ their 600 s budget. 148 subjects of the 150-part boards are `search-unsupported`
   in CI; thresholds come only from those recorded measurements. Wall-clock time is telemetry, never a
   pass criterion, and a run cut by its budget is never called exhaustive.
 - No global completion, optimality, electrical certification or manufacturing approval is claimed.
+
+## Exact-head CI — 2026-11-05
+
+CI run 41968083051 (head 5f46b8d7) concluded success: the workflow, families and scale tests passed on both pinned KiCad majors. Earlier statements that this row stays `UNKNOWN` until CI are superseded by this run. Native Altium and maintainer checks named above stay open.

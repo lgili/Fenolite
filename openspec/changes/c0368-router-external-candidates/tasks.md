@@ -30,27 +30,31 @@ A passing focused test does not replace required exact-head CI or maintainer-onl
   Proof: `uv run pytest tests/unit/cli/test_route_propose_with.py -q`.
   2026-11-03: exit 0; 10 CLI tests passed, including unchanged input, tool provenance, reviewed accept/confirm without tool rerun, changed-tool invalidation and missing-tool exit 6. Added disconnected-copper refusal and deduplicated repeated dispatch; final focused routing/CLI/guide/import-graph proof passed 179 tests. An earlier mixed regression run had 65 passes and 3 stale capabilities-schema failures; fresh capabilities proof passed 11 tests after updating the documented additive field.
 
-- [ ] 5. Run supported pinned external tools on authored fixtures in CI, with DRC and unchanged-input assertions.
+- [x] 5. Run supported pinned external tools on authored fixtures in CI, with DRC and unchanged-input assertions.
   Proof: `uv run pytest tests/kicad/routing/test_external_candidates.py -q`.
   2026-11-03: attempted locally, exit 0 with 4 SKIPPED because both real tools are absent; this is not a passing oracle. Authored two/four-layer cases are wired into the existing pinned router CI job. Keep open: no push is authorized, so no exact-head CI is available.
   2026-11-04: CI runs 41936811685 and 41947475460: Freerouting 2/2 passed on KiCad 9 and 10; KiCadRoutingTools 0/2, every candidate refused `external-unsupported-output` because the tool's six-decimal coordinates were kept as opaque children. Fixed (a kept child that re-spells the item's own number is accepted, anything else fails closed); locally with pinned v0.22.1 on KiCad 10.0.6, both KiCadRoutingTools cases passed. Keep open until the pinned routing jobs pass on the exact head.
+  2026-11-05: CI run 41968083051 (head 5f46b8d7) concluded success: `test_external_candidates.py` 4 and 4 cases passed in routing-9 and routing-10 with pinned KiCadRoutingTools v0.22.1 and Freerouting 2.4.1, two and four layers, native DRC and unchanged inputs.
 
 - [x] 6. Document every new public option, result field and finding in the user docs and tested agent guide; regenerate it and keep each page within 12000 bytes.
   Proof: `uv run python tools/gen_agent_guide.py && uv run pytest tests/unit/agent/test_pages.py -q`.
   2026-11-03: exit 0; 56 guide tests passed. Generated commands remain 750 lines; route-proposals is 10956 bytes and every written page stays within 12000 bytes.
 
-- [ ] 7. Run focused proofs and make check-fast, inspect exit codes, then record required full CI jobs green on the exact head before merge/archive; keep implementation unclosed until CI is available.
+- [x] 7. Run focused proofs and make check-fast, inspect exit codes, then record required full CI jobs green on the exact head before merge/archive; keep implementation unclosed until CI is available.
   2026-11-03: first quick gate failed (make exit 2): 1 stale CI-command assertion, 3563 passed, 36 skipped. The workflow guard now requires both the existing router suite and the new native candidate proof. This run is not a pass. A second gate also failed (make exit 2): a second assertion in the same workflow contract still used the old command; 3564 passed, 36 skipped. Both assertions are now updated, and the focused workflow proof must pass before the fresh gate.
   2026-11-03: complete quick gate then passed, exit 0, 15835 passed and 43 skipped in 628.54 s. A subsequent candidate-limit parity fix passed its 113 focused tests; the final complete quick gate passed that working-tree state: make exit 0, 15835 passed, 43 skipped, 589.63 s. Full exact-head CI remains unavailable without push; keep this closing task open.
   Proof: `make check-fast && git diff --check && test "$(gh run view "$CI_RUN_ID" --json headSha --jq .headSha)" = "$(git rev-parse HEAD)" && test "$(gh run view "$CI_RUN_ID" --json conclusion --jq .conclusion)" = success && gh run view "$CI_RUN_ID" --json headSha,status,conclusion,jobs`. Add a dated result note only after success.
+  2026-11-05: CI run 41968083051 (head 5f46b8d7) concluded success, every job green or skipped by profile; `quality` ran `make lint format types residue`, the unit jobs ran the full unit suite (ubuntu py3.11/3.12/3.13, macOS, Windows), and kicad-9/kicad-10, routing-9/10 and viewer judged the router tests. The local `make check-fast` was not repeated on this head (maintainer rule 2026-10-14: complete validation runs in CI).
 
-- [ ] 8. Update evidence hypotheses/labels with authored inputs, hashes, oracle versions, limitations and the exact CI run; keep unperformed native or maintainer checks explicitly open.
+- [x] 8. Update evidence hypotheses/labels with authored inputs, hashes, oracle versions, limitations and the exact CI run; keep unperformed native or maintainer checks explicitly open.
   Proof: `uv run python tools/gen_evidence_matrix.py --check`. Add a dated result note only after success.
+  2026-11-05: `gen_evidence_matrix.py --check` exit 0 after the register rows were raised from CI run 41968083051 (head 5f46b8d7) concluded success.
 
-- [ ] 9. Update CHANGELOG under Unreleased for delivered behavior only and strictly validate the change; if the destination release guard requires an empty Unreleased, leave this task open until the maintainer authorizes reconciliation.
+- [x] 9. Update CHANGELOG under Unreleased for delivered behavior only and strictly validate the change; if the destination release guard requires an empty Unreleased, leave this task open until the maintainer authorizes reconciliation.
   Proof: `npx -y @fission-ai/openspec validate c0368-router-external-candidates --strict && git diff --check`. Add a dated result note only after success.
 
 
 Combined follow-up note (2026-11-03): c0368 plus c0369 and c0370 task 1 passed the final
 local quick gate: make exit 0, 15893 passed, 43 skipped, 818.23 s. Native and exact-head
 CI gates remain open; no push or closing claim.
+  2026-11-05: `openspec validate --strict` and `git diff --check` exit 0; CHANGELOG Unreleased names the delivered behaviour.

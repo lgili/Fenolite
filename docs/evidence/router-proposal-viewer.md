@@ -70,3 +70,7 @@ the c0369 board-viewer requirements: candidate copper is dashed cyan with square
 copper; unmeasured facts read `unknown`; the panel states that nothing is selected for acceptance and offers no
 project-writing action; the bundle view names the atomic unit, both members and the bound input fingerprint; text is
 legible without overlap. The reference test passes only when the next pinned CI viewer job matches these bytes.
+
+## Exact-head CI — 2026-11-05
+
+CI run 41968083051 (head 5f46b8d7) concluded success: H-G-PROP-REFERENCE is INFERRED: the pinned viewer job matched the reviewed references. Earlier statements that this row stays `UNKNOWN` until CI are superseded by this run. Native Altium and maintainer checks named above stay open.

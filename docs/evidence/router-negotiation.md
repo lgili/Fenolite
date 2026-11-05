@@ -75,3 +75,7 @@ These hashes identify local proof inputs, not an unpublished commit or a CI run.
 | `tests/unit/routing/test_negotiate_candidates.py` | `1f6dd30c5e56677b82653294d2aa4364705adeea021dc59fa2505aaab0c7ebb9` |
 | `tests/unit/cli/test_route_bundles.py` | `1dc6a75c74b6c728bd2da70e8dcda93ed854a956a3890d6b91414deea966732a` |
 | `tests/kicad/routing/test_negotiate.py` | `a31c019ba42995d110a0caeac8ec1279bc1398be4b02a678816645b5e15c773d` |
+
+## Exact-head CI — 2026-11-05
+
+CI run 41968083051 (head 5f46b8d7) concluded success: H-K-ROUTE-NEGOTIATE is KICAD-VERIFIED (9.0.x, 10.0.x). Earlier statements that this row stays `UNKNOWN` until CI are superseded by this run. Native Altium and maintainer checks named above stay open.

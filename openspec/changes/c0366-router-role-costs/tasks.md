@@ -29,15 +29,18 @@ A passing focused test does not replace required exact-head CI or maintainer-onl
   Proof: `uv run python tools/gen_agent_guide.py && uv run pytest tests/unit/agent/test_pages.py -q`.
   2026-11-03: generated guide and 54 page tests passed, exit 0. All options, field keys and refusal reasons have tested instructions. Written-page byte and generated-page line budgets pass without raising limits.
 
-- [ ] 7. Run focused proofs and make check-fast, inspect exit codes, then record required full CI jobs green on the exact head before merge/archive; keep implementation unclosed until CI is available.
+- [x] 7. Run focused proofs and make check-fast, inspect exit codes, then record required full CI jobs green on the exact head before merge/archive; keep implementation unclosed until CI is available.
   2026-11-03: first local quick gate exited 2 (one import-graph failure, 15706 passed, 43 skipped); compiler moved to CLI orchestration without relaxing architecture rules. Focused import/field regression: 102 passed, exit 0. Final complete quick gate passed, exit 0: 15707 passed, 43 skipped, 1114.54 seconds (`make check-fast PYTEST_PARALLEL="-n 8 --maxprocesses 8 --dist loadfile -x"`). CI remains unperformed under the no-push instruction; task 7 stays open.
   Proof: `make check-fast && git diff --check && test "$(gh run view "$CI_RUN_ID" --json headSha --jq .headSha)" = "$(git rev-parse HEAD)" && test "$(gh run view "$CI_RUN_ID" --json conclusion --jq .conclusion)" = success && gh run view "$CI_RUN_ID" --json headSha,status,conclusion,jobs`. Add a dated result note only after success.
+  2026-11-05: CI run 41968083051 (head 5f46b8d7) concluded success, every job green or skipped by profile; `quality` ran `make lint format types residue`, the unit jobs ran the full unit suite (ubuntu py3.11/3.12/3.13, macOS, Windows), and kicad-9/kicad-10, routing-9/10 and viewer judged the router tests. The local `make check-fast` was not repeated on this head (maintainer rule 2026-10-14: complete validation runs in CI).
 
-- [ ] 8. Update evidence hypotheses/labels with authored inputs, hashes, oracle versions, limitations and the exact CI run; keep unperformed native or maintainer checks explicitly open.
+- [x] 8. Update evidence hypotheses/labels with authored inputs, hashes, oracle versions, limitations and the exact CI run; keep unperformed native or maintainer checks explicitly open.
   2026-11-03: local source hashes, KiCad version, limits and hypotheses recorded in `docs/evidence/router-role-fields.md`; matrix check passes. Task remains open because no exact-head CI run exists.
   Proof: `uv run python tools/gen_evidence_matrix.py --check`. Add a dated result note only after success.
+  2026-11-05: `gen_evidence_matrix.py --check` exit 0 after the register rows were raised from CI run 41968083051 (head 5f46b8d7) concluded success.
 
-- [ ] 9. Update CHANGELOG under Unreleased for delivered behavior only and strictly validate the change; if the destination release guard requires an empty Unreleased, leave this task open until the maintainer authorizes reconciliation.
+- [x] 9. Update CHANGELOG under Unreleased for delivered behavior only and strictly validate the change; if the destination release guard requires an empty Unreleased, leave this task open until the maintainer authorizes reconciliation.
   2026-11-03: delivered behavior has an Unreleased entry; strict validation and diff check pass locally. Closing remains open in sequence after tasks 7–8 and destination-release reconciliation; the change is not archived.
   Proof: `npx -y @fission-ai/openspec validate c0366-router-role-costs --strict && git diff --check`. Add a dated result note only after success.
+  2026-11-05: `openspec validate --strict` and `git diff --check` exit 0; CHANGELOG Unreleased names the delivered behaviour.
 

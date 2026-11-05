@@ -82,3 +82,7 @@ The final snapshot supersedes the interrupted snapshots above. No full local `ma
 was run. Required pinned CI on an implementation commit remains unrun. A local commit was authorized
 on 2026-11-03; push remains unauthorized. c0365 tasks 1–6 are implemented with focused proofs; closing tasks 7–9
 remain open and the change is not archived. c0366–c0370 remain unimplemented proposals.
+
+## Exact-head CI — 2026-11-05
+
+CI run 41968083051 (head 5f46b8d7) concluded success: H-K-SEARCH-DRC is KICAD-VERIFIED (9.0.x, 10.0.x). Earlier statements that this row stays `UNKNOWN` until CI are superseded by this run. Native Altium and maintainer checks named above stay open.

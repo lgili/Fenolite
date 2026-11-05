@@ -67,3 +67,7 @@ H-G-SEARCH-ROLE-FIELDS and H-G-SEARCH-ROLE-COSTS are INFERRED from authored proo
 H-K-SEARCH-ROLE-DRC remains UNKNOWN until required pinned CI targets judge the exact implementation
 commit. Local KiCad 10.0.6 success does not establish KiCad 9 parity, native Altium verification,
 arbitrary-board completion, exhaustive exploration or electrical certification.
+
+## Exact-head CI — 2026-11-05
+
+CI run 41968083051 (head 5f46b8d7) concluded success: H-K-SEARCH-ROLE-DRC is KICAD-VERIFIED (9.0.x, 10.0.x). Earlier statements that this row stays `UNKNOWN` until CI are superseded by this run. Native Altium and maintainer checks named above stay open.

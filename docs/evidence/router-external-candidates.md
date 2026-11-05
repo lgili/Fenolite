@@ -79,3 +79,7 @@ No new vendor format fact is introduced; existing adapters and their registered 
 | `tests/unit/routing/test_external_candidate_budget.py` | `498df87bdf7fa9ece21bfa019bcdc65b874904be574820e209c8a360c6c66607` |
 | `tests/unit/cli/test_route_propose_with.py` | `c266df0fc2086334b66df386c05542bc482f471110ced3c1a3fda9a8ec50b0d0` |
 | `tests/kicad/routing/test_external_candidates.py` | `177d98bae2fdb4e7bfdc3d6992eae631094d948e11cbc6fe90586ad1a15c695d` |
+
+## Exact-head CI — 2026-11-05
+
+CI run 41968083051 (head 5f46b8d7) concluded success: H-K-EXTERNAL-CANDIDATES is KICAD-VERIFIED (9.0.x, 10.0.x); both pinned tools passed. Earlier statements that this row stays `UNKNOWN` until CI are superseded by this run. Native Altium and maintainer checks named above stay open.
