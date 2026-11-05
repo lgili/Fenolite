@@ -2,9 +2,7 @@
 
 ## Purpose
 Map what the Altium readers return onto the design model: units and frame, identifiers and provenance, layers, nets, footprints, padstacks, copper, zones, outline, the circuit of a schematic with its hierarchy, buses and harnesses, rules and libraries. It defines the registered Altium backend, the import issue codes, the count of unmapped records and the oracles that judge the result.
-
 ## Requirements
-
 ### Requirement: Adapter package
 Fenolite SHALL provide the adapter from the Altium readers' records into the neutral model as the package `fenolite.backends.altium.adapter`.
 - It MUST export `import_board(doc, *, file, sha256, issues=None) -> Design`, `import_circuit(sheets, *, options=NetOptions(), issues=None) -> Circuit`, `import_project(project: ProjectInput, *, issues=None) -> Design`, `import_footprints(library, *, name, file, sha256, issues=None) -> Library`, `import_symbols(library, *, name, file, sha256, issues=None) -> Library`, `netlist(sheets, *, options=NetOptions(), issues=None) -> Netlist`, the dataclasses `SheetInput`, `BoardInput`, `RulesInput`, `ProjectInput`, `NetOptions`, `Netlist`, `NetGroup`, `BusGroup`, `HarnessGroup` and `PinKey`, the tables `LAYERS`, `PIN_TYPES`, `EXT_KEYS` and `IMPORT_ISSUE_CODES`, and `EVIDENCE`.
@@ -890,3 +888,50 @@ When the current footprint model of a schematic component carries a pin map, the
 #### Scenario: An authored document without models
 - **WHEN** `uv run pytest tests/unit/backends/altium/test_models3d.py` reads `tests/data/altium/body2/body2.PcbDoc`
 - **THEN** `body_models` returns an empty tuple and raises nothing
+
+### Requirement: Board cut-outs and free holes of a document
+The import SHALL give a region whose keys make a board cut-out as `Edge.Cuts` graphics of width 0 (a polygon, or lines and arcs from shape-based vertices), so `board_outline` takes it as a cut-out. A free pad on Multi-Layer without name, net or copper ring SHALL become a board `Hole` with its drill, plating, slot length and rotation; every other free pad stays a board-only footprint.
+
+#### Scenario: Written fixture read back
+- **GIVEN** the shared fixture built for Altium with `pcbdoc.CUTOUT_REGIONS` true in the test
+- **WHEN** `uv run pytest tests/unit/backends/altium/adapter/test_free_holes.py` imports the document
+- **THEN** `Board.holes` holds the round hole `H1`, `edge_outline` gives the three cut-out rings within 1 µm, and no board-only footprint is made for them
+
+### Requirement: A pin stays on the net of the sheets
+The Altium import SHALL keep a pin on the net of the sheets only, when the PCB document puts its pad on a
+net that no sheet holds; the pad SHALL keep its own net on the board, the import SHALL report
+`altium.import.pcb-net-conflict` (warning) naming each such pin with both net names, and no pin SHALL be
+a member of two nets of the circuit.
+
+#### Scenario: A board out of sync with its schematic
+- **WHEN** a pad's PCB net `SHIELD` is no net of the sheets and its pin is on the sheets' net `Vin`
+- **THEN** the circuit's `SHIELD` net does not list the pin, the board pad keeps `SHIELD`
+- **AND** `altium.import.pcb-net-conflict` names the pin with `Vin` and `SHIELD`
+
+### Requirement: Copper fills and regions of a net
+The Altium reader SHALL import a free fill or region on a copper layer as a filled graphic whose `net_id`
+is the net of its record (none for a record without a net), keeping the net's name in the extension bag. A
+KiCad conversion SHALL write such a graphic on its net, and the copper check SHALL judge it as copper of
+that net. A fill or region off copper SHALL have no net.
+
+#### Scenario: A region and a fill on the net of a pad
+- **WHEN** an Altium document holds a region and a fill on a copper layer of net `GND`
+- **THEN** both graphics carry the id of `GND` as `net_id`
+- **AND** the converted KiCad board writes them with `(net "GND")` and verifies without unexplained differences
+
+### Requirement: Outline arcs end on their vertices
+The Altium reader SHALL take an arc vertex k of the board outline as the arc from vertex k to vertex k+1.
+When both ends computed from the arc's centre, radius and angles lie within 10 µm of those two vertices,
+the arc's graphic MUST start and end exactly on the two vertices, its middle point coming from the centre
+and the angles; otherwise it MUST keep its computed ends. The fact is recorded with its evidence in
+`docs/formats/altium/pcb-document.md` ("Outline arcs").
+
+#### Scenario: An arc whose end vertex lies off its circle
+- **WHEN** a board outline holds an arc of 100 mil whose end vertex lies 0.2 mil off the arc's circle
+- **THEN** the arc graphic ends on that vertex, where the next line starts
+- **AND** the edge ring of the source equals the edge ring KiCad reads back from the written board
+
+#### Scenario: An arc far from its vertices
+- **WHEN** an arc's computed end lies more than 10 µm from its vertex
+- **THEN** the arc keeps the ends of its centre, radius and angles
+

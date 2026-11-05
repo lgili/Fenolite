@@ -1563,3 +1563,34 @@ A canonical component MAY be explicitly BOM-only without a board footprint insta
 - **THEN** a located existing input error refuses before a write plan, even with loss acceptance
 - **AND** equal flags and independently preserved both-excluded opaque units retain their existing behavior
 
+### Requirement: Slotted board holes
+`Hole` SHALL hold `length: Nm | None = None` and `rotation: Udeg = 0`. With `length`, the hole is a drilled slot of width `drill` and overall length `length`, its length axis turned by `rotation` in the model frame; `length` MUST exceed `drill`. The canonical writer MUST omit both at their defaults, so a document without slotted holes keeps its bytes; release 0.4.x cannot read a document that carries them.
+
+#### Scenario: A slotted hole round-trips
+- **GIVEN** a board `Hole` of drill 2 mm, length 12 mm and rotation 90°
+- **WHEN** `uv run pytest tests/unit/model/test_hole_slots.py` dumps and loads it
+- **THEN** it is equal, and a round hole's document keeps its bytes
+
+### Requirement: Panels in the model
+`model.panel.Panel` SHALL be a frozen entity with `name`, `source`, `array` (rows, cols, gaps, a quarter-turn rotation in µdeg, `mirrored`), `fit`, `frame` (four rail widths), `separations`, `tabs`, `vscore`, `fiducials`, `tooling_holes`, `fiducial_set`, `tooling_set` and `limits`, lengths in `Nm`. It SHALL be written as canonical JSON `panel.json` (schema `fenolite.panel_model.v0`); the writer MUST omit defaults.
+
+#### Scenario: A panel round-trips
+- **GIVEN** a `Panel` of a 2 × 4 grid with rails, tabs between columns and V-score between rows
+- **WHEN** `uv run pytest tests/unit/model/test_panel.py` dumps it with `canonical.dumps` and reads it with `canonical.loads`
+- **THEN** the loaded panel equals the original, and its schema check passes
+
+#### Scenario: A rotation that is no quarter turn
+- **WHEN** a `PanelArray` with rotation 45 000 000 µdeg is made
+- **THEN** it raises `ValueError` naming the rotation
+
+### Requirement: Explicit project curve approximation setting
+Board SHALL append optional max_curve_error as positive exact integer nanometres, rejecting booleans and nonintegers. None SHALL preserve legacy defaults and canonical bytes. The setting SHALL describe target-project configuration, not a universal algorithmic guarantee.
+
+#### Scenario: Exact setting survives
+- **WHEN** code requests max_curve_error10000nm
+- **THEN** canonical/schema/DSL and supported target project read/write preserve that exact setting
+
+#### Scenario: No requested setting
+- **WHEN** an authored board omits max_curve_error
+- **THEN** existing authored outputs remain byte-identical
+

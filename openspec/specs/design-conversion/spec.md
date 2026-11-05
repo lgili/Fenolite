@@ -114,12 +114,22 @@ The direction from KiCad to Altium SHALL project the footprint items of the sour
 - **THEN** the import equals the source at level 5 under the profile `kicad-import`, and the probe `convert-triangle` records `equal`
 
 ### Requirement: Changes of the Altium direction
-In the report of the direction from KiCad to Altium, a polygon written unpoured (kind `zone-fill`) and a schematic generated from the circuit (kind `schematic`) SHALL be counted under `changed`, not `lost`, each under its reason.
+In the report of the direction from KiCad to Altium, a polygon whose fill is not carried from the source (kind `zone-fill`) and a schematic generated from the circuit (kind `schematic`) SHALL be counted under `changed`, not `lost`, each under its reason.
+
+#### Scenario: Detailed contract for changes of the altium direction
+- **WHEN** this behavior is exercised
+- **THEN** the following detailed conditions MUST hold:
+
+In the report of the direction from KiCad to Altium, a polygon whose fill is not carried from the source (kind `zone-fill`) and a schematic generated from the circuit (kind `schematic`) SHALL be counted under `changed`, not `lost`, each under its reason. The reason of `zone-fill` MUST be "a polygon is written unpoured; Altium fills it on a repour" with the pour mode `outline`, and "the pour is computed by Fenolite from the written document (experimental)" for a polygon poured with `computed`; a polygon refused with `computed` keeps the first reason.
 
 #### Scenario: Unpoured polygon is a change
 - **GIVEN** the routed two-layer KiCad sample, whose board holds a filled zone
-- **WHEN** it is converted to Altium
-- **THEN** the row `zone-fill` has `changed` above 0 and `lost` 0, and the row `schematic` has `changed` 1 and `lost` 0
+- **WHEN** it is converted to Altium with `--altium-pour outline`
+- **THEN** the row `zone-fill` has `changed` above 0 and `lost` 0 with the reason of an unpoured polygon, and the row `schematic` has `changed` 1 and `lost` 0
+
+#### Scenario: Computed polygon is a change
+- **WHEN** the same sample is converted with `--altium-pour computed`
+- **THEN** the row `zone-fill` has `changed` above 0 and `lost` 0 with the reason of a computed pour
 
 ### Requirement: KiCad to KiCad direction
 The direction from KiCad to KiCad SHALL, for a target major not older than the source's, write the board read from the source with `write_board` for the target, the project file updated from the source's, and the rules file re-written for the target. Schematic files MUST be copied unchanged when the source's major equals the target and MUST otherwise be reported as not converted.
@@ -304,4 +314,101 @@ Altium-to-KiCad conversion SHALL preserve interior ASCII spaces in a portable de
 - **WHEN** their derived KiCad project is written and read
 - **THEN** both names retain distinct matching board links and library files
 - **AND** a deliberate rename still produces a footprint-name difference
+
+### Requirement: KiCad to Altium closes the measured losses
+`fenolite convert --to altium` SHALL write every KiCad 10.0.6 demo board of the corpus, and its report SHALL lose no pad for a per-layer stack of plain shapes, a connector pad or a pad without a number, and no drawing or text on a layer of `lower.KICAD_MECHANICAL` or on a copper layer. `docs/evidence/conversion.md` MUST hold, per board, the counts per kind and reason before and after this change.
+
+#### Scenario: Census after the change
+- **WHEN** `uv run pytest tests/corpus/test_convert_census.py -rA` runs with the corpus cached
+- **THEN** all 18 demo boards are written, no board gives `convert.unexplained`, and the lost `pad` rows hold only custom shapes
+
+#### Scenario: Part T recorded
+- **GIVEN** the maintainer's author report of Part T in `docs/evidence/altium-pcb.md`
+- **WHEN** `uv run pytest tests/unit/test_hypotheses_register.py tests/unit/test_provenance.py` runs
+- **THEN** the rows of this change name the report with the tool, the date and no artefact, and no write kind is marked out of `experimental`
+
+### Requirement: Conversion of a source without a PCB design
+`convert` SHALL refuse a source whose design has no PCB with `FEN-3001` (exit 3) before a direction
+writes anything. The message SHALL name the PCB documents the project declares and lacks, or say that
+the project declares no PCB document. It SHALL NOT fail with an internal error.
+
+#### Scenario: An Altium project whose PcbDoc is missing
+- **WHEN** an Altium project declares `PCB/Board.PcbDoc`, that file is absent, and `fenolite convert --to kicad` runs
+- **THEN** the command exits 3 with `FEN-3001` and the message names `PCB/Board.PcbDoc`
+- **AND** no file is planned
+
+### Requirement: Board comparison of placed components
+The verification of a conversion that wrote a schematic SHALL compare the written board with the
+components that have a footprint on the board, and SHALL leave the other components to the comparison of
+the written schematic. A component without a footprint that the written schematic lacks SHALL still be
+reported. A conversion without a written schematic SHALL compare every component with the board.
+
+#### Scenario: A schematic-only component
+- **WHEN** an Altium project holds a component that no footprint of its PCB places, and `fenolite convert --to kicad` runs
+- **THEN** no `convert.unexplained` names that component
+- **AND** the written schematic holds it
+
+### Requirement: Several footprints of one component
+The KiCad direction SHALL count each footprint of a source component that more than one footprint links
+as a changed `shared-footprint` item (class `report`), and the explanation SHALL explain a
+`ref-ambiguous` difference at its reference.
+
+#### Scenario: One component linked to two footprints
+- **WHEN** a source board links two footprints to one component and the conversion runs
+- **THEN** the report lists both footprints under `shared-footprint`
+- **AND** the `ref-ambiguous` difference of that reference is explained
+
+### Requirement: A refused generated schematic is a declared loss
+When the schematic generator of an Altium to KiCad conversion refuses the circuit, the conversion SHALL
+still write the board and its libraries, SHALL count the schematic as lost with a reason that needs
+`--allow-lossy`, and SHALL NOT report the generator's refusal as an error finding. The lost schematic SHALL
+explain the `component-missing` of each component that no footprint places.
+
+#### Scenario: A circuit larger than one A0 page
+- **WHEN** a PCB document alone holds more units than one A0 page and `fenolite convert --to kicad --allow-lossy` runs
+- **THEN** the plan holds the board and exits 0 or 5 without `build.schematic-too-large` as an error
+- **AND** without `--allow-lossy` the command exits 7 naming `schematic`
+
+### Requirement: Source sheets and pages of a generated schematic
+The schematic that an Altium to KiCad conversion generates SHALL place the parts of each source schematic
+document of a flat project on a KiCad sheet of its own, and SHALL spread a sheet that no paper holds over
+sibling pages before it refuses the circuit; a page SHALL be refused only when one part alone does not fit.
+The written sheets SHALL load in KiCad 9 and 10 with the source's netlist, and two conversions of one
+source SHALL write equal bytes.
+
+#### Scenario: A flat project of several sheets
+- **WHEN** a flat Altium project whose parts lie on two schematic documents is converted to KiCad
+- **THEN** each document's parts lie on `sheets/<document stem>.kicad_sch` under the root sheet
+- **AND** the conversion verifies without unexplained differences
+
+#### Scenario: A circuit larger than one page
+- **WHEN** a sheet of the generated schematic holds more units than one A0 page
+- **THEN** its parts are spread over `<sheet>-1`, `<sheet>-2`, … (`page-1`, … at the root)
+- **AND** KiCad's ERC reads every page and its exported netlist is the circuit's
+
+### Requirement: Boards that place other PCB documents are refused losses
+A conversion from an Altium PCB document whose `EmbeddedBoards6` storage holds records SHALL count the
+document once under the kind `embedded-board`, lost with a reason that needs `--allow-lossy`, until the
+records are read. The detection SHALL use only the storage's record count and data length.
+
+#### Scenario: A board that places other boards
+- **WHEN** a project's board holds an Embedded Board Array and `fenolite convert --to kicad` runs without `--allow-lossy`
+- **THEN** the command exits 7 naming `embedded-board`
+- **AND** with `--allow-lossy` the report lists the document as lost with its reason
+
+### Requirement: Embedded board arrays are read and named
+The Altium reader SHALL read each record of `EmbeddedBoards6` as an array: its referenced document, location,
+rotation, mirror, column and row counts, column and row pitch, and Link Location. A storage whose `Header`
+count differs from its records, or a record without one of these keys, SHALL be refused as unreadable.
+A conversion SHALL list each array as one `embedded-board` item named by the document, the array's number,
+the referenced document and its columns and rows, and SHALL keep the loss refused while the copies'
+placement is not measured.
+
+#### Scenario: A panel of two arrays
+- **WHEN** a board holds two arrays and `fenolite convert --to kicad --allow-lossy` runs
+- **THEN** the `embedded-board` row counts 2 items, each named with its referenced document and counts
+
+#### Scenario: Records that do not read
+- **WHEN** the `Header` count differs from the records of `EmbeddedBoards6`
+- **THEN** the reader refuses the storage and the conversion names the document alone
 

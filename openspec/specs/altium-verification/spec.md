@@ -704,3 +704,133 @@ The scope of RT-A2 (`backends/altium/roundtrip.RT_A2_SCOPE`, judged by `checks.r
 #### Scenario: KiCad reads the footprint lines of a rewrite
 - **WHEN** `uv run pytest tests/kicad/altium/test_fpitems_oracle.py -rA` runs on KiCad 10.0.6 with the corpus cached
 - **THEN** for each own document and each listed public document, the board that `kicad-cli pcb import` gives for the rewrite holds, per footprint and layer class, as many lines and arcs as Fenolite's reading of the rewrite, and the probe `altium-fpitems-kicad` is `equal`
+
+### Requirement: Slots and cut-outs in the round trips
+RT-A0 and RT-A1 SHALL pass on the document of the shared fixture with slotted holes and cut-out regions, and RT-A2 SHALL compare board holes by position, drill, plating, length and rotation, and the cut-out rings of `edge_outline` with the written ones within 1 µm. A difference MUST be a finding naming the hole or the cut-out.
+
+#### Scenario: Fixture passes RT-A0 to RT-A2
+- **WHEN** `uv run pytest tests/unit/checks/test_rta2_slots.py` runs the three levels on the written fixture
+- **THEN** every level passes, and a cut-out moved by 2 µm in the read model gives one RT-A2 finding naming it
+
+### Requirement: Detached hole pads in RT-A3
+RT-A3 SHALL expect a pad that the write detaches as a free pad (a pad without a number) and whose copper is its hole as the board hole that the import makes of that free pad, with the pad's board position, drill, plating and, for a slot, length and rotation; any other detached pad stays expected as a free-pad footprint. A moved or resized hole MUST remain a difference of kind `hole`.
+
+#### Scenario: Round and slotted pads detached from a component
+- **GIVEN** a component footprint with an unnumbered round non-plated pad whose size is its drill and an unnumbered slotted one whose size is (length, drill)
+- **WHEN** the document is written, read again and judged by RT-A3
+- **THEN** the second reading holds both as board holes, the trip is equal, and the first hole moved by 0.1 mm gives differences of kind `hole` only
+
+### Requirement: Kit cases for slots and cut-outs
+`docs/evidence/altium-pcb.md` SHALL hold Part S, cases S1 to S8 of the design of change c0168, each with its expected outcome, and the maintainer's report SHALL be recorded in the form of the native acceptance inventory (date, version, case, file hash, step, expected and observed outcome, level) before `pcbdoc.CUTOUT_REGIONS` is set to true.
+
+#### Scenario: Gate follows the report
+- **WHEN** `uv run pytest tests/unit/test_altium_verification_docs.py -k part_s` runs
+- **THEN** it passes only when `CUTOUT_REGIONS` is false or Part S records S3, S4 and S5 as passed
+
+### Requirement: Formal Part S source-bound mapping
+The formal kit SHALL register S1–S8 as K5.6–K5.13 on a single Fenolite-authored
+slots sample. The sample fingerprint SHALL bind every regions, clearance and
+gate-off project, schematic and PCB, the gate-off report and authoring recipe.
+Every existing step, criterion and old sample input SHALL remain unchanged.
+The same single-version form and run-record schemas SHALL apply; historical
+observations of another version MUST NOT populate a falsely attributed run.
+H-A-SLOT-KIT SHALL pass only if every required Part S step passes.
+
+S7 SHALL use the existing four-hole/three-cut-out readback criterion within1µm
+and slot axis within0.001degree, without adding native DRC, SDK or reopen. The
+existing KitFile check enum SHALL gain only slots-readback; its schema ID,
+version, fields, all old values and refusal of unknown checks SHALL remain.
+No synthetic test or catalogue construction SHALL create native evidence, a
+real recorded run, H-A-SLOT-KIT promotion or writer graduation.
+
+#### Scenario: Every Part S case is required
+- **GIVEN** one Part S observation is missing or false, or S7 geometry differs
+- **WHEN** the formal kit verifies the run
+- **THEN** H-A-SLOT-KIT does not pass, while unrelated old sample criteria remain intact
+
+#### Scenario: Compatible check enum
+- **WHEN** existing and slots-readback KitFile documents are schema-validated
+- **THEN** both validate under the existing schema, unknown or malformed checks fail, and no schema field or ID changes
+
+### Requirement: Kit cases for Draftsman documents
+`docs/evidence/altium-draftsman.md` SHALL hold Part F: the observation files F0.1 to F0.14, the probes FP1 to FP5 and the cases F1 to F8 of change c0172's design, each with its expected outcome, and the maintainer's reports in the form of the native acceptance inventory. No Draftsman row MUST be `ALTIUM-VERIFIED` before its report is recorded.
+
+#### Scenario: Every case has an outcome to check
+- **WHEN** `uv run pytest tests/unit/test_altium_verification_docs.py -k part_f` runs
+- **THEN** F0.1 to F0.14, FP1 to FP5 and F1 to F8 each appear with an expected outcome, and no `H-A-DWF-*` row is `ALTIUM-VERIFIED` without a recorded report
+
+### Requirement: Kit cases for panels
+`docs/evidence/altium-pcb.md` SHALL hold Part Q, cases Q1 to Q12 of the design of change c0173, each with its steps for Altium Designer and its expected outcome; the maintainer's reports SHALL be recorded in the form of the native acceptance inventory, and saved native files MUST stay out of the repository.
+
+#### Scenario: Gate follows the report
+- **WHEN** `uv run pytest tests/unit/test_altium_verification_docs.py -k part_q` runs
+- **THEN** it passes only when `pcbdoc.EMBEDDED_ARRAYS` is false or Part Q records Q7, Q8 and Q9 as passed, and every case Q1 to Q12 has an expected outcome
+
+### Requirement: Kit group K6 for computed pours
+The kit SHALL include two- and four-layer computed/reference pour samples and manual K6.2-K6.11 checks. Each probe MUST have its own net and declared copper points. The sample paths, step outcomes and per-hypothesis criteria below MUST be retained.
+
+#### Scenario: Detailed contract for kit group k6 for computed pours
+- **WHEN** this behavior is exercised
+- **THEN** the following detailed conditions MUST hold:
+
+The kit SHALL hold the samples `pour` (two copper layers) and `pour4` (four copper layers with blind and buried vias and through-hole pads with inner shapes), built from `examples/kit/pour/design.py` and `examples/kit/pour4/design.py`, each written twice from one computation: `<sample>/computed/<sample>.PcbDoc` with the pour mode `computed`, and `<sample>/reference/<sample>.PcbDoc`, the same document without the regions of its polygons (`pour_regions=False`). Each probe of the design of change c0215 (P0 to P10) MUST be its own polygon on its own net and MUST declare its points where copper must stay or must be gone. `fenolite.verify.kit.steps.STEPS` SHALL gain these steps in group 6, after K6.1, which stays as it is; the kit MUST build `routed` with the pour mode `outline`, so that K6.1 still repours an unpoured board:
+
+| step | sample | what | kind | checks or expected value |
+|---|---|---|---|---|
+| K6.2 | pour | rebuild every polygon of `reference/` in the Polygon Manager and save | file | `repoured`, `pour-match` |
+| K6.3 | pour | Tools » Polygon Pours » Repour All on `reference/` by hand and save | file | `repoured`, `pour-same` with K6.2 |
+| K6.4 | pour | open `computed/` and save it without a repour | file | `resave`, `pour-kept` |
+| K6.5 | pour | the number of polygons of `computed/` that the Polygon Pour Manager lists as needing a repour | form, int | 0 |
+| K6.6 | pour | the number of violations of Design » Design Rule Check on `computed/` that name a polygon | form, int | 0 |
+| K6.7 | pour | Force Repour All on `computed/` and save | file | `repoured`, `pour-match`, `pour-same` with K6.2 |
+| K6.8 | pour | whether `PCB.Polygon.AdvancedPour` is off | form, bool | true |
+| K6.9 | pour4 | as K6.2 | file | `repoured`, `pour-match` |
+| K6.10 | pour4 | as K6.4 | file | `resave`, `pour-kept` |
+| K6.11 | pour4 | as K6.7 | file | `repoured`, `pour-match`, `pour-same` with K6.9 |
+
+- Every K6 step is manual: each that leaves a board ends in a save under a new name, which no public page names a call for (`script.NOT_SCRIPTED`). The pour samples are free documents (no project), so no step of theirs runs `parity`; `resave` is not a check of K6.2 and K6.9, whose saved board joins nets through the pour that the unpoured `reference/` leaves apart.
+- `repoured`: every polygon that its probe declares non-empty holds regions, the sentinel P0 among them; otherwise the step fails with "the repour did not run".
+- `pour-match`: `pourcompare.compare_pours` of the saved board against Fenolite's computed pour of the same sample passes M1 to M5 for every polygon.
+- `pour-same`: the saved board against the board of the named step passes M1 to M4.
+- `pour-kept`: the regions of every polygon of the saved board equal those Fenolite wrote within one unit.
+- The steps MUST name the hypotheses of the design of change c0215 that they settle: K6.2, K6.7, K6.9 and K6.11 `H-A-POUR-KIT`; K6.3 `H-A-POUR-SCRIPT`; K6.4, K6.5, K6.6 and K6.10 `H-A-POUR-OPEN` and `H-A-POUR-REGION`; K6.8 `H-A-POUR-ENGINE`.
+- The verdict of `pour-match` MUST name each failing probe. An input row of a probe (`H-A-POUR-CLEARANCE` to `H-A-POUR-VIAPAD`) MUST be settled by the probes that name it (the column "settled by" of the design of change c0215), not by whole steps: it passes when every `pour-match` passes for each of those probes, so that one failing probe fails only the rows it names.
+
+#### Scenario: A simulated run of the pour steps passes
+- **GIVEN** a kit whose `results/` for `pour` and `pour4` were filled by `tests/unit/verify/kit/_simulate.py`, with Fenolite's own pour standing in for Altium's repour
+- **WHEN** `uv run pytest tests/unit/verify/kit/test_results.py -k pour` verifies it
+- **THEN** every step of group 6 passes, and the verdict is marked synthetic
+
+#### Scenario: A repour that did not run
+- **GIVEN** the same run where the saved board of K6.2 is the reference input saved again without regions
+- **WHEN** it is verified
+- **THEN** K6.2 fails with "the repour did not run", and `H-A-POUR-KIT` fails
+
+#### Scenario: A neck removed differently
+- **GIVEN** the same run where the saved board of K6.2 keeps the 4.5-mil neck of probe P3
+- **WHEN** it is verified
+- **THEN** K6.2 fails on `pour-match` naming probe P3 and M2 at the neck's place, `H-A-POUR-KIT` and `H-A-POUR-NECK` fail, and `H-A-POUR-CLEARANCE` passes
+
+### Requirement: Pour census of the public corpus
+`tests/corpus/test_altium_pour_census.py` SHALL pour, with `pour.pour_reading`, every polygon of the public PCB documents of the corpus manifest (`altium-third-party-pcbdoc-01` to `-08`) and SHALL compare each polygon that is not refused with the regions the document holds, by M1 to M4 of `pourcompare.compare_pours`.
+
+#### Scenario: Detailed contract for pour census of the public corpus
+- **WHEN** this behavior is exercised
+- **THEN** the following detailed conditions MUST hold:
+
+`tests/corpus/test_altium_pour_census.py` SHALL pour, with `pour.pour_reading`, every polygon of the public PCB documents of the corpus manifest (`altium-third-party-pcbdoc-01` to `-08`) and SHALL compare each polygon that is not refused with the regions the document holds, by M1 to M4 of `pourcompare.compare_pours`. `docs/evidence/altium-pour.md` SHALL hold, per document: the polygons, the refused ones by reason, the compared ones, those that pass, and the worst M1 ratio and M2 difference. A failed comparison MUST be listed with its polygon and its place and MUST NOT fail the test: a saved pour may be stale, or poured by another version or with AdvancedPour. A pass supports `H-A-POUR-CORPUS` for that polygon only, at `CORPUS-VERIFIED`.
+
+#### Scenario: Census counts are pinned
+- **WHEN** `uv run pytest tests/corpus/test_altium_pour_census.py -rA` runs with the corpus fetched
+- **THEN** the counts per document equal those of `docs/evidence/altium-pour.md`, and every refused polygon has a reason of `pour.REASONS`
+
+### Requirement: Parity input names under project subfolders
+The `input` of a document command (`parity`, `check`, `roundtrip`) SHALL name the file by its path
+relative to the document set's root, in POSIX form, and SHALL hash that file. A PCB document that a
+project keeps in a subfolder SHALL be found where the project declares it.
+
+#### Scenario: Parity of a project whose PCB is in a subfolder
+- **WHEN** `fenolite parity` runs on an Altium project that declares `PCB/Board.PcbDoc`
+- **THEN** the command does not fail with `FEN-1001`
+- **AND** `input.path` is `PCB/Board.PcbDoc` and `input.sha256` is the SHA-256 of that file
+

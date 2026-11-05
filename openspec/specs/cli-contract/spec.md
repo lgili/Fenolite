@@ -540,19 +540,20 @@ When a command raises a `FenoliteError` whose `issues` attribute is a non-empty 
 - **THEN** it fails and names the command
 
 ### Requirement: Experimental features in capabilities
-`fenolite capabilities` SHALL fill `result.experimental` with one entry per experimental feature, sorted by `name`. Each entry MUST have exactly the keys `name`, `command`, `option`, `write_kinds` and `evidence`, the last written as `{level, oracle, hypotheses}` like the `evidence` of `CapabilityReport.to_json()`.
+`fenolite capabilities` SHALL fill `result.experimental` with one entry per experimental feature, sorted by `name`. Each entry MUST have the keys `name`, `command`, `option`, `write_kinds` and `evidence`; Altium entries additionally report the missing graduation conditions per kind, the last written as `{level, oracle, hypotheses}` like the `evidence` of `CapabilityReport.to_json()`.
 - An experimental feature MAY change its output, its options or its issue codes in any release. Its envelopes MUST NOT carry a level that `fenolite.verify.release_verified` accepts (`verification-evidence`, "Release-verified levels").
 - Listing the entries MUST NOT run an external tool, so `result.experimental` is the same with `--no-tools`. The module that defines an entry MUST be imported inside `cmd_capabilities._run`, not when `fenolite.cli.cmd_capabilities` is imported.
-- An experimental feature MUST NOT appear in `result.backends` unless it is a registered `Backend` (`backend-protocol`, "Backend registry"). Since change c0043 the registered backend `altium` reads Altium files; it lists no write kind, so the two writers below stay experimental features and are not part of its report.
+- An experimental feature MUST NOT appear in `result.backends` unless it is a registered `Backend` (`backend-protocol`, "Backend registry"). Since change c0043 the registered backend `altium` reads Altium files; it lists graduated write kinds, and the writers below list only their remaining experimental kinds.
 - `docs/cli-contract.md` MUST describe `result.experimental` under "Discovery".
-- Two entries are listed, in this order:
+- The following entries are listed, in this order, when they have at least one experimental kind; their `write_kinds` exclude graduated kinds:
   - `name` `altium-pcb-writer`, `command` `build`, `option` `--target altium`, `write_kinds` `["altium_pcbdoc", "altium_pcblib"]` (`fenolite.lens.altium.PCB_WRITE_KINDS`), and the evidence of `fenolite.lens.altium.PCB_BUILD_EVIDENCE` (`altium-build`, "PCB evidence and capabilities");
   - `name` `altium-schematic-writer`, `command` `build`, `option` `--target altium`, `write_kinds` equal to `fenolite.backends.altium.project.WRITE_KINDS` (`["altium_prjpcb", "altium_schdoc_ascii", "altium_schdoc_binary", "altium_schlib"]`, c0033 and c0034), and the evidence of `fenolite.lens.altium.ALTIUM_BUILD_EVIDENCE` (`altium-build`, "Altium build evidence").
-- The two entries MUST NOT share a write kind, so each can be cut or promoted on its own.
+  - `name` `altium-support-writer`, `command` `build`, `option` `--target altium`, covering remaining matrix write kinds outside the PCB and schematic groups (currently OutJob and SchDot), with their combined write evidence.
+- The entries MUST NOT share a write kind and MUST cover every experimental Altium matrix write, so each can be cut or promoted on its own.
 
 #### Scenario: Altium writers listed as experimental
 - **WHEN** `uv run fenolite capabilities --json --no-tools` runs
-- **THEN** the exit code is 0, `result.experimental` holds two entries named `altium-pcb-writer` and `altium-schematic-writer`, in that order, each with `command` `build`, `option` `--target altium` and `evidence.level` `INFERRED`, the first with `write_kinds` `["altium_pcbdoc", "altium_pcblib"]`, the entry of `result.backends` named `altium` has an empty `write_kinds`, and the envelope validates against `schemas/fenolite.envelope.v0.json`
+- **THEN** the exit code is 0, `result.experimental` holds entries named `altium-pcb-writer`, `altium-schematic-writer` and `altium-support-writer`, in that order, each with `command` `build`, `option` `--target altium` and `evidence.level` `INFERRED`, the first with `write_kinds` `["altium_pcbdoc", "altium_pcblib"]`, when no kind graduated, the entry of `result.backends` named `altium` has an empty `write_kinds`, and the envelope validates against `schemas/fenolite.envelope.v0.json`
 
 #### Scenario: Same entry without tool detection
 - **WHEN** `uv run fenolite capabilities --json` and `uv run fenolite capabilities --json --no-tools` run
@@ -2968,4 +2969,127 @@ Accepted and rejected decisions SHALL be kept in `fenolite.route-decisions.v0`, 
 #### Scenario: Roles of a built reference board
 - **WHEN** `uv run pytest tests/unit/cli/test_view_cmd.py -k roles` runs `fenolite view <bad buck> --roles run --export page.html --confirm --json`, then with a `check` reply as `--roles`
 - **THEN** the first exits 0 with `result.roles` counts equal to the reply's and evidence `INFERRED`, and the second exits 3 with `FEN-3004`
+
+### Requirement: Altium kinds in capabilities
+`fenolite capabilities` SHALL list, for the backend `altium`, the kinds whose write graduated in `write_kinds`, and the others under `experimental` with, for each, the missing conditions that `graduated` returns.
+- The list MUST be computed from the evidence matrix; no kind is named in the command's code.
+
+#### Scenario: Computed from the matrix
+- **WHEN** `uv run pytest tests/unit/cli/test_capabilities_altium.py` compares `capabilities --json` with `graduated` for every Altium row
+- **THEN** `write_kinds` holds exactly the graduated kinds, and each experimental kind lists what is missing
+
+### Requirement: Draftsman options of the build command
+`fenolite build` SHALL accept `--altium-draftsman {off,on}` (default `off`) and `--drawing-spec FILE`, the `fenolite.drawing-spec.v0` file of `export`. Either MUST be a usage error (exit 2, `FEN-2001`) with `--target kicad`, and `--drawing-spec` MUST be one without `--altium-draftsman on`. A malformed specification MUST exit 3 with `FEN-3004` before anything is planned.
+
+#### Scenario: KiCad target refuses the option
+- **WHEN** `fenolite build examples/blink_2layer/design.py --out B --altium-draftsman on --dry-run --json` runs with the default target
+- **THEN** the exit code is 2 and stderr holds `FEN-2001` naming `--altium-draftsman`
+
+#### Scenario: Malformed specification
+- **GIVEN** a drawing specification with `[page] gap = 5`
+- **WHEN** the routed blink is built with `--target altium --altium-draftsman on --drawing-spec` naming it
+- **THEN** the exit code is 3, stderr holds `FEN-3004` naming `page.gap`, and nothing is planned
+
+### Requirement: Panel command
+`fenolite panel PANEL.py --out DIR --target {9,10,altium} [--altium-panel {auto,embedded,flat}]` SHALL be a writing command: `--dry-run` plans, `--confirm --plan ID` writes, `result.panel` gives rows, cols, copies, size, unused and form. Exits: 3 (`FEN-3001`, `FEN-3004`, `FEN-3005`), 5 for error findings `panel.*` with nothing planned, 7 (`FEN-7001`) for a form the target cannot hold.
+
+#### Scenario: Dry run of a panel
+- **WHEN** `fenolite panel tests/data/panels/tabs.py --out P --target 10 --dry-run --json` runs
+- **THEN** the exit code is 0, `result.plan` lists `P/tabs.kicad_pcb`, `P/tabs.kicad_pro`, `P/tabs.panel.json` and the generated footprints, `result.panel.copies` is 8, and nothing is written
+
+#### Scenario: Error findings plan no write
+- **GIVEN** `tests/data/panels/vscore.py`, whose track lies 0.3 mm from a scored edge
+- **WHEN** it runs with `--dry-run`
+- **THEN** the exit code is 5, `issues` holds `panel.vscore-copper` errors, and `result.plan` is empty
+
+#### Scenario: Embedded form while the gate is off
+- **WHEN** a panel of a `.PcbDoc` runs with `--target altium --altium-panel embedded` while `EMBEDDED_ARRAYS` is false
+- **THEN** the exit code is 7 with `FEN-7001` and a hint naming `--altium-panel flat`, and nothing is written
+
+### Requirement: View command shows schematics
+`fenolite view` SHALL show the Altium schematic documents of a project as it shows its boards (`schematic-viewer`): `PATH` may also be a single `.SchDoc`, and `--doc` may name a schematic.
+- With `--doc` naming a schematic, and without `--serve` and `--export`, the reply MUST hold `summary` with `kind` `"schematic"` and the count of each object kind, and nothing MUST be written.
+- `--export FILE` MUST embed the scene of every viewable schematic beside the boards.
+
+#### Scenario: Summary of a sheet
+- **WHEN** `uv run pytest tests/unit/cli/test_view_cmd.py -k schematic` runs `fenolite view tests/data/altium/hier/altium_hier.PrjPcb --doc altium_hier.SchDoc --json`
+- **THEN** the exit code is 0, `result.summary.kind` is `"schematic"`, `result.summary.counts.components` equals the sheet's component count, and nothing is written
+
+### Requirement: View command shows Draftsman drawings
+`fenolite view` SHALL show the Draftsman documents of a project (`draftsman-viewer`): `PATH` may be a `.PCBDwf`, and `--doc` may name one. For a drawing, `result.summary` SHALL hold `kind` `drawing`, `counts.sheets` and the count of items per kind.
+
+#### Scenario: Summary of a drawing
+- **WHEN** `uv run pytest tests/unit/cli/test_view_cmd.py -k drawing` runs `fenolite view <authored>.PCBDwf --json`
+- **THEN** the exit code is 0, `result.summary.kind` is `drawing` and `result.summary.counts.sheets` is 1
+
+### Requirement: View command shows a variant
+`fenolite view` SHALL accept `--variant NAME` for an Altium project, reply with the count of fitted and not-fitted parts, and refuse an unknown name with `FEN-2001`.
+
+#### Scenario: Unknown variant
+- **WHEN** `uv run pytest tests/unit/cli/test_view_cmd.py -k variant` runs `fenolite view` with `--variant Nope`
+- **THEN** the exit code is 2 and the error code is `FEN-2001`
+
+### Requirement: Library seed command
+`fenolite library seed --from-librepcb DIR --commit SHA --library NAME --into DIR [--namespace NS]` SHALL be mutating, write one item folder per converted element under `--into` all or nothing, and report `result.items` (kind, id, origin element) and `result.skipped`. When `DIR/.git` exists its `HEAD` commit MUST equal `--commit`, else exit 3 with `FEN-3004`. `capabilities` SHALL list it as `library seed`.
+
+#### Scenario: Commit mismatch
+- **GIVEN** a fixture checkout whose `.git/HEAD` names another commit
+- **WHEN** the seed runs with `--commit` of 40 zeros
+- **THEN** it exits 3 with `FEN-3004` naming the commit, and plans nothing
+
+#### Scenario: Board path form unchanged
+- **WHEN** `fenolite library examples/<board> --out lib.pretty --dry-run --json` runs
+- **THEN** the result is the c0223 result as on 0.6.0
+
+### Requirement: Supplier plugins in capabilities
+`fenolite capabilities` SHALL list `result.suppliers`, sorted by name, each with `name`, `available` (verified source readiness), `credential_env_present` (names only), `sends_data_offsite`, `sends`, `cache` and `extra_installed`, without reading a secret's value or opening a connection. `result.sends_data_offsite` MUST stay `false`.
+
+#### Scenario: Suppliers listed offline
+- **GIVEN** `socket.socket` patched to raise and only `FENOLITE_MOUSER_API_KEY` set
+- **WHEN** `fenolite capabilities --json` runs
+- **THEN** `result.suppliers` lists `digikey`, `farnell`, `mouser` and `nexar` with `sends_data_offsite: true`, only `mouser` reports environment credentials present, while unverified source policies remain unavailable, and `result.sends_data_offsite` is `false`
+
+### Requirement: Supplier errors
+`FEN-6005` SHALL mean that a supplier refused the credentials (exit 6, not retryable), with a hint naming the variables and keyring service to check; it MUST be listed in `docs/cli-contract.md` beside `FEN-6001` and `FEN-6003`.
+
+#### Scenario: Rejected credentials
+- **GIVEN** an authored enabled test plugin answering 403
+- **WHEN** `fenolite pick examples/picks --propose "resistor(10kΩ)" --supplier authored --allow-offsite --dry-run --json` runs
+- **THEN** the exit code is 6, stderr holds `FEN-6005` with `retryable` false, and nothing is planned
+
+### Requirement: Filtered transient plan results
+Commands MAY provide a filtered subset of result data for plan storage. Filtering MUST only remove data and MUST NOT change inputs, issues, plan metadata, receipt metadata or staged write bytes. Supplier offers and reported attributes MUST appear only in the immediate reply; confirmation MUST replay the exact reviewed bytes without another lookup.
+
+#### Scenario: Offers do not outlive a reply
+- **GIVEN** an authored supplier dry run displays an offer
+- **WHEN** its stored plan and confirmation reply are inspected
+- **THEN** neither holds the offer and the receipt digest matches the reviewed bytes without a request
+
+### Requirement: Blocks index command
+`fenolite blocks index ITEM_DIR --out FILE` SHALL import the item package in `ITEM_DIR` under a private module name, describe the one block in its `__all__`, and plan one file of kind `block-index` holding `fenolite.block-item.v0`, written only under `--confirm` with a receipt. Zero or several blocks MUST give `FEN-3004`. With `--check` it SHALL compare with `FILE` and write nothing.
+
+#### Scenario: Index check fails on a stale file
+- **GIVEN** the test block item with a committed `block.json` older than its code
+- **WHEN** `fenolite blocks index tests/data/library_repo/block_items/blocks/cc0/Demo/led --check --json` runs
+- **THEN** it exits 5 with `blocks.index-stale` and nothing is written
+
+### Requirement: Blocks upgrade command
+`fenolite blocks upgrade SCRIPT [--block ID]... [--out DIR] [--allow-major]` SHALL run the script as a build does without planning outputs, and SHALL plan only the lock: the `[blocks]` entries whose locked version differs from the used one (or the selected ones) set to the used versions. It MUST write only under `--confirm`, never edit the script or vendored files, and refuse `--frozen` (exit 2).
+
+#### Scenario: Planned upgrade
+- **GIVEN** a lock with `"led1" = "Demo:led@1.0.0"` and `Demo:led` 1.1.0 vendored by `fenolite get block Demo:led --version 1.1.0`
+- **WHEN** `fenolite blocks upgrade design.py --dry-run --json` runs
+- **THEN** the exit code is 0, `result.plan` holds the lock of kind `lock`, `result.upgrades` holds `led1` from `1.0.0` to `1.1.0` with `step` `minor`, and the lock file is unchanged
+
+#### Scenario: Build after the upgrade
+- **WHEN** the same command runs with `--confirm` and then `fenolite build design.py --dry-run --json` runs
+- **THEN** the build reports no `lock.block-version`
+
+### Requirement: Upgrade review content
+Each row of `result.upgrades` SHALL hold `path`, `id`, `before`, `after`, `step` (`patch`, `minor`, `major` or `downgrade`), the used record, `deprecated`, and the build issues naming the instance; with `--out DIR` it SHALL also hold `circuit`, the parts of the instance added, removed or changed against `DIR/.fenolite/circuit.json`. A `major` row MUST be refused with `blocks.upgrade-major` (exit 5) unless `--allow-major` is given.
+
+#### Scenario: Circuit difference shown
+- **GIVEN** a confirmed build in `B` with `Demo:led` 1.0.0, whose 1.1.0 changes the resistor value
+- **WHEN** `fenolite blocks upgrade design.py --out B --dry-run --json` runs
+- **THEN** the row of `led1` holds in `circuit` the part `led1/R` with its value before and after
 

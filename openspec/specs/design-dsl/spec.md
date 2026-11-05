@@ -4417,3 +4417,62 @@ Design.board SHALL accept optional technical_layers selecting known non-copper s
 - **WHEN** the selection has an unknown or duplicate name, a copper/User.n name, or no Edge.Cuts
 - **THEN** board() refuses the input before a build can write
 
+### Requirement: Panel scripts
+`fenolite.dsl.panel.Panel(name, board)` SHALL declare a panel of the built board file `board` (relative to the script), with `grid`, `fit`, `rails`, `separate`, `tabs`, `vscore`, `fiducial(s)` and `tooling_hole(s)` in panel coordinates (origin top-left, Y down). A script MUST bind `panel`; a bad value MUST raise `DslError` at the call, naming the argument, and record nothing.
+
+#### Scenario: A 2 × 2 grid
+- **GIVEN** `panel = Panel("p", board="board.kicad_pcb")`
+- **WHEN** `panel.grid(2, 2, gap=mm(2))` and `panel.separate("tabs", between="columns")` are called
+- **THEN** `to_model(panel).array` has rows 2, cols 2, `gap_x` 2 000 000 and the separation `columns` → `tabs`
+
+#### Scenario: Refused panel calls
+- **WHEN** `panel.grid(0, 2)`, `panel.grid(2, 2, rot=45)`, `panel.separate("laser", between="rows")` and `panel.tabs(drill=mm(0))` are called
+- **THEN** each raises `DslError`, naming `rows`, `rot`, `method` and `drill`
+
+### Requirement: Panel fit rule
+`Panel.fit(width, height, *, gap=None, rot=0)` SHALL choose `cols = ⌊(U + g) / (b + g)⌋` and rows likewise, U the width inside the rails and their gaps, b the board's box after the turn, g the gap of that axis; `rot="auto"` SHALL take the quarter turn that gives more copies, 0° on a tie. Zero copies MUST be `panel.no-fit`.
+
+#### Scenario: Fit to a panel size
+- **GIVEN** the 40 × 30 mm fixture, rails of 5 mm top and bottom, tabs everywhere with 2 mm gaps
+- **WHEN** `panel.fit(mm(100), mm(100), rot="auto")` is laid out
+- **THEN** the panel holds 3 columns and 2 rows of the board turned 90° (6 copies, where 0° gives 4), its size is 94 × 96 mm, and `result.panel.unused` is 6 mm × 4 mm
+
+### Requirement: Library blocks in the design lock
+A build that uses a vendored library block SHALL record its instances in c0268's `[blocks]` and SHALL rely on c0279's `[library.items."block/<id>"]`, written by `fenolite get`, for the item version, release and tree digest. A build MUST NOT write any other lock section for library blocks, and blocks of the starter library or of the project get no `[library.items]` entry.
+
+#### Scenario: Vendored block pinned twice over
+- **GIVEN** a design using `Demo:led` 1.0.0 vendored by `fenolite get`, and no `[blocks]` entry yet
+- **WHEN** `fenolite build design.py --dry-run --json` runs
+- **THEN** the planned lock holds `"led1" = "Demo:led@1.0.0"` in `[blocks]`, keeps `[library.items."block/Demo:led"]` unchanged, and holds no `[block-packages]` section
+
+#### Scenario: Starter blocks are not pinned as items
+- **WHEN** a design that uses only `Fenolite:` blocks is built
+- **THEN** its lock holds `[blocks]` entries and no `[library.items]` entry
+
+### Requirement: Missing library block module
+When a design script raises `ModuleNotFoundError` for a module under `fenolite_library.blocks.` that no lock entry pins, the build SHALL keep the script-error behaviour and its hint SHALL name `fenolite get block <Namespace>:<name> --dry-run`, derived from the module path. A pinned but missing folder SHALL be reported by c0279's check with `FEN-6004` before the script runs.
+
+#### Scenario: Block never vendored
+- **GIVEN** a script importing `fenolite_library.blocks.Demo.led` in a project without that folder and without a lock entry
+- **WHEN** `fenolite build design.py --json` runs
+- **THEN** it fails as a script error whose hint names `fenolite get block Demo:led --dry-run`, and no file is written
+
+### Requirement: Explicitly empty part values
+A `Part` given `value=""` SHALL keep an empty value through a KiCad build. A `Part` given no value
+(`value=None`) SHALL take the Value of its symbol, as before. `Part.value_empty` SHALL say which; the DSL
+SHALL pass the component ids of such parts to the build (`empty_values`) without changing the model, its
+schemas or canonical JSON. An Altium build SHALL keep writing the symbol's name as the comment of a
+component without a value.
+
+#### Scenario: An empty value under a symbol with a Value
+- **WHEN** `Part("F1", "Lib:Fuse", footprint="Lib:Fuse", value="")` is built and the symbol's Value is `Fuse`
+- **THEN** the built footprint's Value is empty
+
+#### Scenario: No value given
+- **WHEN** the same part is built without `value=`
+- **THEN** the built footprint's Value is `Fuse`
+
+#### Scenario: Existing designs keep their digests
+- **WHEN** a design has no part with `value=""`
+- **THEN** its canonical JSON is byte-identical to the one before this change
+

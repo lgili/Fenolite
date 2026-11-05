@@ -16,7 +16,7 @@ Produce the fabrication files and review views of a board through `kicad-cli`, o
   - `pdf`: `pcb export pdf -o pdf/ --mode-separate --layers <list> --common-layers Edge.Cuts --include-border-title`;
   - `dxf`: `pcb export dxf -o dxf/ --mode-multi --output-units mm --layers <list>`;
   - `sch-pdf`: `sch export pdf -o schematic/<stem>.pdf <stem>.kicad_sch`, with the files of "Schematic PDF export sheets".
-- `gerber_layers(design)` MUST give the board's copper layers in stack order, then `F.Mask`, `B.Mask`, `F.Paste`, `B.Paste`, `F.SilkS`, `B.SilkS` where the board's layer table has them (by KiCad's canonical name), then `Edge.Cuts`.
+- `gerber_layers(design)` MUST give the board's copper layers in stack order, then `F.Mask`, `B.Mask`, `F.Paste`, `B.Paste`, `F.SilkS`, `B.SilkS` where the board's layer table has them (by KiCad's canonical name), then the user layer whose user name is `V-Score` where the board has one (the score lines of a panel board, change c0173), then `Edge.Cuts`.
 - `pdf_layers(design)` MUST give the layers of `gerber_layers(design)` with `F.Fab` and `B.Fab`, where the board has them, before `Edge.Cuts`. `dxf_layers(design)` MUST give `Edge.Cuts`, then `F.Fab`, `B.Fab`, `F.CrtYd` and `B.CrtYd` where the board has them. `layers`, when given, MUST replace the list of `pdf` or `dxf`, and MUST raise `ValueError` for any other kind. `args`, the callback through which an export preset reaches a run ("Export presets"), MUST NOT be called for a document kind.
 - `--check-zones`, `--board-plot-params`, `--variant`, `--drawing-sheet` and `--define-var` MUST NOT be passed for any kind. Without a preset, every kind MUST run with the same arguments on 9.0 and 10.0 (`Kind.majors` = `(9, 10)`).
 - `Kind.repeat` MUST be the weakest class that the probes record for two runs of one board over both majors (`H-K-EXPORT-REPEAT`, `H-K-EXPORT-DOCS-REPEAT`): `bytes` for `pos`, `ipcd356` and `dxf`; `content` for `gerbers`, `drill`, `pdf` and `sch-pdf`, whose runs differ only in the lines that `VOLATILE_PREFIXES` names; `none` for `ipc2581`, `odb` and `step`.
@@ -55,6 +55,11 @@ Produce the fabrication files and review views of a board through `kicad-cli`, o
 - **GIVEN** a fake `kicad-cli` whose `pdf` run writes `pdf/b-F_Cu.pdf` and `pdf/b-F_Fab.pdf`, and whose `dxf` run writes `dxf/b-Edge_Cuts.dxf` and `dxf/b-F_Courtyard.dxf`
 - **WHEN** both kinds run
 - **THEN** the artefacts have the layers `F.Cu`, `F.Fab`, `Edge.Cuts` and `F.CrtYd`; the `dxf` artefacts are `repeatable` and the `pdf` ones are not
+
+#### Scenario: Gerber layers of a panel board
+- **GIVEN** the model of a panel board written from `tests/data/panels/mixed.py` (V-score between rows), whose layer table holds `User.1` with the user name `V-Score`
+- **WHEN** `uv run pytest tests/unit/exports/test_plan.py -k panel` calls `gerber_layers`
+- **THEN** the list holds `User.1` directly before `Edge.Cuts`, and the list of `two_layer.kicad_pcb` is unchanged
 
 ### Requirement: Artefact manifest
 `fenolite.exports.manifest.build(*, board, tool_version, artifacts, timestamp) -> dict` SHALL build the manifest written as `fenolite-artifacts.json`, and `schemas/fenolite.artifacts.v0.json` SHALL validate it.
@@ -707,3 +712,4 @@ An unknown net SHALL exit 2 with `FEN-2001`, `where` `--net` and the three close
 #### Scenario: Script without the model forms
 - **WHEN** `fenolite render examples/testing/design.py -o views --svg --dry-run` runs
 - **THEN** the exit code is 2 and stderr carries `FEN-2001`
+
