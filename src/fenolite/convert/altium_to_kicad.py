@@ -179,14 +179,57 @@ def _keepout_rings(graphic: Any) -> list[tuple[Any, ...]] | None:
     return None
 
 
-def keepouts(design: Design, ledger: Ledger) -> Design:
+ALL_RESTRICTIONS = 0x1F
+"""The restrictions of a drawing of the Keep-Out layer whose value is not known (change c0410): all."""
+_KEEPOUT_RECORD = re.compile(r"(Tracks6|Arcs6|Fills6|Regions6)/Data#(\d+)")
+
+
+def _restrictions(value: int) -> tuple[bool, bool, bool, bool]:
+    """The restrictions of the rule areas a drawing of the Keep-Out layer gives, from the restrictions value
+    of its keep-out record (S-1711, change c0420, N3): 1 vias, 2 tracks, 4 poured copper, 8 and 16 together
+    pads (``pcb-records.md``, "Regions and keep-outs"). (vias, tracks, poured copper, pads)."""
+    return bool(value & 0x01), bool(value & 0x02), bool(value & 0x04), value & 0x18 == 0x18
+
+
+def keepout_restrictions(source: SourceProject, design: Design) -> dict[str, int]:
+    """The restrictions value of each drawing of the Keep-Out layer (a board's or a footprint's) that is a
+    keep-out, by graphic id, read from its record in the source document (change c0420, N2 and N3;
+    ``adapter.copper.keepout_layer_restrictions``), as ``zone_outlines`` reads a polygon. A drawing whose
+    record is not found, or that is no keep-out, has no entry."""
+    from fenolite.backends.altium.adapter.copper import keepout_layer_restrictions
+
+    board = design.board
+    if board is None:
+        return {}
+    drawn = [g for g in board.graphics if g.layer == "Altium.KeepOut"]
+    drawn += [g for fp in board.footprints for g in fp.graphics if g.layer == "Altium.KeepOut"]
+    found = board_document(source, design)
+    documents: dict[str, Any] = {}
+    held: dict[str, int] = {}
+    for graphic in drawn:
+        where = graphic.provenance
+        match = _KEEPOUT_RECORD.fullmatch(where.locator if where else "")
+        document = _source_document(source, found, where, documents) if match else None
+        if document is None or match is None:
+            continue
+        records = {"Tracks6": document.tracks, "Arcs6": document.arcs, "Fills6": document.fills}
+        records["Regions6"] = document.regions
+        items, index = records[match.group(1)], int(match.group(2))
+        value = keepout_layer_restrictions(items[index]) if index < len(items) else None
+        if value is not None:
+            held[graphic.id] = value
+    return held
+
+
+def keepouts(design: Design, ledger: Ledger, restrictions: Mapping[str, int] | None = None) -> Design:
     """The drawings of the Keep-Out layer as rule areas on every copper layer (``_keepout_rings``): a filled
     shape one area, a keep-out track or arc the band of its width (change c0407). A drawing that covers no
     area, or of a kind without an outline, is an explicit loss. Each area forbids tracks, vias, pads and
     poured copper (change c0410): a Keep-Out layer keep-out applies on every copper layer (S-1710), and KiCad
     10.0.6 imports a keep-out track or region there with all four (``pcb-records.md``, "Regions and
-    keep-outs"). A drawing of a footprint gives a rule area of that footprint, in its pad frame (change
-    c0411); a free drawing one of the board."""
+    keep-outs"); a drawing whose id ``restrictions`` names (``keepout_restrictions``) forbids only what its
+    keep-out record forbids (change c0420, N2 and N3). A drawing of a footprint gives a rule area of that
+    footprint, in its pad frame (change c0411); a free drawing one of the board."""
     from fenolite.geometry.errors import GeometryError
     from fenolite.model.board import Keepout
 
@@ -195,6 +238,8 @@ def keepouts(design: Design, ledger: Ledger) -> Design:
     copper = tuple(layer.name for layer in board.layers if layer.kind == "copper")
 
     def areas_of(graphic: Any, kind: str) -> list[Keepout]:
+        value = (restrictions or {}).get(graphic.id, ALL_RESTRICTIONS)
+        no_vias, no_tracks, no_copper_pour, no_pads = _restrictions(value)
         try:
             rings = _keepout_rings(graphic)
         except (GeometryError, ValueError, IndexError, TypeError):
@@ -210,10 +255,10 @@ def keepouts(design: Design, ledger: Ledger) -> Design:
                 id=derived_id("kpo", "conversion", graphic.id if index == 0 else f"{graphic.id}:{index}"),
                 outline=ring,
                 layers=copper,
-                no_tracks=True,
-                no_vias=True,
-                no_pads=True,
-                no_copper_pour=True,
+                no_tracks=no_tracks,
+                no_vias=no_vias,
+                no_pads=no_pads,
+                no_copper_pour=no_copper_pour,
             )
             for index, ring in enumerate(rings)
         ]
@@ -277,14 +322,39 @@ def _arc_ring(vertices: Any) -> tuple[Any, ...]:
     return Polygon(tuple(points)).outer
 
 
+def _source_document(source: SourceProject, found: Path | None, where: Any, documents: dict[str, Any]) -> Any:
+    """The PCB document that ``where`` (a provenance) names, read once into ``documents`` by file name;
+    ``None`` when it cannot be read or its SHA-256 differs from the one recorded. ``found`` is the board
+    document of the project (``board_document``)."""
+    from fenolite.backends.altium.read.pcb import read_pcbdoc
+    from fenolite.core.errors import FenoliteError
+    from fenolite.core.io import sha256_bytes
+
+    if where is None:
+        return None
+    path = (
+        found
+        if found is not None and found.name == where.file
+        else source.path
+        if source.path.suffix.lower() == ".pcbdoc"
+        else source.root / where.file
+    )
+    if where.file not in documents:
+        documents[where.file] = None
+        try:
+            data = path.read_bytes()
+            if not where.file_sha256 or sha256_bytes(data) == where.file_sha256:
+                documents[where.file] = read_pcbdoc(data, file=where.file)
+        except (OSError, FenoliteError):
+            pass
+    return documents[where.file]
+
+
 def zone_outlines(source: SourceProject, design: Design, ledger: Ledger) -> Design:
     """Zones whose imported outline is empty (an Altium polygon with an arc vertex,
     ``altium.import.zone-arc``) get the flattened outline of the source document's polygon record; KiCad
     9.0.9 cannot report DRC on a zone without an outline. A zone whose record cannot be found or encloses
     no area is dropped."""
-    from fenolite.backends.altium.read.pcb import read_pcbdoc
-    from fenolite.core.errors import FenoliteError
-    from fenolite.core.io import sha256_bytes
     from fenolite.geometry.errors import GeometryError
 
     board = design.board
@@ -305,22 +375,7 @@ def zone_outlines(source: SourceProject, design: Design, ledger: Ledger) -> Desi
         match = re.fullmatch(r"Polygons6/Data#(\d+)", where.locator if where else "")
         ring: tuple[Any, ...] = ()
         if where is not None and match:
-            path = (
-                found
-                if found is not None and found.name == where.file
-                else source.path
-                if source.path.suffix.lower() == ".pcbdoc"
-                else source.root / where.file
-            )
-            if where.file not in documents:
-                documents[where.file] = None
-                try:
-                    data = path.read_bytes()
-                    if not where.file_sha256 or sha256_bytes(data) == where.file_sha256:
-                        documents[where.file] = read_pcbdoc(data, file=where.file)
-                except (OSError, FenoliteError):
-                    pass
-            document = documents[where.file]
+            document = _source_document(source, found, where, documents)
             index = int(match.group(1))
             if document is not None and index < len(document.polygons):
                 try:
@@ -431,7 +486,13 @@ def prepare(source: SourceProject, name: str, target: int, ledger: Ledger) -> De
     )
 
     design = map_layers(
-        keepouts(_clean(zone_outlines(source, source.design, ledger)), ledger), target, ledger
+        keepouts(
+            _clean(zone_outlines(source, source.design, ledger)),
+            ledger,
+            keepout_restrictions(source, source.design),
+        ),
+        target,
+        ledger,
     )
     board = design.board
     assert board is not None

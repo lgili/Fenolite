@@ -22,7 +22,7 @@ from fenolite.backends.altium.ascii import Field, text_problem
 from fenolite.backends.altium.read.rul import RULE_FILE_COMMON, WRITTEN_END
 from fenolite.backends.altium.read.rules import RULE_KIND_MAP, CopperLayers, map_rules
 from fenolite.backends.altium.read.rules import Field as ReadField
-from fenolite.backends.altium.read.scope import GLOB_CHARACTERS, parse_scope
+from fenolite.backends.altium.read.scope import ANY_NET, GLOB_CHARACTERS, parse_scope
 from fenolite.core.evidence import Evidence, Level
 from fenolite.model.rules import Rule, RuleKind, Selector
 
@@ -324,6 +324,8 @@ def _leaf(selector: Selector, row: RuleRow) -> tuple[str, str]:
                 f"the item kind {value!r} has no query of the closed grammar ({', '.join(ITEM_QUERIES)})",
             )
         return ITEM_QUERIES[value], _ITEM_NAMES[value]
+    if selector.op == "net" and value == "*":  # any net: ``InAnyNet``, so ``NO_NET`` is ``Not InAnyNet``
+        return ANY_NET, "any_net"  # (S-1680; change c0420, B7)
     problem = text_problem(value)
     if problem is None and "'" in value:
         problem = "holds an apostrophe, which the scope quotes"

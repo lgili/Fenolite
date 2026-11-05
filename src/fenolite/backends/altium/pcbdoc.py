@@ -84,6 +84,10 @@ from fenolite.model.board import (
     Zone,
 )
 
+NET_TIE_KIND = "4"
+"""The ``COMPONENTKIND`` value written for a net tie (change c0420, N1): the kind Net Tie, the one the public
+documents hold on their net-tie parts (``pcb-records.md``, "Component kind"; S-1791, S-0188)."""
+
 FILE_HEADER_TEXT = "PCB 5.0 Binary File"
 """``FileHeader``: the 32-bit value 19, then the first ten characters of this text in UTF-16LE."""
 FILE_HEADER_SIX_TEXT = "PCB 6.0 Binary File"
@@ -262,6 +266,7 @@ EVIDENCE = Evidence(
         "H-A-PCBX-KEEPOUT",
         "H-A-PCBX-KICAD",
         "H-A-PCBX-MECH",
+        "H-A-PCBX-NETTIE",
         "H-A-PCBX-READBACK",
         "H-A-PCBX-REPOUR",
         "H-A-PCBX-STACK",
@@ -374,6 +379,10 @@ class PlacedComponent:
     source_unit_unique_id: str | None = None
     """The emitted schematic unit used for SOURCEUNIQUEID (c0166). None uses unique_id;
     an override changes neither the physical component identity nor the document GUID."""
+    net_tie: bool = False
+    """Whether the component is a net tie (change c0420, N1): its record holds ``COMPONENTKIND=4`` after
+    ``UNIONINDEX``, where the public documents hold it (``pcb-records.md``, "Component kind"); otherwise
+    the key is left out, as for most saved components."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -742,6 +751,7 @@ def _component_record(component: PlacedComponent, offset: int, frame: Frame, fil
         ("COUNT", "0"),
         ("ROTATION", angle_text(component.rotation)),
         ("UNIONINDEX", "0"),
+        *((("COMPONENTKIND", NET_TIE_KIND),) if component.net_tie else ()),
         ("CHANNELOFFSET", str(offset)),
         ("SOURCEDESIGNATOR", component.ref),
         ("SOURCEUNIQUEID", link),
@@ -2281,6 +2291,7 @@ __all__ = [
     "EVIDENCE",
     "FILE_HEADER_SIX_TEXT",
     "FILE_HEADER_TEXT",
+    "NET_TIE_KIND",
     "Frame",
     "FreePad",
     "NetClassSpec",

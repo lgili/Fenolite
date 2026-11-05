@@ -257,6 +257,65 @@ def test_altium_keepout_closed_and_open() -> None:
     assert ledger.lost["graphic"][KEEPOUT_NO_AREA] == [thin.id]
 
 
+def test_altium_keepout_restrictions_reach_the_rule_areas() -> None:
+    """Scenario "A keep-out forbids what its value forbids" (change c0420, N2 and N3): the rule area of a
+    keep-out of the Keep-Out layer forbids the kinds of its record's restrictions value alone (1 vias, 2
+    tracks, 4 poured copper, 8 with 16 pads); a drawing without a value forbids all four (change c0410)."""
+    import dataclasses
+
+    from _convert import two_layer
+
+    from fenolite.convert.altium_to_kicad import Ledger, keepouts
+    from fenolite.core.coords import Point
+    from fenolite.model.board import Graphic
+
+    design = two_layer()
+    assert design.board is not None
+    square = (Point(0, 0), Point(1000000, 0), Point(1000000, 1000000), Point(0, 1000000))
+
+    def drawn(ident: str) -> Graphic:
+        return Graphic(id=ident, kind="polygon", layer="Altium.KeepOut", points=square, width=0)
+
+    graphics = tuple(drawn(ident) for ident in ("gra-7", "gra-24", "gra-8", "gra-none"))
+    design = dataclasses.replace(design, board=dataclasses.replace(design.board, graphics=graphics))
+    result = keepouts(design, Ledger(), {"gra-7": 7, "gra-24": 24, "gra-8": 8})
+    assert result.board is not None
+    held = [(k.no_vias, k.no_tracks, k.no_copper_pour, k.no_pads) for k in result.board.keepouts[-4:]]
+    assert held == [
+        (True, True, True, False),
+        (False, False, False, True),
+        (False, False, False, False),
+        (True, True, True, True),
+    ]
+
+
+def test_altium_keepout_restrictions_are_read_from_the_source_records(tmp_path: Path) -> None:
+    """Change c0420, N2 and N3: ``keepout_restrictions`` reads the restrictions value of each keep-out of the
+    Keep-Out layer from its record in the source document, by the drawing's locator; the keep-out tracks of
+    the authored document hold 31, every restriction. A document whose bytes changed gives none."""
+    import hashlib
+
+    import _altium_keepouts as cases
+
+    from fenolite.backends.altium.adapter import import_board
+    from fenolite.backends.altium.read.pcb import read_pcbdoc
+    from fenolite.convert.altium_to_kicad import keepout_restrictions
+    from fenolite.convert.sources import SourceProject
+
+    data = cases.keepout_document()
+    path = tmp_path / "k.PcbDoc"
+    path.write_bytes(data)
+    design = import_board(read_pcbdoc(data), file="k.PcbDoc", sha256=hashlib.sha256(data).hexdigest())
+    source = SourceProject(
+        given=path, path=path, root=tmp_path, backend="altium", kind="pcbdoc", design=design
+    )
+    assert design.board is not None
+    drawn = [g.id for g in design.board.graphics if g.layer == "Altium.KeepOut"]
+    assert keepout_restrictions(source, design) == dict.fromkeys(drawn, 31) and len(drawn) == 4
+    path.write_bytes(data + b"\0")
+    assert keepout_restrictions(source, design) == {}
+
+
 def test_altium_keepout_track_ring_is_four_bands() -> None:
     """B1 (change c0407): a closed ring of keep-out tracks on the Keep-Out layer keeps out the band of each
     track, one rule area per track on every copper layer, as KiCad 10.0.6 imports it; the inside of the ring
@@ -279,6 +338,7 @@ def test_altium_keepout_track_ring_is_four_bands() -> None:
     adapter, bands = result.board.keepouts[:2], result.board.keepouts[2:]
     assert sorted(k.layers for k in adapter) == [("F.Cu",), ("F.Cu",)]
     assert len(bands) == 4 and all(k.layers == ("F.Cu", "B.Cu") for k in bands)
+    assert all(k.no_vias and k.no_tracks and k.no_copper_pour and k.no_pads for k in bands)
     assert len(ledger.changed["graphic"][KEEPOUT_BAND]) == 4
     mm = 1_000_000
     for band in bands:

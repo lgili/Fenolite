@@ -6,9 +6,11 @@
   (``backends/altium/connectstyle``, ``docs/formats/altium/pcb-pour.md``) give each zone the connection,
   thermal gap and spoke width of the record that governs the pads of its net, and a pad whose narrower record
   joins it otherwise its own ``zone_connection``.
-- **Clearance (B6).** A zone's clearance is the value of the Altium clearance rule that governs the polygon
-  against any item: the first rule, in Altium's order, with one scope matching the polygon and the other
-  ``All``.
+- **Clearance (B6).** A zone's clearance is the smallest value of the Altium clearance rules that govern a
+  pair of the polygon and an item: in Altium's order, every rule with a scope matching the polygon, up to
+  and with the first whose other scope is ``All`` (change c0420). KiCad lets a matching custom rule decide
+  a zone's gap and takes the larger of the zone's clearance and a netclass clearance (pcb-pour.md,
+  ``H-K-ZONE-CLEARANCE``), so the converted DRU rules carry every wider value.
 
 A zone or pad that no record or rule settles keeps its setting, with a ``zone`` or ``pad`` change in the
 report that says why.
@@ -57,7 +59,15 @@ STYLE_MIXED = (
     "it takes the through-hole style"
 )
 PAD_SPOKES = "the pad's own thermal gap and spoke width of a narrower connect style are not written"
+PAD_DIFFERS = (
+    "the connect styles that govern the pad differ between the zones of its net, and a KiCad pad holds one "
+    "connection for every zone: the pad keeps its setting"
+)
 NO_CLEARANCE = "no Altium clearance rule governs the polygon against any item: the zone keeps its clearance"
+CLEARANCE_FROM_RULES = (
+    "the zone's clearance is the smallest Altium clearance rule that governs its polygon, not the value the "
+    "zone held; the written rules keep every wider clearance (change c0420, B6)"
+)
 
 
 def board_styles(board: Board | None) -> tuple[ConnectStyle, ...]:
@@ -96,6 +106,40 @@ def _expected(connection: ZoneConnection, kind: ObjectKind) -> ZoneConnection:
     return connection
 
 
+def _pad_connection(
+    pad: Pad,
+    zones: Sequence[tuple[RuleSubject, ZoneConnection, Connection, str]],
+    styles: Sequence[ConnectStyle],
+    ref: str | None,
+    ledger: Ledger,
+) -> Pad:
+    """``pad`` with its own ``zone_connection`` when the record that governs it against a zone of its net
+    (``zones``: each zone's polygon, connection, relief and name) gives another style than that zone does.
+    A KiCad pad holds one connection for every zone, so a pad that needs its own one whose records give
+    different styles between the zones keeps its setting, with a ``pad`` change (change c0420, B5)."""
+    kind: ObjectKind = "th_pad" if pad.kind == "thru_hole" else "smd_pad"
+    owns: list[tuple[Connection, ZoneConnection, Connection]] = []
+    for polygon, connection, relief, name in zones:
+        subject = RuleSubject("pad", net=polygon.net, netclass=polygon.netclass, ref=ref)
+        own = governing_connection(styles, subject, polygon, kind, name)
+        if isinstance(own, str):
+            return pad
+        owns.append((own, connection, relief))
+    wanted = {PAD_CONNECTIONS[own.style] for own, _, _ in owns}
+    if any(PAD_CONNECTIONS[own.style] != _expected(connection, kind) for own, connection, _ in owns):
+        if len(wanted) > 1:
+            ledger.change("pad", pad.id, PAD_DIFFERS)
+            return pad
+        return dataclasses.replace(pad, zone_connection=wanted.pop())
+    if any(
+        own.style == "relief"
+        and (own.air_gap, own.conductor_width) != (relief.air_gap, relief.conductor_width)
+        for own, _, relief in owns
+    ):
+        ledger.change("pad", pad.id, PAD_SPOKES)
+    return pad
+
+
 def connect_zones(board: Board, design: Design, styles: Sequence[ConnectStyle], refs: Mapping[str, str],
                   ledger: Ledger) -> Board:  # fmt: skip
     """``board`` with the connection of each zone and pad that ``styles`` govern (B5); ``refs`` maps a
@@ -104,7 +148,7 @@ def connect_zones(board: Board, design: Design, styles: Sequence[ConnectStyle], 
         return board
     nets = _nets(design)
     zones: list[Zone] = []
-    by_net: dict[str, tuple[RuleSubject, ZoneConnection, Connection]] = {}
+    by_net: dict[str, list[tuple[RuleSubject, ZoneConnection, Connection, str]]] = {}
     for zone in board.zones:
         name, netclass = nets.get(zone.net_id or "", (None, None))
         if name is None:
@@ -112,8 +156,8 @@ def connect_zones(board: Board, design: Design, styles: Sequence[ConnectStyle], 
             continue
         polygon = RuleSubject("zone", net=name, netclass=netclass)
         pad = RuleSubject("pad", net=name, netclass=netclass)
-        th = governing_connection(styles, pad, polygon, "th_pad")
-        smd = governing_connection(styles, pad, polygon, "smd_pad")
+        th = governing_connection(styles, pad, polygon, "th_pad", zone.name)
+        smd = governing_connection(styles, pad, polygon, "smd_pad", zone.name)
         if isinstance(th, str) or isinstance(smd, str):
             ledger.change("zone", zone.id, STYLE_UNREAD.format(reason=th if isinstance(th, str) else smd))
             zones.append(zone)
@@ -125,7 +169,7 @@ def connect_zones(board: Board, design: Design, styles: Sequence[ConnectStyle], 
                 settings, thermal_gap=relief.air_gap, thermal_spoke_width=relief.conductor_width
             )
         zones.append(dataclasses.replace(zone, settings=settings))
-        by_net.setdefault(zone.net_id or "", (polygon, connection, relief))
+        by_net.setdefault(zone.net_id or "", []).append((polygon, connection, relief, zone.name))
     footprints: list[FootprintInstance] = []
     for fp in board.footprints:
         pads: list[Pad] = []
@@ -134,24 +178,7 @@ def connect_zones(board: Board, design: Design, styles: Sequence[ConnectStyle], 
             if held is None or pad.kind in ("np_thru_hole", "connect"):
                 pads.append(pad)
                 continue
-            polygon, connection, relief = held
-            kind: ObjectKind = "th_pad" if pad.kind == "thru_hole" else "smd_pad"
-            subject = RuleSubject(
-                "pad", net=polygon.net, netclass=polygon.netclass, ref=refs.get(fp.component_id)
-            )
-            own = governing_connection(styles, subject, polygon, kind)
-            if isinstance(own, str):
-                pads.append(pad)
-                continue
-            wanted = PAD_CONNECTIONS[own.style]
-            if wanted != _expected(connection, kind):
-                pad = dataclasses.replace(pad, zone_connection=wanted)
-            elif own.style == "relief" and (own.air_gap, own.conductor_width) != (
-                relief.air_gap,
-                relief.conductor_width,
-            ):
-                ledger.change("pad", pad.id, PAD_SPOKES)
-            pads.append(pad)
+            pads.append(_pad_connection(pad, held, styles, refs.get(fp.component_id), ledger))
         footprints.append(dataclasses.replace(fp, pads=tuple(pads)))
     return dataclasses.replace(board, zones=tuple(zones), footprints=tuple(footprints))
 
@@ -160,6 +187,29 @@ def _governing(rules: Sequence[Rule]) -> list[Rule]:
     """The clearance rules, the governing one first: Altium's priority 1 first, unset (0) last."""
     found = [rule for rule in rules if rule.kind == "clearance" and rule.min is not None and not rule.layers]
     return sorted(found, key=lambda rule: (rule.priority == 0, rule.priority, rule.name, rule.id))
+
+
+def _touches(rule: Rule, polygon: RuleSubject) -> bool:
+    """Whether ``rule`` can govern a pair of the folded ``polygon`` and an item: one scope matches it."""
+    second = None if rule.selector_b is None else fold_selector(rule.selector_b)
+    return second is None or second.matches(polygon) or fold_selector(rule.selector_a).matches(polygon)
+
+
+def governing_clearance(rules: Sequence[Rule], polygon: RuleSubject) -> int | None:
+    """The smallest ``min`` of the clearance ``rules`` (governing order) that govern a pair of the folded
+    ``polygon``: those up to and with the first that holds against any item. ``None`` when no rule holds
+    against any item, or that rule is ignored."""
+    smallest: int | None = None
+    for rule in rules:
+        if not _touches(rule, polygon) or rule.min is None:
+            continue
+        if _against_all(rule, polygon):
+            if rule.severity == "ignore":
+                return None
+            return rule.min if smallest is None else min(smallest, rule.min)
+        if rule.severity != "ignore":
+            smallest = rule.min if smallest is None else min(smallest, rule.min)
+    return None
 
 
 def _against_all(rule: Rule, polygon: RuleSubject) -> bool:
@@ -173,8 +223,8 @@ def _against_all(rule: Rule, polygon: RuleSubject) -> bool:
 
 
 def zone_clearances(board: Board, design: Design, ledger: Ledger) -> Board:
-    """``board`` with the clearance of each zone set from the Altium clearance rule that governs its polygon
-    against any item (B6)."""
+    """``board`` with the clearance of each zone set to the smallest Altium clearance that governs a pair of
+    its polygon (B6, ``governing_clearance``)."""
     rules = _governing(design.rules.rules if design.rules is not None else ())
     if not rules or not board.zones:
         return board
@@ -183,20 +233,24 @@ def zone_clearances(board: Board, design: Design, ledger: Ledger) -> Board:
     for zone in board.zones:
         name, netclass = nets.get(zone.net_id or "", (None, None))
         polygon = fold_subject(RuleSubject("zone", net=name, netclass=netclass))
-        rule = next((rule for rule in rules if _against_all(rule, polygon)), None)
-        if rule is None or rule.min is None or rule.severity == "ignore":
+        clearance = governing_clearance(rules, polygon)
+        if clearance is None:
             ledger.change("zone", zone.id, NO_CLEARANCE)
             zones.append(zone)
             continue
-        settings = dataclasses.replace(zone.settings, clearance=rule.min)
+        if clearance != zone.settings.clearance:
+            ledger.change("zone", zone.id, CLEARANCE_FROM_RULES)
+        settings = dataclasses.replace(zone.settings, clearance=clearance)
         zones.append(dataclasses.replace(zone, settings=settings))
     return dataclasses.replace(board, zones=tuple(zones))
 
 
 __all__ = [
+    "CLEARANCE_FROM_RULES",
     "PAD_CONNECTIONS",
     "ZONE_CONNECTIONS",
     "board_styles",
     "connect_zones",
+    "governing_clearance",
     "zone_clearances",
 ]

@@ -1846,7 +1846,9 @@ With no minimum and no rule (an Altium document, or a KiCad project without the 
 judged against copper. Left out: the copper of the hole's own pad or via, the copper of a plated hole's
 own net (an unplated hole has no net, so every copper item counts), and a pair that already has a
 `copper.short` or `copper.clearance` finding, as KiCad's DRC reports one violation per item pair
-(`H-K-DRU-KIND-2`). The gap is exact and strict, without the clearance tolerance. KiCad 9.0.9 reports no
+(`H-K-DRU-KIND-2`). The gap is exact; as for `copper.clearance`, the limit is lowered by the clearance tolerance
+(500 nm with the KiCad rules source, `H-K-COPPER-EPSILON`), which KiCad's hole clearance test also allows (change
+c0420, N4: 10.0.6 reports a gap 600 nm below 0.25 mm and not one 400 nm below). KiCad 9.0.9 reports no
 `hole_clearance` between a pad and an unplated hole, which 10.0.6 does (`H-K-DRC-LIMITS`): the finding
 is kept for both targets. The summary adds `hole_clearance` (findings) and `hole_clearance_judged`
 (copper shapes judged against a hole).

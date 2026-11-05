@@ -14,6 +14,7 @@ from fenolite.backends.altium.connectstyle import (
     ConnectStyle,
     governing_connection,
     lower_zone_styles,
+    named_polygons,
     pad_overrides,
     read_connect_style,
     read_connect_styles,
@@ -123,10 +124,41 @@ def test_the_governing_record_by_priority_and_scope() -> None:
     assert isinstance(via, Connection) and via.style == "direct"
     pad = governing_connection(styles, _pad("GND"), _zone("GND"), "smd_pad")
     assert isinstance(pad, Connection) and pad.style == "relief"
-    unread = read_connect_styles([_record("Named", 1, "IsNamedPolygon('X')", "All", *_simple()), *[]])
+    # c0420 B5: ``IsNamedPolygon`` now resolves (``test_named_polygon_scopes``), so a function outside the
+    # closed grammar stands for the unread scope here
+    unread = read_connect_styles([_record("Named", 1, "InPolygonClass('X')", "All", *_simple()), *[]])
     assert governing_connection(unread, _pad("GND"), _zone("GND"), "th_pad") == "connect-scope"
     narrow = read_connect_styles([_record("Only", 1, "InNet('VIN')", "All", *_simple())])
     assert governing_connection(narrow, _pad("GND"), _zone("GND"), "th_pad") == "connect-none"
+
+
+def test_named_polygon_scopes() -> None:
+    """``IsNamedPolygon`` names the polygon pour (S-1790; change c0420, B5): a record so scoped governs the
+    polygons it names, in either scope order and without case, and no other polygon."""
+    assert named_polygons("IsNamedPolygon('Top_GND')") == frozenset({"top_gnd"})
+    assert named_polygons("(IsNamedPolygon('A') or IsNamedPolygon('b')) ") == frozenset({"a", "b"})
+    assert named_polygons("(IsNamedPolygon('A') Or IsNamedPolygon('b'))") == frozenset({"a", "b"})
+    assert named_polygons("IsNamedPolygon('A') || IsNamedPolygon('B')") == frozenset({"a", "b"})
+    assert named_polygons("IsNamedPolygon('A') and InNet('GND')") is None
+    assert named_polygons("InNet('GND')") is None
+    styles = read_connect_styles(
+        [
+            _record("Named", 1, "All", "IsNamedPolygon('Top_GND') or IsNamedPolygon('Mid')", *_simple()),
+            _record("Rest", 2, "All", "All", *_simple("Direct")),
+        ]
+    )
+    named = styles[0]
+    assert named.reason == "" and named.named2 == frozenset({"top_gnd", "mid"}) and not named.named1
+    top = governing_connection(styles, _pad("GND"), _zone("GND"), "th_pad", "TOP_GND")
+    other = governing_connection(styles, _pad("GND"), _zone("GND"), "th_pad", "Bottom_GND")
+    unnamed = governing_connection(styles, _pad("GND"), _zone("GND"), "th_pad")
+    assert isinstance(top, Connection) and top.style == "relief"
+    assert isinstance(other, Connection) and other.style == "direct"
+    assert isinstance(unnamed, Connection) and unnamed.style == "direct"
+    swapped = read_connect_styles([_record("Named", 1, "IsNamedPolygon('Mid')", "All", *_simple())])
+    mid = governing_connection(swapped, _pad("GND"), _zone("GND"), "smd_pad", "mid")
+    assert isinstance(mid, Connection) and mid.style == "relief"
+    assert governing_connection(swapped, _pad("GND"), _zone("GND"), "smd_pad", "top") == "connect-none"
 
 
 def _zone_entity(ident: str, net: str, priority: int, settings: ZoneSettings) -> Zone:

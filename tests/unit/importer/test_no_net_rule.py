@@ -43,6 +43,19 @@ def test_altium_scope_of_netless_items() -> None:
     assert _selector(rule.selector_a, set()) == "select.no_net()"
 
 
+def test_altium_scope_not_in_any_net() -> None:
+    """``Not InAnyNet`` is the objects without a net (S-1680; change c0420, B7): ``InAnyNet`` reads as any
+    net, so its negation is ``NO_NET`` and a pad scope of it maps with no ``rule-unmapped``."""
+    assert parse_scope("InAnyNet") == Selector("net", "*")
+    assert parse_scope("Not InAnyNet") == NO_NET
+    pads = parse_scope("IsPad And (Not InAnyNet)")
+    assert pads == Selector("and", items=(Selector("item_kind", "pad"), NO_NET))
+    mapping = map_rules([_clearance("IsPad And (Not InAnyNet)")], origin="board.RUL")
+    assert mapping.unmapped == ()
+    (rule,) = mapping.ruleset.rules
+    assert rule.selector_a == pads and rule.min == 300_000
+
+
 def test_kicad_project_round_trip(tmp_path: Path) -> None:
     source = tmp_path / "src"
     source.mkdir()

@@ -39,6 +39,9 @@ from fenolite.model.rules import RuleSet
 
 KIND = "altium_pcbdoc"
 NET_CLASS_KIND = 0
+NET_TIE_KINDS = frozenset({"3", "4"})
+"""The ``COMPONENTKIND`` values of a net tie, in and out of the BOM (pcb-records.md, "Component kind";
+change c0420 N1): their numbered pads form one net-tie group."""
 BODY_STORAGE = "ComponentBodies6"
 DECODED_STORAGES = (BODY_STORAGE,)
 """Storages of ``PcbDocument.storages`` that the adapter decodes; every other one that is not empty is
@@ -63,6 +66,15 @@ class BoardImport:
 def stem(path: str | None) -> str:
     """The file stem of a library path as an Altium record writes it (``\\`` or ``/`` between folders)."""
     return PureWindowsPath(path).stem if path else ""
+
+
+def net_ties(record: ComponentRecord, pads: tuple[Pad, ...]) -> tuple[tuple[str, ...], ...]:
+    """The net-tie groups of a component: one group of its distinct pad numbers, in pad order, when its
+    ``COMPONENTKIND`` is a net tie and it has two numbers or more; none otherwise (change c0420 N1)."""
+    if record.record.get("COMPONENTKIND") not in NET_TIE_KINDS:
+        return ()
+    numbers = tuple(dict.fromkeys(p.number for p in pads if p.number))
+    return (numbers,) if len(numbers) > 1 else ()
 
 
 def _lib_ref(library: str | None, name: str | None) -> str:
@@ -336,6 +348,7 @@ def read_board(doc: PcbDocument, *, file: str, sha256: str, ids: Ids) -> BoardIm
                 graphics=items.graphics,
                 texts=items.texts,
                 keepouts=items.keepouts,
+                net_ties=net_ties(record, pads),
             )
         )
         links[fp_id] = record
@@ -559,4 +572,4 @@ def import_board(doc: PcbDocument, *, file: str, sha256: str, issues: list[Issue
     )
 
 
-__all__ = ["KIND", "BoardImport", "header", "import_board", "read_board", "stem"]
+__all__ = ["KIND", "NET_TIE_KINDS", "BoardImport", "header", "import_board", "net_ties", "read_board", "stem"]

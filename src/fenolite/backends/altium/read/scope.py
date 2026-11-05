@@ -28,6 +28,10 @@ LEAF_FUNCTIONS: dict[str, SelectorOp] = {"InNet": "net", "InNetClass": "netclass
 NO_NET = "No Net"
 """The net name ``InNet`` takes for the objects without a net (``rule-file.md``, "Closed scope grammar";
 ``H-A-RD-PRJ-SCOPE-NONET``, change c0409): ``InNet('No Net')`` is ``model.rules.NO_NET``."""
+ANY_NET = "InAnyNet"
+"""The attribute check, without an argument, that is true for an object of a net or a primitive of one: ``Not
+InAnyNet`` returns the objects without a net (S-1680; change c0420, B7). It is ``net *``, so ``Not InAnyNet``
+is ``model.rules.NO_NET``."""
 ITEM_KINDS: dict[str, str] = {
     "IsTrack": "track",
     "IsVia": "via",
@@ -164,6 +168,8 @@ class _Parser:
             raise _Refused(f"the operator {name} stands where an operand is expected")
         if name in ITEM_KINDS:
             return Selector("item_kind", ITEM_KINDS[name])
+        if name == ANY_NET:
+            return Selector("net", "*")
         if name in LEAF_FUNCTIONS:
             value = self.argument(name)
             if name == "InNet" and value == NO_NET:
@@ -258,6 +264,7 @@ def parse_scope(text: str) -> Selector | str:
 
 __all__ = [
     "AND_OPERATORS",
+    "ANY_NET",
     "EXISTS_ON_LAYER",
     "GLOB_CHARACTERS",
     "INNER_SIGNAL",

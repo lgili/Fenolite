@@ -333,7 +333,8 @@ becomes the footprint that `design.hole` generates (`fenolite.model.holes.hole_f
 written as `lib/Fenolite_Holes.pretty` with its row in `fp-lib-table`, as a build writes it. A length the
 document cannot tell from a whole micrometre (one unit is 2.54 nm) is taken to it, so a 2 mm slot is
 `NPTH_Slot_2x12mm`, the script's name. A plated hole, whose copper is the hole, is the pad `1` of
-`PTH_…_Pad_<d>mm` and is counted `changed` under `hole`. The shared slot fixture converted to Altium and
+`PTH_…_Pad_<d>mm` and is counted `changed` under `hole`. An unplated hole is counted `changed` too, with the reason
+that it is written as a board-only footprint: KiCad holds no hole outside a footprint (change c0420). The shared slot fixture converted to Altium and
 back loads with no `invalid_outline` and drills what the source drills (`H-K-CONV-SLOTS`). Derived footprints use the first instance in reference order in its top-side local frame;
 instances that differ are reported without replacing board geometry. Filename collisions are disambiguated.
 Symbols are taken from available SchLib definitions or generated from the circuit pins. Positions and

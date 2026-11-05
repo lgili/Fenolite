@@ -16,7 +16,7 @@ from fenolite.backends.altium import rulemap
 from fenolite.backends.altium.read.rules import PENDING_KINDS, RULE_KIND_MAP
 from fenolite.backends.altium.read.scope import parse_scope
 from fenolite.backends.altium.rulemap import NOT_LOWERED_REASONS, TABLE, lift, lower, same_rules
-from fenolite.model.rules import Rule, RuleKind, Selector
+from fenolite.model.rules import NO_NET, Rule, RuleKind, Selector
 
 PAGE = Path(__file__).resolve().parents[4] / "docs" / "formats" / "altium" / "pcb-copper.md"
 ALL = Selector("all")
@@ -400,6 +400,20 @@ def test_part_pad_clearance_shapes() -> None:
     )
     assert scopes["set"][0] == "InComponent('U1') And IsPad And (InNet('A') Or InNet('B'))"
     assert all(parse_scope(text) is not None for pair in scopes.values() for text in pair)
+    lifted, opaque = lift(lowered.records)
+    assert opaque == {} and same_rules(lifted, lowered.written) and len(lowered.written) == len(rules)
+
+
+def test_rules_on_items_without_a_net_are_written() -> None:
+    """``NO_NET`` is written ``Not InAnyNet`` (S-1680; change c0420, B7) and lifts back to the same rule."""
+    rules = [
+        rule("clearance", NO_NET, min=MM, name="netless", priority=2),
+        rule("clearance", _and(PAD, NO_NET), min=MM, name="netless_pads", priority=1),
+    ]
+    lowered = lower(rules)
+    assert lowered.not_lowered == ()
+    scopes = {record.rules[0].name: (record.scope1, record.scope2) for record in lowered.records}
+    assert scopes == {"netless": ("Not InAnyNet", "All"), "netless_pads": ("IsPad And (Not InAnyNet)", "All")}
     lifted, opaque = lift(lowered.records)
     assert opaque == {} and same_rules(lifted, lowered.written) and len(lowered.written) == len(rules)
 

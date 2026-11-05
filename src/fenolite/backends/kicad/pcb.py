@@ -52,6 +52,7 @@ from fenolite.backends.kicad._fpmap import (
     layers_node,
     margin_disagrees,
     net_tie_groups,
+    net_tie_node,
     node,
     opaque_fab_properties,
     opaque_zone_connects,
@@ -2321,6 +2322,7 @@ FLOOR_HEADS: tuple[str, ...] = (
     "enabled", "allow_two_segments", "prefer_zone_connections", "face", "bold", "italic", "group",
     "members", "free", "placement", "sheetname", "leader_length", "override_value", "text_frame", "image",
     "scale", "data", "rect_delta", "roundrect_rratio", "chamfer_ratio", "chamfer", "options", "primitives",
+    "net_tie_pad_groups",
 )  # fmt: skip
 """Names the writer creates that the 8.0 format already has and that neither the token inventory nor
 the skeleton holds (``board.md``, S-0021 and S-0033 at tag 8.0.0). The names of a linear dimension
@@ -2336,7 +2338,8 @@ c0277), and the ``leader_length`` of a radial dimension and the ``override_value
 leader (the demo boards of 9.0.9 and 10.0.6, S-0058; change c0277), and a board ``image`` with its ``scale``
 and ``data`` (S-0001, "Images"; change c0277), and the shape children of a pad, ``rect_delta``,
 ``roundrect_rratio``, ``chamfer_ratio``, ``chamfer``, ``options`` and ``primitives`` (the pads of the demo
-boards of 9.0.9 and 10.0.6, S-0058, and S-0001; change c0277). The writer has no target below 9."""
+boards of 9.0.9 and 10.0.6, S-0058, and S-0001; change c0277), and a footprint's ``net_tie_pad_groups``
+(KiCad's own net-tie library, S-0018 and S-0042; change c0420). The writer has no target below 9."""
 CANONICAL_ORDER: Mapping[str, tuple[str, ...]] = MappingProxyType(
     {
         "kicad_pcb": (
@@ -2346,7 +2349,7 @@ CANONICAL_ORDER: Mapping[str, tuple[str, ...]] = MappingProxyType(
         "group": ("name", "uuid", "locked", "members"),
         "title_block": ("title", "date", "rev", "company", "comment"),
         "footprint": (
-            *FOOTPRINT_POSITIONAL, "locked", "layer", "uuid", "at", "property", "path", "attr",
+            *FOOTPRINT_POSITIONAL, "locked", "layer", "uuid", "at", "property", "path", "attr", NET_TIES,
             *FP_GRAPHIC_HEADS, "pad", "zone",
         ),
         "property": ("name", "value", "at", "layer", "hide", "uuid", "effects"),
@@ -2446,7 +2449,7 @@ _WRITE_FIELDS: Mapping[str, Mapping[str, str | tuple[str, ...]]] = MappingProxyT
         },
         "footprint": {
             **FOOTPRINT_FIELDS, "locked": "locked", "property": ("fields", "properties"),
-            **dict.fromkeys(FP_GRAPHIC_HEADS, "graphics"), "zone": "keepouts",
+            **dict.fromkeys(FP_GRAPHIC_HEADS, "graphics"), "zone": "keepouts", NET_TIES: "net_ties",
         },
         "property": {**FIELD_FIELDS},
         "pad": {**BOARD_PAD_FIELDS, **MARGIN_HEADS, tdlib.HEAD: "teardrop", **SHAPE_HEADS},
@@ -3119,10 +3122,9 @@ class _Writer:
             if names.count(name) > 1:
                 raise ValueError(f"{_locator(fp)}: two fields are named {name!r}")
         if created:
-            if fp.net_ties:
-                self.read_only(
-                    "net_ties", _locator(fp), "only a placed library definition carries net-tie groups"
-                )
+            # a created footprint writes its net-tie groups after ``attr``, where KiCad reads them
+            # (board.md, "Net-tie groups"; change c0420 N1)
+            items["net_ties"] = [net_tie_node(fp.net_ties)] if fp.net_ties else []
             items["fields"] = []
             items["properties"] = self.properties(fp, component)
         else:

@@ -221,7 +221,8 @@ def test_kicad_overlapping_cutouts_are_merged(tmp_path: Path) -> None:
     assert "lib/Fenolite_Holes.pretty/NPTH_Slot_1x3mm.kicad_mod" in conversion.files
     assert b'(name "Fenolite_Holes")' in conversion.files["fp-lib-table"]
     holes = conversion.report.row("hole")
-    assert holes is not None and (holes.source, holes.written, holes.changed, holes.lost) == (1, 1, 0, 0)
+    # change c0420: the hole is written as a footprint, changed, not as itself (to_kicad.HOLE_REASON)
+    assert holes is not None and (holes.source, holes.written, holes.changed, holes.lost) == (1, 0, 1, 0)
 
 
 def test_kicad_overlap_without_a_union_is_refused(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -353,6 +354,34 @@ def test_holes_a_plated_hole_is_changed(monkeypatch: pytest.MonkeyPatch) -> None
     (fp,) = [fp for fp in board.footprints if fp.lib_ref.startswith("Fenolite_Holes:PTH_")]
     (pad,) = fp.pads
     assert (pad.number, pad.kind, pad.net_id) == ("1", "thru_hole", None)
+
+
+def test_holes_an_unplated_hole_is_changed() -> None:
+    """Change c0420: an unplated board hole, written as the unnumbered pad of a board-only footprint
+    ``NPTH_…`` because KiCad holds no free hole, is counted changed with ``HOLE_REASON``, never silently."""
+    from fenolite.backends.altium.adapter import import_board
+    from fenolite.backends.altium.read.pcb import read_pcbdoc as read_document
+    from fenolite.convert import to_kicad
+    from fenolite.convert.direction import Options
+    from fenolite.convert.sources import SourceProject
+
+    imported = import_board(read_document(SLOTS_ALTIUM.read_bytes()), file=SLOTS_ALTIUM.name, sha256="0" * 64)
+    assert imported.board is not None
+    holes = imported.board.holes
+    assert holes and not any(h.plated for h in holes)
+    source = SourceProject(
+        given=SLOTS_ALTIUM,
+        path=SLOTS_ALTIUM,
+        root=SLOTS_ALTIUM.parent,
+        backend="altium",
+        kind="pcbdoc",
+        design=imported,
+    )
+    row = to_kicad.write_altium(source, Options(kicad_version=10)).report.row("hole")
+    assert row is not None and (row.source, row.changed) == (len(holes), len(holes))
+    assert [(r.reason, sorted(r.ids)) for r in row.reasons] == [
+        (to_kicad.HOLE_REASON, sorted(h.id for h in holes))
+    ]
 
 
 def test_holes_metric_takes_a_length_to_the_micrometre_the_document_holds() -> None:

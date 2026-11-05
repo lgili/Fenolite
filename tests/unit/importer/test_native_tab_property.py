@@ -197,8 +197,11 @@ def test_tab_requires_measured_source_and_single_pose(tmp_path: Path, defect: st
         emit(source, Options(source.name, Provenance(licence="CC0-1.0"), target=10))
 
 
-def test_tab_of_another_backend_is_a_declared_loss(tmp_path: Path):
-    """change c0379: a TAB value read from a non-KiCad source no longer refuses the whole import."""
+def test_tab_of_another_backend_is_kept_natively(tmp_path: Path):
+    """change c0420 (was c0379, a declared loss): another backend's import reads the board of its in-memory
+    KiCad conversion, whose footprint holds the parameter as one field, so a TAB value is kept natively in
+    the vendored footprint, as for a KiCad source; the emitted code holds neither the TAB nor the property,
+    and nothing is unexpressed."""
     from dataclasses import replace
 
     from fenolite.importer.emit import Options, emit
@@ -207,6 +210,32 @@ def test_tab_of_another_backend_is_a_declared_loss(tmp_path: Path):
 
     source = replace(
         read_kicad(tab_project(tmp_path / "source", 10, "top", 180, True, True)), backend="altium"
+    )
+    emission = emit(source, Options(source.name, Provenance(licence="CC0-1.0"), target=10))
+    assert "property-tab" not in {row.kind for row in emission.unexpressed}
+    code = "".join(data.decode("utf-8") for name, data in emission.files.items() if name.endswith(".py"))
+    assert "\t" not in code and "Author" not in code
+    native = [data.decode("utf-8") for name, data in emission.files.items() if name.endswith(".kicad_mod")]
+    assert sum('(property "Author"' in text for text in native) == 1
+
+
+def test_tab_of_another_backend_without_its_field_is_a_declared_loss(tmp_path: Path):
+    """change c0379, kept by c0420: a TAB value of another backend whose footprint holds no one field of
+    that name is the unexpressed kind ``property-tab``, never a refusal of the import."""
+    from dataclasses import replace
+
+    from fenolite.importer.emit import Options, emit
+    from fenolite.importer.provenance import Provenance
+    from fenolite.importer.source import read_kicad
+
+    source = replace(
+        read_kicad(tab_project(tmp_path / "source", 10, "top", 180, True, True)), backend="altium"
+    )
+    assert source.design.board is not None
+    (fp,) = source.design.board.footprints
+    fp = replace(fp, fields=tuple(field for field in fp.fields if field.name != "Author"))
+    source = replace(
+        source, design=replace(source.design, board=replace(source.design.board, footprints=(fp,)))
     )
     emission = emit(source, Options(source.name, Provenance(licence="CC0-1.0"), target=10))
     lost = {row.kind: row for row in emission.unexpressed}

@@ -286,6 +286,10 @@ BODY_KIND = "body"
 PLATED_REASON = "a plated hole is written as a pad of its footprint without a net"
 """The reason a plated board hole is counted changed under ``hole`` (change c0170): KiCad holds it as the
 numbered pad of a generated footprint, which no net reaches."""
+HOLE_REASON = "a board hole is written as a board-only footprint of the Fenolite_Holes library"
+"""The reason an unplated board hole is counted changed under ``hole`` (change c0420): KiCad holds no hole
+outside a footprint (c0167), so the hole is the unnumbered pad of a generated footprint
+(``generated_holes``), a component without a reference that the generated schematic does not show."""
 MERGED_REASON = "merged"
 """The reason a group of overlapping cut-outs is counted changed under ``cutout`` (change c0170): it is
 written as one ring, the union of its members, which is the area that is milled."""
@@ -490,8 +494,8 @@ def write_altium(source: SourceProject, options: Options) -> Written:
     design, holes, plated = generated_holes(
         dataclasses.replace(design, board=dataclasses.replace(design.board, holes=holes))
     )
-    for ident in plated:
-        ledger.change(HOLE_KIND, ident, PLATED_REASON)
+    for hole in board.holes if board is not None else ():  # change c0420: no hole changes kind unreported
+        ledger.change(HOLE_KIND, hole.id, PLATED_REASON if hole.id in plated else HOLE_REASON)
     issues: list[Issue] = []
     placed = _placed_models(source, design, name)
     design = _with_models(design, placed.placements)  # change c0409: the board's footprints hold them too

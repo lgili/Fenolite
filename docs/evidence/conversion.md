@@ -244,6 +244,13 @@ The PCB retains those instance edits. This source geometry explains the two
 changed-footprint rows; it is unrelated to nonzero drill offsets (none occur in
 this board). The ledger assertion remains exact.
 
+Change c0420 writes a footprint with net-tie groups as an Altium net-tie component (`COMPONENTKIND` 4).
+In this ledger, `RoyalBlue54L-Feather` and `tinytapeout-demo` lose their `net-tie` rows: each group holds
+every pad number of its footprint, so nothing changes. The two three-pad jumpers of `One-Air-Max` tie pads
+1 and 2 only, which the component mark cannot say, so they are `changed`. The other tables keep their
+dated counts. The `writer_ledger_sha256` of row 16 in the current comparison record follows the ledger
+rows without the `net-tie` row; its compared differences are unchanged.
+
 <!-- ledger:begin -->
 | board | kind | outcome | count | reason |
 |---|---|---|---|---|
@@ -307,7 +314,7 @@ this board). The ledger assertion remains exact.
 | One-Air-Max | pad | changed | 5 | the pad number is empty, so it is written as a free pad at its board position |
 | One-Air-Max | footprint-copper | lost | 3 | a graphic of a footprint on a copper layer has no record written: it would be copper |
 | One-Air-Max | footprint-graphic | lost | 1 | degenerate arc on F.SilkS is not written |
-| One-Air-Max | net-tie | lost | 2 | the pads are written, without a mark that ties them: a net-tie group is KiCad data |
+| One-Air-Max | net-tie | changed | 2 | the component is written as a net tie, which ties all its pads: Altium marks the whole component, not groups of pads |
 | One-Air-Max | zone-fill | changed | 34 | a polygon is written unpoured; Altium fills it on a repour |
 | One-Air-Max | outline | lost | 20 | an arc of the outline is written as two straight edges |
 | One-Air-Max | stackup | lost | 1 | the document has no key for the solder mask thickness, the finish; the copper and dielectric values are written |
@@ -327,7 +334,6 @@ this board). The ledger assertion remains exact.
 | RoyalBlue54L-Feather | pad | changed | 9 | the pad number is empty, so it is written as a free pad at its board position |
 | RoyalBlue54L-Feather | pad | changed | 6 | a connector pad is written as a surface pad with no paste and no mask opening |
 | RoyalBlue54L-Feather | footprint-copper | lost | 1 | a graphic of a footprint on a copper layer has no record written: it would be copper |
-| RoyalBlue54L-Feather | net-tie | lost | 1 | the pads are written, without a mark that ties them: a net-tie group is KiCad data |
 | RoyalBlue54L-Feather | zone | lost | 2 | the model holds no outline of the zone (an outline with an arc is kept by the reader) |
 | RoyalBlue54L-Feather | zone-fill | changed | 2 | a polygon is written unpoured; Altium fills it on a repour |
 | RoyalBlue54L-Feather | outline | lost | 4 | an arc of the outline is written as two straight edges |
@@ -350,7 +356,6 @@ this board). The ledger assertion remains exact.
 | tinytapeout-demo | footprint-copper | lost | 25 | a graphic of a footprint on a copper layer has no record written: it would be copper |
 | tinytapeout-demo | footprint-graphic | lost | 9 | the layer Edge.Cuts has no layer in the document for a graphic |
 | tinytapeout-demo | footprint-graphic | lost | 6 | a filled circle has no record: a region holds straight edges only |
-| tinytapeout-demo | net-tie | lost | 9 | the pads are written, without a mark that ties them: a net-tie group is KiCad data |
 | tinytapeout-demo | zone-fill | changed | 2 | a polygon is written unpoured; Altium fills it on a repour |
 | tinytapeout-demo | outline | lost | 12 | an arc of the outline is written as two straight edges |
 | tinytapeout-demo | stackup | lost | 1 | the stack-up holds several dielectric sheets between F.Cu and In1.Cu (2 dielectric entries) and the document holds one dielectric per gap; the default stack values are written |

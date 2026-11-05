@@ -169,3 +169,61 @@ def test_embedded_array_copies_load_and_check_in_kicad(tmp_path) -> None:
     alone, copies = drc(board), drc(board.parent / "panel.PcbDoc")
     assert copies == Counter({kind: 4 * count for kind, count in alone.items()})
     assert not copies["shorting_items"] and not copies["clearance"]
+
+
+def test_net_tie_footprint_copper_is_no_short_in_kicad_drc(tmp_path) -> None:
+    """change c0420, N1: a converted footprint with net-tie groups is written with ``net_tie_pad_groups``
+    after ``attr``; a copper line of the footprint joining its two pads of different nets then adds no
+    violation to KiCad's DRC, and the same footprint without the groups adds clearance and solder mask
+    bridge violations (10.0.6, 2026-11-05)."""
+    import dataclasses
+    from collections import Counter
+
+    from fenolite.backends.kicad.pcb import read_board
+    from fenolite.convert import convert_project
+    from fenolite.convert.sources import read_source
+    from fenolite.model.board import Graphic
+
+    source = read_source(_a2kcases.SAMPLE)
+    board = source.design.board
+    assert board is not None
+    index, fp = next(
+        (i, f)
+        for i, f in enumerate(board.footprints)
+        if len(f.pads) == 2 and len({p.net_id for p in f.pads} - {None}) == 2 and f.side == "top"
+        and all("F.Cu" in p.layers for p in f.pads)
+    )  # fmt: skip
+    one, two = fp.pads
+    bridge = Graphic(
+        id="gfx-c0420-tie", kind="line", layer="F.Cu", points=(one.position, two.position), width=200_000
+    )
+    cli = runner()
+
+    def drc(ties: tuple[tuple[str, ...], ...], bridged: bool = True) -> Counter[str]:
+        graphics = (*fp.graphics, bridge) if bridged else fp.graphics
+        tied = dataclasses.replace(fp, net_ties=ties, graphics=graphics)
+        footprints = (*board.footprints[:index], tied, *board.footprints[index + 1 :])
+        design = dataclasses.replace(source.design, board=dataclasses.replace(board, footprints=footprints))
+        folder = tmp_path / f"{len(ties)}{int(bridged)}"
+        folder.mkdir()
+        changed = dataclasses.replace(source, design=design)
+        conversion = convert_project(changed, to="kicad", kicad_version=cli.major(), allow_lossy=True)
+        for name, data in conversion.files.items():
+            (folder / name).parent.mkdir(parents=True, exist_ok=True)
+            (folder / name).write_bytes(data)
+        text = conversion.files[conversion.read_back].decode()
+        if ties:
+            assert text.count("(net_tie_pad_groups") == 1
+            read = read_board(text)
+            assert read.board is not None
+            assert [f.net_ties for f in read.board.footprints if f.net_ties] == [ties]
+        files = {name: folder / name for name in conversion.files if name != conversion.read_back}
+        run = cli.drc(folder / conversion.read_back, files=files)
+        assert run.report is not None, run.run.stderr
+        return Counter(v.type for v in run.report.violations)
+
+    group = ((one.number, two.number),)
+    baseline, tied, untied = drc(group, bridged=False), drc(group), drc(())
+    assert tied == baseline
+    assert untied["clearance"] > baseline["clearance"]
+    assert untied["solder_mask_bridge"] > baseline["solder_mask_bridge"]

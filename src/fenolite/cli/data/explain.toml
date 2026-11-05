@@ -1564,7 +1564,7 @@ fix = "Move one hole; keep the overlap only when the two holes form one slot on 
 see = "check"
 
 ["copper.hole-clearance"]
-meaning = "Copper lies closer to a drilled hole (pad drill, plated or not, round or slot; via drill; board hole) than the hole clearance in force: the governing hole_clearance rule, else the board minimum (KiCad: min_hole_clearance). Gap to the wall. The hole's own pad or via and its own net are not judged. KiCad reports hole_clearance; 9.0.9 not for a pad and an unplated hole, 10.0.6 does: raised for both."
+meaning = "Copper lies closer to a drilled hole (pad, via or board hole) than the hole clearance in force: the governing hole_clearance rule, else the board minimum (KiCad: min_hole_clearance), less the clearance tolerance (500 nm on KiCad). The own pad or via and own net are not judged. KiCad reports hole_clearance; 9.0.9 not for a pad and an unplated hole, 10.0.6 does: raised for both."
 fix = "Route the copper around the hole with the clearance in force, or move the part with the hole; never waive it. A rule (design.rules.rule(kind='hole_clearance')) sets its own value for some nets. Build with --copper-check warn to write anyway."
 see = "check"
 

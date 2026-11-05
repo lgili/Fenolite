@@ -720,18 +720,21 @@ def test_stack_twenty_layers_with_four_planes(monkeypatch: pytest.MonkeyPatch, t
     assert names == ["F.Cu", *(f"In{k}.Cu" for k in range(1, 19)), "B.Cu"]
 
 
-# --- net-tie groups and check severities: reported, not written (change c0114) --------------------
+# --- net-tie groups (changes c0114, c0420) and check severities ------------------------------------
 
 
 def test_net_tie_in_an_altium_build(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """Scenario "A net tie in an Altium build" (dsl-footprint-authoring, "Net-tie groups in authored
-    footprints"): the pads are written, no mark ties them, and one info of the kind ``net-tie`` says so."""
+    footprints", as change c0420 modifies it): the component is written as a net tie (``COMPONENTKIND`` 4),
+    its one group of every pad number needs no ``net-tie`` info, and the import reads the group back. Before
+    c0420 no mark was written and one info said so."""
     from _altium_drc import DOCUMENT, build_altium, coded
     from _routed import Routed
     from _waivercases import NET_TIE, plant
 
     from fenolite.backends.altium.backend import AltiumBackend
     from fenolite.backends.altium.lower import LOSS_KINDS, NET_TIE_KIND
+    from fenolite.backends.altium.read.pcb import read_component_fields
 
     routed = Routed(tmp_path, monkeypatch, confirm=False)
     plant(routed, NET_TIE)
@@ -739,8 +742,7 @@ def test_net_tie_in_an_altium_build(monkeypatch: pytest.MonkeyPatch, tmp_path: P
     assert code == 0, (env.get("issues"), err)
     planned = [Path(name).name for name in env["result"]["files"]]
     assert DOCUMENT in planned and any(name.endswith(".PcbLib") for name in planned)
-    (found,) = [i for i in coded(env, "altium.not-lowered") if i["where"] == NET_TIE_KIND]
-    assert found["severity"] == "info" and "1 footprint(s)" in found["message"] and "NT1" in found["message"]
+    assert not [i for i in coded(env, "altium.not-lowered") if i["where"] == NET_TIE_KIND]
     assert NET_TIE_KIND not in LOSS_KINDS
     assert not coded(env, "copper.short")  # the tied pads are 0.5 mm apart
     code, env, err = build_altium(routed, "--confirm")
@@ -750,7 +752,10 @@ def test_net_tie_in_an_altium_build(monkeypatch: pytest.MonkeyPatch, tmp_path: P
     pads = [pad for pad in backend.board_pads(read.design) if pad.ref == "NT1"]
     assert sorted(pad.number for pad in pads) == ["1", "2"]
     assert read.design.board is not None
-    assert all(placed.net_ties == () for placed in read.design.board.footprints)  # the import reads none
+    records = [dict(r) for r in read_component_fields((routed.out / DOCUMENT).read_bytes())]
+    assert [r["COMPONENTKIND"] for r in records if "COMPONENTKIND" in r] == ["4"]
+    ties = {f.id: f.net_ties for f in read.design.board.footprints if f.net_ties}
+    assert list(ties.values()) == [(("1", "2"),)]
 
 
 def test_severities_in_an_altium_build(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

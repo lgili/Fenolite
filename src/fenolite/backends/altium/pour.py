@@ -1144,7 +1144,7 @@ def _pour(polygon: PourPolygon, state: _Layer, context: _Context) -> tuple[tuple
         subject = rule_subject(layer, item.kind, item.net, item.netclass, item.ref)
         own = net is not None and item.net == net
         if own and item.kind in ("via", "pad") and item.connect is not None:
-            found = governing_connection(context.styles, subject, me, item.connect)
+            found = governing_connection(context.styles, subject, me, item.connect, polygon.name)
             if isinstance(found, str):
                 return (), found
             joins.append((item, found))

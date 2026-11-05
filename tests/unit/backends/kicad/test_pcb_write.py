@@ -213,7 +213,7 @@ def coverage_board() -> Design:
     """The created test board with one of each item of change c0277 the writer creates (the coverage board of
     kicad-file-backend, "Coverage items written to boards"): dimensions of every kind, a styled text, a
     group, an image, a placement rule area, a via with teardrops, shaped pads, and the overrides, a 3D model
-    and a bold reference of the footprint."""
+    and a bold reference of the footprint, and its net-tie group (change c0420)."""
     created_design = created_board()
     assert created_design.board is not None
     # the created test board holds no dimension: one of each kind is added here (c0103), and the teardrop
@@ -251,7 +251,9 @@ def coverage_board() -> Design:
             primitives=(PadPrimitive("segment", (mm(0, 0), mm(0.3, 0)), 100_000),),
         ),  # fmt: skip
     )
-    footprints = (dataclasses.replace(board.footprints[0], pads=shaped), *board.footprints[1:])
+    # and a net-tie group of the first two pads (change c0420, N1: a created footprint writes it)
+    ties = ((first.number, second.number),)
+    footprints = (dataclasses.replace(board.footprints[0], pads=shaped, net_ties=ties), *board.footprints[1:])
     coverage = dataclasses.replace(
         created_design,
         board=dataclasses.replace(
@@ -705,6 +707,7 @@ def test_coverage_read_back(target: int) -> None:
     assert dumps(footprint.find("clearance"), style="compact") == "(clearance 0.15)"  # type: ignore[arg-type]
     assert len(footprint.nodes("model")) == 1 and len(root.nodes("group")) == 1
     assert "(bold yes)" in dumps(footprint, style="compact")
+    assert back.board.footprints[0].net_ties == (("1", "2"),)
     (via,) = [v for v in root.nodes("via") if v.find("teardrops") is not None]
     assert via.find("free") is not None
 

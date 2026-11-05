@@ -141,13 +141,16 @@ FREE_PAD_REASON = "the pad number is empty, so it is written as a free pad at it
 """The reason a pad without a number is counted changed under ``pad`` (change c0160): Altium leaves a
 designator empty for a free pad only, so it leaves its footprint and the document holds it as a free pad."""
 NET_TIE_KIND = "net-tie"
-"""A footprint with net-tie groups (change c0114): its pads are written, without a mark that ties them,
-because how Altium marks a net tie is no registered format fact. Not in ``LOSS_KINDS``: nothing of the
-board that is made is lost."""
+"""A footprint with net-tie groups (change c0114): written as a component of the kind Net Tie (change c0420,
+N1; ``pcbdoc.PlacedComponent.net_tie``). Altium marks the whole component, so groups that are not one
+group of every pad number are counted changed. Not in ``LOSS_KINDS``."""
 SEVERITY_KIND = "severity"
 """A check severity of ``RuleSet.severities`` (change c0114): KiCad data, and no rule kind, so the rule
 table has no row for it and none is written. Not in ``LOSS_KINDS``."""
-NET_TIE_REASON = "the pads are written, without a mark that ties them: a net-tie group is KiCad data"
+NET_TIE_REASON = (
+    "the component is written as a net tie, which ties all its pads: Altium marks the whole component, not "
+    "groups of pads"
+)
 
 
 def severity_reason(codes: Sequence[str]) -> str:
@@ -895,6 +898,19 @@ KEEPOUT_LAYER_REASON = (
 on its copper layers (changed), or not written when it names none (lost)."""
 
 
+def net_tie_differs(net_ties: Sequence[Sequence[str]], pads: Sequence[Pad]) -> bool:
+    """Whether net-tie groups say more than a component of the kind Net Tie (change c0420, N1): anything but
+    one group of every distinct pad number, since Altium marks the whole component and not groups of pads."""
+    numbers = {pad.number for pad in pads if pad.number}
+    return bool(net_ties) and (len(net_ties) != 1 or set(net_ties[0]) != numbers)
+
+
+def _account_net_tie(fp: FootprintInstance, account: _Account) -> None:
+    """Count ``fp``'s net-tie groups changed under ``net-tie`` when ``net_tie_differs``."""
+    if net_tie_differs(fp.net_ties, fp.pads):
+        account.change(NET_TIE_KIND, fp.id, NET_TIE_REASON)
+
+
 def _written_keepouts(fp: FootprintInstance, copper: Sequence[str], account: _Account) -> tuple[Keepout, ...]:
     """The rule areas of ``fp`` as the document and the derived library write them (change c0411), in the
     top-side form of ``_library_keepout``. An Altium keep-out is a primitive of a copper layer or of the
@@ -1211,8 +1227,11 @@ def _footprints(
                 arc_records=own.arcs,
                 items=own.items,
                 texts=own.texts,
+                net_tie=bool(fp.net_ties),
             )
         )
+        if fp.net_ties:
+            _account_net_tie(fp, account)
         account.wrote("footprint")
         account.wrote("pad", len(pads))
         for body in fp.bodies:
@@ -1793,9 +1812,6 @@ def _document(
     )
     cutouts = _cutouts(board.outline if board.outline is not None else edges, account)
     lowered = rulemap.lower(design.rules.rules if design.rules is not None else ())
-    for footprint in board.footprints:
-        if footprint.net_ties:
-            account.skip(NET_TIE_KIND, footprint.id, NET_TIE_REASON)
     codes = sorted(design.rules.severities) if design.rules is not None else []
     for code in codes:
         account.skip(SEVERITY_KIND, code, severity_reason(codes))
@@ -2400,6 +2416,7 @@ __all__ = [
     "in_frame_of",
     "kept_arc",
     "moved",
+    "net_tie_differs",
     "pairs_of",
     "schematic_design",
     "stack_from_stackup",

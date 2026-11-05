@@ -985,10 +985,31 @@ The third row is the census that change c0114 states (twelve footprints on three
 - `read_board` projects the child into `FootprintInstance.net_ties`, as `read_footprint` does, and keeps
   it as a projected slot: an unchanged board is written back byte for byte.
 - A footprint whose `net_ties` differs from its child, or that gains groups without having the child,
-  gives `kicad.board.projection-read-only` naming `net_ties`. A footprint that was not placed from a
-  library definition cannot carry groups.
+  gives `kicad.board.projection-read-only` naming `net_ties`.
+- A created footprint (one the writer makes whole, such as a converted Altium net tie, `docs/formats/altium/
+  pcb-records.md`, "Component kind") writes its groups as the `net_tie_pad_groups` child after `attr` (change
+  c0420, N1; it was refused before).
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| A converted footprint written with the child after `attr` loads, and a copper line of the footprint that joins its two pads of different nets adds no DRC violation; without the child the same line adds `clearance` and `solder_mask_bridge` violations | S-1792 | KICAD-VERIFIED (10.0.6) | H-K-NETTIE-DRC |
 - `embed.place_footprint` carries the child of the definition into the placed footprint, so a library
   net tie, or an authored one, keeps its groups on the board that `build` writes.
+
+## Zone clearance against rules (c0420)
+
+What decides the gap between a zone's fill and an item of another net when KiCad refills the zone, measured on
+an authored board (a zone of net `A` round a 0.25 mm track of net `B`, `tests/kicad/fill/
+test_zone_clearance_oracle.py`).
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| A custom rule (`.kicad_dru`) whose condition matches the pair decides the gap, wider or narrower than the zone's `connect_pads` clearance: zone 0.2 mm with a 1.0 mm rule gives 1.0 mm, zone 1.0 mm with a 0.2 mm rule gives 0.2 mm | S-1792 | KICAD-VERIFIED (10.0.6) | H-K-ZONE-CLEARANCE |
+| Without a matching custom rule the gap is the larger of the zone's clearance and the netclass clearance: zone 1.0 mm over a 0.2 mm netclass gives 1.0 mm, zone 0.2 mm under a 1.0 mm netclass 1.0 mm, zone 1.5 mm over 1.0 mm 1.5 mm | S-1792 | KICAD-VERIFIED (10.0.6) | H-K-ZONE-CLEARANCE |
+
+So a converted Altium zone carries the smallest clearance that governs its polygon, and the DRU rules carry
+every wider one (`convert/altium_zones.py`, "Clearance (B6)"). On a converted board whose DRU rules hold one
+without a condition, the widest and the smallest governing clearance on its zones gave the same fill.
 
 ## Drawing items (c0117)
 

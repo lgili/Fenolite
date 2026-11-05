@@ -2734,7 +2734,8 @@ design.add_footprint(tie)
   A pad outside the group, and a track near a tied pad, are judged as on any footprint. The bridge
   itself is a graphic, which the copper check does not see.
 - A footprint from a KiCad library keeps the groups its file has; they cannot be edited from a script.
-- `--target altium` writes the pads and no mark that ties them, and says so (`docs/altium.md`).
+- `--target altium` writes the pads and marks the component a net tie (`COMPONENTKIND` 4). It reports
+  only groups that the whole-component mark cannot say (`docs/altium.md`).
 
 ## Waivers
 

@@ -50,6 +50,8 @@ CONVERT_TOO_LARGE = {"06": 119, "18": 181}
 """The same boards converted: ``convert`` writes the extruded bodies by default, and ``vme-wren`` then
 needs one sector more."""
 NOT_WRITTEN: dict[str, dict[str, int]] = {
+    # change c0420: a net tie is written as a component of the kind Net Tie, so no ``net-tie`` row is lost
+    # (boards 11, 13 and 16 held 2, 1 and 9)
     "01": {
         "dnp": 2,
         "footprint-graphic": 3,
@@ -72,7 +74,6 @@ NOT_WRITTEN: dict[str, dict[str, int]] = {
         "dnp": 11,
         "footprint-copper": 3,
         "footprint-graphic": 1,
-        "net-tie": 2,
         "outline": 20,
         "pad": 12,
         "stackup": 1,
@@ -83,7 +84,6 @@ NOT_WRITTEN: dict[str, dict[str, int]] = {
     "13": {
         "dnp": 22,
         "footprint-copper": 1,
-        "net-tie": 1,
         "outline": 4,
         "pad": 48,
         "stackup": 1,
@@ -99,7 +99,6 @@ NOT_WRITTEN: dict[str, dict[str, int]] = {
         "footprint-copper": 25,
         "footprint-graphic": 15,
         "graphic": 2,
-        "net-tie": 9,
         "outline": 1,
         "pad": 20,
         "stackup": 1,

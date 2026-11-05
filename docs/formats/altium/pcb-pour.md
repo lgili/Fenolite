@@ -48,6 +48,15 @@ keep-outs", and `pcb-read.md`, "Regions".
 | A Polygon Connect Style record of `Rules6` has the kind number 20, `RULEKIND=PolygonConnect`, `NETSCOPE=AnyNet`, `LAYERKIND=SameLayer` and the common rule keys, then either the five keys `CONNECTSTYLE`, `RELIEFCONDUCTORWIDTH`, `RELIEFENTRIES`, `POLYGONRELIEFANGLE` and `AIRGAPWIDTH` (14 records) or the same five keys three times, prefixed `THPAD.`, `SMDPAD.` and `VIA.`, in that order (4 records). The rule file of S-0297 holds one record of the first form | S-0835 | CORPUS-VERIFIED | H-A-POUR-CONNECT |
 | `CONNECTSTYLE` is `Relief` (7 values) or `Direct` (19); `RELIEFENTRIES` is `4` (26); `POLYGONRELIEFANGLE` is `90 Angle` (25) or `45 Angle` (1); the widths are lengths in mil. No public record holds a No Connect style, so its value is not known | S-0835 | CORPUS-VERIFIED | H-A-POUR-CONNECT |
 | The scopes of the 18 records: `All` and `All`; `InNet`, `InNetClass` or `HasFootprint` in the first scope with `All` in the second; `All` with `IsVia` or `InNet` in the second; a polygon query (`IsNamedPolygon`) or a layer query in the first. A binary rule applies when the two objects match its two scopes in either order | S-0835, S-0558 | INFERRED | H-A-POUR-CONNECT |
+| `IsNamedPolygon('name')` is true for the polygon pour object of that name, not for the primitives of its copper; `InNamedPolygon` is the query for those primitives | S-1790 | INFERRED | H-A-POUR-CONNECT |
+
+A Polygon Connect Style scope of named polygons (`IsNamedPolygon('n')`, or such terms joined by `Or` or `||`,
+one pair of parentheses round the whole allowed) governs the pours of those names, compared without case, and no
+other pour (change c0420, B5; `connectstyle.named_polygons`). Any other polygon query stays a `connect-scope`
+refusal. In a conversion to KiCad each zone takes the record that governs it by its own name; a pad whose
+governing records give it another style than its zones do gets its own `zone_connection` when they give it one
+style for every zone of its net, and keeps its setting with a `pad` change when they give it different styles,
+since a KiCad pad holds one connection for every zone.
 
 ## Saved poured regions
 

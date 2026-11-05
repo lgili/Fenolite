@@ -600,6 +600,20 @@ KEEPOUT_LAYER_ID = 56
 """The Keep-Out layer (``LayerMap``: ``Altium.KeepOut``)."""
 
 
+def keepout_layer_restrictions(item: Primitive) -> int | None:
+    """The restrictions value of a keep-out (second flag byte 2) on the Keep-Out layer: the byte after the
+    long layer id of a track, arc or fill, or ``KEEPOUTRESTRICTIONS`` of a region (``pcb-records.md``,
+    "Regions and keep-outs"); ``None`` for any other primitive (change c0420, N2 and N3). A conversion reads
+    it from the source record, so the rule area forbids only what the keep-out forbids (S-1711)."""
+    if isinstance(item, RawPrimitive) or item.prefix.layer != KEEPOUT_LAYER_ID or not is_keepout(item):
+        return None
+    if isinstance(item, RegionRecord):
+        return _restrictions(item)
+    if isinstance(item, (TrackRecord, ArcRecord, FillRecord)):
+        return record_restrictions(item)
+    return None
+
+
 def library_keepout(item: Primitive, ctx: Context) -> bool:
     """Whether a primitive of a library footprint is a rule area of the footprint (changes c0410, c0411): a
     keep-out track, arc, fill or region on copper, a keep-out region of the Keep-Out layer, or a polygon
@@ -1474,8 +1488,10 @@ def outline(vertices: Sequence[OutlineVertex], ctx: Context, locator: str = "Boa
 
 
 __all__ = [
+    "KEEPOUT_LAYER_ID",
     "arcs",
     "definition_graphics",
+    "keepout_layer_restrictions",
     "layer_of_text",
     "outline",
     "region_points",

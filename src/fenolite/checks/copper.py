@@ -803,6 +803,7 @@ def _hole_clearance_findings(
     resolver: ClearanceResolver,
     subject: _Subjects,
     paired: Sequence[CopperFinding],
+    tolerance: Nm = 0,
 ) -> tuple[list[CopperFinding], int]:
     """One ``copper.hole-clearance`` per hole and copper item whose gap to the hole's wall is below the
     hole clearance in force (``ClearanceResolver.hole``; change c0403), on the first layer, in ``layers``
@@ -811,7 +812,9 @@ def _hole_clearance_findings(
     The copper of the hole's own item is left out, and for a hole with a net the copper of that net: the
     hole clearance holds between different nets, and an unplated hole has none. A pair that already has a
     ``copper.short`` or ``copper.clearance`` finding is left out too, as KiCad's DRC reports one violation
-    per item pair (``H-K-DRU-KIND-2``). The gap is exact and strict, as for the edge."""
+    per item pair (``H-K-DRU-KIND-2``). The gap is exact and strict below the hole clearance less
+    ``tolerance``, the tool's own tolerance that the pair clearance takes too (change c0281; change c0420,
+    N4: an imported fill at its rule's value less the rounding of the import is no finding)."""
     found: list[CopperFinding] = []
     grow = resolver.max_hole
     if not holes or grow <= 0:
@@ -851,7 +854,8 @@ def _hole_clearance_findings(
                 if not limit.value or limit.severity is None:
                     continue
                 judged += 1
-                if not thick_closer_than(shape.wide, hole.shape, limit.value):
+                value = limit.value - tolerance
+                if value <= 0 or not thick_closer_than(shape.wide, hole.shape, value):
                     continue
                 gap = thick_gap_floor(shape.wide, hole.shape)
                 best = closest.get(shape.item)
@@ -1207,7 +1211,9 @@ def _run(
         holes = _holes(board, pads, items)
         findings += _hole_findings(holes, board_edges, arc_tol)
         hole_count = len(holes)
-        near, hole_judged = _hole_clearance_findings(holes, items, layers, resolver, judge.subject, findings)
+        near, hole_judged = _hole_clearance_findings(
+            holes, items, layers, resolver, judge.subject, findings, tolerance
+        )
         findings += near
         counts.update(
             judged=judge.judged,

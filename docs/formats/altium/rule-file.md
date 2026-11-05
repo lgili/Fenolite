@@ -153,6 +153,7 @@ other text is refused with a reason and the rule is reported with the reason `sc
 | `All` | `all` |
 | `InNet('v')` | `net v` |
 | `InNet('No Net')` | `not(net *)` (`NO_NET`) |
+| `InAnyNet` | `net *` (so `Not InAnyNet` is `NO_NET`) |
 | `InNetClass('v')` | `netclass v` |
 | `InComponent('v')` | `ref v` |
 | `IsTrack` | `item_kind track` |
@@ -176,7 +177,15 @@ precedence, highest first: brackets, `Not`, `And`, `Or`, then `&&` and `||`, tie
 object without a net has the Net property `No Net` (S-1680), and no public source states that `InNet` reads the
 name that way. It is read as `model.rules.NO_NET`, `not(net *)` (a net glob never matches an object
 without a net), which `select.no_net()` names and the KiCad target writes as `A.NetName == ''`
-(`docs/formats/kicad/rules.md`, `H-K-DRU-NONET`); the Altium writer does not write it back as `InNet('No Net')`.
+(`docs/formats/kicad/rules.md`, `H-K-DRU-NONET`). The Altium writer does not write it back as `InNet('No Net')`:
+since change c0420 it writes `Not InAnyNet`, below.
+
+`InAnyNet` selects the objects that are on a net, so `Not InAnyNet` selects those without one (change c0420, B7;
+`H-A-RD-PRJ-SCOPE-NONET`, INFERRED): Altium's Attribute Checks page states that `Not InAnyNet` returns the objects
+that are not nets or their primitives (S-1680). It is read as `net *`, so `Not InAnyNet` is `NO_NET` and a scope
+such as `IsPad And (Not InAnyNet)` maps without a `scope` refusal. The Altium writer lowers `net *` to `InAnyNet`, so
+`NO_NET` is written `Not InAnyNet` and `IsPad And (Not InAnyNet)` reads back as the same rule
+(`backends/altium/rulemap.py`).
 
 `InPolygon` (alias `InPoly`; change c0412) without an argument is the clearance query for the copper of a polygon pour: Altium's Object
 Type Checks page says a clearance rule for a pour names `InPolygon` rather than `IsPolygon`, because the

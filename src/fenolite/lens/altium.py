@@ -1105,6 +1105,7 @@ def place_footprints(
                 bodies=bodies,
                 graphics=graphics,
                 keepouts=keepouts,
+                net_ties=footprint.defn.net_ties,  # written as a net-tie component (change c0420, N1)
             )
         )
     if wide:
@@ -1696,14 +1697,18 @@ def lowered_harnesses(design: Design, sheets: project.SheetMode, form: project.S
 
 def kicad_only_issues(design: Design, footprints: Mapping[str, pcblib.LibFootprint]) -> list[Issue]:
     """What an Altium build reports instead of writing, because it is KiCad data (change c0114): the
-    components whose footprint has net-tie groups (the pads are written, without a mark that ties them)
-    and the check severities of the design, one ``altium.not-lowered`` info per kind, with the kinds of
-    ``backends.altium.lower`` as ``where``."""
+    components whose footprint has net-tie groups that a component of the kind Net Tie does not say
+    (change c0420, N1: ``lower.net_tie_differs``) and the check severities of the design, one
+    ``altium.not-lowered`` info per kind, with the kinds of ``backends.altium.lower`` as ``where``."""
     found: list[Issue] = []
     tied = sorted(
         component.ref
         for component in design.circuit.components
-        if component.lib_footprint_ref in footprints and footprints[component.lib_footprint_ref].defn.net_ties
+        if component.lib_footprint_ref in footprints
+        and lower.net_tie_differs(
+            footprints[component.lib_footprint_ref].defn.net_ties,
+            footprints[component.lib_footprint_ref].defn.pads,
+        )
     )
     if tied:
         message = (

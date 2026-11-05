@@ -217,3 +217,17 @@ def test_via_drill_only_on_its_span() -> None:
     report = check_copper(made.build(), pads=made.pads, min_hole_clearance=mm(0.25))
     assert codes(report, HOLE_CLEARANCE) == []  # the track touches the via's copper: a short
     assert [f.code for f in report.findings] == ["copper.short"]
+
+
+def test_hole_clearance_takes_the_tool_tolerance() -> None:
+    """Change c0420, N4: the hole clearance takes the tolerance the pair clearance takes (change c0281), so
+    a gap of the floor less 5 nm, the rounding an imported fill holds, is no finding with KiCad's 500 nm;
+    without a tolerance, and 501 nm below the floor, it is one."""
+    floor = mm(0.25)
+    for short, tolerance, expected in ((5, 500, 0), (500, 500, 0), (501, 500, 1), (5, 0, 1)):
+        made = Copper()
+        _npth(made)
+        y = mm(10) + mm(1.5) + floor - short + mm(0.1)
+        made.track("SIG", Point(mm(5), y), Point(mm(15), y), width=mm(0.2))
+        report = check_copper(made.build(), pads=made.pads, min_hole_clearance=floor, tolerance=tolerance)
+        assert len(codes(report, HOLE_CLEARANCE)) == expected, (short, tolerance)
