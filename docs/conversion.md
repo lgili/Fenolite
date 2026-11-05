@@ -227,7 +227,7 @@ these places. "Level 5" is `route-missing`, `route-connectivity`, `route-vias`, 
 | `footprint-copper`, `net-tie` | a net of the pads of its footprint | level 5 |
 | `source` | a reference held as often on both sides | `ref-ambiguous` |
 | `shared-footprint` | the reference of a component that several source footprints link (change c0371) | `ref-ambiguous` |
-| `schematic` | a component that no footprint places, when the schematic is lost (change c0372) | `component-missing` |
+| `schematic` | a component that no footprint places, or a reference the source circuit holds more than once, when the schematic is lost (changes c0372, c0425) | `component-missing`, `ref-ambiguous` |
 <!-- explains:end -->
 
 `source` is no kind of the report: several components of the source share a reference (an empty one, or a

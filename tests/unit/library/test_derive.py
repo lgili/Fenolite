@@ -114,6 +114,19 @@ def test_two_instances_that_differ() -> None:
     assert resistor.refs == ("R1", "R9") and same.issues == ()
 
 
+def test_a_variant_name_the_board_already_holds() -> None:
+    """Change c0425: when the board has its own footprint named ``R_0603_2``, the variant of ``R_0603`` is
+    ``R_0603_3``, so no two footprints of the library share a name."""
+    text = with_second_resistor(board_text(), moved=True)
+    text = text.replace('(footprint "Fenolite_Test:LED_THT_3mm"', '(footprint "Fenolite_Test:R_0603_2"')
+    derived = derive_library(text, library="lib", target=10)
+    names = [fp.name for fp in derived.footprints]
+    assert names == ["R_0603", "R_0603_2", "R_0603_3"]
+    variant = next(fp for fp in derived.footprints if fp.name == "R_0603_3")
+    assert (variant.source, variant.refs) == ("R_0603", ("R9",))
+    assert next(fp for fp in derived.footprints if fp.name == "R_0603_2").source == "R_0603_2"
+
+
 def test_drift_of_a_library(tmp_path: Path) -> None:
     """Scenario "Silkscreen edited on the board": the library's footprint holds a silkscreen line that the
     board's instance lacks; a footprint the library lacks is ``missing``."""

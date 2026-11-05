@@ -6,7 +6,8 @@
 
 Each footprint of the board is brought back to its own origin, rotation 0 and the top side by
 ``embed.local_footprint``, the transform that the conversion's derived libraries use. Two instances of one
-name whose written footprints differ (their uuids aside) give a second footprint ``<name>_2``. The drift
+name whose written footprints differ (their uuids aside) give a second footprint ``<name>_2``, or the next
+free suffix when the board has a footprint of that name (change c0425). The drift
 compares the model of each derived footprint with the library's footprint of the same name.
 """
 
@@ -28,7 +29,7 @@ from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence, Level
 from fenolite.geometry.transform import FULL_TURN
 from fenolite.library.codes import issue
-from fenolite.model.board import Graphic
+from fenolite.model.board import FootprintInstance, Graphic
 from fenolite.model.design import Design
 from fenolite.model.library import FootprintDef
 
@@ -106,11 +107,18 @@ def derive_from_model(
         zip(board.footprints, nodes, strict=True), key=lambda p: (refs.get(p[0].component_id, ""), p[0].id)
     )
     variants: dict[str, list[tuple[str, str, FootprintDef, str, list[str]]]] = {}
-    for fp, root in pairs:
-        if nickname is not None and nickname_of(fp.lib_ref, default) != nickname:
-            continue
+
+    def source_of(fp: FootprintInstance) -> str:
+        return fp.lib_ref.rsplit(":", 1)[-1] or refs.get(fp.component_id, "") or fp.id
+
+    mine = [
+        (fp, root) for fp, root in pairs if nickname is None or nickname_of(fp.lib_ref, default) == nickname
+    ]
+    # a variant's name is never a name of the board's own footprints (change c0425)
+    given = {source_of(fp) for fp, _ in mine}
+    for fp, root in mine:
         ref = refs.get(fp.component_id, "")
-        source = fp.lib_ref.rsplit(":", 1)[-1] or ref or fp.id
+        source = source_of(fp)
         found: list[Issue] = []
         local = local_footprint(root, fp.rotation, fp.side, found)
         if found:
@@ -134,7 +142,13 @@ def derive_from_model(
                 members.append(ref)
                 break
         else:
-            name = source if not rows else f"{source}_{len(rows) + 1}"
+            name = source
+            if rows:
+                suffix = len(rows) + 1
+                while f"{source}_{suffix}" in given:
+                    suffix += 1
+                name = f"{source}_{suffix}"
+                given.add(name)
             definition = _named(definition, name, library)
             written = write_footprint(definition, target=target, allow_lossy=True)
             if rows:

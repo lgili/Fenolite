@@ -1478,11 +1478,15 @@ def emit(source: Source, options: Options) -> Emission:
     # pads by net
     members: dict[str, dict[tuple[str, str], None]] = {}
     seen: dict[tuple[str, str], str] = {}
+    open_pads: set[tuple[str, str]] = set()
+    conflicts: set[tuple[str, str]] = set()
     for footprint in placed:
         ref = refs[footprint.component_id]
         for pad in footprint.pads:
             net = names.get(pad.net_id or "")
             if net is None:
+                if pad.number:
+                    open_pads.add((ref, pad.number))
                 continue
             if not pad.number:
                 ledger.add("pad-net-unnumbered", f"{ref} on {net}")
@@ -1492,9 +1496,17 @@ def emit(source: Source, options: Options) -> Emission:
                 if net.startswith(UNCONNECTED) and other.startswith(UNCONNECTED):
                     continue  # KiCad names an open pad's net per pad; the build names them again (c0277)
                 ledger.add("pad-net-conflict", f"{ref}.{pad.number}")
+                conflicts.add((ref, pad.number))
                 continue
             seen[(ref, pad.number)] = net
             members.setdefault(net, {})[(ref, pad.number)] = None
+    # a pad on no net beside a pad of its number on a net: the DSL joins a pin to every pad of its number,
+    # so the code would put that pad on the net (change c0425)
+    for ref, pad_number in sorted(
+        open_pads & seen.keys() - conflicts, key=lambda key: (natural(key[0]), key[1])
+    ):
+        if not seen[(ref, pad_number)].startswith(UNCONNECTED):
+            ledger.add("pad-net-conflict", f"{ref}.{pad_number}")
     used_nets = {net for net, pins in members.items() if not (len(pins) == 1 and net.startswith(UNCONNECTED))}
     used_nets |= {table.net for table in kept_tables if table.net != NO_NET}
     used_nets |= {names[z.net_id] for z in board.zones if z.net_id in names}

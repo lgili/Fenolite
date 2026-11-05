@@ -12,6 +12,7 @@ says which differences of the read-back a lost item explains, and where.
 
 from __future__ import annotations
 
+from collections import Counter
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from types import MappingProxyType
@@ -444,7 +445,7 @@ EXPLAINS: tuple[Explains, ...] = (
     Explains("net-tie", LEVEL5, "footprint-nets"),
     Explains(SOURCE, ("ref-ambiguous",), "same"),
     Explains("shared-footprint", ("ref-ambiguous",), "ref"),
-    Explains("schematic", ("component-missing",), "ref"),
+    Explains("schematic", ("component-missing", "ref-ambiguous"), "ref"),
 )
 """The closed table of which differences a lost or changed item explains. A lost or changed pad explains
 only its own ``pad-missing``, ``pin-missing`` and ``pad-kind`` and the level-5 kinds of its net, not every
@@ -498,11 +499,15 @@ class Explainer:
                 continue
             kind = row.kind
             if kind == "schematic" and row.ids("lost"):
-                # a lost schematic explains the components that only a schematic holds (change c0372)
+                # a lost schematic explains the components that only a schematic holds (change c0372), and
+                # the designators the circuit holds more than once, which a conversion that loses the
+                # schematic for them keeps on the board alone (change c0425)
                 placed = {fp.component_id for fp in footprints}
                 self._add(
                     kind, "ref", {c.ref for c in circuit.components if c.id not in placed and not c.bom_only}
                 )
+                held = Counter(c.ref for c in circuit.components)
+                self._add(kind, "ref", {ref for ref, count in held.items() if count > 1})
                 continue
             if kind == "shared-footprint":
                 self._add(

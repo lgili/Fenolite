@@ -5,8 +5,11 @@
 
 from __future__ import annotations
 
+import dataclasses
+
 import pytest
 from _convert import read_as, two_layer, with_pads
+from _gensheets import BLINK
 
 from fenolite.backends.altium import lower
 from fenolite.convert import DIRECTIONS, convert_project
@@ -22,6 +25,7 @@ from fenolite.convert.report import (
     ReportRow,
     merge,
 )
+from fenolite.convert.sources import read_source
 
 
 def test_kinds_are_closed() -> None:
@@ -103,6 +107,27 @@ def test_explainer_locates_lost_pads(monkeypatch: pytest.MonkeyPatch) -> None:
     assert explainer.explain("position", ref, "0,0", "1,1") is None
     assert explainer.explain("ref-ambiguous", "X", "2", "2") == SOURCE
     assert explainer.explain("ref-ambiguous", "X", "1", "2") is None
+
+
+def test_lost_schematic_explains_a_designator_used_twice() -> None:
+    """Change c0425: when the schematic is lost for duplicate designators, a reference that the source
+    circuit holds twice (the public Altium blink with a second ``R1``, made in memory) explains its
+    ``ref-ambiguous``; a reference held once does not, and without the lost row nothing is explained."""
+    design = read_source(BLINK).design
+    first = next(c for c in design.circuit.components if c.ref == "R1")
+    twin = dataclasses.replace(first, id=f"{first.id}-twin")
+    circuit = dataclasses.replace(design.circuit, components=(*design.circuit.components, twin))
+    design = dataclasses.replace(design, circuit=circuit)
+    lost = ConversionReport.of(
+        source={"schematic": 1},
+        lost={"schematic": {"the imported circuit has duplicate designators": ("s",)}},
+    )
+    explainer = Explainer(design, lost)
+    assert explainer.explain("ref-ambiguous", "R1", "2", "1") == "schematic"
+    assert explainer.explain("ref-ambiguous", "R1", "2", "0") == "schematic"
+    assert explainer.explain("ref-ambiguous", "D1", "1", "2") is None
+    kept = Explainer(design, ConversionReport.of(source={"schematic": 1}))
+    assert kept.explain("ref-ambiguous", "R1", "2", "1") is None
 
 
 def test_kept_items_are_not_losses() -> None:

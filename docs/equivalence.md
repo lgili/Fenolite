@@ -107,7 +107,8 @@ scene builders) and level S in `compare_drawn`. Both `fenolite verify-source` an
   A renamed net is counted in `summary.renamed` and is no difference. Pads on no net form one class. A
   side with footprints gives the pads of its board; a side without gives the pins of its circuit.
   `summary.sources` says which. A pad without a number is not an element; `summary.unnumbered` counts
-  them.
+  them. Pads of one number on several nets (or on a net and on no net) are one element with several
+  labels; it agrees when its labels map to the other side's through the nets of the other pins (c0425).
 - **Level 3 does not see placement.** `Pad.position` and `Pad.rotation` are relative to the footprint, so
   a moved, turned or flipped footprint with unchanged pads is equal at level 3. Pads are paired by
   number; several pads of one number are sorted by `(x, y)` and paired in that order. Per-layer pad

@@ -1386,7 +1386,7 @@ libraries of a conversion). `PATH` accepts a board, matching project or folder.
   board's instance brought back to its origin, rotation 0 and the top side (placement, uuid, path and pad
   nets dropped; Reference `REF**`, Value the name), named after the name of its library link. A second
   instance of one name that differs, its uuids aside, is written as `<name>_2` (then `_3`) with
-  `library.instances-differ`.
+  `library.instances-differ`; a suffix that names another footprint of the board is skipped (c0425).
 - **`--diff LIBRARY`** compares each derived footprint with `LIBRARY/<name>.kicad_mod` and writes nothing,
   even with `--out`: `pads` (number, kind, shape, size, position, angle, layers, drill), `silkscreen` and
   `courtyard` (the graphics on `F.SilkS`/`B.SilkS` and `F.CrtYd`/`B.CrtYd`), `models` (the paths) and

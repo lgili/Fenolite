@@ -115,7 +115,8 @@ every teardrop zone is counted as `teardrop`, unexpressed.
 The footprints are the board's own instances brought back to their origin, rotation 0 and the top side
 (the derive of `fenolite library`), one `lib/<nickname>.pretty` per source nickname (`Imported` for a
 footprint without one), the instance's own properties removed. An instance that still differs from the
-first of its name (a moved field, an edited pad) is written as `<name>_2` (`import.footprint-variant`).
+first of its name (a moved field, an edited pad) is written as `<name>_2` (`import.footprint-variant`), or
+the next suffix that no footprint of the board holds (c0425).
 Its part retains the original/native `footprint` name and selects the local definition separately with
 `footprint_definition` (c0318). The build resolves that geometry, preserves all pads, and writes the
 original name into the PCB header and schematic property. A shared physical sheet therefore keeps one
@@ -173,7 +174,7 @@ Never silently. The kinds today:
 | `copper-without-net`, `zero-length-track`, `degenerate-arc`, `via-protection`, `via-span`, `copper-layer`, `copper-count` | copper no table holds: a via on no net (a track or arc on no net is a table without `net=`, change c0375), an arc whose start and end are one point |
 | `teardrop-setting` | a via's `teardrops` child the import cannot read: the via is written without it |
 | `footprint` | a footprint the library derive cannot bring back |
-| `pad-net-unnumbered`, `pad-net-conflict`, `outline` | a pad on a net without a number, a pad number on two nets, no closed outline |
+| `pad-net-unnumbered`, `pad-net-conflict`, `outline` | a pad on a net without a number, a pad number on two nets or on a net and on no net (the DSL joins every pad of a pin; c0425), no closed outline |
 | `outline-width` | root `Edge.Cuts` items drawn with another stroke than the 0.1 mm a DSL board writes (one row per width; c0281) |
 | `layer-table` | non-copper rows the DSL cannot preserve: unknown names, a missing required `Edge.Cuts`, or gaps in declared `User.n` rows; supported shorter standard tables use `technical_layers=` (c0324) |
 
