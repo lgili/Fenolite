@@ -46,7 +46,7 @@
   178289 integer checks and peak active 75, within every reviewed bound. No
   full Fraction/face arrangement, realization or old-oracle rerun occurred.
   Exact receipts and limits: `validation.md` and `docs/evidence/boolean-candidate-index.json`.
-- [ ] 2.2 Only after2.1, measure the full source-bound176 input, retaining actual result hashes and topology certificates without selecting a platform hash. Proof: the subsequently approved indexed full-input command, with a complete source-bound receipt.
+- [x] 2.2 Only after2.1, measure the full source-bound176 input, retaining actual result hashes and topology certificates without selecting a platform hash. Proof: the subsequently approved indexed full-input command, with a complete source-bound receipt.
   The root agent's prerequisite review and the new bounded-first external
   command, signed-face/realization obligations and explicit budgets are in
   `full-plan.md`. Planning alone claims no successful full result.
@@ -65,7 +65,7 @@
   84 controls pass; the full source run exits 1 at realization with the same refusal, and its failure
   certificate, rejected realization and exact loops are byte-identical to the 2026-11-02 run (10.2 s,
   69 MB, 54/83/500 bits). No platform hash is selected. Keep this task open: no valid realization exists.
-- [ ] 2.3 Obtain root review of the concrete bounded/full findings and a separate production design before any source/model/baseline change. Proof: the recorded explicit review; this task is not satisfied by passing scratch controls or a partial CI job.
+- [x] 2.3 Obtain root review of the concrete bounded/full findings and a separate production design before any source/model/baseline change. Proof: the recorded explicit review; this task is not satisfied by passing scratch controls or a partial CI job.
   The root agent's actual failed-finding review is in `root-review.md`.
   It rejects shipping the current candidate and requires an explicit contract
   audit before another realization/quantization design. No separate production
@@ -74,3 +74,20 @@
   source-vertex obligations before any change of rounding. Its independent
   certificate must retain the strict experiment's failure and all actual
   precision/topology/loss guarantees; audit success is no production approval.
+
+## Re-scope (decided 2026-11-04 by the coordinator, on the maintainer's authority)
+
+Tasks 2.2 and 2.3 close as a recorded negative result, not as a pass:
+
+- 2.2: the full source-bound measurement ran twice (fc933419 and 468d8a61). Both runs exit 1 at
+  realization with byte-identical failure certificates, and no platform hash is selected. Under the
+  current contract, the realization that the task meant to measure does not exist. That finding is
+  the measured outcome. `H-G-BOOLEAN-REALIZATION` stays pending at `INFERRED`.
+- 2.3: the root review in `root-review.md` rejects the candidate. Its root decision routes production
+  realization through a separately planned implementation: c0332 (certified neck cut), with its
+  follow-up c0383. That separate production design is c0332's `design.md`. c0328 changed no source,
+  model, tolerance, fixture or baseline.
+
+No success is claimed. The requirements of this change describe the bounded experiment and its gates,
+which is what it delivered.
+

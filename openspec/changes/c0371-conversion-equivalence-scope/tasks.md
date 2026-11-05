@@ -15,4 +15,5 @@
 ## 3. Close
 
 - [ ] 3.1 Docs, CHANGELOG, explain entries, `openspec validate --strict`, focused tests, `make check-fast`.
-- [ ] 3.2 Re-run the private batch outside the repository and record the outcome there.
+- [x] 3.2 Re-run the private batch outside the repository and record the outcome there.
+  Done 2026-11-04 by root on cac/lote-15 515ddc6a: import, convert and check rerun on the maintainer's private board; outcome recorded in the maintainer's private folder only. Same issue codes and counts as the previous private run; no new loss or refusal.
