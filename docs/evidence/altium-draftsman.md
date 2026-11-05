@@ -376,6 +376,42 @@ not opened again. The causes asked about are these:
 
 `H-A-DWF-MINIMAL`, `H-A-DWF-IMPORT` and `H-A-DWF-TEMPLATE` keep their levels.
 
+**Night FP run with the complete probes (source S-1589).** Run by a Claude agent at the maintainer's request
+of 2026-11-04/05, relayed by the coordinator, in Altium Designer 24.5.2.23 (Trial) in the maintainer's
+Parallels Windows VM. It is not the maintainer's own review. The probes were built complete, with controls
+that pass the kit privacy scan, at `3c6e8b35`. `status.json` lists no missing probe and keeps the native
+verdict `unjudged`. The run used a VM copy. Every file has the same digest after the run.
+
+- `FP1.PCBDwf` `2d49015e…`; `FP2.PCBDwf` `b62ab34e…`.
+- `FP3.PCBDwf` `d29f5b1d…`, and `FP4.PCBDwf` and `FP5.DwfDot` `992b5098…`. These are the bytes of S-1575
+  and S-1581.
+- `blink_routed.PcbDoc` `6691042b…`; `status.json` `6bfbd4a7…`.
+
+| probe | observed |
+|---|---|
+| FP1 | opens through File » Open with no message, and the document is not marked modified. One sheet (columns A–E, rows 1–4) holds one Text. Properties: Text `FENOLITE-1`, frame 18.289 × 6.906 mm, Clip Text on, font size 12. The frame clips the drawn text to `FENOLITE` |
+| FP2 | opens with no message. The document is marked modified (`*`) right after opening. Properties: Text `FENOLITE-22`, the same frame and options. The drawn text is clipped to `FENOLITE` |
+| FP3, FP4 | not opened again: the bytes are those of S-1575, where both fail with `Value cannot be null. Parameter name: source` |
+| FP5 | with the agent's temporary template folder (below), File » New » Draftsman Document lists `[Default]` and `FP5`. With project `blink_routed.PrjPcb` and document `blink_routed.PcbDoc`, OK creates `blink_routed.PCBDwf` at once with no message. After a fit (Ctrl+PgDn) it shows an empty sheet, columns A–E and rows 1–4, and no board view. Nothing was written to disk. About one to two minutes later, with no further action by the agent, an `Error` window appeared with `Object reference not set to an instance of an object` and a crash-report form. Two more `Error` windows appeared while the documents were closed; their text was not read. Each was closed with Close, so no report was sent |
+
+For comparison, the native controls `F0-03.PCBDwf` (`bbd8713f…`) and `F0-04.PCBDwf` (`6f3b54b0…`) were opened in
+the same way. Both open with no message and are marked modified at once. F0-04 shows Text `FENOLITE-22` with
+the same frame, Clip Text and size, and the same clipped `FENOLITE`. So the clipping comes from the control,
+not from the probes.
+
+The template folder was a temporary change, authorized by the coordinator on the maintainer's authority.
+Preferences » Data Management » Templates, Local Templates folder, was the default `Altium\AD22\Templates`
+folder under the Windows public documents folder. It was set to the VM probe folder for FP5 and then set back
+to that value with OK. Afterwards the New Draftsman Document dialog listed only the built-in templates again.
+On the first attempt, a value was typed into the hidden text box of the Templates visibility combo box.
+That dialog was cancelled. The box was cleared before the final OK, and the combo box showed `Server & Local`
+throughout.
+
+`H-A-DWF-MINIMAL`, `H-A-DWF-IMPORT` and `H-A-DWF-TEMPLATE` keep their levels, because this was an agent run.
+The coordinator has already treated gate G2 as failed and moved the native document to c0388. These FP1,
+FP2 and FP5 observations are recorded for that change. No native file, capture or saved document enters the
+repository.
+
 ## Approved pending-native scope — 2026-11-03
 
 The maintainer explicitly authorized the pending Altium validations on the
