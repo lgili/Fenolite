@@ -6,6 +6,7 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Review the open Altium tasks against the agent runs, on the maintainer's delegation of 2026-11-04 (c0092, c0160, c0166, c0168, c0173, c0177, c0180, c0186, c0215, c0241). c0166 3.5 (planted DRC and the clearance-matrix requests) and c0180 2.4a (the external comparison packet) pass their proofs as written and are ticked. Each of the other nineteen names the criterion that failed or the step that was not run, and stays open. No level changes.
 - Fix: an Altium build no longer refuses official KiCad library symbols defined by derivation (`extends`, for example `MCU_ST_STM32G4:STM32G431K6Tx` and `Regulator_Linear:AMS1117-5.0` in KiCad 10.0.6). The symbol the resolver had already flattened was flattened again without parents and refused as `altium.symbol-off-grid`. c0380's native coverage audit exposed this on its first complete run. The audit also gave the guide page `board-practice` its row in the KiCad check table.
 - Close c0328 tasks 2.2 and 2.3 as a recorded negative result. Two full source-bound runs refuse at realization with byte-identical certificates, and the root review routes production realization through c0332 and c0383. No source, model or baseline changed. Close c0371 3.2 and c0379 2.2 with a private rerun on cac/lote-15: the issue codes and counts match the previous run, with no new loss.
 - **Native Draftsman document cut from c0172; gate G2 failed** (c0172, task 6.5): Altium Designer

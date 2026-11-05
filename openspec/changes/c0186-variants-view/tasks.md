@@ -36,6 +36,7 @@
   - `test_altium_build.py::test_evidence` leaves `H-A-PRJ-VARIANT` out of the build's rows, because only `fenolite view` reads variants.
 - [ ] 2.2 The maintainer compares a variant of their own with Altium. Proof: the record under this task.
   - 2026-11-04 (S-1587): agent-run on a public project at the maintainer's request; not the maintainer's own project. Variant `Default` of `PCB-PiDP11IOExpander`: Altium 24.5.2.23's Variant Management lists A0, A1, A2, J2, R2 and R3 as Not Fitted, and the page crosses out exactly these six. Altium's sheet could not be switched to the variant through UI Automation, so its drawn marks are not compared. Stays open. See `docs/evidence/viewer-public-project-2026-11-04.md`.
+  - 2026-11-05, review on the maintainer's delegation of 2026-11-04 (the coordinator's decision: a recorded Claude-agent run in Altium 24.5.2.23 satisfies this task only when its proof criteria pass as written): stays open. The coordinator accepts the public project `PCB-PiDP11IOExpander` in place of the maintainer's own, provided the comparison criteria pass. The not-fitted set matches (A0, A1, A2, J2, R2, R3), but Altium's sheet was not switched to the variant, so the drawn marks were not compared.
 
 ## Continuation review — 2026-11-01
 
