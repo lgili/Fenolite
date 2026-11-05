@@ -23,7 +23,7 @@ from fenolite.cli.errors import CliError
 from fenolite.core.errors import FormatError
 from fenolite.core.evidence import Evidence, Level
 from fenolite.library.gallery import site, visible_rows
-from fenolite.library.gallery_images import Media, View, footprint_media, schematic_svg, symbol_media
+from fenolite.library.gallery_images import Media, View, footprint_media, scene_svg, symbol_media
 from fenolite.library.items import PROVENANCE_FILE, ItemError, load_json
 
 EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-G-LIBRARY-GET",))
@@ -38,6 +38,16 @@ RENDERED: Mapping[str, tuple[tuple[str, str], ...]] = {
 NO_RENDER = "no render was supplied"
 BLOCK_SHEET = "schematic.kicad_sch"
 """A block's sheet in ``--renders``: Fenolite draws it as ``schematic.svg``, cropped and without its frame."""
+
+
+def schematic_svg(text: str, *, name: str, title: str) -> bytes:
+    """The SVG of one KiCad schematic sheet, drawn by Fenolite's schematic viewer (``scene_svg``).
+    Raises ``FormatError`` on a sheet it cannot read and ``ValueError`` on an empty one."""
+    from fenolite.view import themes
+    from fenolite.view.kicad_schematic import build_kicad_schematic_scene
+
+    scene = build_kicad_schematic_scene(text, name=name, palette=themes.palette("kicad"))
+    return scene_svg(scene, name=name, title=title)
 
 
 def _path(given: str, ctx: Context) -> Path:

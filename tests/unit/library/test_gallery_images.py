@@ -12,10 +12,10 @@ import pytest
 
 from fenolite.backends.kicad.mod import read_footprint
 from fenolite.backends.kicad.sym import read_symbol_library
+from fenolite.cli._library_gallery import schematic_svg
 from fenolite.library.gallery_images import (
     footprint_media,
     footprint_svg,
-    schematic_svg,
     symbol_media,
     symbol_svg,
 )

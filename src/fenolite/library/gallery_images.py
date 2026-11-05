@@ -182,14 +182,10 @@ def _extent(prim: Mapping[str, Any]) -> tuple[float, float, float, float]:
     return math.inf, math.inf, -math.inf, -math.inf
 
 
-def schematic_svg(text: str, *, name: str, title: str) -> bytes:
-    """The SVG of one KiCad schematic sheet, drawn from the scene of Fenolite's schematic viewer without
-    its drawing sheet and cropped to what the sheet holds. Raises ``FormatError`` on a sheet it cannot
-    read and ``ValueError`` on an empty one."""
-    from fenolite.view import themes
-    from fenolite.view.kicad_schematic import build_kicad_schematic_scene
-
-    scene = build_kicad_schematic_scene(text, name=name, palette=themes.palette("kicad"))
+def scene_svg(scene: Mapping[str, Any], *, name: str, title: str) -> bytes:
+    """The SVG of one schematic sheet from the scene of Fenolite's schematic viewer, without its drawing
+    sheet and cropped to what the sheet holds. The caller builds the scene (``fenolite.view`` sits above
+    ``library`` in the package layering). Raises ``ValueError`` on an empty sheet."""
     # The drawing sheet (frame, zone numbers, title block) belongs to no object.
     prims = [p for p in cast(list[Mapping[str, Any]], scene.get("prims", [])) if int(p.get("o", -1)) >= 0]
     boxes = [_extent(p) for p in prims]
