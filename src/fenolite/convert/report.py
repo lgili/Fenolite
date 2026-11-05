@@ -111,8 +111,8 @@ OVERLAP_NOT_ONE_RING = (
     "edge rings a malformed outline"
 )
 EMBEDDED_BOARD_REASON = (
-    "the board places other PCB documents (an Embedded Board Array), whose records are not read: their "
-    "components and copper are not converted"
+    "the board places other PCB documents (an Embedded Board Array; the item names the array and its "
+    "document), and where the copies lie is not measured: their components and copper are not converted"
 )
 SCHEMATIC_REFUSED = "the schematic generator refused the imported circuit"
 REFUSE_REASONS: Mapping[str, frozenset[str]] = MappingProxyType(

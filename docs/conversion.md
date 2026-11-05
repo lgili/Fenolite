@@ -145,13 +145,14 @@ The vocabulary is closed (`fenolite.convert.report.KINDS`), one table for every 
   call the outline malformed, so the rings are not written and the conversion exits 7 without
   `--allow-lossy`. The kind `outline` keeps only the losses of the board ring.
 - **Embedded boards and shared footprints (Altium to KiCad).** `embedded-board`: a PCB document whose
-  `EmbeddedBoards6` storage holds records places other PCB documents; the records are not read, so their
-  components and copper are not converted. The document counts once, `lost` with a reason of
-  `report.REFUSE_REASONS`: the conversion (and `import --to python` of the project) exits 7 without
-  `--allow-lossy` (change c0374). `shared-footprint`: each footprint of a source component that several
-  footprints link, `changed`; it explains the `ref-ambiguous` of that reference (change c0371). With a
-  written schematic, the board comparison covers placed components and the schematic comparison the
-  others (change c0371).
+  `EmbeddedBoards6` storage holds records places other PCB documents. Each array is one item named
+  `<document>#<n>:<referenced document> <columns>x<rows>` (the document's name alone when the records do
+  not read); where the copies lie is not measured, so their components and copper are not converted. Each
+  item is `lost` with a reason of `report.REFUSE_REASONS`: the conversion (and `import --to python` of
+  the project) exits 7 without `--allow-lossy` (change c0374). `shared-footprint`: each footprint of a
+  source component that several footprints link, `changed`; it explains the `ref-ambiguous` of that
+  reference (change c0371). With a written schematic, the board comparison covers placed components and
+  the schematic comparison the others (change c0371).
 - **Refused generated schematic (Altium to KiCad).** When the schematic generator refuses the circuit
   (`build.schematic-too-large`: more units than one A0 page holds), the board and libraries are still
   written and `schematic` is `lost` with a reason of `report.REFUSE_REASONS`, so the conversion exits 7

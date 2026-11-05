@@ -421,6 +421,19 @@ def merged_cutouts(design: Design, ledger: Ledger) -> tuple[Design, int]:
     return dataclasses.replace(design, board=board), len(groups)
 
 
+def _array_items(name: str, data: bytes) -> tuple[str, ...]:
+    """One item per Embedded Board Array of the board document ``name``: ``<name>#<n>:<document>
+    <columns>x<rows>`` in record order (``read.arrays``); the document's name alone when its records do
+    not read as arrays (change c0374)."""
+    from fenolite.backends.altium.read.arrays import ArrayError, board_arrays
+
+    try:
+        found = board_arrays(data)
+    except ArrayError:
+        return (name,)
+    return tuple(f"{name}#{n}:{a.document} {a.cols}x{a.rows}" for n, a in enumerate(found, 1)) or (name,)
+
+
 def write_altium(source: SourceProject, options: Options) -> Written:
     """Altium to a coherent KiCad project and derived libraries (c0161). Overlapping cut-outs are merged
     (``merged_cutouts``), and each board hole is the generated footprint of ``design.hole``
@@ -449,9 +462,11 @@ def write_altium(source: SourceProject, options: Options) -> Written:
             for ident in shared:
                 ledger.change(SHARED_FOOTPRINT_KIND, ident, SHARED_FOOTPRINT_REASON)
     document = board_document(source, source.design)
-    if document is not None and holds_embedded_boards(document.read_bytes()):  # change c0374
-        counts[EMBEDDED_BOARD_KIND] = 1
-        ledger.drop(EMBEDDED_BOARD_KIND, document.name, EMBEDDED_BOARD_REASON)
+    if document is not None and holds_embedded_boards(data := document.read_bytes()):  # change c0374
+        items = _array_items(document.name, data)
+        counts[EMBEDDED_BOARD_KIND] = len(items)
+        for ident in items:
+            ledger.drop(EMBEDDED_BOARD_KIND, ident, EMBEDDED_BOARD_REASON)
     merged, cutouts = merged_cutouts(source.design, ledger)
     if cutouts:
         counts[CUTOUT_KIND] = cutouts

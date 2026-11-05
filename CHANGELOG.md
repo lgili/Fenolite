@@ -158,7 +158,8 @@ All notable changes to Fenolite are documented here. The format follows
   of being dropped.
 - **Embedded board arrays** (c0374): an Altium board that places other PCB documents is the refused loss
   `embedded-board`; `convert` and the Altium `import` exit 7 without `--allow-lossy` instead of calling it
-  converted.
+  converted. The records are now read (`read.arrays`): the report names each array with its document and
+  its columns and rows; placing the copies waits on c0386.
 - **Altium TAB properties** (c0379): an Altium parameter whose value holds a TAB is the unexpressed kind
   `property-tab` instead of refusing the whole `import --to python` (exit 3 since c0363).
 

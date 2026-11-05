@@ -68,6 +68,28 @@ def test_embedded_board_array_is_a_refused_loss(monkeypatch: pytest.MonkeyPatch)
     assert (row.source, row.lost) == (1, 1)
 
 
+def test_each_embedded_array_is_a_named_item(monkeypatch: pytest.MonkeyPatch) -> None:
+    """change c0374, task 2.2: the report names each array of the board, with its document and counts
+    (``read.arrays``), and still refuses the loss."""
+    from fractions import Fraction
+
+    import fenolite.backends.altium.read.arrays as arrays
+    import fenolite.backends.altium.read.cfb as cfb
+
+    def two(_data: bytes) -> tuple[arrays.BoardArray, ...]:
+        one = arrays.BoardArray(
+            "board.PcbDoc", Fraction(0), Fraction(0), 0.0, False, 1, 1, Fraction(1), Fraction(1), False
+        )
+        return (one, dataclasses.replace(one, rows=2, cols=3))
+
+    monkeypatch.setattr(cfb, "holds_embedded_boards", lambda _data: True)
+    monkeypatch.setattr(arrays, "board_arrays", two)
+    conversion = convert_project(read_source(BLINK), to="kicad", allow_lossy=True)
+    row = next(row for row in conversion.report.rows if row.kind == "embedded-board")
+    assert (row.source, row.lost) == (2, 2)
+    assert row.ids() == ("blink.PcbDoc#1:board.PcbDoc 1x1", "blink.PcbDoc#2:board.PcbDoc 3x2")
+
+
 def test_documents_without_arrays_hold_none() -> None:
     from fenolite.backends.altium.read.cfb import holds_embedded_boards
 
