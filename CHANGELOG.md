@@ -43,6 +43,13 @@ All notable changes to Fenolite are documented here. The format follows
   sheets, items and filled board data members are recorded `INFERRED` (counts and member names only).
   The candidate documents that Altium refused hold 6 of the 38 root members that every saved document
   holds. Gate G1 is decided GO for decoding (task 1.5).
+- **Body copy by pad fit and house-library coverage** (c0175, task 10.4, neutral half):
+  `fenolite.reuse.bodies.copy_bodies` copies 3D bodies and models between boards onto footprints whose pads
+  fit (paired by number, an unmirrored quarter-turn fit), turning outlines, offsets and the model's Z turn
+  with the fit, and lists the rotation variants per model; `fenolite.library.coverage` reports each placed
+  footprint as `same`, `renamed`, `differs` or `missing` against a house library that the user names
+  (`.pretty`, `.kicad_mod`, `.PcbLib`). Writing one Altium model-store entry per rotation waits on a kit
+  measurement and the c0241 gates.
 - **Reviewed prefix for the kit's observation intake** (c0172, task 1.5): `FENOLITE_KIT_REVIEWED_PREFIX`
   names exactly one absolute folder that a person reviewed; privacy findings under it count as `reviewed`
   and do not refuse, every other finding still refuses, and reports hold only the count, never the
