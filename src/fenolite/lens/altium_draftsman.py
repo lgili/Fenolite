@@ -2,8 +2,10 @@
 # Copyright (c) 2026 Fenolite contributors
 """The drawing specification lowered to measured Draftsman shells (c0172).
 
-Layout uses c0117's pure glyph bounds and page packing. The board table is readable Texts until its
-native serialization is observed. Native dimensions, BOM filtering and board refresh await Part F.
+Layout uses c0117's pure glyph bounds and page packing. The drill table, the layer stack legend, the BOM
+table, the notes and the board's two Linear Dimensions are native items with round F0's members (c0388
+task 4.2). The board table stays readable Texts: no saved document holds a generic table, and c0172's cut
+order drops it (item 4). BOM filtering and board refresh await Part F.
 """
 
 from __future__ import annotations
@@ -11,7 +13,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Literal
 
-from fenolite.backends.altium.draftsman import DraftsmanItem, DraftsmanSheet, DraftsmanSpec
+from fenolite.backends.altium.draftsman import Dimension, DraftsmanItem, DraftsmanSheet, DraftsmanSpec
 from fenolite.core.errors import Issue
 from fenolite.exports.drawing_layout import Obstacles, choose_paper
 from fenolite.exports.drawing_spec import DEFAULT, DrawingSpec
@@ -21,7 +23,8 @@ from fenolite.model.design import Design
 _MM = 1_000_000
 DEFERRED = (
     "PCB data refresh and source binding await FP4",
-    "native board Table and Linear Dimensions await F0",
+    "native board Table cut: no saved Draftsman document holds a generic table (c0172 cut order 4)",
+    "dimension snaps to the board outline are unconfirmed until round FPC",
     "native table sizing and BOM view filtering await F0/FP4",
 )
 
@@ -59,6 +62,7 @@ def _sheet(
     spec: DrawingSpec,
     notes: tuple[str, ...],
     fixed: dict[str, tuple[int, int]],
+    outline: tuple[int, int, int, int],
 ) -> DraftsmanSheet:
     def obstacles(width: int, height: int) -> Obstacles:
         return Obstacles(
@@ -67,11 +71,14 @@ def _sheet(
         )
 
     board = (20 * _MM, 20 * _MM, 20 * _MM + bounds[0], 20 * _MM + bounds[1])
+    dimensions = kind == "fab" and spec.fab.dimensions
+    # The dimensions lie above and left of the view, inside the 10 mm frame; packing keeps blocks off them.
+    reach = 10 * _MM if dimensions else 0
     page = choose_paper(
         blocks,
         paper=spec.page.paper,
         portrait=spec.page.portrait,
-        board_box=lambda _: board,
+        board_box=lambda _: (board[0] - reach, board[1] - reach, board[2], board[3]),
         obstacles=obstacles,
         gap=spec.page.gap,
         fixed=fixed,
@@ -94,11 +101,13 @@ def _sheet(
             designators=spec.assembly.designators,
         )
     ]
+    if dimensions:
+        items.extend(_dimensions(items[0], outline, spec.fab.dimension_offset))
     by_name = {block.name: block for block in blocks}
     for placed in page.placed:
         block = by_name[placed.name]
         at = (placed.at[0], height - placed.at[1] - placed.size[1])
-        native = {
+        native: dict[str, Literal["DrillTableBoardView", "LayerStackLegendView", "BillOfMaterialsView"]] = {
             "drill": "DrillTableBoardView",
             "stackup": "LayerStackLegendView",
             "bom": "BillOfMaterialsView",
@@ -106,13 +115,8 @@ def _sheet(
         if block.name == "notes":
             item = DraftsmanItem("notes", "Note", at, placed.size, title="Notes", texts=notes)
         elif block.name in native:
-            # These three tags are already measured. Their unseen binding/filter fields are not guessed.
-            if block.name == "drill":
-                item = DraftsmanItem("drill", "DrillTableBoardView", at, placed.size)
-            elif block.name == "stackup":
-                item = DraftsmanItem("stackup", "LayerStackLegendView", at, placed.size)
-            else:
-                item = DraftsmanItem("bom", "BillOfMaterialsView", at, placed.size, side=view_side)
+            # Round F0's members and values (c0388 4.1); the BOM is filtered to the sheet's view side.
+            item = DraftsmanItem(block.name, native[block.name], at, placed.size, side=view_side)
         else:
             text = "\r\n".join("  ".join(row) for row in block.rows)
             item = DraftsmanItem(block.name, "Text", at, placed.size, texts=(text,))
@@ -130,6 +134,34 @@ def _sheet(
             )
         )
     return DraftsmanSheet(name, title, page.paper, page.size, tuple(items))
+
+
+def _dimensions(view: DraftsmanItem, outline: tuple[int, int, int, int], offset: int) -> list[DraftsmanItem]:
+    """The board's width along its top edge and its height along its left edge, snapped to the outline.
+
+    Snap points are the outline's corners in Altium's board frame, the model's with Y negated
+    (``adapter/units.py``); the view's ``at`` is the outline's lower-left corner on the sheet.
+    """
+    left, top, right, bottom = outline[0], -outline[1], outline[2], -outline[3]
+    origin = (view.at[0] - left, view.at[1] - bottom)
+    width, height = view.size
+    reach = offset + 2 * _MM
+    return [
+        DraftsmanItem(
+            "dimension/width",
+            "LinearDimension",
+            (view.at[0], view.at[1] + height),
+            (width, reach),
+            dimension=Dimension("view", (left, top), (right, top), origin, (0, offset)),
+        ),
+        DraftsmanItem(
+            "dimension/height",
+            "LinearDimension",
+            (view.at[0] - reach, view.at[1]),
+            (reach, height),
+            dimension=Dimension("view", (left, bottom), (left, top), origin, (-offset, 0)),
+        ),
+    ]
 
 
 def draftsman_spec(design: Design, spec: DrawingSpec = DEFAULT) -> tuple[DraftsmanSpec, tuple[Issue, ...]]:
@@ -155,6 +187,7 @@ def draftsman_spec(design: Design, spec: DrawingSpec = DEFAULT) -> tuple[Draftsm
             spec=spec,
             notes=spec.fab.notes,
             fixed=dict(spec.fab.at),
+            outline=box,
         )
     ]
     for side in spec.assembly.sides:
@@ -177,6 +210,7 @@ def draftsman_spec(design: Design, spec: DrawingSpec = DEFAULT) -> tuple[Draftsm
                 spec=spec,
                 notes=notes,
                 fixed=dict(spec.assembly.at),
+                outline=box,
             )
         )
     found = [
