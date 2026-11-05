@@ -390,5 +390,5 @@ only (task 2.2). All 76 build-byte rows and their diagnostics pass locally (107 
 
 The old modules (`_exact_realization`, `_exact_repair`, `_exact_refinement`, `_exact_distance`,
 `_exact_identity`, `_exact_cells`, `_exact_contacts`) are no longer called by the pour; they and their
-module-level tests stay until the coordinator decides to remove them; their six caller-wired tests, which drove that path through the pour with monkeypatches, are removed. Their requirements in the spec ("Certified repair
+module-level tests are kept for now (decided 2026-11-05) and are left for a later cleanup change; their six caller-wired tests, which drove that path through the pour with monkeypatches, are removed. Their requirements in the spec ("Certified repair
 of projected self-crossings", "Exact boundary subdivision proposals") describe that unused path.

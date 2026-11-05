@@ -307,3 +307,4 @@ remain mandatory. See frame-area-sign-proof.json.
   `test_refused_example_is_refused[yardstick/...]`, which fail identically on base 468d8a61 under 3.11.
   On 612db5f0 itself `make check-fast` passed: 22 634 passed, 51 skipped.
 
+- [x] 3.7 Remove the codex/cac-next CI deselection of the 27 geometry cases (`tools/ci/cac_geometry_deferred.json`, its kicad-10 step and its pinning test); guard that no CI job deselects them. Proof: `uv run pytest tests/unit/test_ci_workflow.py tests/unit/test_ci_execution.py -q`.

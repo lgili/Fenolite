@@ -1164,32 +1164,12 @@ def test_release_conformance_asset_is_copied_from_the_tag_and_checksummed() -> N
     assert copy < checksum < upload and checksum < create
 
 
-def test_cac_closure_deferral_is_explicit_source_bound_and_branch_limited() -> None:
-    import hashlib
-    import json
-
+def test_no_ci_job_deselects_the_c0332_geometry_cases() -> None:
+    # c0332 reconnected the exact neck cut; its 27 native cases run unfiltered on every branch.
     text = WORKFLOW.read_text(encoding="utf-8")
-    job = job_text(text, "kicad-10")
-    start = job.index("      - name: Apply the agreed CAC closure scope")
-    end = job.index("      - name: Oracle and corpus tests", start)
-    step = job[start:end]
-    assert "if: github.ref == 'refs/heads/codex/cac-next'" in step
-    assert "DEFERRED_NOT_PASSED" in step and "GITHUB_STEP_SUMMARY" in step
-    assert "--deselect=" in step and "c0332 remains open" in step
-    assert KICAD10_PYTEST in job
-    assert "cac_geometry_deferred" not in job_text(text, "kicad-9")
-    scope = json.loads((ROOT / "tools/ci/cac_geometry_deferred.json").read_text())
-    assert scope["deferred_change"] == "c0332-certified-neck-cut"
-    assert scope["status"] == "DEFERRED_NOT_PASSED"
-    rows = scope["tests"]
-    assert len(rows) == len({row["nodeid"] for row in rows}) == 27
-    for row in rows:
-        node = row["nodeid"]
-        assert node.startswith(("tests/kicad/", "tests/corpus/"))
-        assert "::" in node and not any(c.isspace() for c in node)
-        assert (
-            hashlib.sha256((ROOT / node.split("::")[0]).read_bytes()).hexdigest() == row["test_file_sha256"]
-        )
+    assert "--deselect=" not in text and "cac_geometry_deferred" not in text
+    assert KICAD10_PYTEST in job_text(text, "kicad-10")
+    assert not (ROOT / "tools/ci/cac_geometry_deferred.json").exists()
 
 
 # ---- the optional library-bench nightly job (capability fenolite-library, "Benchmark runs"; c0279) ----
