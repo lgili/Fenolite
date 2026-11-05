@@ -114,6 +114,11 @@
     - Proof: `uv run pytest tests/unit/backends/altium/edit/test_ops.py -q` passed.
     - J25 and J29–J31 have no sample or code and stay as they were. Left open for the J23–J33 rerun in
       Altium.
+  - 2026-11-05 (S-1612, agent run on 24.5.2.23, kit built at `d45e6533` from the same phase A files):
+    J23–J33 were run again. All nine J23 operations pass, `remap_layer` and `set_rule` included, and J24
+    passes with nets not compared. J26–J28 and J32 behave as in S-1588. J25 and J29–J31 are recorded as
+    not executed (no sample), and J33 was not run as written. No gate or level moves. Left open for the
+    coordinator's decision.
 - [ ] 4.3 (from c0241 6.2) Update the evidence labels of the rows `H-A-EDIT-*` and `H-A-INTEG-*` and the matrix. Proof: `uv run python tools/gen_evidence_matrix.py --check`; `uv run pytest tests/unit/test_hypotheses_register.py -q`.
   - Blocker on 2026-11-05: Tasks 1.2 and 4.2 stay open, so no label moves.
 

@@ -335,6 +335,55 @@ The first Save As of `set_rule` lost the first letter of its typed name (`et_rul
 saved again under the right name. No level is raised, because this was an agent run. `H-A-EDIT-KIT` and
 the `H-A-INTEG-*` rows keep their levels, and every operation's gate stays off. Task 4.2 stays open.
 
+### 2026-11-05, actual `AD 24.5.2.23`, phase B J23 to J33 run again (source S-1612)
+
+A Claude agent ran phase B again on the coordinator's word, after the writer fix of task 4.2 (`af04e20f`).
+It used the Altium Designer installed in the maintainer's Parallels Windows VM, which reports
+`Client.GetProductVersion` 24.5.2.23 (Trial). This is not the maintainer's own review. The kit was built at
+`d45e6533`, with `FENOLITE_ALTIUM_PART_J_SAVED` set to the same phase A files of S-1577 that S-1588 used.
+Its `expected-b.md` is `354db907…`, the same as in S-1588. Against the kit of S-1588, four written files
+differ:
+
+- `set_rule` also writes `GENERICCLEARANCE` as 9.8425 mil;
+- `remap_layer` and `flip` change the long layer id at the end of the moved track and arc records;
+- `add_component` gives R9 another unique id.
+
+Every other file is byte-identical to the kit of S-1588. Each document was opened on its own with File »
+Open, then a read-only DelphiScript listed the messages since the opening and the objects. It was then
+saved with File » Save As as `<name>-saved`, closed, opened again and listed again. No dialog showed at any
+opening, save or close, and the Messages panel got no message. The written files are unchanged after the
+run. For every case, the listing at the second opening equals the listing at the first.
+
+| case | file | expected (`expected-b.md`) | observed in Altium | result |
+|---|---|---|---|---|
+| J23 move | `move` | GND track at (10, 6)–(20, 6) mm | as expected | pass |
+| J23 rotate | `rotate` | R2 at 90° | as expected | pass |
+| J23 flip | `flip` | D1 on the bottom | D1 on Bottom Layer at (26, 15) mm | pass |
+| J23 set_property | `set_property` | R1 comment `2k2` | as expected | pass |
+| J23 delete | `delete` | R2 gone | R2 absent; D1 and R1 remain | pass |
+| J23 clone | `clone` | a GND track at (10, 8)–(20, 8) mm and a via at (20, 8) mm | both present; the original track and via remain | pass |
+| J23 add_component | `add_component` | R9 at (32, 22) mm, 0°, `Mini_R_0603` | as expected | pass |
+| J23 remap_layer | `remap_layer` | the track (2, 2)–(12, 2) mm and the filled region on Mechanical 15 | both on Mechanical 15 | pass |
+| J23 set_rule | `set_rule` | `Clearance` gap 9.8425 mil | Altium reads the gap as 0.25 mm (9.8425 mil). The saved file keeps `GAP` and `GENERICCLEARANCE` at 9.8425 mil | pass |
+| J24 | `sch-move`, `sch-parameter`, `sch-delete` | R1 moved; R1 comment `2k2`; R2 deleted with its wires kept | R1 at (2800, 6300) mil against 2400 in phase A; R1 `2k2`; R2 absent with 6 wires, as in phase A. The project's net compile was not run, because the documents were opened on their own | pass, nets not compared |
+| J25 | — | `edit-library.PcbLib` | not written: no session edits a PCB library, and there is no sample | not executed |
+| J26 | `subpoly-gap` | report the opening, the messages, the save and the saved pieces | opens and saves with no message. Fenolite still reports `altium.integrity.subpoly-gap` on the saved file, and reads 5 shape regions against 3 | observed, as in S-1588 |
+| J27 | `pour-index-twice` | as J26, plus the Pour Index of each polygon | opens with no message. Altium reads Pour Index 2 for `GND` and 1 for `VIN`, against 0 and 0 in the file. The saved file gives no finding | observed, as in S-1588 |
+| J28 | `unique-id-twice` | as J26 | opens and saves with no message. The saved file still has pads D1.1 and D1.2 sharing one unique id (`altium.integrity.unique-id-twice`) | observed, as in S-1588 |
+| J29–J31 | — | parameter and model faults | not written: no file of phase A holds a parameter group, the kit board embeds no model, and there is no sample | not executed |
+| J32 | `layer-fields` | as J26, plus the layer the region shows on | opens with no message. The region shows on Mechanical 15, the layer named by `V7_LAYER`, not by the layer byte. The saved file gives no finding | observed, as in S-1588 |
+| J33 | — | path scan before reading | Altium was not closed and nothing was zipped. A scan of the saved files finds one absolute path in each saved PCB document: the `FILENAME` key of the board record, which holds the file's own save path in the VM. The saved schematic documents hold none. The saved files stay outside the repository | not run as written |
+
+Fenolite reads back each saved PCB document with the same record counts as the written one, except
+`subpoly-gap` (5 shape regions against 3). It gives no integrity finding on any saved written document. Each
+saved schematic document holds 33 more parameter records (record 41) than the written one, and the same
+components and wires, as in S-1588's saved files.
+
+Both failures of S-1588 are gone: `remap_layer` and `set_rule` pass. Every J23 operation and J24 now
+passes on 24.5. J25 and J29–J31 are not executed, and J33 was not run as written. No level is raised,
+because this was an agent run. `H-A-EDIT-KIT` and the `H-A-INTEG-*` rows keep their levels, and every
+operation's gate stays off. Task 4.2 stays open for the maintainer's decision.
+
 ## Approved pending-native scope — 2026-11-03
 
 The maintainer explicitly authorized the pending Altium validations on the
