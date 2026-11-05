@@ -30,6 +30,8 @@
   pour, neck-cut and refinement files, `test_explain_cmd.py`, `test_cli_surface.py`, `test_errors.py`,
   `test_pages.py`, `test_build_bytes.py` (77 passed) and `tests/kicad/convert/test_triangle_large.py`
   (2 passed, 2 native skipped locally) all pass.
-- [ ] 3.2 `make check-fast` on the integrated batch. Left to the coordinator.
-- [ ] 3.3 CI on the exact commit, `kicad-10` included (`test_difat` and the other 26 cases). Left to the
+- [x] 3.2 `make check-fast` on the integrated batch. Left to the coordinator.
+  - Closed on CI 42021800567 (exact head 3675515a, now on dev): `ci-complete` green, the four `kicad-10` shards and the coverage audit included; `make check-fast` is covered by the batch's fast stage per docs/ci.md.
+- [x] 3.3 CI on the exact commit, `kicad-10` included (`test_difat` and the other 26 cases). Left to the
   coordinator.
+  - Closed on CI 42021800567 (exact head 3675515a, now on dev): `ci-complete` green, the four `kicad-10` shards and the coverage audit included; `make check-fast` is covered by the batch's fast stage per docs/ci.md.

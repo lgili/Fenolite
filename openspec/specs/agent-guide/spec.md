@@ -84,14 +84,14 @@ The package `fenolite.agent` SHALL hold everything an AI agent needs to start us
 
 ### Requirement: Guide pages
 The agent guide SHALL hold twenty-three written pages under `src/fenolite/agent/skill/references/`, in the form that `fenolite.agent.guide` loads ("Packaged agent guide"): twelve tool pages, each teaching one part of making a board with Fenolite, and eleven practice pages, each teaching one part of designing a sound board.
-- The tool topics MUST be `design-script`, `parts`, `footprints`, `placement`, `routing`, `route-proposals`, `rules`, `checks`, `files`, `fabrication`, `altium` and `recovery`.
+- The tool topics MUST be `design-script`, `parts`, `footprints`, `placement`, `routing`, `rules`, `checks`, `files`, `fabrication`, `altium`, `recovery` and `library-items`.
 - The practice topics MUST be `board-practice`, `board-schematic`, `board-floorplan`, `board-power`, `board-grounds`, `board-insulation`, `board-emc`, `board-routing`, `board-assembly`, `board-review` and `board-workflow`.
 - `design-script` MUST teach: the shape of a script and its module-level `design`; `Design`, `Module`, `Net`, `Part`, `connect`, `no_connect` and `Power`; that a length carries a unit; the board frame (origin at the outline's top-left corner, Y down); and the cycle of an edit, `build --dry-run` and `build --confirm`, with what a rebuild keeps. It MUST hold the tested lines of `init`, `build`, `sync` and `template`.
 - `parts` MUST teach: that a part needs a symbol id and a footprint; the built-in catalog and `catalog list --query`; KiCad's libraries through tables beside the script; pins by number and by name; `pad_map`; values with units (`ohm`, `farad`, `henry`, `volt`, `amp`, `watt`, `hertz`, `second`) and user properties; and the typed interfaces (`Interface`, `I2C`, `SPI`, `UART`, `USB2`, `Harness`, `DiffPair`). It MUST hold the tested line of `catalog`.
 - `footprints` MUST teach `Footprint` and `Symbol` from dimensions, and MUST say that such geometry is `INFERRED` and what a person still checks against the part's datasheet.
+- `library-items` MUST teach reviewed acquisition, licence acceptance, pins, offline restoration and repository tooling, and MUST hold tested lines of `get`.
 - `placement` MUST teach `place()`, sides, rotation and locked placements, staged parts and `place --strategy grid`, `place --move`, and field placement. It MUST hold the tested lines of `place`, `pads`, `neighbors` and `region`.
 - `routing` MUST teach the registered routers and what each is for, `route` with `--nets` and `--rip`, the meaning of `unrouted`, scripted copper (`track`, `via`, `stitch`, `via_step`, `arc_to`), zones and `fill`. It MUST hold the tested lines of `route`, `fill` and `net`, and of `fetch` when that command is registered.
-- `route-proposals` MUST teach bounded search controls, negotiated atomic bundles, whole-unit accept/reject/replay/forget, repeated selection, conservative role facts and failure recovery. It MUST hold tested route proposal and decision lines and keep its written page within 12000 bytes.
 - `rules` MUST teach net classes against minimums and selectors (`select`), MUST say that the limits are the user's or the fabricator's and that the page's numbers are examples, and MUST hold the tested line of `analyze`.
 - `checks` MUST teach the stages of `check`, the fields of an issue, `explain`, the evidence levels, one fix per iteration, and `--fields`, `--stages`, `--format concise` and `--limit`. It MUST hold the tested lines of `check`, `explain`, `netlist`, `parity`, `doctor` and `capabilities`.
 - `files` MUST teach how to read a file that Fenolite did not write, how to tell whether editing it is safe, how to compare two files or two designs, and how to undo a confirmed write. It MUST hold the tested lines of `inspect`, `diff`, `equivalent`, `roundtrip`, `fmt` and `restore`.
@@ -115,7 +115,7 @@ The agent guide SHALL hold twenty-three written pages under `src/fenolite/agent/
 
 #### Scenario: The eleven pages load
 - **WHEN** `uv run pytest tests/unit/agent/test_pages.py -k topics` calls `guide.pages()`
-- **THEN** it finds `start`, the twelve tool topics, the eleven practice topics beside them and the two generated ones, each with a title and a one-line summary, and every `Read next:` names existing topics
+- **THEN** it finds `start`, the twelve tool topics, the eleven practice topics beside them and the generated references, each with a title and a one-line summary, and every `Read next:` names existing topics
 
 #### Scenario: A page through the command line
 - **WHEN** `uv run fenolite guide routing --text` runs
@@ -269,4 +269,11 @@ The packaged agent guide SHALL include a written `viewer` topic with tested `vie
 #### Scenario: Combined viewer guide stays within budget
 - **WHEN** `uv run pytest tests/unit/agent/test_pages.py -k "topics or budget or cmd_lines or coverage"` checks the integrated guide
 - **THEN** `viewer` loads, its commands parse, all public commands remain covered, and every written page stays within 12,000 bytes and 250 lines
+
+### Requirement: Scoped insulation exceptions in the guide
+The guide page `board-insulation` SHALL say that a class minimum governs the rules of its class, that a part-wide pad rule is a minimum for every pad pair of the part, how to write one exception per pair of domains inside one part, and that a no-connect pin's net is in `Default` and is reached by its part, not by a class (change c0403, F2, F3, F4).
+
+#### Scenario: The page's scopes resolve as written
+- **WHEN** `uv run pytest tests/unit/checks/test_insulation_rule_scopes.py` resolves the page's selectors on an authored design
+- **THEN** the part-wide rule holds between two logic pins of the part, the per-domain rule leaves them at their class value and holds between the domains, and a no-connect pad in `Default` is reached by the part-wide rule only
 

@@ -716,7 +716,7 @@ With `strict=True`, level 5 SHALL also compare the tracks, arcs and vias of the 
 - **THEN** each run reports exactly `track-width`, `via-drill`, `via-span` and the notice `copper-locked`, in that order
 
 ### Requirement: Level 5 strict matching
-Strict matching SHALL be deterministic: items of one kind are keyed by copper span and geometry (a track by its two ends as an unordered pair, an arc by its ends and mid, a via by its position), matched first on equal keys, then each unmatched item of side `a` in key order with the first unmatched item of side `b` within the length tolerance. `where` MUST be `<net name>:<kind>:<span>:<points>`.
+Strict matching SHALL be deterministic: items of one kind are keyed by copper span and geometry (a track by its two ends as an unordered pair, an arc by its ends and mid, a via by its position), matched first on equal keys, then each unmatched item of side `a` in key order with the first unmatched item of side `b` within the length tolerance. Inside one equal key, an item of side `a` MUST pair first with the first unmatched item of side `b` whose strict-rule fields are all equal, and only then with the first unmatched item of that key, so equal keys match as a multiset of their compared fields. `where` MUST be `<net name>:<kind>:<span>:<points>`.
 
 #### Scenario: Reversed track
 - **GIVEN** a copy in which one track's start and end are exchanged
@@ -727,6 +727,11 @@ Strict matching SHALL be deterministic: items of one kind are keyed by copper sp
 - **GIVEN** a copy with one via moved by 5 nm on x
 - **WHEN** level 5 runs with `strict=True` at `length_nm` 4 and at 5
 - **THEN** the first reports one `via-missing` per side, located `GND:via:top-bottom:<x>,<y>`, and the second reports nothing
+
+#### Scenario: Coincident tracks in another order
+- **GIVEN** two tracks with the same ends, widths 0.3 mm and 0.29997 mm, written in the other order on side `b`
+- **WHEN** level 5 runs with `strict=True` at tolerance 0
+- **THEN** no difference is reported, and changing one width on side `b` still reports one `track-width`
 
 ### Requirement: Level 6 compares rules
 Level 6 SHALL compare net classes by name, custom rules by name, the board-wide rule set, the stack-up layers in order and the board layers by kind and ordinal. Fields MUST be the fields of the canonical JSON of each entity except `id`, `native_ids`, `ext` and provenance, compared exactly, lengths with the length tolerance; `field` is the dotted path. Net class members MUST be compared as sets of net names.

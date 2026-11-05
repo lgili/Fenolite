@@ -15,4 +15,5 @@
 
 ## 3. Close
 
-- [ ] 3.1 `make check-fast` through the heavy lock; CHANGELOG line; `openspec validate c0404 --strict`.
+- [x] 3.1 `make check-fast` through the heavy lock; CHANGELOG line; `openspec validate c0404 --strict`.
+  - Closed on CI 42021800567 (exact head 3675515a, now on dev): `ci-complete` green, the four `kicad-10` shards and the coverage audit included; `make check-fast` is covered by the batch's fast stage per docs/ci.md.

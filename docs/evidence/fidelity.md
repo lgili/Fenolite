@@ -172,7 +172,7 @@ This is a local measurement on the maintainer's Mac. It is not the kicad-10 CI j
 The rows the 2026-11-04 census left without a zero count were re-run on `origin/dev` `1169f10d` with KiCad
 10.0.6 (macOS `kicad-cli`), through the same strict pipeline, with no acceptance, tolerance or level subset.
 The counts matched the census. Each note names the level, the object and the evidence; the full table is in
-`openspec/changes/c0401-fidelity-census-follow-up/design.md`. This is a local measurement, not the kicad-10
+`openspec/changes/archive/2026-11-05-c0401-fidelity-census-follow-up/design.md`. This is a local measurement, not the kicad-10
 CI job, and no level is raised.
 
 Differing rows (task 1.1):

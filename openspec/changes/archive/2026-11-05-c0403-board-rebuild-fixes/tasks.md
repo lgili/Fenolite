@@ -35,5 +35,6 @@ repository.
 
 ## 3. Close
 
-- [ ] 3.1 `make check-fast` on the integrated batch (coordinator) and CI `ci-complete` on the exact commit;
+- [x] 3.1 `make check-fast` on the integrated batch (coordinator) and CI `ci-complete` on the exact commit;
   CHANGELOG line; `openspec validate c0403-board-rebuild-fixes --strict`.
+  - Closed on CI 42021800567 (exact head 3675515a, now on dev): `ci-complete` green, the four `kicad-10` shards and the coverage audit included; `make check-fast` is covered by the batch's fast stage per docs/ci.md.

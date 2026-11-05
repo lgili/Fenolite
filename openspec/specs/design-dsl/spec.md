@@ -2494,7 +2494,7 @@ A build SHALL report each part that gets the catalog's default pin-to-pad map (`
 `Design.text(key, text, at, *, layer="F.SilkS", size=None, thickness=None, rot=0, justify=None, knockout=False, bold=False, italic=False, face=None)`, `Design.line(key, start, end, *, layer, width, net=None)`, `Design.rect(key, start, end, *, layer, width, fill=False, net=None)`, `Design.circle(key, center, edge, *, layer, width, fill=False, net=None)`, `Design.arc(key, start, mid, end, *, layer, width, net=None)`, `Design.polygon(key, points, *, layer, width, fill=False, net=None)` and `Design.dimension(key, start, end, *, offset, layer="Dwgs.User", direction=None, units="mm", precision=4, size=None, thickness=None, width=None, extension_offset=None)` SHALL each declare one board drawing. `dsl.to_model` SHALL put one `Text`, `Graphic` or `Dimension` per drawing into `Board.texts`, `Board.graphics` and `Board.dimensions`, each in key order.
 - `board()` MUST have been called first, in either of its forms. `key` MUST match `^[A-Za-z0-9_.+-]+(/[A-Za-z0-9_.+-]+)*$` and MUST NOT be the key of another drawing of the design, whichever of the seven calls made it. `Design.drawings` MUST map each key to its record, in call order.
 - Points are `(x, y)` pairs of lengths in the board frame of "Board and placements in the DSL", written with `BOARD_ORIGIN` added; lengths and angles follow "DSL lengths and angles".
-- `layer` MUST be a layer of the board whose kind is `silkscreen`, `soldermask`, `fabrication` or `user` (`dsl.items.DRAWING_LAYER_KINDS`), a user layer declared by `Design.user_layers` ("User layers in the DSL"), or, for a text and the five graphics (change c0277), a copper layer of `Design.copper_layers`. A copper layer for a dimension, `Edge.Cuts` or a layer of another kind MUST raise `DslError` naming the layer.
+- `layer` MUST be a layer of the board whose kind is `silkscreen`, `soldermask`, `fabrication` or `user` (`dsl.items.DRAWING_LAYER_KINDS`), a user layer declared by `Design.user_layers` ("User layers in the DSL"), or, for a text and the five graphics (change c0277), a copper layer of `Design.copper_layers`. A line, an arc and an unfilled rectangle MAY also be on `Edge.Cuts`, where they declare explicit physical root outline edges (changes c0349, c0401; "Explicit physical root edges with a logical outline"). A copper layer for a dimension, `Edge.Cuts` for any other drawing or for a filled rectangle, or a layer of another kind MUST raise `DslError` naming the layer.
 - **Copper art** (change c0277). `net` MUST be `None` or a `Net`, which joins the design, and is accepted only on a copper layer; the graphic takes the net's id as `net_id`. `knockout` MUST be a `bool`, and `True` only on a copper or silkscreen layer; the text takes it as `knockout`. Both fields are left out of the model's canonical JSON when unset. The KiCad writer SHALL write a graphic's net as `(net …)` after its `layer`, in the net form of the target. The copper check SHALL judge a graphic on a copper layer as copper of its net (of no net without one): its stroke around its outline, and its inside when it is filled; a copper text stays `copper.text-unchecked`.
 - **Text.** `text` MUST be a `str` whose lines, split at `\n`, are each printable (`str.isprintable()`); an empty text is accepted, as KiCad keeps one (change c0277). `size` MUST be a positive length or a `(width, height)` pair of positive lengths, and `thickness` positive; they default to 1 mm and 0.15 mm, the values the KiCad writer gives created footprint fields. `justify` MUST be `None` or one of `dsl.part.FIELD_JUSTIFY`. `bold` and `italic` MUST be bools and `face` `None` or a printable font name; the text takes them, left out of the canonical JSON when unset.
 - **Graphics.** `width` MUST be at least 0, and above 0 for a line, an arc and a shape that is not filled; a filled shape MAY take `width=None`, no outline, which the model holds as −1 nm and the KiCad writer writes as `(width -0.000001)` (change c0277). A rectangle's corners MUST differ in x and in y; a circle's `edge` MUST differ from its `center`; an arc's three points MUST be distinct and not on one line (an exact integer test); a polygon MUST hold at least three points. `fill` MUST be a `bool`.
@@ -2512,7 +2512,7 @@ A build SHALL report each part that gets the catalog's default pin-to-pad map (`
 - **THEN** `board.dimensions` holds one `aligned` dimension with the id `derived_id("dim", "dsl", "dimension:width")`, layer `Dwgs.User`, start (100 mm, 100 mm), end (150 mm, 100 mm), `offset == -5_000_000`, `direction is None`, `units == "mm"` and `precision == 4`
 
 #### Scenario: Refused drawing calls
-- **WHEN** `d.dimension("t1", (mm(0), mm(0)), (mm(5), mm(0)), offset=mm(1), layer="F.Cu")`, `d.line("l1", (mm(0), mm(0)), (mm(1), mm(0)), layer="Edge.Cuts", width=mm(0.1))`, `d.line("rev", …)` after the text `rev`, `d.arc("a1", (mm(0), mm(0)), (mm(1), mm(1)), (mm(2), mm(2)), layer="F.Fab", width=mm(0.1))`, `d.dimension("d1", (mm(0), mm(0)), (mm(0), mm(9)), offset=mm(2), direction="horizontal")`, `d.dimension("d2", …, precision=5)` and `d.text("t2", "A\tB", (mm(1), mm(1)))` are called
+- **WHEN** `d.dimension("t1", (mm(0), mm(0)), (mm(5), mm(0)), offset=mm(1), layer="F.Cu")`, `d.rect("l1", (mm(0), mm(0)), (mm(1), mm(1)), layer="Edge.Cuts", width=mm(0.1), fill=True)`, `d.line("rev", …)` after the text `rev`, `d.arc("a1", (mm(0), mm(0)), (mm(1), mm(1)), (mm(2), mm(2)), layer="F.Fab", width=mm(0.1))`, `d.dimension("d1", (mm(0), mm(0)), (mm(0), mm(9)), offset=mm(2), direction="horizontal")`, `d.dimension("d2", …, precision=5)` and `d.text("t2", "A\tB", (mm(1), mm(1)))` are called
 - **THEN** each raises `DslError`, naming `F.Cu`, `Edge.Cuts`, `rev`, the arc's points, `direction`, `precision` and `text`
 
 #### Scenario: Copper text and text styles
@@ -4475,4 +4475,33 @@ component without a value.
 #### Scenario: Existing designs keep their digests
 - **WHEN** a design has no part with `value=""`
 - **THEN** its canonical JSON is byte-identical to the one before this change
+
+### Requirement: Library section of the design lock
+c0249's lock SHALL hold `[library.items."<kind>/<id>"]` with `version`, `release`, `index`, `tree`, `spdx` and `path` (relative to the script folder) for each item that `fenolite get` vendored, registered as a `LockSection`. Only `get` SHALL change the section; a build MUST read it without changing it, so `--frozen` is unaffected.
+
+#### Scenario: Pin written by get
+- **GIVEN** a project with `design.py` and no lock, and the release fixture
+- **WHEN** `fenolite get device Demo:EXB --from <release> --confirm --json` runs
+- **THEN** `design.lock` holds `[library.items."device/Demo:EXB"]` with the item version, release `1.0.0`, the index digest, the tree digest, `CC0-1.0` and `fenolite_library/devices/Demo/EXB`
+
+#### Scenario: Build leaves the section alone
+- **GIVEN** that project
+- **WHEN** `fenolite build design.py --frozen --json` runs
+- **THEN** it reports no `lock.changed` for the section `library`
+
+### Requirement: Missing vendored item
+When a `[library.items]` entry's folder does not exist, the build SHALL report `library.item-missing` (error) naming the entry and exit 6 with `FEN-6004`, whose hint is `fenolite get --locked <script> --dry-run`, and MUST write nothing.
+
+#### Scenario: Fresh clone without library folder
+- **GIVEN** a lock pinning `device/Demo:EXB` and no `fenolite_library/` folder
+- **WHEN** `fenolite build design.py --json` runs
+- **THEN** it exits 6, stderr holds `FEN-6004` whose hint names `fenolite get --locked design.py --dry-run`, and no file is written
+
+### Requirement: The precedence of class minimums is stated
+The docstring of `design.rules.minimum()` SHALL say that a class minimum is written last and governs every `rule()` of its class without `priority=`, and that `design.rules.precedence("specificity")` lets the more specific rule govern (change c0403, F2).
+
+#### Scenario: A lower rule between the nets of one class
+- **GIVEN** `minimum(clearance=mm(3), netclass="MAINS")` and a two-sided `MAINS`/`MAINS` clearance rule of 1 mm without `priority=`
+- **WHEN** `uv run pytest tests/unit/checks/test_specificity.py -k class_minimum` builds the model with and without `precedence("specificity")`
+- **THEN** without it the class minimum governs and `rules.shadowed` names the custom rule; with it the custom rule governs and nothing is shadowed
 

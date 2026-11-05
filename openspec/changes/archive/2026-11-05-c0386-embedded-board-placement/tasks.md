@@ -46,8 +46,9 @@
 
 ## 3. Close
 
-- [ ] 3.1 Docs (`pcb-document.md`, `conversion.md`), CHANGELOG, `openspec validate --strict`, focused tests,
+- [x] 3.1 Docs (`pcb-document.md`, `conversion.md`), CHANGELOG, `openspec validate --strict`, focused tests,
   `make check-fast`.
   - 2026-11-05: docs, CHANGELOG and spec scenarios written; `openspec validate --strict` passes; ruff, format
     and `pyright src` clean; focused tests 198 passed, 5 skipped (env-gated). Open: `make check-fast`, which
     the coordinator now runs once on the integrated batch (rule of 2026-11-05).
+  - Closed on CI 42021800567 (exact head 3675515a, now on dev): `ci-complete` green, the four `kicad-10` shards and the coverage audit included; `make check-fast` is covered by the batch's fast stage per docs/ci.md.

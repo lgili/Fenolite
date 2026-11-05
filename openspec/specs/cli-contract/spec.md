@@ -1782,7 +1782,7 @@ The dispatcher SHALL give every plan that is returned and not written an id, SHA
 - **Id.** `cli.plans.plan_id(…)` MUST be the first 16 hex digits of the SHA-256 of the canonical JSON of: the command name; its arguments without the run flags; the working folder; the SHA-256 of every file the command names in `Result.depends`; and, for each planned write, its path, kind, size, SHA-256 and the SHA-256 of the file it would replace (`null` when there is none). No clock, seed or state folder takes part, so the same dry run on the same files gives the same id.
 - **Run flags.** `plans.RUN_FLAGS` MUST be `--dry-run`, `--confirm`, `--plan`, `--json`, `--text`, `--fields`, `--limit`, `--cursor`, `--format`, `--progress`, `--seed`, `--timestamp`, `--no-backup`, `--timeout` and `--kicad-cli`: they change how a run happens, not what it plans.
 - **Declared inputs.** `fenolite.cli.api.Result` MUST gain `depends: tuple[str, ...] = ()`, the inputs of the command that are not its targets, each as `fenolite.cli.api.depends_on` spells it: relative to the working folder in POSIX form when the file lies inside it, absolute otherwise; sorted and without repeats. Every registered mutating command MUST set it: `build` the design script and, when it reads one, the copper source; `place`, `route`, `fill`, `export`, `render`, `pnp` and `sync` the board and the other files of its copy set that it read; `bom` the board or the root schematic it read; `manifest` every design file and every artefact manifest it hashed; `kit` the documents it packs; `fmt` and `template` their input file; `restore` the receipt file (none for `-`), every file of `written` and every `.bak` it reads; `models` (c0116) the board and every model file it copies; `fetch` (c0078) the file of `--from`, and nothing without it; `_echo` nothing. A target is not declared: it is checked through its own digest.
-- **State folder.** `fenolite.core.state.state_dir()` MUST be `FENOLITE_STATE_DIR` when it is an absolute path, `None` when it is `off`, and `~/.cache/fenolite/state` otherwise. A plan MUST be staged under `plans/<id>/` in a temporary folder renamed into place, and MUST hold nothing the command did not plan. The store MUST keep at most `PLAN_KEEP` = 16 plans and `PLAN_BYTES` = 512 MiB, dropping the oldest first, MUST drop a plan older than `PLAN_DAYS` = 7 days, and MUST remove a plan once it is written. No file MUST be created in the working folder, the project or the output folder by a run that writes nothing.
+- **State folder.** `fenolite.core.state.state_dir()` MUST be `FENOLITE_STATE_DIR` when it is an absolute path, `None` when it is `off`, and `~/.cache/fenolite/state` otherwise. A plan MUST be staged under `plans/<id>/` in a temporary folder renamed into place, and MUST hold nothing the command did not plan. The store MUST keep at most `PLAN_KEEP` = 16 plans of one working folder, and `PLAN_KEEP_ALL` = 128 plans and `PLAN_BYTES` = 512 MiB in all, dropping the oldest first; a plan of another working folder MUST NOT count against a folder's `PLAN_KEEP` (change c0403), MUST drop a plan older than `PLAN_DAYS` = 7 days, and MUST remove a plan once it is written. No file MUST be created in the working folder, the project or the output folder by a run that writes nothing.
 - **Not staged.** A plan that cannot be staged (the store is `off`, full beyond one plan, or not writable) MUST give one `plan.not-staged` warning with the reason, from the table `fenolite.cli.codes.ISSUE_CODES`, and the run MUST go on with its id. A plan that holds a deferred write ("Deferred writes") has no bytes before `--confirm`: it MUST NOT be staged, MUST give no warning, and is planned again.
 - **Replay.** `--confirm --plan ID` with a staged plan MUST NOT call the command. It MUST refuse with `FEN-4002` (exit 4), naming the first reason, when the working folder, the command or its arguments without the run flags differ from the plan's; when a file of `depends` or a target has another SHA-256 than at review (a target that did not exist must still not exist); or when a staged file does not have its planned SHA-256. Otherwise it MUST write the staged bytes through "All-or-nothing writes" and reply with the reviewed `result`, `issues`, `evidence` and `input`, the receipt, and `receipt.plan` set to ID; as after any confirmed write, `result` then holds neither `plan` nor `plan_id`, and the run flags of the call (`--fields`, `--limit`, `--format`) shape the reply. A refusal writes nothing and keeps the stage, except a damaged one, which it removes.
 - **Planned again.** When ID names no staged plan, `--confirm --plan ID` MUST run the command once and write only when the id of the new plan equals ID; otherwise `FEN-4002`. So the id always binds what is written, and the store only saves the second run.
@@ -1818,6 +1818,11 @@ The dispatcher SHALL give every plan that is returned and not written an id, SHA
 #### Scenario: The id is a digest of the inputs
 - **WHEN** the same dry run is made twice, with different `--seed`, `--timestamp` and `FENOLITE_STATE_DIR`
 - **THEN** both replies hold the same `plan_id`
+
+#### Scenario: Another project's plans leave a plan under review
+- **GIVEN** a staged plan of one working folder and `PLAN_KEEP` + 4 later plans of another
+- **WHEN** `uv run pytest tests/unit/cli/test_plans.py -k other_projects` stages them
+- **THEN** the first folder's plan is kept, the other folder keeps its 16 newest, and with `PLAN_KEEP_ALL` lowered the oldest plan in all goes
 
 #### Scenario: The store is bounded
 - **GIVEN** 17 staged plans in a state folder
@@ -3153,4 +3158,100 @@ The viewer SHALL permit complete bundle IDs only when all members, subjects and 
 - **GIVEN** a displayed atomic alternative
 - **WHEN** a client submits one member or its parent proposal ID
 - **THEN** the server refuses without writing files
+
+### Requirement: Get command
+`fenolite get KIND ID [--version V] [--release R] [--script FILE] [--into DIR]` SHALL be mutating. It SHALL plan the item and its `depends` closure, copied with `item.json`, `LICENSE`, `NOTICE` and `PROVENANCE.json` into `fenolite_library/<kind folder>/<id path>/` beside the script (a board into `--into`), plus `fenolite_library/ATTRIBUTION.md` and the lock. All of it is written or none. KIND MUST be `symbol`, `footprint`, `device`, `block` or `board`.
+
+#### Scenario: Plan a device with its closure
+- **GIVEN** a local release built from `tests/data/library_repo/demo/`, given with `--from`, and a project with `design.py`
+- **WHEN** `fenolite get device Demo:EXB --from <release> --dry-run --json` runs
+- **THEN** the plan lists the device, symbol and footprint folders, `fenolite_library/ATTRIBUTION.md` and `design.lock`, and nothing is written
+
+#### Scenario: Confirmed copy keeps the licence files
+- **WHEN** the same command is confirmed with its plan id
+- **THEN** each copied folder holds its `LICENSE`, `NOTICE` and `PROVENANCE.json` byte for byte, and the receipt lists every file with its SHA-256
+
+### Requirement: Licence shown and accepted
+Every `get` result SHALL list, per item, `spdx`, `family`, `reciprocal`, `obligations`, `authors`, `upstream` and `executes`, and `result.licences` SHALL list each distinct id with `accept_required`. A confirm of a plan holding any id other than `CC0-1.0` MUST name each such id in `--accept-licence`, else exit 4 with `FEN-4003` listing the missing ids, writing nothing.
+
+#### Scenario: Share-alike item needs acceptance
+- **GIVEN** the release fixture with a `CC-BY-SA-4.0` footprint
+- **WHEN** `fenolite get footprint Demo:SA_PAD --from <release> --confirm --json` runs
+- **THEN** it exits 4 with `FEN-4003` naming `CC-BY-SA-4.0`, and nothing is written
+
+#### Scenario: Accepted by name
+- **WHEN** the same command runs with `--accept-licence CC-BY-SA-4.0`
+- **THEN** it writes the item and the receipt echoes `CC-BY-SA-4.0` as accepted
+
+### Requirement: Client licence check
+`get` SHALL refuse with exit 3 and `FEN-3021` an item whose SPDX id is not in the shipped `library-licences.toml`, whose index row and `PROVENANCE.json` disagree on the id, or that lacks `LICENSE` or `NOTICE`. Nothing MUST be written.
+
+#### Scenario: Release with a denied item
+- **GIVEN** a test release whose index row says `CC-BY-NC-4.0` for `Demo:NC`
+- **WHEN** `fenolite get device Demo:NC --from <release> --dry-run --json` runs
+- **THEN** it exits 3 with `FEN-3021` naming the item and the id
+
+### Requirement: Get updates and removals
+A `get` of a vendored item at another version SHALL replace its folder and report `before` and `after`. `--remove KIND ID` SHALL plan the folder's deletion, the lock entry's removal and the attribution file. A folder whose tree differs from its pin MUST be refused with `FEN-7001` (`library.item-modified`) unless `--allow-lossy`; removing an item another depends on MUST exit 2.
+
+#### Scenario: Local edit protected
+- **GIVEN** the vendored `Demo:EXB` with one record edited after the copy
+- **WHEN** `fenolite get device Demo:EXB --version 1.1.0 --from <release> --confirm --json` runs
+- **THEN** it exits 7 with `FEN-7001`, `issues` holds `library.item-modified`, and nothing is written
+
+### Requirement: Get closure conflicts
+When the closure of a requested item needs a version of an item that the project already vendors at another version, `get` SHALL report `library.depends-conflict` (error) naming both versions, exit 5, and plan nothing.
+
+#### Scenario: Conflicting dependency
+- **GIVEN** a project vendoring `footprint/Demo:SOT` 1.0.0 and a device whose `depends` names 1.1.0
+- **WHEN** the device is planned
+- **THEN** it exits 5 with `library.depends-conflict` naming 1.0.0 and 1.1.0
+
+### Requirement: Get restore and status
+`fenolite get --locked SCRIPT` SHALL plan every lock entry whose folder is missing, from its pinned release, index digest and tree, and nothing else. `fenolite get --status [--script FILE]` SHALL be read-only and report per entry `present`, `modified` and `newer`, exiting 5 with `library.item-missing` when a folder is missing.
+
+#### Scenario: Restore after a fresh clone
+- **GIVEN** a project whose lock pins `device/Demo:EXB` and whose `fenolite_library/` folder was deleted, with the release cached
+- **WHEN** `fenolite get --locked design.py --offline --confirm --json` runs
+- **THEN** the folder is restored with the pinned tree and the lock is unchanged
+
+### Requirement: Get list and search
+`fenolite get --list [--kind K] [--release R]` and `fenolite get --search TEXT [--kind K] [--licence ID|FAMILY] [--limit N]` SHALL be read-only, open no connection and read only a cached index. Rows SHALL hold kind, id, version, title, SPDX, family, authors and gallery page, sorted by kind and id; without a cached index they MUST exit 6 with `FEN-6006`, hinting `fenolite get --refresh --dry-run`.
+
+#### Scenario: Search the cached index
+- **GIVEN** the release fixture's index cached under `FENOLITE_LIBRARY_DIR` and `urllib.request.urlopen` patched to raise
+- **WHEN** `fenolite get --search exb --licence cc0 --json` runs
+- **THEN** it exits 0 and lists `device` `Demo:EXB` with `CC0-1.0`, and no connection was opened
+
+#### Scenario: Nothing cached
+- **GIVEN** an empty `FENOLITE_LIBRARY_DIR`
+- **WHEN** `fenolite get --list --json` runs
+- **THEN** it exits 6 with `FEN-6006` whose hint names `fenolite get --refresh --dry-run`
+
+### Requirement: Get network and cache rules
+`get` SHALL download only under `--confirm`, one `https` request per missing asset, with only a `User-Agent` header, a 60 s timeout, `https`-only redirects, at most the expected bytes plus one and no retry (`FEN-6003` on failure). It checks the index against `cli/data/library.toml`, `--index-sha256` or the lock, then archives and trees (`FEN-3006`). `--offline` MUST open no connection (`FEN-6006` when missing).
+
+#### Scenario: Dry run makes no request
+- **GIVEN** `urllib.request.urlopen` patched to raise and an empty cache
+- **WHEN** `fenolite get device Demo:EXB --release 1.0.0 --index-sha256 <hex> --dry-run --json` runs
+- **THEN** it exits 0, the plan lists the cache writes with their sizes and digests, and no connection was opened
+
+#### Scenario: Tampered archive
+- **GIVEN** a release folder whose devices shard differs from the index's digest
+- **WHEN** `get` is confirmed with `--from` that folder
+- **THEN** it exits 3 with `FEN-3006` holding both digests, and neither the cache nor the project changes
+
+### Requirement: Library tooling verbs
+`fenolite library` SHALL accept the verbs `audit ROOT` (read-only), `replay ITEM` (read-only for the tree), `release ROOT --version V --out DIR` and `gallery ROOT --release DIR --out DIR` (both mutating, under plan and confirm). `capabilities` SHALL list each as `library <verb>` with its arguments. A board path named like a verb MUST be written with `./`.
+
+#### Scenario: Verbs listed
+- **WHEN** `fenolite capabilities --json` runs
+- **THEN** its commands hold `get`, `library audit`, `library replay`, `library release` and `library gallery` with their arguments
+
+### Requirement: Library error codes
+The registry of `fenolite.cli.errors` SHALL hold `FEN-6004` (exit 6, not retryable, a pinned library item is missing, hint naming `fenolite get --locked`), `FEN-6006` (exit 6, not retryable, not in the offline cache), `FEN-4003` (exit 4, licences must be accepted by name) and `FEN-3021` (exit 3, licence not allowed or licence files missing). `docs/cli-contract.md` and `explain.toml` MUST list them.
+
+#### Scenario: Codes explained
+- **WHEN** `uv run pytest tests/unit/cli/test_exitcodes.py tests/unit/cli/test_explain_cmd.py` runs
+- **THEN** the four codes are registered with their exits and explained, and `FEN-6004`'s fix names `fenolite get --locked`
 

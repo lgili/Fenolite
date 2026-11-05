@@ -5,11 +5,13 @@
   in `docs/evidence/fidelity.md`; `uv run pytest tests/unit/test_fidelity_docs.py -q`.
   2026-11-05: done. `design.md` tables and `docs/evidence/fidelity.md` "Attribution — 2026-11-05";
   `test_fidelity_docs.py` 3 passed.
-- [ ] 1.2 For each Fenolite attribution, open or name the change that fixes it; for each KiCad or input
+- [x] 1.2 For each Fenolite attribution, open or name the change that fixes it; for each KiCad or input
   attribution, record the row in `accepted.toml` with its counts and reason. Proof:
   `uv run pytest tests/kicad/fidelity -rA` in the kicad-10 CI job.
   2026-11-05: open for CI. Fenolite causes: pcb-14 and 9-05 fixed here (1.3, 1.4); 9-02 owned by c0384; the two
   9-01 causes need a change id from the coordinator. Local 10.0.6: 13 passed, 12 skipped in 221.76 s.
+  - The two 9.0.9.1 pcb-01 causes are named by the coordinator: c0413 (teardrop proof scope, custom and rotated pad parent poses) and c0414 (an empty visible schematic `Footprint` field beside a board footprint); both are proposed by cac-kicad-gaps.
+  - Closed on CI 42021800567 (exact head 3675515a, now on dev): `ci-complete` green, the four `kicad-10` shards and the coverage audit included; `make check-fast` is covered by the batch's fast stage per docs/ci.md.
 
 - [x] 1.3 Pair equal strict-matching keys as a multiset of their compared fields (pcb-14: coincident tracks
   of widths 0.3 and 0.29997 mm paired in file order). Proof:
@@ -35,5 +37,6 @@
 
 ## 3. Validation
 
-- [ ] 3.1 Run `make check-fast`, publish to a working branch and confirm the required CI jobs on the exact
+- [x] 3.1 Run `make check-fast`, publish to a working branch and confirm the required CI jobs on the exact
   commit. Proof: the required jobs green on the pushed head.
+  - Closed on CI 42021800567 (exact head 3675515a, now on dev): `ci-complete` green, the four `kicad-10` shards and the coverage audit included; `make check-fast` is covered by the batch's fast stage per docs/ci.md.
