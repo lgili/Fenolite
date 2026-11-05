@@ -57,7 +57,11 @@ def capability_entries() -> list[dict[str, object]]:
                 "check",
                 "fenolite library check TARGET... [--sheets DIR] [--compare OLD] [--fail-on error|warning]",
             ),
-            ("review", "fenolite library review TARGET... [--accept --reviewer NAME --sheet HEX | --revoke]"),
+            (
+                "review",
+                "fenolite library review TARGET... "
+                "[--accept --reviewer NAME --sheet HEX | --revoke | --pin-content [--viewer DIR]]",
+            ),
             (
                 "propose",
                 "fenolite library propose --datasheet FILE [--proposal FILE] [--out DIR] [--licence SPDX]",
@@ -89,6 +93,17 @@ def register(parser: argparse.ArgumentParser) -> None:
     choice.add_argument(
         "--revoke", action="store_true", help="review: remove acceptance and restore previous evidence"
     )
+    choice.add_argument(
+        "--pin-content",
+        action="store_true",
+        help="review: add the content digest to an older acceptance whose sheet bytes still match",
+    )
+    group.add_argument(
+        "--viewer",
+        metavar="DIR",
+        help="review --pin-content: viewer files (page.html, viewer.css, viewer.js) of the Fenolite "
+        "that wrote the acceptance",
+    )
     group.add_argument(
         "--reviewer", metavar="NAME", help="review --accept: person who opened and checked the sheet"
     )
@@ -118,6 +133,7 @@ class Item:
     digest: str = ""
     sheet_bytes: bytes = b""
     sheet_sha256: str = ""
+    content_sha256: str = ""
     stale: bool = False
     effective: str = "UNVERIFIED"
     extra_files: list[Path] = field(default_factory=lambda: [])
@@ -742,15 +758,20 @@ def inspect_items(items: list[Item], selected: set[str]) -> None:
             )
         item.digest = _digest(item)
         try:
+            from fenolite.view.review_sheet import content_digest
+
             item.sheet_bytes = _sheet(item)
             item.sheet_sha256 = review.sheet_digest(item.sheet_bytes)
+            item.content_sha256 = content_digest(item.sheet_bytes)
         except (ValueError, FormatError, KeyError, GeometryError) as error:
             item.findings.append(rules.issue("library.render-failed", str(error), item.id))
         latest = item.latest
         if latest:
             item.stale = (
-                review.is_stale(dataclasses.asdict(latest), item.digest, item.sheet_sha256)
-                if latest.sheet_sha256
+                review.is_stale(
+                    dataclasses.asdict(latest), item.digest, item.sheet_sha256, item.content_sha256
+                )
+                if latest.sheet_sha256 or latest.content_sha256
                 else (bool(item.record and records.stale_reviews(item.record)))
             )
             if item.stale and "library.review-stale" in selected:
@@ -790,7 +811,7 @@ def rows(items: list[Item]) -> list[dict[str, Any]]:
                 "latest": dataclasses.asdict(i.latest) if i.latest else None,
                 "digest": i.digest,
             },
-            "sheet": {"path": _sheet_path(i), "sha256": i.sheet_sha256},
+            "sheet": {"path": _sheet_path(i), "sha256": i.sheet_sha256, "content_sha256": i.content_sha256},
         }
         for i in sorted(items, key=lambda i: (i.id, i.kind))
     ]
@@ -805,7 +826,7 @@ def _sheet_path(item: Item) -> str:
 def check_command(args: argparse.Namespace, ctx: Context) -> Result:
     if len(args.path) < 2:
         raise CliError("FEN-2001", "library check needs TARGET...", where="check")
-    if args.accept or args.revoke or args.reviewer or args.sheet:
+    if args.accept or args.revoke or args.pin_content or args.viewer or args.reviewer or args.sheet:
         raise CliError("FEN-2001", "review flags belong to library review")
     selected = _selected(args)
     items, files = load(args.path[1:], ctx)
@@ -861,6 +882,7 @@ def check_command(args: argparse.Namespace, ctx: Context) -> Result:
                     "path": path,
                     "sha256": sha,
                     "review_sha256": item.sheet_sha256,
+                    "content_sha256": item.content_sha256,
                 }
             )
             index_rows.append(
@@ -932,11 +954,44 @@ def _raw_text(raw: Mapping[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _viewer_folder(value: str, ctx: Context) -> Path:
+    from fenolite.view import export
+
+    folder = Path(value) if Path(value).is_absolute() else ctx.cwd / value
+    missing = [name for name in export.VIEWER_FILES if not (folder / name).is_file()]
+    if missing:
+        raise CliError("FEN-3001", f"--viewer folder lacks {', '.join(missing)}", where="--viewer")
+    return folder
+
+
+def _byte_fresh(item: Item, viewer: Path | None) -> bool:
+    """Whether an older acceptance still binds the current sheet byte for byte (c0415): with the packaged
+    viewer, or with the viewer files of the Fenolite that wrote it. Equal bytes prove equal content."""
+    latest = item.latest
+    if latest is None or not latest.sheet_sha256 or latest.digest != item.digest:
+        return False
+    if latest.sheet_sha256 == item.sheet_sha256:
+        return True
+    if viewer is None:
+        return False
+    from fenolite.view import export
+
+    try:
+        with export.other_viewer(viewer):
+            return review.sheet_digest(_sheet(item)) == latest.sheet_sha256
+    except (OSError, UnicodeDecodeError) as error:
+        raise CliError("FEN-3001", f"--viewer files unreadable: {error}", where="--viewer") from error
+    except (ValueError, FormatError, KeyError, GeometryError):
+        return False
+
+
 def review_command(args: argparse.Namespace, ctx: Context) -> Result:
     if len(args.path) < 2:
         raise CliError("FEN-2001", "library review needs TARGET...", where="review")
     if not args.accept and (args.reviewer is not None or args.sheet is not None):
         raise CliError("FEN-2001", "--reviewer and --sheet require --accept")
+    if args.viewer is not None and not args.pin_content:
+        raise CliError("FEN-2001", "--viewer requires --pin-content", where="--viewer")
     if args.sheets or args.compare or args.rules or args.skip:
         raise CliError("FEN-2001", "check flags belong to library check")
     if args.accept and (
@@ -950,7 +1005,7 @@ def review_command(args: argparse.Namespace, ctx: Context) -> Result:
         )
     items, files = load(args.path[1:], ctx)
     inspect_items(items, set(rules.RULES))
-    if not args.accept and not args.revoke:
+    if not args.accept and not args.revoke and not args.pin_content:
         return Result(result={"items": rows(items)}, evidence=EVIDENCE)
     if any(item.header is None for item in items) or not items:
         raise CliError(
@@ -1005,11 +1060,34 @@ def review_command(args: argparse.Namespace, ctx: Context) -> Result:
                 raise CliError(
                     "FEN-4002", f"--sheet does not match the current sheet for {item.id}", where="--sheet"
                 )
+    if args.pin_content:
+        folder = _viewer_folder(args.viewer, ctx) if args.viewer else None
+        if folder is not None:
+            files += [folder / name for name in ("page.html", "viewer.css", "viewer.js")]
+        refused = sorted(
+            item.id
+            for item in items
+            if item.latest and not item.latest.content_sha256 and not _byte_fresh(item, folder)
+        )
+        if refused:
+            raise CliError(
+                "FEN-4002",
+                f"older acceptance is stale or names no sheet, so its content cannot be pinned: "
+                f"{', '.join(refused)}; review it again",
+                where="--pin-content",
+            )
     writes: list[PlannedWrite] = []
     for item in items:
         assert item.header is not None
         header = item.header
-        if args.revoke:
+        if args.pin_content:
+            # c0415: the current sheet is byte for byte the accepted one, so its content is what was reviewed.
+            latest = item.latest
+            if latest is None or latest.content_sha256:
+                continue
+            pinned = replace(latest, content_sha256=item.content_sha256)
+            header = replace(header, reviewed_by=(*header.reviewed_by[:-1], pinned))
+        elif args.revoke:
             if item.latest is None:
                 continue
             header = replace(header, evidence=item.latest.previous_evidence or "UNVERIFIED", reviewed_by=())
@@ -1022,6 +1100,7 @@ def review_command(args: argparse.Namespace, ctx: Context) -> Result:
                 item.digest,
                 "CORPUS-VERIFIED",
                 sheet_sha256=item.sheet_sha256,
+                content_sha256=item.content_sha256,
                 previous_evidence=previous,
                 accepted_codes=tuple(sorted({f.code for f in item.findings if f.severity == "warning"})),
                 fenolite_version=__version__,
@@ -1033,7 +1112,7 @@ def review_command(args: argparse.Namespace, ctx: Context) -> Result:
                 # A device record holds its evidence in the header and in the device; both are written as one
                 # key, so the digest below must see the new value in both (c0266 task 6.2).
                 record = replace(record, device=replace(record.device, evidence=header.evidence))
-            if not args.revoke:
+            if args.accept:
                 latest = replace(header.reviewed_by[-1], record_sha256=records.record_digest(record))
                 record = replace(record, header=replace(header, reviewed_by=(latest,)))
                 header = record.header
@@ -1052,7 +1131,10 @@ def review_command(args: argparse.Namespace, ctx: Context) -> Result:
             header.evidence, (d.effective for d in item.dependencies), reviewed=bool(header.reviewed_by)
         )
     return Result(
-        result={"items": rows(items), "action": "accept" if args.accept else "revoke"},
+        result={
+            "items": rows(items),
+            "action": "accept" if args.accept else "pin-content" if args.pin_content else "revoke",
+        },
         evidence=EVIDENCE,
         writes=tuple(writes),
         depends=depends_on(ctx.cwd, *files),

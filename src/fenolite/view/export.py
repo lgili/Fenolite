@@ -6,8 +6,12 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Generator
+from contextlib import contextmanager
+from contextvars import ContextVar
 from functools import cache
 from importlib import resources
+from pathlib import Path
 from typing import Any, cast
 
 from fenolite.view.compact import pack, unpack
@@ -16,18 +20,38 @@ DATA_MARK = "/*__DATA__*/null"
 LIVE_MARK = "/*__LIVE__*/false"
 CSS_MARK = "/*__CSS__*/"
 JS_MARK = "/*__JS__*/"
+VIEWER_FILES = ("page.html", "viewer.css", "viewer.js")
+_OTHER: ContextVar[str | None] = ContextVar("fenolite_view_other_template", default=None)
+
+
+def template() -> str:
+    """The page, with its two placeholders: the shell ``static/page.html`` with the committed bundles
+    ``static/viewer.css`` and ``static/viewer.js`` inlined (change c0304; ``viewer/build.mjs`` makes the
+    three files from ``viewer/src``). Inside ``other_viewer`` it is that folder's page instead."""
+    return _OTHER.get() or _packaged()
 
 
 @cache
-def template() -> str:
-    """The page as packaged, with its two placeholders: the shell ``static/page.html`` with the committed
-    bundles ``static/viewer.css`` and ``static/viewer.js`` inlined (change c0304; ``viewer/build.mjs``
-    makes the three files from ``viewer/src``)."""
+def _packaged() -> str:
     static = resources.files("fenolite.view").joinpath("static")
-    shell, css, js = (
-        static.joinpath(name).read_text(encoding="utf-8") for name in ("page.html", "viewer.css", "viewer.js")
-    )
+    return _assemble(*(static.joinpath(name).read_text(encoding="utf-8") for name in VIEWER_FILES))
+
+
+def _assemble(shell: str, css: str, js: str) -> str:
     return shell.replace(CSS_MARK, css, 1).replace(JS_MARK, js, 1)
+
+
+@contextmanager
+def other_viewer(folder: Path) -> Generator[None]:
+    """Build pages with the three viewer files of another Fenolite version held in ``folder`` (its
+    ``src/fenolite/view/static``), to reproduce a page that version wrote (c0415). ``OSError`` or
+    ``UnicodeDecodeError`` when a file is missing or not text."""
+    page = _assemble(*((folder / name).read_text(encoding="utf-8") for name in VIEWER_FILES))
+    token = _OTHER.set(page)
+    try:
+        yield
+    finally:
+        _OTHER.reset(token)
 
 
 def _json(value: Any) -> str:
@@ -74,4 +98,4 @@ def embedded(html: str) -> dict[str, Any] | None:
     return data | {"scenes": {doc_id: unpack(scene) for doc_id, scene in scenes.items()}}
 
 
-__all__ = ["embedded", "page", "template"]
+__all__ = ["embedded", "other_viewer", "page", "template"]

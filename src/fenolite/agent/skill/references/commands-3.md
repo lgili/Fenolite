@@ -121,6 +121,8 @@ Back to [the command index](commands.md).
 - `--skip CODES`: check: omit these comma-separated library rule codes
 - `--accept`: review: human acceptance of the current sheet
 - `--revoke`: review: remove acceptance and restore previous evidence
+- `--pin-content`: review: add the content digest to an older acceptance whose sheet bytes still match
+- `--viewer DIR`: review --pin-content: viewer files (page.html, viewer.css, viewer.js) of the Fenolite that wrote the acceptance
 - `--reviewer NAME`: review --accept: person who opened and checked the sheet
 - `--sheet HEX`: review --accept: at least 12 hex digits of the current sheet SHA-256
 - `--into DIR`: import/seed: output folder; import requires a project-relative path
@@ -211,14 +213,3 @@ Back to [the command index](commands.md).
 - `REF`: only the pads of this part (path or reference)
 - `NUMBER`: only the pads with this number
 - `--origin X,Y` (default `0mm,0mm`): report positions relative to this point, two lengths with units (default 0mm,0mm)
-
-## panel
-
-`fenolite panel [OPTIONS] --out DIR --target {10,9,altium} PANEL.py`
-
-- `PANEL`: the panel script (run in-process)
-- `--out DIR`: the output folder
-- `--target {10,9,altium}`: KiCad major or altium
-- `--altium-panel {auto,embedded,flat}`: the Altium form (default auto)
-- `--altium-pour {computed,outline}`: with --target altium: computed pours the polygons with Altium's rules (default, experimental; needs the geo extra, without which the default writes the outline with a warning), outline writes them unpoured
-- `--discard-layout`: replace files edited since

@@ -4848,6 +4848,19 @@
           "required": false,
           "type": "string"
         },
+        "--pin-content": {
+          "aliases": [
+            "--pin-content"
+          ],
+          "choices": null,
+          "default": false,
+          "deprecated": null,
+          "experimental": false,
+          "nargs": 0,
+          "positional": false,
+          "required": false,
+          "type": "boolean"
+        },
         "--plan": {
           "aliases": [
             "--plan"
@@ -5049,6 +5062,19 @@
         "--upstream": {
           "aliases": [
             "--upstream"
+          ],
+          "choices": null,
+          "default": null,
+          "deprecated": null,
+          "experimental": false,
+          "nargs": null,
+          "positional": false,
+          "required": false,
+          "type": "string"
+        },
+        "--viewer": {
+          "aliases": [
+            "--viewer"
           ],
           "choices": null,
           "default": null,

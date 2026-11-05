@@ -111,7 +111,7 @@ Usage shows required arguments (`[X]`: optional). Each argument below names its 
 | `net` | [Arguments](commands-3.md#net) |
 | `netlist` | [Arguments](commands-3.md#netlist) |
 | `pads` | [Arguments](commands-3.md#pads) |
-| `panel` | [Arguments](commands-3.md#panel) |
+| `panel` | [Arguments](commands-4.md#panel) |
 | `parity` | [Arguments](commands-4.md#parity) |
 | `pick` | [Arguments](commands-4.md#pick) |
 | `place` | [Arguments](commands-4.md#place) |

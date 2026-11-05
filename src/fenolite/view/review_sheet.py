@@ -5,8 +5,10 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import html
 import json
+import re
 from collections.abc import Mapping, Sequence
 from typing import Any
 
@@ -16,6 +18,10 @@ from fenolite.model.library import FootprintDef, SymbolDef
 from fenolite.view import export, themes
 from fenolite.view.catalog import CatalogItem, catalog_page
 from fenolite.view.kicad_schematic import symbol_scene
+
+CONTENT_SCHEMA = "fenolite.review-content.v1"
+REVIEW_SECTION = '<section id="review-content">'
+_SRCDOC = re.compile(r'srcdoc="[^"]*"')
 
 
 def _all_units(page: str, entries: Sequence[CatalogItem]) -> str:
@@ -89,7 +95,7 @@ def review_sheet(
         else '<!doctype html><html><head><meta charset="utf-8"></head><body></body></html>'
     )
     sections = [
-        f'<section id="review-content"><h1>{html.escape(record_id)}</h1>',
+        f"{REVIEW_SECTION}<h1>{html.escape(record_id)}</h1>",
         "<p>Review state: prepared content. Run <code>fenolite library review</code> "
         "for live acceptance and freshness.</p>",
     ]
@@ -135,3 +141,17 @@ def review_sheet(
         )
     extra = "\n".join(sections)
     return page.replace("</body>", extra + "\n</body>").encode("utf-8")
+
+
+def content_digest(sheet: bytes) -> str:
+    """Hash what a review sheet shows, not the viewer that shows it (c0415).
+
+    The embedded data with each scene unpacked, and the review section (record id, metadata, findings and
+    visual-diff payloads) with iframe ``srcdoc`` page copies emptied. ``page.html``, ``viewer.css``,
+    ``viewer.js`` and the scene packing are left out, so a viewer change keeps the digest."""
+    text = sheet.decode("utf-8")
+    start, end = text.find(REVIEW_SECTION), text.rfind("</body>")
+    section = _SRCDOC.sub('srcdoc=""', text[start:end]) if 0 <= start < end else ""
+    payload = {"schema": CONTENT_SCHEMA, "embedded": export.embedded(text), "review": section}
+    data = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+    return hashlib.sha256(data).hexdigest()

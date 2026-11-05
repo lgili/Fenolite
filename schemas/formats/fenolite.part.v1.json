@@ -381,6 +381,9 @@
         },
         "record_sha256": {
           "type": "string"
+        },
+        "content_sha256": {
+          "type": "string"
         }
       },
       "additionalProperties": false,

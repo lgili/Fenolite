@@ -928,6 +928,7 @@ class LibraryItemsItemReview:
 @dataclass(frozen=True, kw_only=True)
 class LibraryItemsItemSheet:
     artifact_sha256: str = field(metadata={"optional": True})
+    content_sha256: str = field(metadata={"optional": True})
     path: str
     sha256: str
 

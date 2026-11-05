@@ -26,7 +26,8 @@ For an old/new review, check out the base branch into a separate folder with `gi
 errors. HTML embeds the existing visual overlay. No network or git operation happens inside the checker.
 
 Reviewers download and open `review/index.html`, inspect source facts and geometry, then generate the
-base sheet locally for each record they accept. `review_sha256` names the base content hash even when
-the CI sheet includes a comparison overlay. The record's previous evidence remains effective after an
+base sheet locally for each record they accept. `review_sha256` names the base sheet hash even when
+the CI sheet includes a comparison overlay, and `content_sha256` the hash of its shown content, which a
+review pins and a viewer-only Fenolite upgrade leaves unchanged (c0415). The record's previous evidence remains effective after an
 edit until a person accepts the new content. Fenolite's shipped records remain `INFERRED` with explicit
 compatibility waivers, and no CI review promotion occurs.

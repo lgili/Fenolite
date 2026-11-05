@@ -141,6 +141,7 @@ tracked separately in `frozen-v0.json` while the active CLI writer remains v0.
 | `fenolite.provenance.v0` | public | `fenolite.cli.file_formats:ProvenanceFile` | User-authored input or agent-readable output. |
 | `fenolite.region.v1` | internal | `internal` | SVG rendering marker, not a JSON document. |
 | `fenolite.requirements.v0` | public | `fenolite.cli.file_formats:RequirementsFile` | User-authored input or agent-readable output. |
+| `fenolite.review-content.v1` | internal | `internal` | Content-hash domain of a library review sheet, not a document (c0415). |
 | `fenolite.review.v0` | public | `fenolite.cli.file_formats:ReviewFile` | User-authored input or agent-readable output. |
 | `fenolite.role-copper.v0` | public | `fenolite.cli.file_formats:RoleCopperFile` | User-authored input or agent-readable output. |
 | `fenolite.roles.v0` | public | `fenolite.cli.file_formats:RolesFile` | User-authored input or agent-readable output. |

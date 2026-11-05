@@ -29,7 +29,7 @@
   "schemas/fenolite.init.v0.json": "7a3bfeb3320c226c5e35d0df3e950dc9572dcc3c5c0917a19e543c7dfef15554",
   "schemas/fenolite.inspect.v0.json": "048fbc4b239d4fd6222c4e41b5919460a6dd6c1df5ca1da2a238a97f5eacbb14",
   "schemas/fenolite.kit.v0.json": "f4e7015275de6006b0db4716515d91bb867259eefec82cc568295385033c1263",
-  "schemas/fenolite.library.v0.json": "f37e8032f46bbe4adf284a8e7e92fe05854366d438099835139bfc991345238a",
+  "schemas/fenolite.library.v0.json": "47a3ed9c51f7947293cc2f603befbe4807c2a130b4790a6bb17bb26cdae1e5ee",
   "schemas/fenolite.manifest.v0.json": "8e4dca2d5f4d2914ac2a3e2927e70d4a05ee6590973ebe266ad1049eabe8b6bc",
   "schemas/fenolite.mcp.v0.json": "b90ed47beb234ddc44a3944c80debc91d93844b06072a17014518b914ade5e8e",
   "schemas/fenolite.migrate.v0.json": "78ef5edd79c981f5634313b2547e419550d6e282c3e660a90b6a00f4e9d3827f",
@@ -73,6 +73,6 @@
   "schemas/fenolite.tidy.v0.json": "17c446ed8b548bea868246d9c87920eafd089b73398b330e212c30acc4e2037b",
   "schemas/fenolite.verify-source.v0.json": "c2901114093d59e22f6b438da2e8d2912eed5b4bc28a9495a6c05dac8170dacc",
   "schemas/fenolite.view.v0.json": "8820892181954d7abc37d930653cad17952c8980db75068b500b126d30a92b98",
-  "schemas/formats/fenolite.device.v0.json": "74fe307afc919dd90922e56506984dbe2e666944012dd0eaca1f3d9ab3dfbda6",
+  "schemas/formats/fenolite.device.v0.json": "47024ad9bc6edf9ace834bc77643b12420ceddb1c3cf5fd57c0c2a2bb8afdc68",
   "schemas/formats/fenolite.family.v0.json": "1c07f046e07bef20ede9155669e63f48ee457e20aba6c46ef5c982774efea1bb"
 }

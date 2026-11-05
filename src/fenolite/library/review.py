@@ -65,7 +65,12 @@ def matches_sheet(prefix: str, current: str) -> bool:
     return bool(re.fullmatch(r"[0-9a-fA-F]{12,64}", prefix)) and current.startswith(prefix.lower())
 
 
-def is_stale(review: Mapping[str, Any], current_digest: str, current_sheet: str) -> bool:
-    return review.get("digest") != current_digest or bool(
-        review.get("sheet_sha256") and review["sheet_sha256"] != current_sheet
-    )
+def is_stale(
+    review: Mapping[str, Any], current_digest: str, current_sheet: str, current_content: str = ""
+) -> bool:
+    """A review with ``content_sha256`` binds the shown content; an older one binds the sheet bytes."""
+    if review.get("digest") != current_digest:
+        return True
+    if review.get("content_sha256"):
+        return review["content_sha256"] != current_content
+    return bool(review.get("sheet_sha256") and review["sheet_sha256"] != current_sheet)

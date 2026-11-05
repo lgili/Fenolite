@@ -51,6 +51,11 @@ def test_sheet_prefix_and_staleness():
     assert not matches_sheet("z" * 12, current)
     assert not is_stale({"digest": current, "sheet_sha256": current}, current, current)
     assert is_stale({"digest": current, "sheet_sha256": "b" * 64}, current, current)
+    # c0415: a review with content_sha256 binds the content, not the sheet bytes.
+    pinned = {"digest": current, "sheet_sha256": "b" * 64, "content_sha256": "c" * 64}
+    assert not is_stale(pinned, current, current, "c" * 64)
+    assert is_stale(pinned, current, current, "d" * 64)
+    assert is_stale(pinned, "e" * 64, current, "c" * 64)
 
 
 def test_authored_strings_with_generator_suffix_are_never_discarded():

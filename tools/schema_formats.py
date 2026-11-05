@@ -116,6 +116,9 @@ FORMATS: dict[str, Format] = {
     "fenolite.provenance.v0": public("ProvenanceFile"),
     "fenolite.region.v1": Format("internal", None, "SVG rendering marker, not a JSON document.", "internal"),
     "fenolite.requirements.v0": public("RequirementsFile"),
+    "fenolite.review-content.v1": Format(
+        "internal", None, "Content-hash domain of a library review sheet, not a document (c0415).", "internal"
+    ),
     "fenolite.review.v0": public("ReviewFile"),
     "fenolite.role-copper.v0": public("RoleCopperFile"),
     "fenolite.roles.v0": public("RolesFile"),

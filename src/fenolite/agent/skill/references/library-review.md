@@ -46,4 +46,16 @@ a scoped `CORPUS-VERIFIED` review. A later content edit makes it stale and resto
 effective evidence; reformatting alone does not. Revocation restores the prior evidence label.
 CI checks and publishes sheets; it never accepts a review.
 
+The review pins `content_sha256`: the drawings, data and findings the sheet shows, not the viewer code.
+A Fenolite upgrade that only changes the viewer keeps it accepted. An older review without
+`content_sha256` stays bound to the sheet bytes; while those still match, `--pin-content` adds the
+content digest to it without a new human review. For a review written by an older Fenolite, pass its
+viewer files (`src/fenolite/view/static` of that version) with `--viewer`. A stale one gives `FEN-4002`:
+ask the person again.
+
+```fenolite-cmd
+fenolite library review data/record.toml --pin-content --dry-run --json
+fenolite library review data/record.toml --pin-content --viewer old/src/fenolite/view/static --dry-run --json
+```
+
 Read next: `footprints`, `library-items`, `checks`.

@@ -4443,8 +4443,8 @@ fix = "Write the drawing ([symbol]) or the lands (generator = \"explicit\", [[pa
 see = "build"
 
 ["library.review-stale"]
-meaning = "A library record the design uses changed after its last review: the review names another digest. A record with an origin stays UNVERIFIED until it is reviewed again."
-fix = "Review the record again and record the review (reviewed_by) with its current digest."
+meaning = "A library record changed after its last review: the review names another record digest, or another content digest (content_sha256: what the sheet shows, not the viewer code). A review without content_sha256, written before c0415, names the sheet bytes instead, so a viewer change also makes it stale. A record with an origin stays UNVERIFIED until it is reviewed again."
+fix = "Review the record again and record the review (reviewed_by) with its current digest. For an older review whose content did not change, `fenolite library review RECORD --pin-content` (with --viewer DIR naming the viewer files of the Fenolite that wrote it) pins its content instead."
 see = "build"
 
 ["library.depends-conflict"]

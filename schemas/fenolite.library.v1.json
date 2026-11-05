@@ -534,6 +534,9 @@
         "artifact_sha256": {
           "type": "string"
         },
+        "content_sha256": {
+          "type": "string"
+        },
         "path": {
           "type": "string"
         },
@@ -1139,6 +1142,9 @@
         },
         "record_sha256": {
           "type": "string"
+        },
+        "content_sha256": {
+          "type": "string"
         }
       },
       "additionalProperties": true,
@@ -1153,7 +1159,8 @@
         "previous_evidence",
         "accepted_codes",
         "fenolite_version",
-        "record_sha256"
+        "record_sha256",
+        "content_sha256"
       ]
     }
   }

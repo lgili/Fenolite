@@ -219,6 +219,7 @@ class Review:
     accepted_codes: tuple[str, ...] = field(default=(), metadata={"ordered": True})
     fenolite_version: str = ""
     record_sha256: str = ""
+    content_sha256: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -687,7 +688,14 @@ def _header(read: _Reader, data: Mapping[str, object], kind: Kind) -> Header:
     for index, table in enumerate(_tables(read, data.get("reviewed_by", _NONE), "reviewed_by")):
         where = f"reviewed_by[{index}]"
         names = ("who", "date", "version", "digest", "evidence", "sheet")
-        extra = ("sheet_sha256", "previous_evidence", "accepted_codes", "fenolite_version", "record_sha256")
+        extra = (
+            "sheet_sha256",
+            "previous_evidence",
+            "accepted_codes",
+            "fenolite_version",
+            "record_sha256",
+            "content_sha256",
+        )
         _closed(read, table, (*names, *extra), where)
         values = {
             name: read.text(table.get(name, ""), f"{where}.{name}", empty=name == "sheet") for name in names
@@ -715,6 +723,9 @@ def _header(read: _Reader, data: Mapping[str, object], kind: Kind) -> Header:
         record_sha256 = read.text(table.get("record_sha256", ""), f"{where}.record_sha256", empty=True)
         if record_sha256 and not devicelib.DIGEST.fullmatch(record_sha256):
             raise read.fail(f"{where}.record_sha256", "must be a 64-hex SHA-256")
+        content_sha256 = read.text(table.get("content_sha256", ""), f"{where}.content_sha256", empty=True)
+        if content_sha256 and not devicelib.DIGEST.fullmatch(content_sha256):
+            raise read.fail(f"{where}.content_sha256", "must be a 64-hex SHA-256")
         reviews.append(
             Review(
                 **values,
@@ -723,6 +734,7 @@ def _header(read: _Reader, data: Mapping[str, object], kind: Kind) -> Header:
                 accepted_codes=codes,
                 fenolite_version=tool,
                 record_sha256=record_sha256,
+                content_sha256=content_sha256,
             )
         )
     waivers: list[Waiver] = []
@@ -1392,6 +1404,7 @@ def _review_lines(header: Header) -> list[str]:
             "evidence",
             "sheet",
             "sheet_sha256",
+            "content_sha256",
             "previous_evidence",
             "fenolite_version",
             "record_sha256",

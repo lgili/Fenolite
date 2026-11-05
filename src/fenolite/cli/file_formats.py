@@ -1033,6 +1033,7 @@ class LibrarySheet:
     path: str
     sha256: str
     review_sha256: str
+    content_sha256: str = ""
 
 
 @dataclass(frozen=True, kw_only=True)

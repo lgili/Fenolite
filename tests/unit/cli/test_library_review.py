@@ -263,3 +263,134 @@ def test_device_review_on_a_later_day_keeps_its_digest(monkeypatch, tmp_path, ne
         record = records.parse_record(written, file=str(path))
         assert record.header.reviewed_by[-1].record_sha256 == records.record_digest(record)
         assert check(monkeypatch, tmp_path, path)[1]["result"]["items"][0]["review"]["state"] == "accepted"
+
+
+def _other_viewer(monkeypatch):
+    """The packaged viewer of a later Fenolite: only the page code differs."""
+    from fenolite.view import export
+
+    viewer_2 = export.template().replace("</head>", "<!-- viewer 2 --></head>", 1)
+    monkeypatch.setattr(export, "_packaged", lambda: viewer_2)
+
+
+def _state(monkeypatch, tmp_path, path):
+    code, reply, _, _ = check(monkeypatch, tmp_path, path)
+    return code, reply["result"]["items"][0]
+
+
+def test_viewer_change_keeps_a_content_pinned_acceptance(monkeypatch, tmp_path, tree):
+    """c0415: viewer assets are not reviewed content."""
+    path = tree / "pins/chip.toml"
+    _, row = _state(monkeypatch, tmp_path, path)
+    assert accept(monkeypatch, tmp_path, path, row["sheet"]["sha256"])[0] == 0
+    assert f'content_sha256 = "{row["sheet"]["content_sha256"]}"' in path.read_text()
+    _other_viewer(monkeypatch)
+    code, after = _state(monkeypatch, tmp_path, path)
+    assert code == 0 and after["review"]["state"] == "accepted"
+    assert after["sheet"]["sha256"] != row["sheet"]["sha256"]
+    assert after["sheet"]["content_sha256"] == row["sheet"]["content_sha256"]
+    path.write_text(path.read_text().replace('name = "P1"', 'name = "EDITED"'))
+    code, edited = _state(monkeypatch, tmp_path, path)
+    assert code == 5 and edited["review"]["state"] == "stale"
+
+
+def pin(monkeypatch, tmp_path, path):
+    return run(monkeypatch, tmp_path, "library", "review", str(path), "--pin-content", "--confirm")
+
+
+def _legacy(monkeypatch, tmp_path, path):
+    """An acceptance as written before c0415: sheet_sha256 and no content_sha256."""
+    _, row = _state(monkeypatch, tmp_path, path)
+    assert accept(monkeypatch, tmp_path, path, row["sheet"]["sha256"])[0] == 0
+    lines = path.read_text().splitlines(True)
+    path.write_text("".join(line for line in lines if not line.startswith("content_sha256")))
+    return row
+
+
+def test_legacy_acceptance_still_verifies_by_sheet_bytes(monkeypatch, tmp_path, tree):
+    path = tree / "pins/chip.toml"
+    _legacy(monkeypatch, tmp_path, path)
+    code, row = _state(monkeypatch, tmp_path, path)
+    assert code == 0 and row["review"]["state"] == "accepted"
+    _other_viewer(monkeypatch)
+    code, row = _state(monkeypatch, tmp_path, path)
+    assert code == 5 and row["review"]["state"] == "stale"
+
+
+@pytest.mark.parametrize("target", ["pins/chip.toml", "packages/chip.toml", "devices/chip.toml"])
+def test_pin_content_upgrades_a_fresh_legacy_acceptance(monkeypatch, tmp_path, tree, target):
+    import tomllib
+
+    path = tree / target
+    before = _legacy(monkeypatch, tmp_path, path)
+    review_before = tomllib.loads(path.read_text())["reviewed_by"]
+    code, reply, _, _ = pin(monkeypatch, tmp_path, path)
+    assert code == 0, reply
+    assert reply["result"]["action"] == "pin-content"
+    data = tomllib.loads(path.read_text())
+    (review_after,) = data["reviewed_by"]
+    assert review_after.pop("content_sha256") == before["sheet"]["content_sha256"]
+    assert [review_after] == review_before
+    assert data["evidence"].startswith("CORPUS-VERIFIED")
+    pinned = path.read_bytes()
+    assert pin(monkeypatch, tmp_path, path)[0] == 0
+    assert path.read_bytes() == pinned
+    _other_viewer(monkeypatch)
+    code, row = _state(monkeypatch, tmp_path, path)
+    assert code == 0 and row["review"]["state"] == "accepted"
+
+
+def test_pin_content_refuses_a_stale_legacy_acceptance(monkeypatch, tmp_path, tree):
+    path = tree / "pins/chip.toml"
+    _legacy(monkeypatch, tmp_path, path)
+    _other_viewer(monkeypatch)
+    before = path.read_bytes()
+    code, _, error, _ = pin(monkeypatch, tmp_path, path)
+    assert code == 4 and error["code"] == "FEN-4002" and "Rules:" in error["message"]
+    assert path.read_bytes() == before
+
+
+def test_pin_content_is_exclusive_with_accept_and_revoke(monkeypatch, tmp_path, tree):
+    path = tree / "pins/chip.toml"
+    for flag in ("--accept", "--revoke"):
+        code, _, _, _ = run(monkeypatch, tmp_path, "library", "review", str(path), "--pin-content", flag)
+        assert code == 2
+    assert run(monkeypatch, tmp_path, "library", "check", str(path), "--pin-content")[0] == 2
+
+
+def test_pin_content_with_the_viewer_that_wrote_the_acceptance(monkeypatch, tmp_path, tree):
+    """c0415: an acceptance written by an older viewer is pinned when that viewer reproduces its sheet."""
+    from importlib import resources
+
+    path = tree / "pins/chip.toml"
+    before = _legacy(monkeypatch, tmp_path, path)
+    viewer_1 = tmp_path / "viewer-1"
+    viewer_1.mkdir()
+    static = resources.files("fenolite.view").joinpath("static")
+    for name in ("page.html", "viewer.css", "viewer.js"):
+        (viewer_1 / name).write_text(static.joinpath(name).read_text(encoding="utf-8"), encoding="utf-8")
+    _other_viewer(monkeypatch)
+    assert pin(monkeypatch, tmp_path, path)[0] == 4
+    edited = tmp_path / "viewer-edited"
+    edited.mkdir()
+    for name in ("page.html", "viewer.css", "viewer.js"):
+        (edited / name).write_text((viewer_1 / name).read_text() + "\n")
+    flags = ("library", "review", str(path), "--pin-content", "--confirm", "--viewer")
+    code, _, error, _ = run(monkeypatch, tmp_path, *flags, str(edited))
+    assert code == 4 and error["code"] == "FEN-4002"
+    code, reply, _, _ = run(monkeypatch, tmp_path, *flags, str(viewer_1))
+    assert code == 0, reply
+    assert f'content_sha256 = "{before["sheet"]["content_sha256"]}"' in path.read_text()
+    code, row = _state(monkeypatch, tmp_path, path)
+    assert code == 0 and row["review"]["state"] == "accepted"
+
+
+def test_viewer_flag_needs_pin_content_and_the_three_files(monkeypatch, tmp_path, tree):
+    path = tree / "pins/chip.toml"
+    assert run(monkeypatch, tmp_path, "library", "review", str(path), "--viewer", str(tmp_path))[0] == 2
+    assert run(monkeypatch, tmp_path, "library", "check", str(path), "--viewer", str(tmp_path))[0] == 2
+    _legacy(monkeypatch, tmp_path, path)
+    code, _, error, _ = run(
+        monkeypatch, tmp_path, "library", "review", str(path), "--pin-content", "--viewer", str(tmp_path)
+    )
+    assert code == 3 and error["code"] == "FEN-3001"

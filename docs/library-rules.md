@@ -77,11 +77,23 @@ context is supplemental and does not make an existing base review stale.
 After opening the base sheet, the person who checked it may run
 `library review RECORD --accept --reviewer NAME --sheet HEX --dry-run`, then confirm the reviewed plan.
 HEX must contain at least 12 matching hex digits. Acceptance requires no error finding, records
-`[[reviewed_by]]` with date, content digest, sheet SHA-256, tool version, accepted warnings and previous
-evidence, and raises the label to `CORPUS-VERIFIED (review DATE)`. A higher label cannot be lowered.
+`[[reviewed_by]]` with date, record digest, sheet SHA-256, sheet content digest (`content_sha256`), tool
+version, accepted warnings and previous evidence, and raises the label to `CORPUS-VERIFIED (review DATE)`. A higher label cannot be lowered.
 Accept records individually: distinct sheets have distinct acceptance hashes. `--revoke` removes the
 review and restores its previous evidence. Reformatting preserves acceptance; edits require another
 review. Review-stale can be replaced by a new acceptance of the edited, otherwise clean content.
+
+The sheet content digest (c0415) is the SHA-256 of the canonical JSON of what the sheet shows: the scene
+data it embeds, each scene unpacked, and its review section (record id, metadata, findings, visual-diff
+payloads) with iframe `srcdoc` page copies emptied. `page.html`, `viewer.css`, `viewer.js` and the scene
+packing are not part of it, so a Fenolite upgrade that changes only the viewer keeps a review accepted; a
+change of the drawing, data or findings makes it stale. A review written before c0415 has no
+`content_sha256` and stays bound to the sheet bytes. `library review RECORD --pin-content` adds the current
+content digest to such a review, in place and without changing any other key, only while its record digest
+and sheet SHA-256 still match; otherwise it exits 4 with `FEN-4002` and the record needs a new human review.
+For a review written by an older Fenolite, `--viewer DIR` names that version's `page.html`, `viewer.css` and
+`viewer.js` (its `src/fenolite/view/static`); the sheet is built again with them and must reproduce the
+recorded `sheet_sha256`.
 
 Review acceptance and revocation are human CLI steps excluded from MCP schemas and rejected by its
 runtime. An agent never runs either unless a person names themselves as reviewer and has opened the
