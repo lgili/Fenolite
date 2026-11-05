@@ -32,6 +32,31 @@ third-party board, router code or measurement enters these proofs.
   KiCad track of the routed completion board returns from Fenolite's reading of the converted PcbDoc with
   its net, layer, width and lock, each end within one Altium unit after one translation.
 
+## CI scale record — run 41947475460 (head 515ddc6a, 2026-11-04)
+
+`tests/kicad/routing/test_completion_scale.py` passed all eight cases on KiCad 10 (artifact
+`router-scale-kicad-10-1`) and on KiCad 9 (the job passed; its record was lost because the kicad-9 step had no
+`FENOLITE_SCALE_RECORD`, now restored). KiCad's unconnected count as built equals `completion.open` (58 for
+40 parts, 223 for 150). KiCad 10 counts, search bound 50 000 states per call:
+
+| layers | parts | mode | proposed | no-candidate | unknown | largest A* call | wall s (telemetry) |
+|---|---|---|---|---|---|---|---|
+| 2 | 40 | shapes | 33 | 25 | 0 | – | 20.1 |
+| 4 | 40 | shapes | 17 | 41 | 0 | – | 18.7 |
+| 2 | 40 | search | 20 | 38 | 0 | 4 319 | 27.2 |
+| 4 | 40 | search | 20 | 38 | 0 | 27 485 | 63.2 |
+| 2 | 150 | shapes | 121 | 102 | 0 | – | 295.7 |
+| 4 | 150 | shapes | 64 | 159 | 0 | – | 211.0 |
+| 2 | 150 | search | 42 | 150 | 31 | 9 443 | 301.6 (budget) |
+| 4 | 150 | search | 0 | 148 | 75 | 50 000 | 302.7 (budget) |
+
+Thresholds (`FLOORS`, KiCad 10 only): the six passes that finished inside their budget must keep at least
+these proposed counts with no subject `unknown`. A local KiCad 10.0.6 run of the four 40-part cases gave the
+same counts. The two 150-part search passes were cut by their 300 s budget, so their counts depend on runner
+speed and carry no floor; their subjects are reported `unknown`, never `no-candidate`. KiCad 9 gets floors
+only after a recorded run. On KiCad 9 the 150-part shapes passes took 454–552 s (pytest call time) against
+their 600 s budget. 148 subjects of the 150-part boards are `search-unsupported`.
+
 ## Limits and open gates
 
 - Altium: the readback is Fenolite reading what Fenolite wrote, `INFERRED`. Opening the converted

@@ -39,9 +39,9 @@ ROOT = Path(__file__).resolve().parents[3]
 SEED = 1
 MAX_STATES = 50_000
 TIMEOUT = {"shapes": "600", "search": "300"}
-"""Seconds of the one job budget. Local measurement 2026-11-04 (one core): 150 parts took 212-228 s with
-the shapes and 306 s (two layers) or the whole 600 s (four layers) with the search; a cut run reports its
-subjects ``unknown`` and is never called exhaustive."""
+"""Seconds of the one job budget. CI run 41947475460: 150 parts took 211-296 s with the shapes on KiCad 10
+and 454-552 s on KiCad 9 (pytest call time), and the search reached its 300 s budget on both; a cut run
+reports its subjects ``unknown`` and is never called exhaustive."""
 SEARCH = (
     "--router-option",
     "search=only",
@@ -53,6 +53,19 @@ SEARCH = (
     "max-length=60mm",
 )
 MODES = {"shapes": (), "search": SEARCH}
+FLOORS = {
+    (2, 40, "shapes"): 33,
+    (4, 40, "shapes"): 17,
+    (2, 40, "search"): 20,
+    (4, 40, "search"): 20,
+    (2, 150, "shapes"): 121,
+    (4, 150, "shapes"): 64,
+}
+"""Fewest proposed subjects, KiCad 10 only: the counts of CI run 41947475460 (head 515ddc6a, artifact
+``router-scale-kicad-10-1``), where these passes finished inside their budget with no ``unknown`` subject.
+The 150-part search passes reached their 300 s budget there (31 and 75 subjects ``unknown``), so their
+counts depend on the runner's speed and carry no floor. KiCad 9 has no recorded counts yet (run
+41947475460 lost its record), so it gets none either."""
 
 
 def _generator() -> ModuleType:
@@ -142,6 +155,10 @@ def test_bounded_proposal_pass_on_an_acceptance_board(
     assert largest <= MAX_STATES, largest
     if mode == "shapes":
         assert counters["calls"] == 0
+    floor = FLOORS.get((layers, parts, mode)) if major() == 10 else None
+    if floor is not None:  # a pass inside its budget: deterministic counts, nothing left unknown
+        assert not done["subjects"]["unknown"], done["subjects"]["unknown"]
+        assert len(done["subjects"]["proposed"]) >= floor, (len(done["subjects"]["proposed"]), floor)
 
     _record(
         {

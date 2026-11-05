@@ -470,6 +470,7 @@ jobs:
       - name: Oracle tests
         env:
           FENOLITE_REQUIRE: kicad
+          FENOLITE_SCALE_RECORD: /tmp/fenolite-scale/scale-kicad-9.jsonl
         run: uv run python tools/ci_tests.py run --suite kicad-9 --out /tmp/fenolite-ci-kicad9
       - name: Keep router scale measurements (c0370)
         if: always()
