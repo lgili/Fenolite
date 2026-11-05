@@ -237,3 +237,47 @@ def test_a_placed_library_rule_area_keeps_a_track_out_in_kicad_drc() -> None:
     assert len(tracks) == 1, banned
     x = round(float(tracks[0]["pos"]["x"]) * 1_000_000)
     assert abs(x - inside.x) <= 200_000, (tracks, inside)
+
+
+@pytest.mark.needs_corpus
+def test_component_keep_outs_of_a_public_document_hold_their_restrictions() -> None:
+    """The keep-out fills and arcs of the components of the public row ``-08`` (``pcb-records.md``,
+    "Regions and keep-outs"): KiCad 10.0.6's ``pcb import`` and Fenolite's import give each footprint rule
+    areas with the same restrictions, read from the byte after the record's long layer id. The fills of
+    ``J13`` to ``J17`` hold 24 and forbid pads alone, that of ``J12`` holds 0 and forbids nothing, and the
+    arcs of the fiducials hold 31. Before, Fenolite gave every keep-out fill all restrictions, and its
+    copper check judged 343 tracks and vias of the connectors' own nets under them."""
+    from collections import Counter
+
+    from _corpus import heavy_enabled, manifest_items, require
+
+    from fenolite.backends.altium.backend import AltiumBackend
+
+    if kicad_cli_major() == 9:
+        pytest.skip("no `pcb import` before 10.0")
+    if not heavy_enabled():
+        pytest.skip("altium-third-party-pcbdoc-08 is a heavy corpus item: set FENOLITE_HEAVY=1 to include it")
+    item = next(i for i in manifest_items("rta") if i.id == "altium-third-party-pcbdoc-08")
+    path = require(item)
+
+    def areas(design: Design) -> Counter[tuple[str, tuple[bool, bool, bool, bool, bool]]]:
+        assert design.board is not None
+        refs = {c.id: c.ref for c in design.circuit.components}
+        return Counter(
+            (refs[fp.component_id], (k.no_tracks, k.no_vias, k.no_pads, k.no_copper_pour, k.no_footprints))
+            for fp in design.board.footprints
+            for k in fp.keepouts
+        )
+
+    kicad = areas(cases.import_document(path.read_bytes(), path.name).design)
+    ours = areas(AltiumBackend().read(path).design)
+    pads_only = (False, False, True, False, False)
+    assert {ref: n for (ref, flags), n in kicad.items() if flags == pads_only} == {
+        f"J{n}": 2 for n in range(13, 18)
+    }
+    assert kicad[("J12", (False,) * 5)] == 1
+    # a full keep-out circle is two half bands in Fenolite and one zone in KiCad: compare the kinds
+    assert set(ours) == set(kicad)
+    assert {k: n for k, n in ours.items() if not k[0].startswith("FID")} == {
+        k: n for k, n in kicad.items() if not k[0].startswith("FID")
+    }

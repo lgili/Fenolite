@@ -144,6 +144,42 @@ def test_a_keep_out_of_a_component_is_a_rule_area_of_its_footprint() -> None:
     assert abs(min(p.x for p in placed.outline) - (400 * 25_400 - 5 * 25_400)) <= 2
 
 
+def _long(item: object, offset: int, value: int) -> object:
+    """``item`` with the raw bytes of a long form whose restrictions byte, at ``offset`` of the subrecord,
+    holds ``value`` (the type byte and the subrecord's length come first)."""
+    raw = bytes(5 + offset) + bytes((value,)) + bytes(3)
+    return dataclasses.replace(item, raw=raw)  # type: ignore[type-var]
+
+
+def test_a_keep_out_of_the_long_form_holds_its_restrictions() -> None:
+    """The keep-out fills of a component of a public document hold 24 (the two pad bits) in the byte after
+    their long layer id, and KiCad 10.0.6 imports them as rule areas that forbid pads alone; one holds 0 and
+    forbids nothing (``pcb-records.md``). A track holds the byte at 45 and an arc at 56; a short form, as the
+    other tests' records, keeps every restriction."""
+    component = rec.component("J1", x="500mil", y="500mil")
+    square = ((400 * MIL, 400 * MIL), (600 * MIL, 600 * MIL))
+    board = _board(
+        components=[component],
+        fills=[
+            _long(_flag(rec.fill(*square, layer=32, component=0)), 46, 24),
+            _long(_flag(rec.fill(*square, layer=32, component=0)), 46, 0),
+            _flag(rec.fill(*square, layer=1, component=0)),
+        ],
+        tracks=[_long(_flag(rec.track((0, 0), (100 * MIL, 0), layer=32)), 45, 3)],
+        arcs=[_long(_flag(rec.arc((0, 0), 100 * MIL, 0.0, 90.0, width=20 * MIL)), 56, 31)],
+    )
+    (footprint,) = board.footprints
+    assert [_restrictions(k) for k in footprint.keepouts] == [
+        (False, False, True, False),
+        (False, False, False, False),
+        (True, True, True, True),
+    ]
+    assert sorted(_restrictions(k) for k in board.keepouts) == [
+        (True, True, False, False),
+        (True, True, True, True),
+    ]
+
+
 def test_copper_without_the_flag_stays_copper() -> None:
     board = _board(nets=["A"], tracks=[rec.track((0, 0), (100 * MIL, 0), net=0)])
     assert len(board.tracks) == 1 and not board.keepouts

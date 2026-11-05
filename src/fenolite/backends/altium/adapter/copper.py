@@ -26,7 +26,7 @@ and keep-outs"). A primitive of a component is in the board's frame there, not i
 from __future__ import annotations
 
 import re
-from collections.abc import Collection, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 from fractions import Fraction
 from typing import Any
@@ -152,6 +152,24 @@ def _restrictions(item: RegionRecord) -> int:
     return EVERY_RESTRICTION
 
 
+RESTRICTION_BYTE: Mapping[type, int] = {TrackRecord: 45, ArcRecord: 56, FillRecord: 46}
+"""The offset in the subrecord of the restrictions byte of a keep-out track, arc or fill of the long form:
+the byte after its 32-bit long layer id, which tracks hold at 41, arcs at 52 and fills at 42 (census of the
+public PCB documents; ``pcb-records.md``, "Regions and keep-outs")."""
+
+
+def record_restrictions(item: TrackRecord | ArcRecord | FillRecord) -> int:
+    """The restrictions value of a keep-out track, arc or fill: the byte of ``RESTRICTION_BYTE`` when its
+    subrecord holds it, else ``EVERY_RESTRICTION`` (a short form, as KiCad 10.0.6 imports a 36-byte keep-out
+    track). A value of 0 restricts nothing: Altium lets a kind whose restriction is cleared through (S-1711),
+    and KiCad's import of such a fill forbids nothing."""
+    offset = RESTRICTION_BYTE[type(item)]
+    body = item.raw[5:]  # the type byte and the subrecord's length come first
+    if len(body) > offset and body[offset] <= EVERY_RESTRICTION:
+        return body[offset]
+    return EVERY_RESTRICTION
+
+
 def _keepout(
     ctx: Context,
     layers: Sequence[str],
@@ -210,10 +228,12 @@ def _stroke_keepout(
     section: str = "kpo",
     into: list[Keepout] | None = None,
     frame: Transform | None = None,
+    *,
+    restrictions: int = EVERY_RESTRICTION,
 ) -> None:
     """A keep-out track (``line``), arc or circle on copper as the rule areas of the band its ``width``
-    covers, one per stroke (two for a circle), with every restriction: a track holds no value. A stroke
-    that covers no area is bad geometry. ``into`` and ``frame`` as ``_keepout``."""
+    covers, one per stroke (two for a circle), with ``restrictions`` (``record_restrictions`` of its
+    record). A stroke that covers no area is bad geometry. ``into`` and ``frame`` as ``_keepout``."""
     try:
         if kind == "line":
             rings = [segment_band(points[0], points[1], width)]
@@ -225,7 +245,7 @@ def _stroke_keepout(
         _bad(ctx, census, f"a keep-out {kind} covers no area ({error})", locator)
         return
     for ring in rings:
-        _keepout(ctx, (layer,), ring, EVERY_RESTRICTION, locator, section, into, frame)
+        _keepout(ctx, (layer,), ring, restrictions, locator, section, into, frame)
     ctx.census.map(census)
 
 
@@ -333,7 +353,16 @@ def tracks(doc: PcbDocument, ctx: Context, owned: Collection[int] = ()) -> tuple
         layer_id = item.prefix.layer
         if ctx.layers.is_copper(layer_id) and is_keepout(item):
             # a keep-out track on copper keeps out the band of its width (change c0407)
-            _stroke_keepout(ctx, "tracks", "line", ctx.layers.name(layer_id), (start, end), width, locator)
+            _stroke_keepout(
+                ctx,
+                "tracks",
+                "line",
+                ctx.layers.name(layer_id),
+                (start, end),
+                width,
+                locator,
+                restrictions=record_restrictions(item),
+            )
             continue
         if ctx.layers.is_copper(layer_id):
             if item.width <= 0:
@@ -429,7 +458,10 @@ def arcs(doc: PcbDocument, ctx: Context, owned: Collection[int] = ()) -> tuple[l
                 stroke: tuple[Point, ...] = units.circle_points(item.cx, item.cy, item.radius)
             else:
                 stroke = units.arc_points(item.cx, item.cy, item.radius, start_angle, end_angle)
-            _stroke_keepout(ctx, "arcs", "circle" if full else "arc", layer, stroke, width, locator)
+            kind: GraphicKind = "circle" if full else "arc"
+            _stroke_keepout(
+                ctx, "arcs", kind, layer, stroke, width, locator, restrictions=record_restrictions(item)
+            )
             continue
         if full:
             centre, edge = units.circle_points(item.cx, item.cy, item.radius)
@@ -598,7 +630,18 @@ def _library_keepout(item: Primitive, ctx: Context, locator: str, section: str, 
         start = exact.point("start", item.x1, item.y1)
         end = exact.point("end", item.x2, item.y2)
         width = max(exact.length("width", item.width), 0)
-        _stroke_keepout(ctx, "tracks", "line", layer, (start, end), width, locator, section, into)
+        _stroke_keepout(
+            ctx,
+            "tracks",
+            "line",
+            layer,
+            (start, end),
+            width,
+            locator,
+            section,
+            into,
+            restrictions=record_restrictions(item),
+        )
     elif isinstance(item, ArcRecord):
         if item.radius <= 0:
             _bad(ctx, "arcs", "an arc needs a radius above 0", locator)
@@ -612,10 +655,22 @@ def _library_keepout(item: Primitive, ctx: Context, locator: str, section: str, 
         else:
             stroke = units.arc_points(item.cx, item.cy, item.radius, start_angle, end_angle)
         kind: GraphicKind = "circle" if full else "arc"
-        _stroke_keepout(ctx, "arcs", kind, layer, stroke, width, locator, section, into)
+        _stroke_keepout(
+            ctx,
+            "arcs",
+            kind,
+            layer,
+            stroke,
+            width,
+            locator,
+            section,
+            into,
+            restrictions=record_restrictions(item),
+        )
     elif isinstance(item, FillRecord):
         fill_kind, points = _fill_points(item, exact)
-        _keepout(ctx, (layer,), _corners(fill_kind, points), EVERY_RESTRICTION, locator, section, into)
+        corners = _corners(fill_kind, points)
+        _keepout(ctx, (layer,), corners, record_restrictions(item), locator, section, into)
         ctx.census.map("fills")
     else:
         points = region_points(item.outline)
@@ -832,7 +887,17 @@ def footprint_items(
             layer = ctx.layers.name(item.prefix.layer)
             locator = f"Tracks6/Data#{index}"
             _stroke_keepout(
-                ctx, "tracks", "line", layer, (start, end), width, locator, section, keepouts, frame
+                ctx,
+                "tracks",
+                "line",
+                layer,
+                (start, end),
+                width,
+                locator,
+                section,
+                keepouts,
+                frame,
+                restrictions=record_restrictions(item),
             )
             continue
         add(
@@ -870,7 +935,19 @@ def footprint_items(
                 stroke = units.arc_points(item.cx, item.cy, item.radius, start_angle, end_angle)
             layer = ctx.layers.name(item.prefix.layer)
             kind: GraphicKind = "circle" if full else "arc"
-            _stroke_keepout(ctx, "arcs", kind, layer, stroke, width, locator, section, keepouts, frame)
+            _stroke_keepout(
+                ctx,
+                "arcs",
+                kind,
+                layer,
+                stroke,
+                width,
+                locator,
+                section,
+                keepouts,
+                frame,
+                restrictions=record_restrictions(item),
+            )
             continue
         if full:
             points: tuple[Point, ...] = units.circle_points(item.cx, item.cy, item.radius)
@@ -890,7 +967,7 @@ def footprint_items(
             # a keep-out of a component on copper is a rule area of its footprint (changes c0407, c0411)
             layer = ctx.layers.name(item.prefix.layer)
             locator = f"Fills6/Data#{index}"
-            _keepout(ctx, (layer,), points, EVERY_RESTRICTION, locator, section, keepouts, frame)
+            _keepout(ctx, (layer,), points, record_restrictions(item), locator, section, keepouts, frame)
             ctx.census.map("fills")
             continue
         corners = tuple(frame.apply(point) for point in points)
@@ -1207,7 +1284,7 @@ def shapes(
         layer = ctx.layers.name(item.prefix.layer)
         if ctx.layers.is_copper(item.prefix.layer) and is_keepout(item):
             # a keep-out fill on copper is a rule area of its outline (change c0407)
-            _keepout(ctx, (layer,), _corners(kind, points), EVERY_RESTRICTION, locator, "kpo")
+            _keepout(ctx, (layer,), _corners(kind, points), record_restrictions(item), locator, "kpo")
             ctx.census.map("fills")
             continue
         pairs = exact.pairs()

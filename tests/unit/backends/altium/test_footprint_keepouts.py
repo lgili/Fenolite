@@ -119,6 +119,21 @@ def test_library_rule_areas_survive_a_write() -> None:
         assert close(mine, theirs), (mine, theirs)
 
 
+def test_a_rule_area_that_restricts_nothing_is_a_keep_out_of_the_value_0() -> None:
+    """A component's keep-out fill of a public document holds the restrictions 0 (``pcb-records.md``): the
+    area read from it restricts nothing, and the PCB library writes such an area as a keep-out region of
+    the value 0 that reads back the same."""
+    nothing = area("kpo_none", ("B.Cu",))
+    assert footprint_keepout_problem(nothing) is None
+    data = write_pcblib([LibFootprint(library_definition(nothing))], filename="ko.PcbLib")
+    library = import_footprints(
+        read_pcblib(data), name="ko", file="ko.PcbLib", sha256=hashlib.sha256(data).hexdigest()
+    )
+    (read,) = library.footprints
+    (theirs,) = read.keepouts
+    assert close(nothing, theirs), (nothing, theirs)
+
+
 def _footprint(design: Design, ref: str) -> FootprintInstance:
     ident = next(c.id for c in design.circuit.components if c.ref == ref)
     assert design.board is not None

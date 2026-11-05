@@ -392,8 +392,9 @@ def keepout_restrictions(keepout: Keepout) -> int:
 def footprint_keepout_problem(area: Keepout, copper_layers: Sequence[str] = ()) -> str | None:
     """Why a rule area of a footprint cannot be written as keep-out regions (change c0411), or ``None``:
     fewer than three outline points, no layer, a layer that is neither ``*.Cu`` nor a copper layer (of the
-    board when ``copper_layers`` names them, unless the area lies on each of them), or no restriction that
-    the record carries."""
+    board when ``copper_layers`` names them, unless the area lies on each of them), or a restriction of
+    footprints alone, which the record does not carry. An area that restricts nothing is a keep-out of the
+    value 0, as a saved component's keep-out fill holds (``pcb-records.md``)."""
     ring = list(area.outline)
     if len(ring) > 1 and ring[0] == ring[-1]:
         ring.pop()
@@ -408,7 +409,7 @@ def footprint_keepout_problem(area: Keepout, copper_layers: Sequence[str] = ()) 
     outside = [n for n in area.layers if n != ALL_COPPER and n not in known and not everywhere]
     if outside:
         return f"the rule area lies on {outside[0]}, which is no copper layer"
-    if not keepout_restrictions(area):
+    if area.no_footprints and not keepout_restrictions(area):
         return "the rule area sets no restriction that the record carries (tracks, vias, pads, copper)"
     return None
 
