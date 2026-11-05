@@ -16,7 +16,8 @@ No provisional overlap or incomplete bundle escapes on a bound, interruption or 
 
 A bundle hashes a schema tag, all canonical member payloads and the complete input fingerprint.
 Members name exactly one bundle and cannot be independently accepted, rejected, replayed or forgotten.
-Legacy v0 decision bytes remain unchanged; bundle-bearing records use an explicit newer schema
+Legacy v0 decision bytes remain unchanged; bundle-bearing records keep `fenolite.route-decisions.v0`
+with an optional `bundles` key (2026-11-04, after c0217 made `v1` the prepared mirror of the v0 grammar),
 and unsupported future records fail rather than discard decisions. Decision writes, board writes,
 stale-input protection, receipts and rollback share the existing reviewed-plan transaction.
 

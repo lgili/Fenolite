@@ -110,12 +110,18 @@ FORMATS: dict[str, Format] = {
     "fenolite.placement-request.v0": public("PlacementRequestFile"),
     "fenolite.placements.v0": public("PlacementsFile"),
     "fenolite.proposal.v0": public("ProposalFile"),
+    "fenolite.proposal_controls.v0": Format(
+        "internal", None, "Nested route-result regeneration controls read by the viewer (c0369).", "internal"
+    ),
     "fenolite.provenance.v0": public("ProvenanceFile"),
     "fenolite.region.v1": Format("internal", None, "SVG rendering marker, not a JSON document.", "internal"),
     "fenolite.requirements.v0": public("RequirementsFile"),
     "fenolite.review.v0": public("ReviewFile"),
     "fenolite.role-copper.v0": public("RoleCopperFile"),
     "fenolite.roles.v0": public("RolesFile"),
+    "fenolite.route-bundle.v0": Format(
+        "internal", None, "Content-hash domain of a route bundle id, not a document (c0367).", "internal"
+    ),
     "fenolite.route-decisions.v0": public("fenolite.cli.file_source_formats:RouteDecisionsFile"),
     "fenolite.schematic-composition.v0": public("SchematicCompositionFile"),
     "fenolite.snapshot.v0": public("SnapshotFile"),

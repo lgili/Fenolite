@@ -21,6 +21,12 @@
       "items": {
         "$ref": "#/$defs/RouteRejected"
       }
+    },
+    "bundles": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/RouteBundle"
+      }
     }
   },
   "additionalProperties": false,
@@ -31,6 +37,29 @@
     "rejected"
   ],
   "$defs": {
+    "RouteBundle": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "fingerprint": {
+          "type": "string"
+        },
+        "members": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "fingerprint",
+        "members"
+      ]
+    },
     "RouteCorridor": {
       "type": "object",
       "properties": {

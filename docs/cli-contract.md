@@ -1065,7 +1065,7 @@ an agent's first questions in a small reply; the default result is unchanged by 
   the brief view holds no evidence level. Read `result.matrix`, `result.experimental` and
   `result.backends` of the default view for that, per file kind.
 - The brief result is bounded: with `--no-tools` its JSON is under 300 bytes per listed command plus
-  2 000 bytes, and a test keeps it there.
+  3 500 bytes, and a test keeps it there.
 - `--brief` chooses another `result` for this one command; `--format concise` folds the issues of any
   command. They may be given together, and `--fields` works on the brief result.
 
@@ -1263,7 +1263,10 @@ modes exclude each other and `--roles` (`--accept` and `--reject` combine), and 
 feature `propose` (`octilinear`); a misuse is `FEN-2001`. `--kind`, `--nets` and `--group` narrow the
 subjects; `--candidates N` (1 to 8, default 4) bounds the candidates per subject; `--timeout` bounds the
 facts (`route.proposal-limit`); `--reason` takes one line of 1 to 300 printable characters. In propose mode
-`result` holds `mode` (`propose`), `order` (`generation`), `open` (`before`), `proposals`, `rejected`
+`result` holds `mode` (`propose`), `order` (`generation`), `open` (`before`), `completion` (change c0370:
+`state` `open` or `unchecked`, the physical `open` count, `fill` `saved` or `simulated`, `subjects` sorting
+each open subject into exactly one of `proposed`, `unknown`, `no-candidate`, `rejected` and `not-attempted`,
+`checks` `not-run` and `complete` always `false`; `docs/routing.md`, "Proposals"), `proposals`, `rejected`
 (`id`, `subject`, `reason` of rejected proposals), `locked` (`candidate`, `subject`, `present` of each
 locked decision) and `next`, and with `--gate drc` `drc_unattributed`. Each proposal holds exactly `id`
 (`p-` and 16 hex digits of the SHA-256 of its subject key and ends), `subject`, `kind` (`fanout`, `join`,

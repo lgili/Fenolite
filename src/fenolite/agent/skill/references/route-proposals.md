@@ -1,7 +1,7 @@
 ---
 topic: route-proposals
 title: Route proposals and atomic bundles
-summary: Bounded search, negotiated alternatives, measured facts, whole-bundle decisions and reviewed plans.
+summary: Negotiated alternatives, facts, whole bundles and reviewed decisions.
 ---
 
 # Route proposals and atomic bundles
@@ -10,21 +10,7 @@ Start with `fenolite capabilities --brief --json`. Work on a copy and inspect th
 `--propose` writes nothing. Existing manual, script and locked copper is fixed input; a proposal does
 not remove it. Use `board-routing` for physical routing practice and `routing` for scripted copper.
 
-## Bounded search
-
-Use `--router octilinear --propose`. `--router-option search=off` keeps fixed patterns (default).
-`search=fallback` searches when patterns fail; `search=only` skips patterns. Both require explicit
-`search-grid=LENGTH`, `search-max-states=N` and `search-max-vias=N`. Bounds are software inputs,
-not fabrication limits. The sparse grid can miss a legal off-grid route. Pair legs and critical
-groups without a supported atomic algorithm are refused; do not force them into separate tracks.
-
-```fenolite-cmd
-fenolite route board --router octilinear --propose --router-option search=only --router-option search-grid=0.5mm --router-option search-max-states=50000 --router-option search-max-vias=0 --json
-```
-
-A candidate's `source=search` identifies complete geometry. Read its measured facts and unknowns,
-not a score or rank. `state-limit`, `budget` or `cancelled` means unfinished exploration, not a proof
-that routing is impossible. Inspect its `region` with `render --region` before preparing a decision.
+Bounded search (`search=fallback`, `search=only`) and its refusals are on the page `route-search`.
 
 ## Negotiate ordinary connections
 
@@ -76,8 +62,8 @@ replays all decisions. If one member is stale, none of its missing siblings is r
 `--forget BUNDLE` removes the complete decision and its matching locked copper; unrelated manual
 copper stays. Individual-member accept/reject/replay/forget fails with `FEN-2001` naming the bundle.
 
-Legacy `fenolite.route-decisions.v0` bytes stay unchanged for independent decisions. Bundle-bearing
-records use `fenolite.route-decisions.v1`; never strip unknown fields to make an older reader accept
+`fenolite.route-decisions.v0` bytes stay unchanged for independent decisions. Bundle-bearing
+records add the optional `bundles` key; never strip unknown fields to make an older reader accept
 them. Board and record changes share one transaction. Failed writes roll back; preserve recovery
 files if rollback itself fails (`FEN-1004`). A partial native-gate result cannot become half a decision. If a new alternative reuses members of
 a stored unit, explicitly review `--forget` of that old unit before replacing it; history is not erased.
@@ -96,4 +82,74 @@ The internal `RoutingResult.bundles` and
 candidate membership mirror the CLI; direct adapters must provide `extra["bundle_check"]` for
 whole-set connectivity and dynamic role validation, along with the existing copper/role callbacks.
 
-Read next: `board-routing`, `checks`, `recovery`.
+
+## Local external alternatives
+
+Add repeatable `--propose-with ROUTER` to octilinear proposals. Supported names are `freerouting`
+(local jar) and `kicadroutingtools` (local checkout/interpreter). Check each router's
+`external_candidates` in `capabilities --brief --json`: `supported`, `available`, `projection`,
+`scope`, `arcs`, `pairs`, `groups`, `local_only` and `automatic_acceptance`. Unsupported routers
+have null metadata; availability is null when tools were not queried. Containers and cloud routers
+are refused in candidate mode. This command never fetches a tool or uploads the board.
+
+```fenolite-cmd
+fenolite route board --router octilinear --propose --propose-with kicadroutingtools --nets SIGNAL --timeout 120 --json
+fenolite route board --router octilinear --accept CANDIDATE --propose-with kicadroutingtools --nets SIGNAL --dry-run --json
+```
+
+Use the existing `FENOLITE_KRT`, `FENOLITE_KRT_PYTHON`, `FENOLITE_FREEROUTING_JAR` and
+`FENOLITE_JAVA` configuration. With exactly one adapter, `--router-path` selects its checkout/jar;
+`--router-python` selects KiCadRoutingTools' interpreter. Multiple requested adapters use their
+individual environment configuration. Router options still configure the primary octilinear router.
+Missing requested tools return `FEN-6001` (exit 6), with no silent fallback or write.
+
+Only ordinary pad-to-pad connections are supported. The selected two original pad-containing
+components must merge; all other components must remain separate. Anonymous/unsupported islands,
+track/zone endpoints, arcs, pair legs and critical groups are refused. A whole-board result is compared
+to the board actually sent: moved pads/footprints, changed outline/stackup/rules, edited/removed old
+copper or unselected additions reject the entire output. External IDs cannot prove preservation.
+A session is a copper-only projection; its placements, unknown state and every decoded net are
+checked before filtering. New tracks, allowed layers, full through-via barrels and both copper/role
+judges must pass. The external result never replaces the original board.
+
+`--candidates N` bounds internal shapes; each requested external adapter can add one alternative
+per subject. Repeat an explicit limit during external-decision regeneration; `result.next` preserves it.
+
+Candidate `source` is `external:<router>`. Its `tool` reports `router`, `version`, `inputs` (tool-byte
+fingerprint), `job` (input fingerprint) and `deterministic=false`; acceptance rows retain that tool
+metadata. External tools may regenerate different geometry despite the same Fenolite seed. Reuse
+`result.next`, which repeats actual controls/selection; if an ID disappears, propose and review again.
+Confirmation consumes staged bytes without executing the tool. Changed declared tool files or board,
+rules, role/profile/requirements and sidecars invalidate the reviewed plan with `FEN-4002`.
+
+`result.external.requested` lists deduplicated adapters; `refusals` lists `subject`, `router`, `reason`
+and diagnostic `details`; `not_attempted` identifies work left by the shared deadline. Refusal reasons:
+`external-unsupported`, `external-judge-missing`, `external-net-missing`, `external-incomplete`,
+`external-tool-failed`, `external-unsupported-output`, `external-unselected-copper`, `external-via-scope`,
+`external-geometry-missing`, `external-geometry`, `external-scope-unsupported`, `external-scope` and
+`external-merge`. Final role refusal can report `search-role-refused`. Tool details may identify
+`external-board-missing`, `external-topology-changed`, `external-copper-changed` or
+`external-duplicate-copper`. Fix the stated scope/geometry/input problem and review new proposals.
+
+One `--timeout` covers preparation, internal work, tool/version processes and facts (900 seconds
+when omitted with external candidates). Killed, malformed, failed or incomplete output gives no
+candidate. Cancellation kills the owned process tree; Windows uses bounded `taskkill /T /F` and
+reports cleanup failure explicitly. Native Windows tree behavior is still unconfirmed. Elapsed time
+is not an identity or score. Clock truncation reports only the attempted subset; it is not exhaustive.
+Real pinned-router/KiCad CI evidence is required before native compatibility can be claimed.
+
+
+
+## Inspect proposals in the viewer
+
+`view BOARD --proposals FILE --serve --allow-actions` shows dashed alternatives, layer-filtered
+vias, subject ends, locked/rejected choices, relaxations and tool facts. Toggle and Focus / cross-probe
+without selecting acceptance. Missing facts stay unknown; static exports are read-only.
+Scene `sha256`, `controls`, `notes`, `stale`, `ends`, `drill`, `unknown_geometry`, `tool` and `bundle`
+are additive. `result.controls` uses `fenolite.proposal_controls.v0`: router_options, external_routers,
+nets, kinds, groups, candidate_limit, requirements, timeout, gate, portable. The server allowlists
+controls; requirements stay inside the project root. It never executes command text.
+Review accept/reject plan, then explicitly confirm. Stale or nonportable controls require regeneration.
+Atomic choices use only the whole b-ID, including hidden members; malformed bundles are inspection-only.
+
+Read next: `route-search`, `board-completion`, `board-routing`.

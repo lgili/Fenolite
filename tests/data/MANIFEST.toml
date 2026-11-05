@@ -9,6 +9,12 @@ corpus_id = ""
 notes = "Authored CC0 c0273 block record, generated from its authored package."
 
 [[file]]
+path = "examples/routing/acceptance.py"
+origin = "authored"
+corpus_id = ""
+notes = "fixed-seed generator of the two/four-layer router acceptance boards, authored for Fenolite (CC0, own SplitMix64 mixer; c0370)"
+
+[[file]]
 path = "examples/topologies/design.py"
 origin = "authored"
 corpus_id = ""

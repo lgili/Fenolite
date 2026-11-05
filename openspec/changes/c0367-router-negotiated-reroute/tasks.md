@@ -22,6 +22,7 @@ A passing focused test does not replace required exact-head CI or maintainer-onl
   - [x] 4.1 Add strict v1 bundle records, v0 byte compatibility and atomic membership helpers.
     Proof: `uv run pytest tests/unit/routing/test_bundle_decisions.py -q`.
     2026-11-03: 11 new record tests and 7 legacy decision tests passed, exit 0; v1 membership/future refusal, atomic forget and v0 byte compatibility.
+    2026-11-04 (merge with c0217): bundles became an optional key of `fenolite.route-decisions.v0`, because c0217 publishes `v1` as the prepared mirror of the v0 grammar; the id was never released. Records without bundles keep their bytes.
   - [x] 4.2 Add atomic CLI accept/reject and member refusal.
     Proof: `uv run pytest tests/unit/cli/test_route_bundles.py -k decisions -q`.
     2026-11-03: 2 passed, exit 0; reviewed whole-bundle acceptance, member usage refusals, unit rejection and stable show-rejected behavior.

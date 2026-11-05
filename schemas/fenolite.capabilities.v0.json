@@ -570,6 +570,58 @@
         "write_kinds"
       ]
     },
+    "CapabilitiesExternalCandidates": {
+      "description": "c0368: whether a router can propose local external candidates, and their scope.",
+      "type": "object",
+      "properties": {
+        "supported": {
+          "type": "boolean"
+        },
+        "available": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "projection": {
+          "type": "string"
+        },
+        "scope": {
+          "type": "string"
+        },
+        "arcs": {
+          "type": "boolean"
+        },
+        "pairs": {
+          "type": "boolean"
+        },
+        "groups": {
+          "type": "boolean"
+        },
+        "local_only": {
+          "type": "boolean"
+        },
+        "automatic_acceptance": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "supported",
+        "available",
+        "projection",
+        "scope",
+        "arcs",
+        "pairs",
+        "groups",
+        "local_only",
+        "automatic_acceptance"
+      ]
+    },
     "CapabilitiesExtrasValue": {
       "type": "object",
       "properties": {
@@ -822,6 +874,16 @@
         },
         "sends_data_offsite": {
           "type": "boolean"
+        },
+        "external_candidates": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CapabilitiesExternalCandidates"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "additionalProperties": true,

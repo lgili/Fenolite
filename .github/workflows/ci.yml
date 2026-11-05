@@ -389,7 +389,15 @@ jobs:
       - name: Oracle and corpus tests
         env:
           FENOLITE_REQUIRE: kicad,corpus,libs
+          FENOLITE_SCALE_RECORD: /tmp/fenolite-scale/scale-kicad-10.jsonl
         run: uv run python tools/ci_tests.py run --suite kicad-10 --shard ${{ matrix.shard }} --shards 4 --out /tmp/fenolite-kicad-corpus
+      - name: Keep router scale measurements (c0370)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: router-scale-kicad-10-${{ matrix.shard }}
+          path: /tmp/fenolite-scale/scale-kicad-10.jsonl
+          if-no-files-found: ignore
       - name: Keep aggregate import census measurements
         if: always()
         uses: actions/upload-artifact@v4
@@ -463,6 +471,13 @@ jobs:
         env:
           FENOLITE_REQUIRE: kicad
         run: uv run python tools/ci_tests.py run --suite kicad-9 --out /tmp/fenolite-ci-kicad9
+      - name: Keep router scale measurements (c0370)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: router-scale-kicad-9
+          path: /tmp/fenolite-scale/scale-kicad-9.jsonl
+          if-no-files-found: ignore
       - name: Keep drawn schematic census measurements
         if: always()
         uses: actions/upload-artifact@v4

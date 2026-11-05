@@ -159,6 +159,21 @@ class CapabilitiesMatrixItem:
 
 
 @dataclass(frozen=True, kw_only=True)
+class CapabilitiesExternalCandidates:
+    """c0368: whether a router can propose local external candidates, and their scope."""
+
+    supported: bool
+    available: bool | None
+    projection: str
+    scope: str
+    arcs: bool
+    pairs: bool
+    groups: bool
+    local_only: bool
+    automatic_acceptance: bool
+
+
+@dataclass(frozen=True, kw_only=True)
 class CapabilitiesRoutersItem:
     available: bool | None = field(metadata={"optional": True})
     builtin: bool = field(metadata={"optional": True})
@@ -167,6 +182,7 @@ class CapabilitiesRoutersItem:
     name: str
     reason: None | str = field(metadata={"optional": True})
     sends_data_offsite: bool = field(metadata={"optional": True})
+    external_candidates: CapabilitiesExternalCandidates | None = field(metadata={"optional": True})
 
 
 @dataclass(frozen=True, kw_only=True)

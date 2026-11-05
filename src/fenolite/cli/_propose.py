@@ -65,6 +65,7 @@ from fenolite.roles.routes import plan_critical
 from fenolite.roles.store import document_path
 from fenolite.routing import decisions as record_io
 from fenolite.routing.budget import Budget
+from fenolite.routing.completion import STOPPED, SubjectFacts, completion
 from fenolite.routing.decisions import (
     Decisions,
     Locked,
@@ -1331,6 +1332,11 @@ def _present(board: Design, entry: Locked) -> bool:
     return True
 
 
+def _budget_cut(facts: Mapping[str, Any]) -> bool:
+    """Whether the budget ended before the facts of a candidate were measured."""
+    return any(row.get("why") == "budget" for row in facts.get("not_evaluated", ()))
+
+
 def reply(
     args: argparse.Namespace, board: Board, found: Found, record: Decisions
 ) -> tuple[dict[str, Any], list[Issue]]:
@@ -1345,13 +1351,26 @@ def reply(
     proposals: list[dict[str, Any]] = []
     rejected_rows: list[dict[str, Any]] = []
     left_out = 0
+    states: list[SubjectFacts] = []
     for proposal in found.proposals:
         subject = proposal.subject
         pid = subject.proposal
         if pid in rejected_ids:
             rejected_rows.append({"id": pid, "subject": subject.key, "reason": rejected_ids[pid].reason})
             left_out += 1
+            states.append(SubjectFacts(subject.key, rejected=True))
             continue
+        live = [c for c in proposal.candidates if c.id not in rejected_ids]
+        measured = [c for c in live if c.id in proposal.facts and not _budget_cut(proposal.facts[c.id])]
+        states.append(
+            SubjectFacts(
+                subject.key,
+                rejected=bool(proposal.candidates) and not live,
+                live=len(live),
+                measured=len(measured),
+                stopped=proposal.reason in STOPPED,
+            )
+        )
         rows: list[dict[str, Any]] = []
         for candidate in proposal.candidates:
             gone = candidate.id in rejected_ids
@@ -1424,10 +1443,13 @@ def reply(
                 hint="run again with a longer --timeout, or narrow with --kind, --nets or --group",
             )
         )
+    chosen = {proposal.subject.key for proposal in found.proposals}
+    states += [SubjectFacts(sub.key, selected=False) for sub in found.plan.subjects if sub.key not in chosen]
     result: dict[str, Any] = {
         "mode": "propose",
         "order": "generation",
         "open": {"before": found.plan.open},
+        "completion": completion(open_before=found.plan.open, fill=found.plan.fill, subjects=states),
         "proposals": proposals,
         "rejected": rejected_rows,
         "locked": [

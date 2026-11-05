@@ -562,6 +562,11 @@ class RouteResult(ProtocolResult):
     forgotten: list[str] = field(metadata={"optional": True})
     removed: int = field(metadata={"optional": True})
     drc_unattributed: list[wire.GateFinding] = field(metadata={"optional": True})
+    bundles: list[proposal_wire.ProposalBundle] | list[str] = field(metadata={"optional": True})
+    controls: proposal_wire.ProposalControls = field(metadata={"optional": True})
+    role_fields: proposal_wire.ProposalRoleFields = field(metadata={"optional": True})
+    external: proposal_wire.ProposalExternal = field(metadata={"optional": True})
+    completion: proposal_wire.ProposalCompletion = field(metadata={"optional": True})
 
 
 @dataclass(frozen=True, kw_only=True)

@@ -23,6 +23,7 @@ Back to [the command index](commands.md).
 - `--require-complete`: exit 5 and write nothing when a selected net still has an open connection
 - `--router-path PATH`: KiCadRoutingTools checkout, or the Freerouting jar (docker:<image> runs a container)
 - `--router-python PATH`: Python interpreter for the external router
+- `--requirements FILE`: user requirements TOML for opt-in search proposals and decisions
 - `--router-option KEY=VALUE` (repeatable): router-specific option
 - `--order GLOBS` (repeatable): route the matching nets first (repeatable: one tier per value, globs separated by commas; the other nets last)
 - `--timeout SECONDS` (number): time budget of the whole routing step (default: the router's own, 900 s for the external routers); the copper of the router runs that finished in time is kept
@@ -34,13 +35,14 @@ Back to [the command index](commands.md).
 - `--group NAME` (repeatable): with --roles: route this role group only (repeatable)
 - `--roles-file FILE`: with --roles: the role document to read
 - `--propose`: list every open connection with candidate shapes and their facts, no score; writes nothing
+- `--propose-with ROUTER` (repeatable): also generate reviewed candidates with a supported local external router (repeatable)
 - `--accept ID` (repeatable): lock this candidate (repeatable; plan)
 - `--reject ID` (repeatable): remember a rejected candidate or proposal (repeatable; plan)
 - `--reason TEXT`: with --reject: why, one line
-- `--replay`: place again the locked decisions whose copper the board lacks
+- `--replay BUNDLE`: replay all locked decisions, or one atomic bundle
 - `--forget ID` (repeatable): drop a decision and its copper (repeatable)
-- `--kind {connection,fanout,group,join,role-net}` (repeatable): with --propose: subjects of this kind only (repeatable)
-- `--candidates N` (integer): with --propose: candidates per subject, 1 to 8 (default 4)
+- `--kind {connection,fanout,group,join,role-net}` (repeatable): filter proposal/decision subjects by kind (repeatable)
+- `--candidates N` (integer): internal candidates per subject, 1 to 8 (default 4); --propose-with adds external alternatives
 - `--show-rejected`: with --propose: list rejected candidates too
 - `--gate {drc}`: drc: judge the edit with kicad-cli DRC and write it without the items that bring new findings
 - `--kicad-cli PATH`: kicad-cli binary or docker:<image> for --gate

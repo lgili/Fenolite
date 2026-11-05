@@ -28,6 +28,10 @@ def test_census_committed_boards() -> None:
     assert checked > 20
 
 
+GENERATORS = {"examples/routing/acceptance.py"}
+"""Example tools that write design scripts and bind no ``design`` themselves (change c0370)."""
+
+
 def test_census_examples_and_scripts() -> None:
     import dataclasses
 
@@ -41,7 +45,7 @@ def test_census_examples_and_scripts() -> None:
     for path in paths:
         # Only executable design scripts, not import-only support modules.
         text = path.read_text()
-        if "Design(" not in text:
+        if "Design(" not in text or path.relative_to(ROOT).as_posix() in GENERATORS:
             continue
         script = run_design_script(path).design
         design = to_model(script)

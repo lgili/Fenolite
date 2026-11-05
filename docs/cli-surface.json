@@ -7981,6 +7981,19 @@
           "required": false,
           "type": "boolean"
         },
+        "--propose-with": {
+          "aliases": [
+            "--propose-with"
+          ],
+          "choices": null,
+          "default": [],
+          "deprecated": null,
+          "experimental": false,
+          "nargs": null,
+          "positional": false,
+          "required": false,
+          "type": "string"
+        },
         "--reason": {
           "aliases": [
             "--reason"
@@ -8012,13 +8025,13 @@
             "--replay"
           ],
           "choices": null,
-          "default": false,
+          "default": null,
           "deprecated": null,
           "experimental": false,
-          "nargs": 0,
+          "nargs": "?",
           "positional": false,
           "required": false,
-          "type": "boolean"
+          "type": "string"
         },
         "--require-complete": {
           "aliases": [
@@ -8032,6 +8045,19 @@
           "positional": false,
           "required": false,
           "type": "boolean"
+        },
+        "--requirements": {
+          "aliases": [
+            "--requirements"
+          ],
+          "choices": null,
+          "default": null,
+          "deprecated": null,
+          "experimental": false,
+          "nargs": null,
+          "positional": false,
+          "required": false,
+          "type": "string"
         },
         "--rip": {
           "aliases": [

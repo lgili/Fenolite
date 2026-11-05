@@ -29,10 +29,14 @@ from fenolite.model.rules import Rule, Selector
 EXAMPLES = Path(__file__).resolve().parents[3] / "examples"
 MODULES = {"blocks/divider.py", "import_python/copper.py"}
 """Import-only block and copper helpers, not module-level designs (changes c0270 and c0275)."""
+GENERATORS = {"routing/acceptance.py"}
+"""Example tools that write design scripts and bind no ``design`` themselves (change c0370): the boards they
+write are built by ``tests/unit/routing/test_completion_fixtures.py``."""
 SCRIPTS = sorted(
     name
     for path in EXAMPLES.glob("*/*.py")
-    if (name := path.relative_to(EXAMPLES).as_posix()) not in MODULES and not path.name.startswith("test_")
+    if (name := path.relative_to(EXAMPLES).as_posix()) not in MODULES | GENERATORS
+    and not path.name.startswith("test_")
 )
 OFFICIAL = "blink_official/design.py"
 """The one example that resolves its parts from the official KiCad libraries when it is built; its rules

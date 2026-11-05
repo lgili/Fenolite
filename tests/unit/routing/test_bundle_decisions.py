@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
-"""Versioned strict atomic records with preserved independent decision bytes (c0367)."""
+"""Strict atomic bundle records with preserved independent decision bytes (c0367).
+
+Bundles are an optional key of ``fenolite.route-decisions.v0``; ``v1`` is its prepared mirror (c0217)."""
 
 from dataclasses import replace
 
@@ -8,7 +10,7 @@ import pytest
 
 from fenolite.core.errors import FormatError
 from fenolite.routing.decisions import (
-    BUNDLE_SCHEMA,
+    SCHEMA,
     Decisions,
     Locked,
     RecordBundle,
@@ -29,9 +31,9 @@ def accepted():
     )
 
 
-def test_v1_roundtrip_keeps_members_and_input_fingerprint() -> None:
+def test_bundle_roundtrip_keeps_members_and_input_fingerprint() -> None:
     record = accepted()
-    assert to_data(record)["schema"] == BUNDLE_SCHEMA
+    assert to_data(record)["schema"] == SCHEMA and "bundles" in to_data(record)
     assert loads(dumps(record)) == record
     assert dumps(record) == dumps(replace(record, locked=tuple(reversed(record.locked))))
 
@@ -44,7 +46,7 @@ def test_rejected_bundle_is_stored_without_accepted_member_copper() -> None:
 
 
 @pytest.mark.parametrize(
-    "change", ["missing-member", "duplicate-member", "bad-digest", "overlap", "mixed", "v0", "future"]
+    "change", ["missing-member", "duplicate-member", "bad-digest", "overlap", "mixed", "future"]
 )
 def test_partial_ambiguous_and_future_records_are_refused(change: str) -> None:
     raw = to_data(accepted())
@@ -58,12 +60,15 @@ def test_partial_ambiguous_and_future_records_are_refused(change: str) -> None:
         raw["bundles"].append({**raw["bundles"][0], "id": "b-" + "3" * 16})
     elif change == "mixed":
         raw["rejected"] = [{"id": BUNDLE.id, "subject": "bundle", "reason": "x"}]
-    elif change == "v0":
-        raw["schema"] = "fenolite.route-decisions.v0"
     else:
         raw["schema"] = "fenolite.route-decisions.v999"
     with pytest.raises(FormatError):
         from_data(raw)
+
+
+def test_prepared_v1_mirror_reads_bundles_like_v0() -> None:
+    raw = to_data(accepted())
+    assert from_data({**raw, "schema": "fenolite.route-decisions.v1"}) == from_data(raw)
 
 
 def test_forget_is_atomic_and_returns_to_legacy_bytes_when_no_bundle_remains() -> None:
@@ -71,7 +76,7 @@ def test_forget_is_atomic_and_returns_to_legacy_bytes_when_no_bundle_remains() -
         with_entries(accepted(), forget=("c-a",))
     removed = with_entries(accepted(), forget=(BUNDLE.id,))
     assert not (removed.locked or removed.bundles)
-    assert to_data(removed)["schema"] == "fenolite.route-decisions.v0"
+    assert set(to_data(removed)) == {"schema", "board", "locked", "rejected"}
 
 
 def test_independent_v0_decisions_roundtrip_without_new_keys() -> None:

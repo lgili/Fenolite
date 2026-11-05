@@ -310,11 +310,12 @@ inventory is recaptured. These are active changes, not successful batch gates.
 c0330 `root-sheet-presentation-identity` follows the clean external-library
 replay: pair only explicitly resolved project-root panels after a safe filename
 change, retaining child identities, visible-loss detection and collision refusal.
+
 ## Router follow-up allocation — 2026-11-03
 
-The inspected local and origin refs reserve ids through c0356; c0365–c0370 are allocated below.
-Recheck current refs before allocating another id. These proposed changes start from `router-c0280`
-and do not alter the independent CAC integration. See [router roadmap](../docs/router-roadmap.md).
+The inspected local and origin refs reserve ids through c0364 (renumbered 2026-11-04 after the CAC side took c0357–c0364); c0365–c0370 are allocated below.
+Recheck current refs before allocating another id. These changes started from `router-c0280`; on 2026-11-04 `codex/cac-next` was merged into their
+branch, so they now build on the CAC integration. See [router roadmap](../docs/router-roadmap.md).
 
 | Change | Phase / purpose |
 | --- | --- |

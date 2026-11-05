@@ -137,12 +137,14 @@ tracked separately in `frozen-v0.json` while the active CLI writer remains v0.
 | `fenolite.placement-request.v1` | public | `fenolite.cli.file_formats:PlacementRequestFile` | Prepared mirror; v0 remains readable. |
 | `fenolite.placements.v0` | public | `fenolite.cli.file_formats:PlacementsFile` | User-authored input or agent-readable output. |
 | `fenolite.proposal.v0` | public | `fenolite.cli.file_record_formats:ProposalFile` | User-authored input or agent-readable output. |
+| `fenolite.proposal_controls.v0` | internal | `internal` | Nested route-result regeneration controls read by the viewer (c0369). |
 | `fenolite.provenance.v0` | public | `fenolite.cli.file_formats:ProvenanceFile` | User-authored input or agent-readable output. |
 | `fenolite.region.v1` | internal | `internal` | SVG rendering marker, not a JSON document. |
 | `fenolite.requirements.v0` | public | `fenolite.cli.file_formats:RequirementsFile` | User-authored input or agent-readable output. |
 | `fenolite.review.v0` | public | `fenolite.cli.file_formats:ReviewFile` | User-authored input or agent-readable output. |
 | `fenolite.role-copper.v0` | public | `fenolite.cli.file_formats:RoleCopperFile` | User-authored input or agent-readable output. |
 | `fenolite.roles.v0` | public | `fenolite.cli.file_formats:RolesFile` | User-authored input or agent-readable output. |
+| `fenolite.route-bundle.v0` | internal | `internal` | Content-hash domain of a route bundle id, not a document (c0367). |
 | `fenolite.route-decisions.v0` | public | `fenolite.cli.file_source_formats:RouteDecisionsFile` | User-authored input or agent-readable output. |
 | `fenolite.schematic-composition.v0` | public | `fenolite.cli.file_formats:SchematicCompositionFile` | User-authored input or agent-readable output. |
 | `fenolite.snapshot.v0` | public | `fenolite.cli.file_formats:SnapshotFile` | User-authored input or agent-readable output. |

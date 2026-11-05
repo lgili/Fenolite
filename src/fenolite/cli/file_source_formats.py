@@ -65,10 +65,18 @@ class RouteRejected:
 
 
 @dataclass(frozen=True, kw_only=True)
+class RouteBundle:
+    id: str
+    fingerprint: str
+    members: list[str]
+
+
+@dataclass(frozen=True, kw_only=True)
 class RouteDecisionsFile(Document):
     board: str
     locked: list[RouteLocked]
     rejected: list[RouteRejected]
+    bundles: list[RouteBundle] = field(metadata={"optional": True})  # c0367: written only when decided
 
 
 @dataclass(frozen=True, kw_only=True)

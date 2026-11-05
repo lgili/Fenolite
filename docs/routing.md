@@ -493,6 +493,13 @@ locks it.
 - **Without a candidate.** A subject keeps its place with `candidates: []`, a reason (`no-room`, `no-layer`,
   `too-long`, `near-switching`, `isolation`, `pads`, `all-rejected`, `budget`) and alternatives, each with a
   command and a `render --region` command, and one `route.proposal-open`.
+- **Completion (c0370).** `result.completion` states the board's physical open count as read (`open`),
+  the fill it was read on (`saved` or `simulated`), a `state` (`open` while a connection is open, else
+  `unchecked`) and sorts every open subject into exactly one of `proposed`, `unknown` (a timeout,
+  cancellation or explicit search/round bound stopped it, or its candidates' facts were not measured),
+  `no-candidate` (the search finished without one), `rejected` and `not-attempted` (outside the
+  selection). `checks` is `not-run` and `complete` is always `false`: a proposal, a rejection or a timeout
+  is not a connection; only `fill` and `check` after it close a board.
 - **Accept and reject.** `--accept ID` (repeatable) computes the proposals again and plans in one reviewed
   plan the board with each candidate's items `locked` (a group candidate with its corridors
   `role.corridor.<group>.<net>`) and the decision record; `--confirm --plan ID` writes both. Two candidates
@@ -645,8 +652,9 @@ copper of its nets, preserving unrelated/manual conductors. All writes retain pl
 hashes, rollback and recovery behavior; changed role/profile/requirement/project/decision inputs
 invalidate a reviewed write. Confirmation does not rerun negotiation.
 
-Independent records retain exactly `fenolite.route-decisions.v0` serialization. Records with bundles
-use `fenolite.route-decisions.v1`, adding `bundles` with `id`, `fingerprint` and `members`; a bundle
+Independent records retain exactly their c0280 `fenolite.route-decisions.v0` bytes. Records with bundles
+add the optional key `bundles` with `id`, `fingerprint` and `members` (same schema id; the prepared `v1`
+mirror of c0217 reads the same grammar); a bundle
 must be wholly accepted or wholly rejected and membership cannot overlap. Future schema versions
 and incomplete metadata are refused. New alternatives sharing stored member IDs require an explicit
 reviewed forget of the old unit before replacement; rejection history is never silently discarded.

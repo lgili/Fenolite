@@ -98,10 +98,14 @@ NOT_JUDGED = {
     ),
 }
 """Examples built elsewhere and not judged here, each with its reason."""
+GENERATORS = {"routing/acceptance.py"}
+"""Example tools that write design scripts and bind no ``design`` themselves (change c0370): the boards they
+write are built by ``tests/unit/routing/test_completion_fixtures.py``."""
 SCRIPTS = sorted(
     name
     for path in EXAMPLES.glob("*/*.py")
-    if (name := path.relative_to(EXAMPLES).as_posix()) not in MODULES and not path.name.startswith("test_")
+    if (name := path.relative_to(EXAMPLES).as_posix()) not in MODULES | GENERATORS
+    and not path.name.startswith("test_")
 )
 PCB_KINDS = sorted(kind for kind in RT_A2_SCOPE.fields if kind not in CIRCUIT_KINDS)
 """The kinds compared with the PCB reading: every other kind of the scope."""

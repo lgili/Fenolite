@@ -247,6 +247,34 @@
       "items": {
         "$ref": "#/$defs/GateFinding"
       }
+    },
+    "bundles": {
+      "anyOf": [
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ProposalBundle"
+          }
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      ]
+    },
+    "controls": {
+      "$ref": "#/$defs/ProposalControls"
+    },
+    "role_fields": {
+      "$ref": "#/$defs/ProposalRoleFields"
+    },
+    "external": {
+      "$ref": "#/$defs/ProposalExternal"
+    },
+    "completion": {
+      "$ref": "#/$defs/ProposalCompletion"
     }
   },
   "additionalProperties": true,
@@ -424,6 +452,12 @@
         },
         "facts": {
           "$ref": "#/$defs/ProposalFacts"
+        },
+        "source": {
+          "type": "string"
+        },
+        "tool": {
+          "$ref": "#/$defs/ProposalTool"
         }
       },
       "additionalProperties": true,
@@ -458,6 +492,37 @@
         "text",
         "command",
         "region"
+      ]
+    },
+    "ProposalBundle": {
+      "description": "c0367: one negotiated atomic unit; member geometry stays in the candidate rows.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "fingerprint": {
+          "type": "string"
+        },
+        "members": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "subjects": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "id",
+        "fingerprint",
+        "members",
+        "subjects"
       ]
     },
     "ProposalCandidate": {
@@ -496,6 +561,12 @@
         },
         "rejected": {
           "type": "boolean"
+        },
+        "bundle": {
+          "type": "string"
+        },
+        "tool": {
+          "$ref": "#/$defs/ProposalTool"
         }
       },
       "additionalProperties": true,
@@ -507,6 +578,256 @@
         "geometry",
         "facts",
         "rejected"
+      ]
+    },
+    "ProposalCandidateRoleFields": {
+      "description": "c0366: the fields after a candidate and its conservative reference and exposure bounds.",
+      "type": "object",
+      "properties": {
+        "fingerprint": {
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/ProposalFieldProvenance"
+        },
+        "limits": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ProposalRoleLimit"
+          }
+        },
+        "preferences": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ProposalRolePreference"
+          }
+        },
+        "unknowns": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "missing_limits": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "input_fingerprint": {
+          "type": "string"
+        },
+        "input_provenance": {
+          "$ref": "#/$defs/ProposalFieldProvenance"
+        },
+        "confirmed_reference_length_lower_bound_nm": {
+          "type": "integer"
+        },
+        "unconfirmed_reference_length_nm": {
+          "type": "integer"
+        },
+        "switching_exposure_upper_bound_nm": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "fingerprint",
+        "provenance",
+        "limits",
+        "preferences",
+        "unknowns",
+        "missing_limits",
+        "input_fingerprint",
+        "input_provenance",
+        "confirmed_reference_length_lower_bound_nm",
+        "unconfirmed_reference_length_nm",
+        "switching_exposure_upper_bound_nm"
+      ]
+    },
+    "ProposalCompletion": {
+      "description": "c0370: the physical open count and every subject's state; never a completion claim.",
+      "type": "object",
+      "properties": {
+        "state": {
+          "enum": [
+            "open",
+            "unchecked"
+          ]
+        },
+        "open": {
+          "type": "integer"
+        },
+        "fill": {
+          "enum": [
+            "saved",
+            "simulated"
+          ]
+        },
+        "subjects": {
+          "$ref": "#/$defs/ProposalCompletionSubjects"
+        },
+        "checks": {
+          "enum": [
+            "not-run"
+          ]
+        },
+        "complete": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "state",
+        "open",
+        "fill",
+        "subjects",
+        "checks",
+        "complete"
+      ]
+    },
+    "ProposalCompletionSubjects": {
+      "type": "object",
+      "properties": {
+        "proposed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "unknown": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "no-candidate": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "rejected": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "not-attempted": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "proposed",
+        "unknown",
+        "no-candidate",
+        "rejected",
+        "not-attempted"
+      ]
+    },
+    "ProposalControls": {
+      "description": "c0369: the regeneration controls a reviewed viewer action repeats.",
+      "type": "object",
+      "properties": {
+        "schema": {
+          "enum": [
+            "fenolite.proposal_controls.v0"
+          ]
+        },
+        "router_options": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "external_routers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "nets": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "kinds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "groups": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "candidate_limit": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "requirements": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "timeout": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "gate": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "portable": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "schema",
+        "router_options",
+        "external_routers",
+        "nets",
+        "kinds",
+        "groups",
+        "candidate_limit",
+        "requirements",
+        "timeout",
+        "gate",
+        "portable"
       ]
     },
     "ProposalCopper": {
@@ -634,6 +955,79 @@
         "layers"
       ]
     },
+    "ProposalExternal": {
+      "description": "c0368: the external routers asked for, their refusals and the subjects they did not attempt.",
+      "type": "object",
+      "properties": {
+        "requested": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "refusals": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ProposalExternalRefusal"
+          }
+        },
+        "not_attempted": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ProposalExternalNotAttempted"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "requested",
+        "refusals",
+        "not_attempted"
+      ]
+    },
+    "ProposalExternalNotAttempted": {
+      "type": "object",
+      "properties": {
+        "subject": {
+          "type": "string"
+        },
+        "router": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "subject",
+        "router"
+      ]
+    },
+    "ProposalExternalRefusal": {
+      "type": "object",
+      "properties": {
+        "subject": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "router": {
+          "type": "string"
+        },
+        "details": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "subject",
+        "reason",
+        "router",
+        "details"
+      ]
+    },
     "ProposalFacts": {
       "type": "object",
       "properties": {
@@ -696,9 +1090,36 @@
           "items": {
             "$ref": "#/$defs/ProposalNotEvaluated"
           }
+        },
+        "role_fields": {
+          "$ref": "#/$defs/ProposalCandidateRoleFields"
         }
       },
       "additionalProperties": true
+    },
+    "ProposalFieldProvenance": {
+      "type": "object",
+      "properties": {
+        "board": {
+          "type": "string"
+        },
+        "roles": {
+          "type": "string"
+        },
+        "profile": {
+          "type": "string"
+        },
+        "fill": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "board",
+        "roles",
+        "profile",
+        "fill"
+      ]
     },
     "ProposalItems": {
       "type": "object",
@@ -846,6 +1267,54 @@
         "reason"
       ]
     },
+    "ProposalRoleFields": {
+      "description": "c0366: the role search fields in force (``result.role_fields``).",
+      "type": "object",
+      "properties": {
+        "fingerprint": {
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/ProposalFieldProvenance"
+        },
+        "limits": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ProposalRoleLimit"
+          }
+        },
+        "preferences": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ProposalRolePreference"
+          }
+        },
+        "unknowns": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "missing_limits": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "fingerprint",
+        "provenance",
+        "limits",
+        "preferences",
+        "unknowns",
+        "missing_limits"
+      ]
+    },
     "ProposalRoleFinding": {
       "type": "object",
       "properties": {
@@ -875,6 +1344,54 @@
         "where",
         "severity",
         "measure"
+      ]
+    },
+    "ProposalRoleLimit": {
+      "type": "object",
+      "properties": {
+        "victim": {
+          "type": "string"
+        },
+        "aggressor": {
+          "type": "string"
+        },
+        "distance_nm": {
+          "type": "integer"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "origin": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "victim",
+        "aggressor",
+        "distance_nm",
+        "kind",
+        "origin"
+      ]
+    },
+    "ProposalRolePreference": {
+      "type": "object",
+      "properties": {
+        "victim": {
+          "type": "string"
+        },
+        "aggressor": {
+          "type": "string"
+        },
+        "within_nm": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "victim",
+        "aggressor",
+        "within_nm"
       ]
     },
     "ProposalRoles": {
@@ -918,6 +1435,9 @@
         },
         "why": {
           "type": "string"
+        },
+        "bundle": {
+          "type": "string"
         }
       },
       "additionalProperties": true,
@@ -925,6 +1445,35 @@
         "candidate",
         "subject",
         "why"
+      ]
+    },
+    "ProposalTool": {
+      "description": "c0368: the identity of the external router that made a candidate.",
+      "type": "object",
+      "properties": {
+        "router": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "inputs": {
+          "type": "string"
+        },
+        "job": {
+          "type": "string"
+        },
+        "deterministic": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "router",
+        "version",
+        "inputs",
+        "job",
+        "deterministic"
       ]
     },
     "ProposalTrack": {

@@ -113,6 +113,7 @@ argument. Practice pages explain engineering judgement; example numbers are not 
 - `block-layouts`: Exact versioned layouts, mirrored block poses, and capturing a laid-out block under plan and confirm.
 - `block-testing`: Ship a usage build, plain tests and a reviewed circuit/rules golden; stimulate ports and read typed verdicts.
 - `board-assembly`: Designators and silkscreen, polarity and pin 1, test points and fiducials, footprints by IPC-7351, 3D bodies, and the board as the master of its library.
+- `board-completion`: Routing stage order and completion facts.
 - `board-emc`: An immunity basis first, the mains entry in order, filter sides kept apart, the earth bond in copper, staged pin protection, gate buses and analog lines.
 - `board-floorplan`: Mechanical constraints first, regions by domain and function, one-way power flow, loop parts first, decoupling at the pin, reference blocks, placement in code.
 - `board-grounds`: Ground domains, one tie between two domains and where it goes, Kelvin sensing, return paths, proving a single tie, and the commands that show a net.
@@ -146,6 +147,8 @@ argument. Practice pages explain engineering judgement; example numbers are not 
 - `parts`: Symbols, footprints, pin maps, exact values, device imports, interfaces and blocks.
 - `placement`: place() by coordinates or by reference, staged parts and the grid strategy, moving parts on the board, copying a block by its pads, pads and text fields.
 - `recovery`: Tested recipes for exit codes 2–7 and shorted copper, error codes and reading the guide.
+- `route-proposals`: Negotiated alternatives, facts, whole bundles and reviewed decisions.
+- `route-search`: Opt-in bounded and role-aware search.
 - `routing`: Routers, guarded plans, copper, zones and fill.
 - `rules`: Net classes against minimums, rules with selectors, the stack-up, whose numbers apply, and analyze for current, clearance and creepage.
 - `signal-topologies`: Ordered pad trees, explicit timing and loss inputs, protocol budgets and rule precedence.

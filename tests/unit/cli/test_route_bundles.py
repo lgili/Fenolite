@@ -257,7 +257,7 @@ def test_guard_final_gate_cannot_accept_a_partial_bundle(tmp_path: Path, monkeyp
         seen.append(True)
         victim = after.board.tracks[0].id
         return SimpleNamespace(
-            design=original, result={}, evidence=Evidence(), issues=(), dropped=frozenset((victim,))
+            design=original, result=None, evidence=Evidence(), issues=(), dropped=frozenset((victim,))
         )
 
     monkeypatch.setattr(_propose._gate, "gate", partial_gate)

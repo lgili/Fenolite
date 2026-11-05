@@ -345,9 +345,13 @@ by corridors `role.corridor.<group>.<net>` that keep every pour off the branch. 
 the power copper and the critical routes leave, with candidate shapes and the facts of each, and no score
 (`docs/routing.md`, "Proposals"). Nothing reaches the board without `--accept ID` and a confirmed plan.
 
-- **Run order.** Phase 1 (`design.role_copper()` in the script, or `fenolite copper`), phase 2
-  (`route --roles critical`), then phase 4 (`route --propose`, `--accept`), then `fenolite fill` and
-  `fenolite roles BOARD --check`. Phase 3, a search router for what is left, comes after.
+- **Run order.** Development phase numbers are not a board recipe. Confirm roles, route critical
+  groups (`route --roles critical`), generate power copper (`fenolite copper`), then propose and
+  explicitly accept ordinary alternatives (`route --propose`, `--accept`). Optional scoped tidy
+  follows; refill, check physical connectivity and declared roles/DRC, then export and render.
+  Search is an opt-in proposal family, not a silent pass after acceptance. Every writing stage
+  has its own reviewed transaction; there is no whole-flow atomic write. See the tested completion
+  recipe in the `board-review` agent guide and `docs/router-roadmap.md`.
 - **The leftovers.** On the role-copper reference variants after phase 2 (measured with KiCad 10.0.7):
   the buck's ground pad `C3-2` on `F.Cu`, with the ground plane on `B.Cu` and no via, is a `fanout`
   subject, and `bad_roles` adds `C3-1` outside the `VOUT` pour (a `join`); the half-bridge's Kelvin-source

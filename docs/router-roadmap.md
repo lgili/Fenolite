@@ -40,7 +40,11 @@ Direct native Altium editing remains c0241-altium-edit-sessions, not a missing r
 c0365 tasks 1–6 are locally implemented with focused proofs; exact-head CI and closing tasks remain open.
 c0366 tasks 1–6 have local proofs and the full local quick gate passes; exact-head CI closing evidence remains pending.
 c0367 tasks 1–6 are implemented with local proofs and the full local quick gate passes; exact-head CI remains pending.
-c0368–c0370 remain proposals with implementation tasks unchecked. Dependencies mean
+c0368 tasks 1–4 and 6 are implemented locally, with scoped external-candidate and reviewed-plan
+proofs. Real pinned external-router CI and closing evidence remain open; native tests were skipped
+locally because both tools are absent. c0369 has local scene, overlay, interaction and reviewed whole-bundle action proofs; pinned CI
+references and complete validation remain open. c0370 task 1 has local tested workflow documentation; acceptance generators, completion facts and
+integrated/native/scale evidence remain open. Dependencies mean
 required interfaces/evidence, not permission to merge unrelated working branches.
 
 | Change | Scope | Dependencies |

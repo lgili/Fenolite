@@ -35,7 +35,7 @@ BRIEF_KEYS = [
     "deprecated",
 ]
 BYTES_PER_COMMAND = 300
-BYTES_FIXED = 2000
+BYTES_FIXED = 3500
 
 
 @pytest.fixture(autouse=True)

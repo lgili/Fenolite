@@ -43,6 +43,8 @@ the floor, not the review. In the third line, the requirements file is the user'
 - **Review a frozen snapshot** with its hashes, never a file that is still being edited. Compare it with
   the previous released revision; `diff --allow` fails on any change of a kind you did not plan.
 
+The reviewed routing completion recipe is on the page `board-completion`.
+
 ## The checklist
 
 Walk through the board region by region, with a render at a reviewer's scale and this list.
@@ -200,4 +202,4 @@ design.waive("circuit.rating-voltage", "C1:voltage", reason="bench is current-li
   in passing. It was not recorded, a later step broke it, and the owner had to say it again. A rule given
   in passing is a decision: write it down at once.
 
-Read next: `board-practice`, `board-workflow`, `checks`.
+Read next: `board-practice`, `board-completion`, `checks`.

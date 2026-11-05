@@ -129,8 +129,8 @@ def commands_page(registry: Mapping[str, Command]) -> str:
     described = [describe(command) for command in public]
     lines = [
         _front(COMMANDS),
-        "A command that writes does nothing without `--dry-run` (show the plan) or `--confirm` (write);",
-        "`--confirm --plan ID` writes the plan that a dry run gave. Its sections list these three no more.",
+        "Writing needs `--dry-run` (review) or `--confirm` (write); "
+        "`--confirm --plan ID` writes staged bytes. Sections omit these shared flags.",
         "`fenolite capabilities --command NAME --json` gives the same facts as data.",
         "Usage shows required arguments (`[X]`: optional). Each argument below names its value",
         "(`{a,b}`: one of these), a string unless another type is given; a valueless flag is a switch.",

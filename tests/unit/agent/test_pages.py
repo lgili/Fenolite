@@ -55,14 +55,15 @@ TOOLS = (
     "recovery",
     "routing",
     "route-proposals",
+    "route-search",
     "rules",
     "supplier-lookup",
     "viewer",
 )
-"""The twenty tool pages written by hand."""
-"""The twelve tool pages written by hand."""
+"""The twenty-two tool pages written by hand."""
 PRACTICE = (
     "board-assembly",
+    "board-completion",
     "board-emc",
     "board-floorplan",
     "board-grounds",
@@ -74,16 +75,16 @@ PRACTICE = (
     "board-schematic",
     "board-workflow",
 )
-"""The eleven practice pages written by hand: design practice, not features."""
+"""The twelve practice pages written by hand: design practice, not features."""
 FEATURES = ("signal-topologies", "starter-blocks", "device-symbols", "equivalent-s")
 WRITTEN = (*TOOLS, *PRACTICE, *FEATURES)
-"""The thirty-five pages written by hand."""
-WRITTEN = (*TOOLS, *PRACTICE)
-"""The twenty-three pages written by hand."""
+"""The thirty-eight pages written by hand."""
 GENERATED = guide.GENERATED_TOPICS
 RUN_TAGS = ("fenolite-loop", "fenolite-cmd", "fenolite-recipe")
 """The tags whose lines are commands: a public command needs a line in one of them."""
-WRITTEN_LINES, WRITTEN_BYTES, GENERATED_LINES, START_LINES, FOLDER_BYTES = 250, 12_000, 800, 200, 400_000
+WRITTEN_LINES, WRITTEN_BYTES, GENERATED_LINES, START_LINES, FOLDER_BYTES = 250, 12_000, 800, 200, 420_000
+START_BYTES = 12_500
+"""The start page's byte budget (change c0370: the index of the router pages)."""
 KICAD_TARGETS = ("9", "10")
 LABELS = ("KICAD-VERIFIED", "ORACLE-VERIFIED", "CORPUS-VERIFIED", "ALTIUM-VERIFIED", "INFERRED", "UNVERIFIED")
 RULE = "adds a tested line to a page of the agent guide"
@@ -105,6 +106,7 @@ HOME: Mapping[str, tuple[str, ...]] = {
     "placement": ("place", "pads", "neighbors", "region"),
     "routing": ("route", "tidy", "fill", "net", "fetch"),
     "route-proposals": ("route",),
+    "route-search": ("route",),
     "rules": ("analyze",),
     "checks": ("check", "ready", "explain", "netlist", "parity", "doctor", "capabilities"),
     "files": ("inspect", "diff", "equivalent", "roundtrip", "fmt", "restore", "view", "import"),
@@ -121,6 +123,10 @@ HOME: Mapping[str, tuple[str, ...]] = {
 before the change that adds it) is not asked for."""
 
 TEACHES: Mapping[str, tuple[str, ...]] = {
+    "route-search": ("search=fallback", "search-max-vias=N", "search-role-limit", "result.role_fields"),
+    "board-completion": (
+        "result.completion", "post-fill connectivity", "not-attempted", "separate transactions",
+    ),
     "model-versions": (
         "schema_version", "0 -> 1.0", "model.migrated", "result.steps", ".bak", "FEN-3002", "INFERRED",
     ),
@@ -425,6 +431,10 @@ def budget_problems(files: Iterable[guide.SkillFile]) -> list[str]:
         if file.path == "SKILL.md":
             if lines >= START_LINES:
                 problems.append(f"{file.path}: {lines} lines; the start page stays under {START_LINES}")
+            if len(file.data) > START_BYTES:
+                problems.append(
+                    f"{file.path}: {len(file.data)} bytes; the start page has at most {START_BYTES}"
+                )
         elif topic in GENERATED:
             if lines > GENERATED_LINES:
                 problems.append(f"{file.path}: {lines} lines; a generated page has at most {GENERATED_LINES}")
@@ -525,12 +535,7 @@ def test_topics_load() -> None:
     pages = guide.pages()
     topics = [page.topic for page in pages]
     assert topics == [guide.START, *sorted((*WRITTEN, *GENERATED))]
-    assert len(TOOLS) == 20 and len(PRACTICE) == 11 and len(GENERATED) == 8
-    """Scenario "The twenty-three pages load"."""
-    pages = guide.pages()
-    topics = [page.topic for page in pages]
-    assert topics == [guide.START, *sorted((*WRITTEN, *GENERATED))]
-    assert len(TOOLS) == 12 and len(PRACTICE) == 11 and len(GENERATED) == 2
+    assert len(TOOLS) == 22 and len(PRACTICE) == 12 and len(GENERATED) == 8
     for page in pages:
         assert page.title and page.summary and "\n" not in page.summary, page.topic
         assert page.text.startswith(f"# {page.title}\n"), page.topic
@@ -752,7 +757,12 @@ def test_budget_holds() -> None:
     ]
     assert budget_problems([guide.SkillFile("SKILL.md", b"line\n" * START_LINES)])
     assert any(
-        "stays under 400000" in p for p in budget_problems([guide.SkillFile("x.bin", b"x" * FOLDER_BYTES)])
+        f"at most {START_BYTES}" in p
+        for p in budget_problems([guide.SkillFile("SKILL.md", b"x" * (START_BYTES + 1))])
+    )
+    assert any(
+        f"stays under {FOLDER_BYTES}" in p
+        for p in budget_problems([guide.SkillFile("x.bin", b"x" * FOLDER_BYTES)])
     )
 
 
@@ -960,10 +970,158 @@ def test_coverage_rule_is_stated_for_contributors() -> None:
             assert words in flat, words
 
 
+def test_bounded_search_options_have_tested_agent_instructions() -> None:
+    """c0365: teach every search option, explicit acceptance, refusals and limits."""
+    page = guide.page("route-search")
+    for word in (
+        "search=fallback",
+        "search=only",
+        "search=off",
+        "search-grid=LENGTH",
+        "search-max-states=N",
+        "search-max-vias=N",
+        "source=search",
+        "state-limit",
+        "budget",
+        "cancelled",
+        "search-unsupported",
+        "search-geometry",
+        "--accept",
+        "--confirm --plan",
+        "RoutingResult.log",
+        'extra["cancelled"]',
+    ):
+        assert word in page.text, word
+    assert cmd_problems(page) == []
+
+
+def test_role_search_inputs_and_facts_have_tested_instructions() -> None:
+    """c0366: teach user limits, conservative facts and final refusal reasons."""
+    page = guide.page("route-search")
+    for word in (
+        "--requirements FILE",
+        "result.role_fields",
+        "facts.role_fields",
+        "fingerprint",
+        "provenance",
+        "limits",
+        "preferences",
+        "unknowns",
+        "missing_limits",
+        "input_fingerprint",
+        "input_provenance",
+        "confirmed_reference_length_lower_bound_nm",
+        "unconfirmed_reference_length_nm",
+        "switching_exposure_upper_bound_nm",
+        "search-role-limit",
+        "search-role-stale",
+        "search-role-refused",
+        "saved fill",
+        "invalidate the reviewed plan",
+    ):
+        assert word in page.text, word
+    assert cmd_problems(page) == []
+
+
+def test_negotiated_bundles_have_tested_agent_instructions() -> None:
+    page = guide.page("route-proposals")
+    for text in (
+        "negotiate=on",
+        "negotiate=off",
+        "negotiate-max-rounds=N",
+        "result.bundles",
+        "fingerprint",
+        "members",
+        "subjects",
+        "bundle",
+        "result.next",
+        "--accept",
+        "--reject",
+        "--replay [BUNDLE]",
+        "--forget BUNDLE",
+        "--requirements FILE",
+        "FEN-2001",
+        "FEN-4002",
+        "negotiate-subjects",
+        "negotiate-unsupported",
+        "negotiate-round-limit",
+        "negotiate-judge-missing",
+        "negotiate-refused",
+        'extra["bundle_check"]',
+        "fenolite.route-decisions.v0",
+        "optional `bundles` key",
+    ):
+        assert text in page.text, text
+    assert cmd_problems(page) == []
+
+
+def test_external_candidates_have_tested_agent_instructions() -> None:
+    page = guide.page("route-proposals")
+    for text in (
+        "--propose-with ROUTER",
+        "external_candidates",
+        "projection",
+        "local_only",
+        "automatic_acceptance",
+        "source",
+        "external:<router>",
+        "tool",
+        "version",
+        "inputs",
+        "deterministic=false",
+        "result.external.requested",
+        "refusals",
+        "not_attempted",
+        "details",
+        "FEN-6001",
+        "FEN-4002",
+        "full through-via barrels",
+        "staged bytes",
+        "external-topology-changed",
+        "external-copper-changed",
+        "external-scope",
+        "external-incomplete",
+        "900 seconds",
+        "unconfirmed",
+        "not exhaustive",
+    ):
+        assert text in page.text, text
+    assert cmd_problems(page) == []
+
+
+def test_proposal_viewer_has_tested_agent_instructions() -> None:
+    page = guide.page("route-proposals")
+    for text in (
+        "--proposals FILE",
+        "--serve",
+        "--allow-actions",
+        "result.controls",
+        "fenolite.proposal_controls.v0",
+        "router_options",
+        "external_routers",
+        "candidate_limit",
+        "requirements",
+        "timeout",
+        "portable",
+        "sha256",
+        "stale",
+        "unknown_geometry",
+        "ends",
+        "drill",
+        "hidden members",
+        "explicitly confirm",
+        "read-only",
+    ):
+        assert text in page.text, text
+    assert cmd_problems(page) == []
+
+
 def test_every_reference_page_within_byte_limit():
     # the name reference is bounded by its line budget (GENERATED_LINES); the command pages are split
     for file in guide.skill_files():
-        if file.path != "references/dsl-reference.md":
+        if file.path == "SKILL.md":
+            assert len(file.data) <= START_BYTES, file.path
+        elif file.path != "references/dsl-reference.md":
             assert len(file.data) <= WRITTEN_BYTES, file.path
 
 
@@ -1142,86 +1300,3 @@ def test_model_migration_recipe_behaves_as_written(tmp_path: Path, no_tools: Non
     blocks = [block for block in guide.blocks(guide.page("model-versions")) if block.tag == "fenolite-recipe"]
     assert len(blocks) == 1
     assert recipe_problems(blocks[0], tmp_path / "sandbox") == []
-def test_bounded_search_options_have_tested_agent_instructions() -> None:
-    """c0365: teach every search option, explicit acceptance, refusals and limits."""
-    page = guide.page("board-routing")
-    for word in (
-        "search=fallback",
-        "search=only",
-        "search=off",
-        "search-grid=LENGTH",
-        "search-max-states=N",
-        "search-max-vias=N",
-        "source=search",
-        "state-limit",
-        "budget",
-        "cancelled",
-        "search-unsupported",
-        "search-geometry",
-        "--accept",
-        "--confirm --plan",
-        "RoutingResult.log",
-        'extra["cancelled"]',
-    ):
-        assert word in page.text, word
-    assert cmd_problems(page) == []
-
-
-def test_role_search_inputs_and_facts_have_tested_instructions() -> None:
-    """c0366: teach user limits, conservative facts and final refusal reasons."""
-    page = guide.page("board-routing")
-    for word in (
-        "--requirements FILE",
-        "result.role_fields",
-        "facts.role_fields",
-        "fingerprint",
-        "provenance",
-        "limits",
-        "preferences",
-        "unknowns",
-        "missing_limits",
-        "input_fingerprint",
-        "input_provenance",
-        "confirmed_reference_length_lower_bound_nm",
-        "unconfirmed_reference_length_nm",
-        "switching_exposure_upper_bound_nm",
-        "search-role-limit",
-        "search-role-stale",
-        "search-role-refused",
-        "saved fill",
-        "invalidate the reviewed plan",
-    ):
-        assert word in page.text, word
-    assert cmd_problems(page) == []
-
-
-def test_negotiated_bundles_have_tested_agent_instructions() -> None:
-    page = guide.page("route-proposals")
-    for text in (
-        "negotiate=on",
-        "negotiate=off",
-        "negotiate-max-rounds=N",
-        "result.bundles",
-        "fingerprint",
-        "members",
-        "subjects",
-        "bundle",
-        "result.next",
-        "--accept",
-        "--reject",
-        "--replay [BUNDLE]",
-        "--forget BUNDLE",
-        "--requirements FILE",
-        "FEN-2001",
-        "FEN-4002",
-        "negotiate-subjects",
-        "negotiate-unsupported",
-        "negotiate-round-limit",
-        "negotiate-judge-missing",
-        "negotiate-refused",
-        'extra["bundle_check"]',
-        "fenolite.route-decisions.v0",
-        "fenolite.route-decisions.v1",
-    ):
-        assert text in page.text, text
-    assert cmd_problems(page) == []

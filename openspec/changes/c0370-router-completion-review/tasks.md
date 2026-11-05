@@ -1,0 +1,52 @@
+# Implementation tasks
+
+Planning note (2026-11-03): all tasks below are open. Proof paths name tests to create.
+Set CI_RUN_ID to the exact-head run when executing the closing CI proof.
+Each task is at most one design-day; split oversized work before starting it. Run proofs in order.
+A passing focused test does not replace required exact-head CI or maintainer-only evidence.
+
+- [x] 1. Reconcile phase/execution order in roles, roadmap and a tested agent recipe using existing commands.
+  Proof: `uv run pytest tests/unit/routing/test_workflow_docs.py -q`.
+  2026-11-03: exit 0; 2 workflow tests and 57 guide tests passed (59 combined). The real CLI parser validates every recipe line; tests require scoped tidy, reviewed stages and post-fill checks before output. Initial proofs caught a missing export output and a test parser setup error; both were corrected before the passing run. No integrated/native completion claim.
+
+- [x] 2. Author fixed-seed two/four-layer acceptance generators and assertions without third-party board data.
+  Proof: `uv run pytest tests/unit/routing/test_completion_fixtures.py -q`. Add a dated result note only after success.
+  2026-11-04: exit 0; 15 passed. `examples/routing/acceptance.py` (authored, CC0) writes 4–160-part two/four-layer boards from its own SplitMix64 mixer (published seed-0 outputs checked); script SHA-256 of seeds (1, 2, 40) and (1, 4, 150) pinned and equal on Python 3.11 and 3.13; bounds refused; built 13- and 150-part boards hold every part in its own cell, every net on two or more pads and the declared zones. First run failed on empty golden hashes, a list-valued `placed` and the KiCad board-frame offset; all three were test corrections.
+
+- [x] 3. Add truthful completion facts and tests for rejected, unknown, unattempted and still-open subjects.
+  Proof: `uv run pytest tests/unit/routing/test_completion_report.py -q`. Add a dated result note only after success.
+  2026-11-04: exit 0; 15 passed. Additive `result.completion` of `route --propose` (`routing/completion.py`): `state` `open`/`unchecked`, physical `open`, `fill` provenance, every subject in exactly one of `proposed`, `unknown`, `no-candidate`, `rejected`, `not-attempted`, `checks: not-run`, `complete: false`. Authored benches prove every-candidate and whole-proposal rejection keep the opens and report incomplete, a walled subject is `no-candidate`, unselected subjects are `not-attempted`; the budget-cut test covers `unknown`. No new FEN or finding code.
+
+- [x] 4. Prove reviewed stages, scoped tidy, manual/locked copper preservation and per-stage cancellation/recovery.
+  Proof: `uv run pytest tests/kicad/routing/test_completion_workflow.py -q`. Add a dated result note only after success.
+  2026-11-04: exit 0; 5 passed on local `kicad-cli` 10.0.6 and 5 passed on KiCad 9.0.9 (pinned image `kicad/kicad:9.0.9@sha256:e638b79b…`, run locally; CI still to confirm). Authored board `tests/_completion_project.py`: accept SIG, tidy scoped to SIG, second pass, accept SECOND as separate reviewed transactions on two and four layers; hand-drawn (unmarked) and locked copper keep every item although an unscoped chamfer plans to cut the bend; DRC opens 2 → 1 → 0 with no violation type growing; a signal during the accept or tidy write leaves every file's bytes and the same reviewed plan then writes. The first run exposed that a subject stopped by a bound before any candidate was reported `no-candidate`: it is now `unknown` (`STOPPED` reasons `budget`, `cancelled`, `state-limit`, `negotiate-round-limit`), proven by `search-max-states=1`; guide and `docs/routing.md` say so. First runs failed on a test-side receipt key only.
+
+- [x] 5. After c0365-c0369, exercise search, role costs, bundles, external candidates and viewer review together on small authored boards.
+  Proof: `uv run pytest tests/kicad/routing/test_completion_families.py -q`. Add a dated result note only after success.
+  2026-11-04: exit 0; 2 passed on local kicad-cli 10.0.6 (40.4 s) and 2 passed in the pinned KiCad 9.0.9 image run locally (Python 3.11). Authored board `tests/_families_project.py`, two and four layers: role-aware bounded search (sensitive SIG over a saved ground reference, `role_fields` with provenance) negotiates the crossing SIG/SECOND pair into one bundle; `--propose-with kicadroutingtools` without the tool exits 6 (`FEN-6001`) and writes nothing; the served viewer refuses a lone member (400) and confirms the whole bundle; a second ordinary search pass closes EXTRA. KiCad DRC opens 3 -> 1 -> 0, no violation type growing; completion stays truthful (EXTRA `not-attempted` while unselected, finally `unchecked` with 0 open and `complete` false). The pinned external tools are judged only in the router CI job (c0368 task 5).
+
+- [x] 6. Prove KiCad-to-Altium locked-copper readback without claiming native validation; retain native checks as a separately recorded maintainer gate.
+  Proof: `uv run pytest tests/unit/altium/test_router_completion_readback.py -q`. Add a dated result note only after success.
+  2026-11-04: exit 0; 2 passed (two and four layers). Both routes of the authored completion board are accepted by reviewed plans, the board is converted (`convert --to altium`, reviewed plan) and the PcbDoc read back by Fenolite's Altium reader: every KiCad track returns once with net, layer, width and lock (accepted SIG/SECOND and BLOCK locked, the hand-drawn MANUAL bend unlocked), each end within one Altium unit after one translation fitted on uniquely identified tracks. Conversion evidence is INFERRED; opening the document in Altium Designer stays a separate maintainer gate. The first run assumed a y flip that the reader does not apply; corrected in the test.
+
+- [ ] 7. Record bounded scale measurements up to about 150 authored parts on two/four layers in CI; report failures and set thresholds from measurements.
+  Proof: `uv run pytest tests/kicad/routing/test_completion_scale.py -q`. Add a dated result note only after success.
+  2026-11-04 (open: needs the CI record): the test is written and wired into the kicad-10 and kicad-9 jobs (`FENOLITE_SCALE_RECORD`, artifacts `router-scale-kicad-10`/`-9`). Locally the four 40-part cases passed on kicad-cli 10.0.6 (4 passed, 115.6 s); KiCad's unconnected count as built equals `completion.open` (58) on each. Local one-core telemetry for 150 parts (script, not the CI record): shapes 228 s (2 layers) and 212 s (4 layers); search 306 s (2 layers) and the whole 600 s budget (4 layers, 19 subjects `unknown`, 9 `state-limit`); 148 subjects `search-unsupported` in both search runs. No threshold is set before the CI measurements.
+
+- [x] 8. Document every new public option, result field and finding in the user docs and tested agent guide; regenerate it and keep each page within 12000 bytes.
+  Proof: `uv run python tools/gen_agent_guide.py && uv run pytest tests/unit/agent/test_pages.py -q`. Add a dated result note only after success.
+  2026-11-04: generator exit 0; 112 passed. c0370 adds one public result field and no option or finding: `result.completion` is documented in `docs/routing.md` ("Proposals", bullet "Completion"), `docs/cli-contract.md` (proposal mode) and the tested `board-completion` page; `tests/consistency` 846 passed, 42 skipped. Every reference page stays within 12 000 bytes except the generated `dsl-reference`, whose budget is 800 lines.
+
+  Note on task 8, 2026-11-04 (maintainer decision after the cac-next merge): budgets raised instead of trimming router teaching: start page 12 500 bytes, skill folder 420 000 bytes (delta `specs/agent-guide`), brief capabilities 300 bytes per command plus 3 500 (delta in c0368); `schemas/frozen-v0.json` re-frozen for `route.v0` and `capabilities.v0` only. Proof: `uv run pytest tests/unit/agent tests/unit/cli/test_capabilities_brief.py tests/unit/test_schema_drift.py tests/consistency -q` (1417 passed, 42 skipped) and `gen_schemas.py --check` exit 0.
+
+- [ ] 9. Run focused proofs and make check-fast, inspect exit codes, then record required full CI jobs green on the exact head before merge/archive; keep implementation unclosed until CI is available.
+  Proof: `make check-fast && git diff --check && test "$(gh run view "$CI_RUN_ID" --json headSha --jq .headSha)" = "$(git rev-parse HEAD)" && test "$(gh run view "$CI_RUN_ID" --json conclusion --jq .conclusion)" = success && gh run view "$CI_RUN_ID" --json headSha,status,conclusion,jobs`. Add a dated result note only after success.
+
+  2026-11-03: local make check-fast exit 0; 15893 passed, 43 skipped in 818.23 s on the stabilized combined tree. Exact-head full CI is unavailable without an authorized push; this task remains open. Skips are not passing native checks.
+
+- [ ] 10. Update evidence hypotheses/labels with authored inputs, hashes, oracle versions, limitations and the exact CI run; keep unperformed native or maintainer checks explicitly open.
+  Proof: `uv run python tools/gen_evidence_matrix.py --check`. Add a dated result note only after success.
+
+- [ ] 11. Update CHANGELOG under Unreleased for delivered behavior only and strictly validate the change; if the destination release guard requires an empty Unreleased, leave this task open until the maintainer authorizes reconciliation.
+  Proof: `npx -y @fission-ai/openspec validate c0370-router-completion-review --strict && git diff --check`. Add a dated result note only after success.
+
