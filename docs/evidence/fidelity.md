@@ -218,3 +218,12 @@ Heavy rows (task 2.2), measured locally with `FENOLITE_HEAVY=1` in 306 s, peak r
   manifest does not fetch. It stays pending as a refusal.
 
 The kicad-10 CI job sets `FENOLITE_HEAVY=1`, so both rows run there as soon as they leave `pending`.
+
+## Teardrop proof scope — 2026-11-05 (c0413)
+
+`kicad-demo-9-0-9-1-pcb-01`, strict round trip with KiCad 10.0.6 on `origin/dev` `3675515a` plus c0413: the
+derived-cache proof now qualifies both sides (a custom pad at 20°, a `convexhull` custom pad, a cache held
+only by a custom pad's line primitive). Status `equal`: 6 raw caches against 0, 6 regenerated on each side,
+one exact-geometry SHA-256. The teardrop `7:opaque-count` is gone; `8:render-pixels=1` remains, owned by
+c0414. Native contact controls for the widened parents: `docs/formats/kicad/frame.md`, "Turned and custom
+parent contact controls (c0413)".

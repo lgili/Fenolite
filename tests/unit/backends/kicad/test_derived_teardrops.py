@@ -112,7 +112,8 @@ def test_track_crossing_parent_body_with_both_endpoints_outside_is_exactly_quali
     assert not derived.qualifies(
         board(parent=parent.replace("(start 0 1) (end 2 1)", "(start 0 1.6) (end 2 1.6)"))
     )
-    assert not derived.qualifies(board(parent=PARENT.replace("(at 1 1)", "(at 1 1 45)")))
+    # c0413: a non-quarter pose qualifies when its bounded contact test settles.
+    assert derived.qualifies(board(parent=PARENT.replace("(at 1 1)", "(at 1 1 45)")))
 
 
 @pytest.mark.parametrize(
@@ -154,7 +155,7 @@ def test_exact_circle_tangent_and_quarter_turn_rect_use_no_epsilon():
     above = Fraction(1) + Fraction(1, 10**12)
     assert not circle.intersects((Fraction(-2), above), (Fraction(2), above))
     rectangle = derived._Parent(
-        (Fraction(0), Fraction(0)), "N", ("F.Cu",), "rect", (Fraction(4), Fraction(2)), 1
+        (Fraction(0), Fraction(0)), "N", ("F.Cu",), "rect", (Fraction(4), Fraction(2)), 90_000_000
     )
     assert rectangle.contains((Fraction(1), Fraction(2)))
     assert not rectangle.contains((Fraction(2), Fraction(1)))
@@ -242,15 +243,65 @@ def test_explicit_custom_anchor_subset_can_qualify_without_replacing_physical_pr
     assert source.nodes("footprint")[0].nodes("pad")[0].find("primitives") is not None
 
 
-def test_custom_primitive_contact_outside_explicit_anchor_does_not_qualify():
+def _primitive(primitive: str, pose: str = "(at 0 0)", footprint: str = "(at 1 1)") -> str:
     custom = PARENT.replace("smd circle", "smd custom").replace(
         '(net "N") (teardrops',
-        "(options (clearance outline) (anchor rect)) "
-        '(primitives (gr_circle (center 4 0) (end 4.5 0) (width 0) (fill yes))) (net "N") (teardrops',
+        f'(options (clearance outline) (anchor rect)) (primitives {primitive}) (net "N") (teardrops',
     )
-    custom = custom.replace("(start 1 1) (end 1 3)", "(start 5 1) (end 5 3)")
-    shifted = ZONE.replace("(xy 0 0) (xy 2 0) (xy 1 2)", "(xy 4 0) (xy 6 0) (xy 5 2)")
-    assert not derived.qualifies(board(shifted, custom))
+    custom = custom.replace("(at 0 0)", pose).replace("(at 1 1)", footprint)
+    return custom.replace("(start 1 1) (end 1 3)", "(start 5 1) (end 5 3)")
+
+
+SHIFTED = ZONE.replace("(xy 0 0) (xy 2 0) (xy 1 2)", "(xy 4 0) (xy 6 0) (xy 5 2)")
+
+
+@pytest.mark.parametrize(
+    "primitive",
+    [
+        "(gr_circle (center 4 0) (end 4.5 0) (width 0) (fill yes))",
+        "(gr_line (start 0 0) (end 4 0) (width 1))",
+        "(gr_poly (pts (xy 3.5 -0.5) (xy 4.5 -0.5) (xy 4.5 0.5) (xy 3.5 0.5)) (width 0) (fill yes))",
+        "(gr_rect (start 3.5 -0.5) (end 4.5 0.5) (width 0) (fill yes))",
+        "(gr_circle (center 4 0) (end 4.5 0) (stroke (width 0)) (fill solid))",
+    ],
+)
+def test_custom_primitive_copper_outside_the_anchor_attaches_its_cache(primitive):
+    """c0413: a line stroke, a filled circle, polygon or rectangle is a known copper subset."""
+    assert derived.qualifies(board(SHIFTED, _primitive(primitive)))
+
+
+@pytest.mark.parametrize(
+    "primitive",
+    [
+        "(gr_circle (center 4 0) (end 4.5 0) (width 0) (fill no))",
+        "(gr_circle (center 4 0) (end 4.5 0) (width 0))",
+        "(gr_arc (start 3.5 0) (mid 4 0.5) (end 4.5 0) (width 1))",
+        "(gr_line (start 0 0) (end 4 0) (width 0))",
+        "(gr_line (start 0 0) (end 4 0))",
+        "(gr_poly (pts (xy 3.5 -0.5) (arc (start 4.5 -0.5) (mid 5 0) (end 4 0.5))) (fill yes))",
+        "(gr_bbox (start 3.5 -0.5) (end 4.5 0.5))",
+    ],
+)
+def test_unbounded_or_unfilled_primitives_add_no_parent_copper(primitive):
+    assert not derived.qualifies(board(SHIFTED, _primitive(primitive)))
+
+
+def test_primitives_turn_with_the_pad_and_stay_off_bottom_footprints():
+    # (4, 0) in the pad frame lies at (0, -4) from the pad when the pad turns by 90°.
+    line = "(gr_line (start 0 0) (end 4 0) (width 1))"
+    turned = _primitive(line, "(at 0 0 90)").replace("(start 5 1) (end 5 3)", "(start 1 -3) (end 1 -5)")
+    zone = ZONE.replace("(xy 0 0) (xy 2 0) (xy 1 2)", "(xy 0 -3) (xy 2 -3) (xy 1 -5)")
+    assert derived.qualifies(board(zone, turned))
+    assert not derived.qualifies(board(SHIFTED, _primitive(line, "(at 0 0 90)")))
+    back = _primitive(line).replace('(layer "F.Cu")', '(layer "B.Cu")', 1)
+    assert not derived.qualifies(board(SHIFTED, back))
+
+
+def test_a_polygon_primitive_needs_an_exact_pose():
+    poly = "(gr_poly (pts (xy 3.5 -0.5) (xy 4.5 -0.5) (xy 4.5 0.5) (xy 3.5 0.5)) (width 0) (fill yes))"
+    assert derived.qualifies(board(SHIFTED, _primitive(poly, "(at 0 0 180)", "(at 9 1 180)")))
+    # At 30° only the anchor and the bounded strokes count; this cache touches the polygon alone.
+    assert not derived.qualifies(board(SHIFTED, _primitive(poly, "(at 0 0 30)", "(at 1 1 30)")))
 
 
 @pytest.mark.parametrize(
@@ -338,3 +389,72 @@ def test_inexact_or_malformed_offsets_are_not_rounded_or_guessed(offset):
         "(size 1 1)", f"(size 1 1) (drill 0.3 {offset})"
     )
     assert not derived.qualifies(board(parent=parent))
+
+
+def test_convex_hull_clearance_keeps_the_anchor_as_copper():
+    custom = PARENT.replace("smd circle", "smd custom").replace(
+        '(net "N") (teardrops', '(options (clearance convexhull) (anchor rect)) (net "N") (teardrops'
+    )
+    assert derived.qualifies(board(parent=custom))
+
+
+def test_non_quarter_rect_uses_its_turned_body():
+    from fractions import Fraction
+
+    turned = derived._Parent(
+        (Fraction(0), Fraction(0)),
+        "N",
+        ("F.Cu",),
+        "rect",
+        (Fraction(4), Fraction(2, 5)),
+        30_000_000,
+        margin=derived.MARGIN,
+    )
+    # Along the turned long side (cos 30°, -sin 30°): inside, though outside the unturned body.
+    assert turned.contains((Fraction(13, 10), Fraction(-3, 4)))
+    # Inside the unturned body, outside the turned one.
+    assert not turned.contains((Fraction(3, 2), Fraction(0)))
+    assert turned.intersects((Fraction(13, 10), Fraction(-3, 4)), (Fraction(5), Fraction(5)))
+    assert not turned.intersects((Fraction(3, 2), Fraction(0)), (Fraction(3, 2), Fraction(1, 10)))
+
+
+def test_a_contact_the_bound_cannot_settle_refuses():
+    from fractions import Fraction
+
+    circle = derived._Parent(
+        (Fraction(0), Fraction(0)),
+        "N",
+        ("F.Cu",),
+        "circle",
+        (Fraction(2), Fraction(2)),
+        30_000_000,
+        margin=derived.MARGIN,
+    )
+    assert circle.contains((Fraction(1, 2), Fraction(0)))
+    with pytest.raises(ValueError, match="undecidable"):
+        circle.contains((Fraction(1), Fraction(0)))
+    with pytest.raises(ValueError, match="error bound"):
+        derived._Parent(
+            (Fraction(0), Fraction(0)), "N", ("F.Cu",), "circle", (Fraction(2), Fraction(2)), 30_000_000
+        )
+    far = derived._Parent(
+        (Fraction(5000), Fraction(0)), "N", ("F.Cu",), "circle", (Fraction(2), Fraction(2)), 30_000_000,
+        margin=derived.MARGIN,
+    )  # fmt: skip
+    with pytest.raises(ValueError, match="bounded board frame"):
+        far.contains((Fraction(5000), Fraction(0)))
+
+
+@pytest.mark.parametrize("angle", ("30.0000001", "1e-7"))
+def test_a_finer_than_microdegree_pose_refuses(angle):
+    assert not derived.qualifies(board(parent=PARENT.replace("(at 1 1)", f"(at 1 1 {angle})")))
+
+
+def test_turned_footprint_offsets_place_the_pad_on_the_turned_frame():
+    # Footprint at 30°, pad offset (2, 0): the pad lies at (1 + 2cos30°, 1 - 2sin30°) = (2.732.., 0).
+    parent = PARENT.replace("(at 1 1)", "(at 1 1 30)").replace("(at 0 0)", "(at 2 0 30)")
+    parent = parent.replace("(start 1 1) (end 1 3)", "(start 2.732 0) (end 2.732 -2)")
+    zone = ZONE.replace("(xy 0 0) (xy 2 0) (xy 1 2)", "(xy 2.2 0.2) (xy 3.2 0.2) (xy 2.7 -1)")
+    assert derived.qualifies(board(zone, parent))
+    unturned = parent.replace("(start 2.732 0) (end 2.732 -2)", "(start 3 1) (end 3 3)")
+    assert not derived.qualifies(board(zone, unturned))

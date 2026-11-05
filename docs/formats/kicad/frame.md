@@ -60,6 +60,24 @@ anchor as a conservative contact subset; it does not approximate extra
 primitive copper or certify DRC safety. Actual input/driver/report digests and
 counts are in docs/evidence/project-custom-anchor-proof.json.
 
+### Turned and custom parent contact controls (c0413)
+
+ORACLE-VERIFIED(kicad-cli9.0.9, kicad-cli10.0.6), S-1740: eight authored CC0
+cases (`tests/kicad/board/test_rotated_custom_parent_oracle.py`, run locally on
+2026-11-05 on the pinned 9.0.9 image and the macOS 10.0.6 `kicad-cli`) report
+native `shorting_items` exactly where `derived_teardrops` predicts contact. A
+4 × 0.4 mm rectangle at 30° shorts a probe inside its turned body and not one
+inside only its unturned body, so a pad's absolute angle turns its body
+counter-clockwise in the Y-down frame. A custom pad's 1 mm `gr_line` primitive
+is given in the pad frame: it turns with the pad at 30° and 90°, and its ends
+are round caps of half its width (a probe 0.3 mm past the end and 0.3 mm aside
+shorts; one 0.6 mm past does not). A custom pad with `(clearance convexhull)`
+keeps its rectangular anchor as copper. A probe track that touches only the
+target pad takes the target's net on load, as a via does (`H-K-VIA-RENET`), so
+each probe starts at a pad of its own net. Only the anchor and line, filled
+circle, polygon and rectangle primitives are used as a contact subset; arcs and
+the stroke beyond a filled shape are not approximated.
+
 ### Shifted rectangle parent controls (c0340)
 
 ORACLE-VERIFIED(kicad-cli10.0.6), S-1208:16authored contact cases cover
