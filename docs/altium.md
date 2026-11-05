@@ -1892,8 +1892,10 @@ previous bytes. `--drawing-spec` requires `--altium-draftsman on`; both options 
 Unreadable or malformed specifications are input errors, and reviewed plans bind their exact digest.
 
 The native gate is **closed**. `altium.draftsman-not-written` states the reason, no `.PCBDwf` is planned,
-and `result.draftsman` is null. No command option bypasses the gate. The maintainer reports on
-2026-11-01 that Altium Designer is unavailable, so no F0 save or native probe is inferred.
+and `result.draftsman` is null. No command option bypasses the gate. Gate G2 failed on 2026-11-04:
+Altium Designer 24.5.2.23 refused the minimal probe document and the shell probe (Part F, round FP), so
+change c0172 does not ship the native document. One correction round and the writer content follow in
+change c0388; until a probe opens, the gate stays closed.
 
 The candidate writer, exercised with test-only gate overrides, writes measured sheets, parameter Texts,
 Notes, assembly/drill views, a Drill Table, a Layer Stack Legend and a BOM shell. C0117's pure packing

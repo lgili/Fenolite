@@ -26,24 +26,13 @@ Every element, member and value that the Draftsman reader or writer relies on SH
 - **THEN** both writes have equal bytes, and `written_scope` of the read document equals the spec's sheets, views, tables, notes and parameter texts
 
 ### Requirement: Draftsman write gate
-`draftsman.NATIVE_WRITE` SHALL be `False` until the maintainer's probes FP1 to FP4 of Part F are recorded as passed in `docs/evidence/altium-draftsman.md`. While it is false, no build MUST plan a `.PCBDwf`.
+`draftsman.NATIVE_WRITE` SHALL be `False` until the maintainer's probes FP1 to FP4 of Part F are recorded as passed in `docs/evidence/altium-draftsman.md`. While it is false, no build MUST plan a `.PCBDwf`. Gate G2 failed on 2026-11-04 (Altium Designer 24.5.2.23 refused the minimal document FP3 and the shell FP4, S-1575 and S-1581), so this change ships with the gate shut; opening it is change c0388's work.
 
 #### Scenario: Gate follows the report
 - **WHEN** `uv run pytest tests/unit/test_altium_verification_docs.py -k part_f` runs
 - **THEN** it passes only when `NATIVE_WRITE` is false or Part F records FP1 to FP4 as passed
 
-### Requirement: Fabrication sheet of a Draftsman document
-The first sheet SHALL hold a Drill Drawing View (top, Top–Bottom pair), a Drill Table, a Layer Stack Legend when the board has a stack-up, a Table of c0117's board rows, a Note of `[fab].notes` when it has any, and the title-block Texts, placed by c0117's `place` at 1:1 on the paper `choose_paper` gives.
-
-#### Scenario: Fabrication sheet of the routed blink
-- **GIVEN** the routed blink and a drawing specification with two `[fab]` notes
-- **WHEN** `uv run pytest tests/unit/lens/test_altium_draftsman.py -k fab` builds its spec
-- **THEN** sheet 1 has the title `Fabrication drawing`, one drill drawing view, one drill table, one layer stack legend, one table, one note of two entries, and no two objects overlap by the estimated sizes
-
-### Requirement: Assembly sheets of a Draftsman document
-The document SHALL hold one assembly sheet per side of `[assembly].sides` that has parts, each with a Board Assembly View of that side with designator captions, a Bill Of Materials table filtered to that view, the title-block Texts, and on the top sheet a Note of `[assembly].notes`. A do-not-populate part MUST give one `altium.not-lowered` info naming it.
-
-#### Scenario: No part on the bottom
-- **GIVEN** the routed blink with `D1` placed on the top, so that every part is on the top
-- **WHEN** its Draftsman spec is built with the default drawing specification
-- **THEN** the document has two sheets, the second holds a top assembly view and a BOM table, and no bottom sheet exists
+#### Scenario: Gate G2 failed
+- **GIVEN** Part F records FP3 and FP4 as refused by Altium Designer 24.5.2.23 on 2026-11-04
+- **WHEN** the routed blink is built with `--target altium --altium-draftsman on --drawing-spec FILE --dry-run --json`
+- **THEN** `draftsman.NATIVE_WRITE` is `False`, no `.PCBDwf` is planned, and `issues` holds `altium.draftsman-not-written` naming the gate

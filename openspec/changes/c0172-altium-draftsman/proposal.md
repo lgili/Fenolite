@@ -57,3 +57,10 @@ Size: 10 design-days; cut order and stop rules in the design.
 - Changed: `lens/altium.py`, `backends/altium/project.py`, `prjpcb.py`, `outjob.py`, `cli/cmd_build.py`, `PROVENANCE.md`, `docs/altium.md`, `docs/drawings.md`, the agent guide's `commands.md` and `altium.md`, `CHANGELOG.md`.
 - A build without `--altium-draftsman on` writes the bytes it wrote before.
 - Depends on c0087/c0138 (output job), c0117 (drawing specification and layout) and c0101 (stack-up). Nothing open blocks it.
+
+## Found on 2026-11-04
+
+- **Gate G2 failed.** Altium Designer 24.5.2.23 refused the minimal document FP3 and the shell FP4 with "Value cannot be null. Parameter name: source" (S-1575); the rebuild of S-1581 gave equal bytes, and no corrected form is known. The coordinator decided on 2026-11-04, on the maintainer's authority, that G2 failed. By Decision 9 and cut order 6 the native `.PCBDwf` is not shipped by this change, and `draftsman.NATIVE_WRITE` stays `False`.
+- **Route T is not decided.** FP5 needs a document template registered in Altium's Preferences, which was not tried, so the template route is neither shipped nor cut. Route P (project parameters without the document) is not added either.
+- **What ships, unchanged:** the reader and the census (gate G1 is GO for decoding), the writer behind the gate with its own read-back, the build options `--altium-draftsman` and `--drawing-spec`, which give `altium.draftsman-not-written` naming the gate, and the output-job and project-file plumbing behind the gate.
+- **Moved to change c0388** (`openspec/changes/c0388-draftsman-native-document/`): one correction round of FP3/FP4 and of FP5 through a registered template, then the probe report (task 3.3), the writer content (4.1), the lens content (4.2), the acceptance kit and run (6.1, 6.2) and the gate (6.3), with the requirements "Fabrication sheet of a Draftsman document", "Assembly sheets of a Draftsman document" and "Draftsman scope round trip". The requirement "Draftsman write gate" here states the failed gate and gains the scenario "Gate G2 failed".

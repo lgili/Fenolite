@@ -7,6 +7,12 @@ All notable changes to Fenolite are documented here. The format follows
 ## [Unreleased]
 
 - Close c0328 tasks 2.2 and 2.3 as a recorded negative result. Two full source-bound runs refuse at realization with byte-identical certificates, and the root review routes production realization through c0332 and c0383. No source, model or baseline changed. Close c0371 3.2 and c0379 2.2 with a private rerun on cac/lote-15: the issue codes and counts match the previous run, with no new loss.
+- **Native Draftsman document cut from c0172; gate G2 failed** (c0172, task 6.5): Altium Designer
+  24.5.2.23 refused the minimal document FP3 and the shell FP4 (S-1575, S-1581), so by Decision 9 the
+  native `.PCBDwf` is not shipped and `draftsman.NATIVE_WRITE` stays `False`. The reader, the census, the
+  writer behind the gate and the build options, which report `altium.draftsman-not-written`, ship
+  unchanged. The correction round, the writer content, the acceptance kit and the gate move to the new
+  change c0388. Task 1.4 is closed on round F0 (S-1574) with the scan now passing.
 - Archive c0323-build-byte-diagnostics (the per-platform byte mismatch is recorded as accepted, not resolved; CI 41853235387) and c0305-viewer-roles (viewer job green in CI 41853235387).
 - Record an evening rerun of kit group K6 on the current source in Altium 24.5.2.23 (c0215, S-1579). A Claude agent ran it at the maintainer's request. Without the exact cut, the computed pours change bytes, but `kit verify` gives the same result. K6.2 and K6.7 fail M2 with the same differences at P3 and P8, and K6.6 keeps its dead-copper finding. Altium Designer 26 is not installed in the VM, so K6.8 was not tried. No record was made, levels are unchanged, and task 7.4 stays open.
 - Prepare an external c0180 comparison packet for the native F0.5 Draftsman drawing that Altium 24.5.2.23 wrote in the agent round of 2026-11-04. It holds the viewer export, the input hashes and a checklist. No native capture is included. Tasks 2.4a and 2.4 stay open.
