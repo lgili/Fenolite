@@ -10337,6 +10337,12 @@
         "info"
       ]
     },
+    "altium.footprint-definition": {
+      "experimental": true,
+      "severities": [
+        "info"
+      ]
+    },
     "altium.footprint-extras-dropped": {
       "experimental": true,
       "severities": [
