@@ -25,17 +25,10 @@ def component_body(
     locator: str,
     section: str,
     mounted_side: Side = "top",
-    board_thickness: int | None = None,
 ) -> ComponentBody:
     """The model body of ``record`` with its outline in the footprint frame (``frame`` is the inverse of
     the footprint's placement; ``None`` in a library). Every input body is kept; unproved heights or
-    projection are marked unknown (c0099). Reader records retain native bytes, without an ext copy.
-
-    A top part's body projected from the bottom (kit case Z1, c0387) lies under the board, extruded outward
-    from the bottom face: in the mounted-face frame it spans ``-(board_thickness + overall)`` to
-    ``-(board_thickness + standoff)``. Without ``board_thickness`` (a library, or a board without a
-    stack-up) it stays unknown; a bottom part's body projected from the top is not measured and stays
-    unknown."""
+    projection are marked unknown (c0099). Reader records retain native bytes, without an ext copy."""
     overall, standoff = record.overall_height, record.standoff_height
     reasons: list[str] = []
     if overall is None or standoff is None:
@@ -46,14 +39,13 @@ def component_body(
     # S-0709 supports this ordinal interpretation, but does not prove file encoding.
     projection = record.body_projection
     projected_side = "top" if projection == 0 else "bottom" if projection == 1 else None
-    other_face = mounted_side == "top" and projected_side == "bottom"
-    if projected_side != mounted_side and not other_face:
+    if projected_side != mounted_side:
         reasons.append("unproved or different projection side")
-    elif other_face and board_thickness is None:
-        reasons.append("projection from the other face without a board thickness")
     if overall is not None and standoff is not None and overall < standoff:
         reasons.append("overall height below standoff")
-    if record.properties.text("MODEL.MODELTYPE") not in ("", "0", "1"):
+    # 0 extruded, 1 generic model, 2 cylinder, 3 sphere (S-1604). A cylinder or sphere keeps its record's
+    # outline, the square around it, so its volume is a box that holds the shape between the two heights.
+    if record.properties.text("MODEL.MODELTYPE") not in ("", "0", "1", "2", "3"):
         reasons.append("unsupported model type")
     if reasons:
         ctx.issues.append(
@@ -86,8 +78,8 @@ def component_body(
         layer=layer,
         model=model,
         name=name,
-        z_min=None if reasons else -(board_thickness or 0) - height if other_face else stand,
-        z_max=None if reasons else -(board_thickness or 0) - stand if other_face else height,
+        z_min=None if reasons else stand,
+        z_max=None if reasons else height,
         projection_unknown=bool(reasons),
     )
 

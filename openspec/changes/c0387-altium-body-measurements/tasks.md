@@ -36,6 +36,12 @@
     pytest tests/unit/backends/altium/test_body_volume_import.py -q` and `FENOLITE_ALTIUM_PART_Z_SAVED=<saved>
     FENOLITE_KIT_REVIEWED_PREFIX=<VM work folder> uv run pytest tests/unit/backends/altium/test_part_z.py -k
     saved` passed.
+  - 2026-11-05, corrected on Z1 to Z4 (coordinator, 2026-11-05): no reading gives the depth of Z1's block, so a
+    top part's body of projection 1 stays declared again, and the conversion above is withdrawn. Z2 (S-1604)
+    proves model types 2 (cylinder) and 3 (sphere): they now get the interval standoff to overall height,
+    with their record's outline, the square around the shape. Proof: `uv run pytest
+    tests/unit/backends/altium/test_body_volume_import.py -q` and the saved-file run of `test_part_z.py -k
+    saved` on Z1 to Z4 passed.
 
 ## 3. Close
 

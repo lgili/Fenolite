@@ -176,9 +176,6 @@ def read_board(doc: PcbDocument, *, file: str, sha256: str, ids: Ids) -> BoardIm
     class_ids = {c.name: c.id for c in classes}
     texts = _texts_of(doc)
     bodies = _bodies(doc, ctx)
-    # The thickness for bodies projected from the other face, read without the import's ids or issues.
-    probe = stackup(doc.board, layers, Ids(ids.kind, ids.evidence), None, [])
-    thickness = None if probe is None else probe.thickness()
     owned = copper.owned_primitives(doc)
     placed: set[int] = set()
     """The component indexes that became a footprint: their primitives are its items (change c0126)."""
@@ -289,7 +286,6 @@ def read_board(doc: PcbDocument, *, file: str, sha256: str, ids: Ids) -> BoardIm
                 locator=f"{BODY_STORAGE}/Data#{body_index}",
                 section="bodies",
                 mounted_side=side,
-                board_thickness=thickness,
             )
             made_bodies.append(found)
             ctx.census.map("bodies")
