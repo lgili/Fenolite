@@ -7,7 +7,7 @@ from fractions import Fraction as F
 import pytest
 
 from fenolite.geometry.boolean import _exact_realization as realization
-from fenolite.geometry.boolean._exact_noding import Budget
+from fenolite.geometry.boolean._exact_noding import Budget, ExactDeadline
 from fenolite.geometry.errors import GeometryError
 
 WIDE = tuple(F(1, (1 << p) - 1) for p in (1013, 1019, 1021, 1031, 1033))
@@ -59,6 +59,6 @@ def test_enclosure_shares_work_storage_and_deadline():
             realization._piece_exact_area(WIDE, True, Budget(replace(Limits(), **{field: 0})))
     now = [0.0]
     budget = Budget(clock=lambda: now[0])
-    now[0] = 241
-    with pytest.raises(GeometryError, match="deadline"):
+    now[0] = 1201
+    with pytest.raises(ExactDeadline, match="deadline"):
         realization._piece_exact_area(WIDE, True, budget)

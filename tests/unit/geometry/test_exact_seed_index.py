@@ -8,7 +8,7 @@ from fractions import Fraction as F
 import pytest
 
 from fenolite.geometry.boolean import _exact_faces as faces
-from fenolite.geometry.boolean._exact_noding import Budget, Limits, Segment
+from fenolite.geometry.boolean._exact_noding import Budget, ExactDeadline, Limits, Segment
 from fenolite.geometry.boolean._exact_seed_index import ClosedYIndex
 from fenolite.geometry.errors import GeometryError
 
@@ -73,6 +73,6 @@ def test_construction_queries_share_visits_and_deadline():
         index.query(F(0))
     now = [0.0]
     index = ClosedYIndex(source, Budget(clock=lambda: now[0]))
-    now[0] = 241
-    with pytest.raises(GeometryError, match="deadline"):
+    now[0] = 1201
+    with pytest.raises(ExactDeadline, match="deadline"):
         index.query(F(0))

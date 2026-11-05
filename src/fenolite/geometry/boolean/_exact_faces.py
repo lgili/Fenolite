@@ -51,7 +51,7 @@ def area2(ring: Ring, budget: Budget) -> Fraction:
     result = Fraction(0)
     for i, (a, b) in enumerate(zip(ring, ring[1:] + ring[:1], strict=True)):
         if i % 256 == 0:
-            budget.check()
+            budget.check(256)
         result = checked(result + a[0] * b[1] - b[0] * a[1], 4096)
     return result
 
@@ -99,7 +99,7 @@ def _face_area(ring: Ring, budget: Budget) -> tuple[Fraction | None, int]:
     total = Fraction(0)
     for i, (a, b) in enumerate(zip(ring, ring[1:] + ring[:1], strict=True)):
         if i % 256 == 0:
-            budget.check()
+            budget.check(256)
         total += checked(a[0] * b[1] - b[0] * a[1], 4096)
         if max(abs(total.numerator).bit_length(), total.denominator.bit_length()) > 4096:
             return None, _face_sign(ring, budget)
@@ -158,7 +158,7 @@ def frames(edges: dict[Edge, Current], budget: Budget) -> Frame:
         identity = len(components)
         while todo:
             if len(points) % 256 == 0:
-                budget.check()
+                budget.check(256)
             p = todo.pop()
             if p in points:
                 continue
@@ -189,7 +189,7 @@ def frames(edges: dict[Edge, Current], budget: Budget) -> Frame:
             if current == start:
                 break
             if len(cycle) % 256 == 0:
-                budget.check()
+                budget.check(256)
         area, direction = _face_area(tuple(a for a, _ in cycle), budget)
         require(direction != 0, "zero-area face walk")
         cycles.append(tuple(cycle))
@@ -236,7 +236,7 @@ def winding(edge: Edge, segments: Sequence[ExactSegment], budget: Budget) -> Cur
 
     for i, s in enumerate(segments):
         if i % 1024 == 0:
-            budget.check()
+            budget.check(1024)
         sa = lex(s.a[1] - m[1], -n[1])
         sb = lex(s.b[1] - m[1], -n[1])
         up, down = sa <= 0 < sb, sb <= 0 < sa
@@ -279,7 +279,7 @@ def _scaled_winding(edge: Edge, segments: Sequence[Segment], value: list[int], b
     budget.visit(len(segments))
     for i, s in enumerate(segments):
         if i % 1024 == 0:
-            budget.check()
+            budget.check(1024)
         ya, yb = s.a[1] * d - y, s.b[1] * d - y
         sa = ((ya > 0) - (ya < 0)) if ya else below
         sb = ((yb > 0) - (yb < 0)) if yb else below
@@ -456,7 +456,7 @@ def boundaries(frame: Frame, values: dict[int, Current], budget: Budget) -> tupl
             back = frame.positions[b][a]
             for step in range(1, len(neighbors) + 1):
                 if step % 256 == 0:
-                    budget.check()
+                    budget.check(256)
                 candidate = (b, neighbors[(back - step) % len(neighbors)])
                 if candidate in edges:
                     following = candidate
@@ -467,7 +467,7 @@ def boundaries(frame: Frame, values: dict[int, Current], budget: Budget) -> tupl
             if current == start:
                 break
             if len(points) % 256 == 0:
-                budget.check()
+                budget.check(256)
         for ring in split_contacts(tuple(points), budget):
             trimmed = clean(ring, budget)
             require(
@@ -539,7 +539,7 @@ def bounded_area2(ring: Ring, budget: Budget) -> Fraction | None:
     result = Fraction(0)
     for i, (a, b) in enumerate(zip(ring, ring[1:] + ring[:1], strict=True)):
         if i % 256 == 0:
-            budget.check()
+            budget.check(256)
         result += checked(a[0] * b[1] - b[0] * a[1], 4096)
         if max(abs(result.numerator).bit_length(), result.denominator.bit_length()) > 4096:
             return None

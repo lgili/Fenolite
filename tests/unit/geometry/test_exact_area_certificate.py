@@ -8,7 +8,7 @@ from fractions import Fraction as F
 import pytest
 
 from fenolite.geometry.boolean import _exact_faces as exact
-from fenolite.geometry.boolean._exact_noding import Budget, Limits
+from fenolite.geometry.boolean._exact_noding import Budget, ExactDeadline, Limits
 from fenolite.geometry.errors import GeometryError
 
 
@@ -77,8 +77,8 @@ def test_local_bit_overflow_and_expired_budget_refuse():
     frame, loops, selected = fixture(WIDE)
     now = [0.0]
     budget = Budget(clock=lambda: now[0])
-    now[0] = 241
-    with pytest.raises(GeometryError, match="deadline"):
+    now[0] = 1201
+    with pytest.raises(ExactDeadline, match="deadline"):
         exact._area_identity(frame, loops, selected, budget)
 
 

@@ -10,7 +10,7 @@ import pytest
 from fenolite.geometry.boolean import _exact_refinement as refinement
 from fenolite.geometry.boolean._exact_cells import cell_point
 from fenolite.geometry.boolean._exact_faces import cross, sign, sub
-from fenolite.geometry.boolean._exact_noding import Budget, Limits
+from fenolite.geometry.boolean._exact_noding import Budget, ExactDeadline, Limits
 from fenolite.geometry.boolean._exact_realization import project_nodes
 from fenolite.geometry.errors import GeometryError
 from fenolite.geometry.predicates import round_point
@@ -94,6 +94,6 @@ def test_cell_malformed_zero_edge_unbound_target_and_deadline_refuse():
         cell_point(ring, 1, False, frozenset(), {}, Budget(), 0)
     now = [0.0]
     budget = Budget(clock=lambda: now[0])
-    now[0] = 241
-    with pytest.raises(GeometryError, match="deadline"):
+    now[0] = 1201
+    with pytest.raises(ExactDeadline, match="deadline"):
         cell_point(ring, 1, False, frozenset(), projected, budget, 0)

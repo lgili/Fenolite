@@ -116,7 +116,7 @@ fenolite route blink/build --router direct --confirm --json  # exit 0
 
 ## Without a tool
 
-`fenolite doctor --json` says which tools are found, and where. Without `kicad-cli`, `check --stages model.validate,copper.clearance` still judges the copper, and `fill`,
+`fenolite doctor --json` lists the tools found and where. Without `kicad-cli`, `check --stages model.validate,copper.clearance` still judges the copper, and `fill`,
 `export`, `render` and the stages of KiCad's own checks wait for the tool. Install nothing without
 being asked.
 
@@ -161,8 +161,9 @@ these files. Then review a fresh dry run.
 |---|---|---|---|
 | `FEN-1001` | 1 | a bug in Fenolite | stop and report the error object with the command line; do not retry |
 | `FEN-1002` | 1 | a write failed; every file of the command was put back | fix the cause named, run it again |
-| `FEN-1003` | 1 | the command was stopped by a signal; nothing was written | run the same command again: `route` goes on with the router runs that finished |
+| `FEN-1003` | 1 | the command was stopped by a signal; nothing was written | run it again: `route` resumes from finished router runs |
 | `FEN-1004` | 1 | rollback was incomplete; some files may have changed | the section above; do not retry |
+| `FEN-1005` | 1 | an exact cut ran out of wall time; nothing written | run it again |
 | `FEN-2001` | 2 | invalid arguments | recipe above |
 | `FEN-2002` | 2 | `--fields` names a key the result does not have | run with `--json` alone and read the keys |
 | `FEN-2003` | 2 | `--dry-run` and `--confirm` together | use one |
@@ -176,7 +177,7 @@ these files. Then review a fresh dry run.
 | `FEN-3007` | 3 | a file to read is kept only online by a sync client | make the folder available offline, then run again |
 | `FEN-3021` | 3 | `get`: the item's licence is not allowed, or its licence files are missing | choose another |
 | `FEN-4001` | 4 | a write without `--dry-run` or `--confirm` | recipe above |
-| `FEN-4002` | 4 | the plan of `--plan` cannot be written as reviewed: a target, an input or the line changed | run `--dry-run` again, read the plan, confirm its `plan_id` |
+| `FEN-4002` | 4 | the plan of `--plan` cannot be written as reviewed: a target, input or line changed | run `--dry-run` again, read the plan, confirm its `plan_id` |
 | `FEN-4003` | 4 | `get --confirm`: a licence was not accepted by name | read `result.licences`, add `--accept-licence ID` |
 | `FEN-5001` | 5 | findings of severity `error` | read `issues`; recipe above |
 | `FEN-6001` | 6 | tool not found | recipe above |

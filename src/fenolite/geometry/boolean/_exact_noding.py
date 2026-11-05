@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 from fractions import Fraction
 from math import ceil, floor
 
+from fenolite.core.errors import FenoliteError
 from fenolite.geometry.boolean.base import COORD_LIMIT
 from fenolite.geometry.errors import OUT_OF_RANGE, GeometryError
 from fenolite.geometry.index import SpatialIndex
@@ -77,12 +78,30 @@ SourcePoint = tuple[int | Fraction, int | Fraction]
 
 
 class ResourceLimit(GeometryError):
-    """A per-operation bound, still using the existing geometry/FEN-3005 error."""
+    """A per-operation bound, still using the existing geometry/FEN-3005 error. Every bound that raises it
+    counts work or storage, so the same input gives the same outcome on every machine (c0402)."""
+
+
+class ExactDeadline(FenoliteError):
+    """The wall-time safety net of an exact operation (c0402). It is not a geometry refusal, so no caller that
+    turns a ``GeometryError`` into another result catches it: the command stops, nothing is written, and the
+    same command can be run again (``FEN-1005``, retryable)."""
+
+    cli_code = "FEN-1005"
+    hint = "the machine was too slow or too busy for this exact operation; nothing was written; run it again"
+
+
+# Sized in c0402 from the work counted on 162 captured exact cuts (design.md, "Sizing"): the largest cut,
+# vme-wren's 465 907 edges, charges 139 180 774 units and the largest stage 5 652 376.
+WORK = 280_000_000
+STAGE_WORK = 25_000_000
 
 
 @dataclass(frozen=True, slots=True)
 class Limits:
-    """Deterministic storage/work caps; deadlines bound the remaining arithmetic."""
+    """Deterministic storage and work caps (c0402): ``work`` and ``stage_work`` count the units charged by
+    ``Budget.check``, so an operation's outcome does not depend on the machine. ``total_seconds`` and
+    ``stage_seconds`` are only the wall-time safety net, which raises the retryable ``ExactDeadline``."""
 
     # Explicit input coverage: min(nodes, fragments, halfedges // 2, incidences // 2).
     # All downstream work/storage/deadline caps still apply independently.
@@ -103,8 +122,10 @@ class Limits:
     distance_intervals: int = 16_384
     distance_depth: int = 32
     distance_bits: int = 1024
-    total_seconds: int = 240
-    stage_seconds: int = 120
+    work: int = WORK
+    stage_work: int = STAGE_WORK
+    total_seconds: int = 1200
+    stage_seconds: int = 600
 
 
 @dataclass(slots=True)
@@ -115,6 +136,8 @@ class Budget:
     _stage_started: float = field(init=False)
     _stage: str = field(default="start", init=False)
     _visits: int = field(default=0, init=False)
+    _work: int = field(default=0, init=False)
+    _stage_work: int = field(default=0, init=False)
     _distance_predicates: int = field(default=0, init=False)
     _distance_intervals: int = field(default=0, init=False)
     _repair_trials: int = field(default=0, init=False)
@@ -122,18 +145,29 @@ class Budget:
     def __post_init__(self) -> None:
         self._started = self._stage_started = self.clock()
 
-    def check(self) -> None:
+    def check(self, units: int = 1) -> None:
+        """Charge ``units`` of work done since the last call: a ``ResourceLimit`` when the operation or its
+        stage has used its work, the same on every machine; then the wall-time safety net."""
+        self._work += units
+        self._stage_work += units
+        if self._work > self.limits.work or self._stage_work > self.limits.stage_work:
+            raise ResourceLimit(f"exact geometry work budget exceeded during {self._stage}")
         now = self.clock()
         if (
             now - self._started > self.limits.total_seconds
             or now - self._stage_started > self.limits.stage_seconds
         ):
-            raise ResourceLimit(f"exact geometry deadline exceeded during {self._stage}")
+            raise ExactDeadline(f"exact geometry wall-time safety net (deadline) passed during {self._stage}")
 
     def stage(self, name: str) -> None:
         self.check()
         self._stage = name
+        self._stage_work = 0
         self._stage_started = self.clock()
+
+    @property
+    def work(self) -> int:
+        return self._work
 
     def coordinate(self, value: Fraction) -> None:
         if (
@@ -150,7 +184,7 @@ class Budget:
         self._visits += count
         if self._visits > self.limits.winding_visits:
             raise ResourceLimit("exact geometry winding visit budget exceeded")
-        self.check()
+        self.check(count)
 
     def distance_value(self, value: Fraction) -> Fraction:
         if max(abs(value.numerator).bit_length(), value.denominator.bit_length()) > self.limits.distance_bits:
@@ -162,7 +196,7 @@ class Budget:
         if self._distance_predicates > self.limits.distance_predicates:
             raise ResourceLimit("exact geometry distance predicate budget exceeded")
         if self._distance_predicates % 256 == 0:
-            self.check()
+            self.check(256)
 
     def distance_interval(self) -> None:
         self._distance_intervals += 1
@@ -261,7 +295,7 @@ def candidate_pairs(
         if comparisons > budget.limits.comparisons:
             raise GeometryError("exact geometry index-comparison budget exceeded")
         if comparisons % 1024 == 0:
-            budget.check()
+            budget.check(1024)
 
     def reserve(count: int) -> None:
         if count > budget.limits.nodes:
@@ -322,7 +356,7 @@ def node_segments(segments: Sequence[Segment], budget: Budget | None = None) -> 
     hits_count = 0
     for k, (i, j) in enumerate(pairs):
         if k % 1024 == 0:
-            budget.check()
+            budget.check(1024)
         hits = _hits(segments[i], segments[j])
         if hits:
             hits_count += 1
@@ -341,7 +375,7 @@ def node_segments(segments: Sequence[Segment], budget: Budget | None = None) -> 
     provenance: dict[tuple[ExactPoint, ExactPoint], list[tuple[int, int]]] = {}
     for i, (s, points) in enumerate(zip(segments, cuts, strict=True)):
         if i % 256 == 0:
-            budget.check()
+            budget.check(256)
         nodes.update(points)
         if len(nodes) > budget.limits.nodes:
             raise GeometryError("exact geometry node budget exceeded")

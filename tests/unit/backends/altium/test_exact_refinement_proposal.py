@@ -9,6 +9,7 @@ from fractions import Fraction as F
 
 import pytest
 
+from fenolite.geometry.boolean._exact_noding import ExactDeadline
 from fenolite.geometry.errors import GeometryError
 from fenolite.geometry.polygon import Polygon
 from fenolite.geometry.vector import Point
@@ -119,8 +120,8 @@ def test_refinement_does_not_reset_the_shared_stage_deadline():
     from fenolite.geometry.boolean._exact_refinement import refinement_candidates
 
     projection, source, result, budget = failed_projection()
-    budget.clock = lambda: budget._stage_started + 121
-    with pytest.raises(GeometryError, match="deadline"):
+    budget.clock = lambda: budget._stage_started + 601
+    with pytest.raises(ExactDeadline, match="deadline"):
         tuple(refinement_candidates(projection, source, result, budget))
 
 

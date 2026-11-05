@@ -20,7 +20,7 @@ installed version. A copy's footer names the version it came from; if it differs
    | exit | meaning and action |
    |---|---|
    | 0 | done; read result |
-   | 1 | `FEN-1001`: report a bug; `FEN-1002`/`FEN-1003`: nothing changed, fix the cause and retry; `FEN-1004`: rollback incomplete, retain recovery files and inspect before retrying |
+   | 1 | `FEN-1001`: report a bug; `FEN-1002`/`FEN-1003`/`FEN-1005`: nothing changed, fix the cause and retry; `FEN-1004`: rollback incomplete, retain recovery files and inspect before retrying |
    | 2 | wrong usage; fix the command using hint |
    | 3 | bad input; inspect where and repair the input |
    | 4 | confirmation needed; `FEN-4001`: review a dry run; `FEN-4002`: inputs or targets changed, review a new plan |

@@ -11,7 +11,14 @@ from typing import cast
 
 import pytest
 
-from fenolite.geometry.boolean._exact_noding import Budget, Limits, Segment, candidate_pairs, node_segments
+from fenolite.geometry.boolean._exact_noding import (
+    Budget,
+    ExactDeadline,
+    Limits,
+    Segment,
+    candidate_pairs,
+    node_segments,
+)
 from fenolite.geometry.errors import GeometryError
 from fenolite.geometry.shapes import BBox
 from fenolite.geometry.vector import Point
@@ -89,8 +96,8 @@ def test_fraction_bit_limit_and_deadline_refuse() -> None:
             (Segment((0, 0), (3, 2), 0), Segment((0, 2), (2, 0), 1)),
             Budget(replace(Limits(), coordinate_bits=2)),
         )
-    ticks = iter((0.0, 241.0))
-    with pytest.raises(GeometryError, match="deadline"):
+    ticks = iter((0.0, 1201.0))
+    with pytest.raises(ExactDeadline, match="deadline"):
         candidate_pairs((), Budget(clock=lambda: next(ticks)))
 
 

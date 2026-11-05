@@ -9,7 +9,7 @@ import pytest
 
 from fenolite.geometry.boolean import _exact_distance as distance
 from fenolite.geometry.boolean._exact_identity import IdentityRun
-from fenolite.geometry.boolean._exact_noding import Budget, Limits
+from fenolite.geometry.boolean._exact_noding import Budget, ExactDeadline, Limits
 from fenolite.geometry.errors import GeometryError
 
 
@@ -87,8 +87,8 @@ def test_identity_verification_preserves_shared_deadline_and_target_multiplicity
     proof = distance.cover(ring, ring, Budget())
     now = [0.0]
     budget = Budget(clock=lambda: now[0])
-    now[0] = 241
-    with pytest.raises(GeometryError, match="deadline"):
+    now[0] = 1201
+    with pytest.raises(ExactDeadline, match="deadline"):
         distance.verify_cover(ring, ring, proof, budget)
     # Duplicate target ownership cannot be hidden by disjoint source ranges.
     bad = replace(proof, identities=(IdentityRun(0, 0, 1), IdentityRun(1, 0, 1)))

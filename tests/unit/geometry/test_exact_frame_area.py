@@ -8,7 +8,7 @@ from fractions import Fraction as F
 import pytest
 
 from fenolite.geometry.boolean import _exact_faces as exact
-from fenolite.geometry.boolean._exact_noding import Budget, Limits
+from fenolite.geometry.boolean._exact_noding import Budget, ExactDeadline, Limits
 from fenolite.geometry.errors import GeometryError
 
 
@@ -80,6 +80,6 @@ def test_sign_only_area_uses_the_existing_point_ceiling() -> None:
     assert exact._face_area(exterior, Budget(replace(Limits(), nodes=201))) == (None, -1)
     with pytest.raises(GeometryError, match="face sign point budget"):
         exact._face_area(exterior, Budget(replace(Limits(), nodes=200)))
-    ticks = iter((0.0, 241.0))
-    with pytest.raises(GeometryError, match="deadline"):
+    ticks = iter((0.0, 1201.0))
+    with pytest.raises(ExactDeadline, match="deadline"):
         exact._face_area(exterior, Budget(clock=lambda: next(ticks)))

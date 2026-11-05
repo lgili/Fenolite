@@ -90,6 +90,7 @@ the only thing Fenolite writes on stderr; with it, progress records may come fir
 own, and the error object is the last line (see "Progress"). No exit leaves a traceback: an exception
 that no handler maps, a failed write and a signal each end in one registered code (`FEN-1001`,
 `FEN-1002`, `FEN-1003`, or `FEN-1004` when rollback is incomplete).
+An exact geometry operation that runs past its wall-time safety net ends in `FEN-1005`.
 
 ## Exit codes
 
@@ -115,13 +116,17 @@ Exit 1 is not always a bug. `FEN-1004` (`retryable` false) means rollback was in
 remaining recovery files and inspect them before any retry. `FEN-1001` (`retryable` false) means a software
 bug: report it. `FEN-1002` and `FEN-1003`
 (`retryable` true) say that a write failed or that the command was stopped, that nothing was changed,
-and that the same command can be run again.
+and that the same command can be run again. `FEN-1005` (`retryable` true) says that an exact geometry
+operation ran past its wall-time safety net on a slow or busy machine: its outcome is decided by counted
+work, the same on every machine, so running the same command again gives the same result or the same
+refusal.
 
 | Code | Meaning | Raised by |
 |---|---|---|
 | `FEN-1002` | a write failed; nothing was changed | the dispatcher, when a file of the plan cannot be written: the message names the path, relative to the working directory, and the system's reason (retryable; see "All-or-nothing writes") |
 | `FEN-1003` | stopped by a signal; nothing was written | the dispatcher, after SIGTERM or SIGINT and a completed rollback (retryable; see "Signals") |
 | `FEN-1004` | rollback incomplete; some files may have changed | the dispatcher, when restoring a target or backup fails; exit 1, retryable false; inspect `result.recovery` before manual recovery |
+| `FEN-1005` | an exact geometry operation ran past its wall-time safety net; nothing was written | `ExactDeadline` (c0402): the final neck cut of an Altium pour on a slow or busy machine; retryable; its work budget, not the clock, decides every result and refusal |
 | `FEN-3002` | input uses a newer format version than supported | `FutureFormatError` (editing a future file) |
 | `FEN-3003` | input format version older than the oldest supported | `UnsupportedFormatError` (hint names the `kicad-cli … upgrade` command) |
 | `FEN-3004` | malformed input file | any other `FormatError` (syntax, missing version, …), and `DesignScriptError` (a design script that raised, or that binds no `design`) |

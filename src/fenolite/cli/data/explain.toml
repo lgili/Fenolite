@@ -24,6 +24,11 @@ meaning = "A write failed or was interrupted, and restoring a target or backup a
 fix = "Do not retry or delete recovery files. Inspect result.recovery.failed and result.recovery.preserved, copy the retained files to a safe place, and restore the intended project state. Review a new plan only after recovery."
 see = "Writing files"
 
+["FEN-1005"]
+meaning = "An exact geometry operation (the final neck cut of an Altium pour) ran past its wall-time safety net. Its work budget, which decides every result, was not used up: the machine was too slow or too busy. Nothing was written."
+fix = "Run the same command again, on a less busy machine if it repeats. The result does not depend on the machine: only this safety net does."
+see = "Exit codes"
+
 ["FEN-2001"]
 meaning = "The command line is wrong: an unknown flag, a missing argument, a value outside the accepted set, or an input the command does not take."
 fix = "Read the message and the hint, or run the command with --help, and correct the arguments."

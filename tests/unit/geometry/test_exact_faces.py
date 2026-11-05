@@ -11,7 +11,7 @@ from fractions import Fraction as F
 import pytest
 
 from fenolite.geometry.boolean import _exact_faces as exact
-from fenolite.geometry.boolean._exact_noding import Budget, Limits, Segment, node_segments
+from fenolite.geometry.boolean._exact_noding import Budget, ExactDeadline, Limits, Segment, node_segments
 from fenolite.geometry.errors import GeometryError
 
 IntRing = tuple[tuple[int, int], ...]
@@ -146,8 +146,8 @@ def test_expired_call_does_not_poison_concurrent_independent_calls() -> None:
     source = segments((SQUARE,), ())
     graph = node_segments(source, budget)
     frame = exact.frames({(f.a, f.b): f.current for f in graph.fragments}, budget)
-    now[0] = 241.0
-    with pytest.raises(GeometryError, match="deadline"):
+    now[0] = 1201.0
+    with pytest.raises(ExactDeadline, match="deadline"):
         exact.solve(frame, source, budget)
 
     def healthy(x: int) -> F:

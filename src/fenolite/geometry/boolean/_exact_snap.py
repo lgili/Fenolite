@@ -318,7 +318,7 @@ def _planar(
     crossing: set[EdgeId] = set()
     for k, (u, v) in enumerate(pairs):
         if k % 1024 == 0:
-            budget.check()
+            budget.check(1024)
         a, b, s = edges[u]
         c, d, t = edges[v]
         o1, o2, o3, o4 = _orient(a, b, c), _orient(a, b, d), _orient(c, d, a), _orient(c, d, b)
@@ -380,7 +380,7 @@ def _faces(
             if here == start:
                 break
             if len(cycle) % 256 == 0:
-                budget.check()
+                budget.check(256)
         cycles.append(cycle)
     # components of the integer graph, one exterior (negative) cycle each
     component: dict[IntPoint, int] = {}
@@ -475,7 +475,7 @@ def _rings(boundary: Sequence[tuple[IntPoint, IntPoint]], budget: Budget) -> lis
             if here == start:
                 break
             if len(points) % 256 == 0:
-                budget.check()
+                budget.check(256)
         rings.extend(_split_contacts(tuple(points)))
     return rings
 
