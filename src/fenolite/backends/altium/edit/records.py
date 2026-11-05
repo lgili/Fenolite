@@ -123,6 +123,29 @@ def prefix_of(raw: bytes) -> tuple[int, int, int, int]:
     return body[0], net, polygon, component
 
 
+LONG_LAYER: Mapping[int, tuple[int, int]] = {TRACK: (45, 41), ARC: (56, 52), FILL: (50, 42)}
+"""Per primitive type, the shortest saved long form and the offset of its 32-bit long layer id in the
+geometry subrecord (``pcb-records.md``, "Long forms of the eight public documents"; ``pcb-copper.md``)."""
+SHORT_FORM: Mapping[int, int] = {TRACK: 36, ARC: 47}
+"""The short forms that hold no long layer id: the track and the arc that Fenolite writes."""
+
+
+def long_layer_offset(raw: bytes) -> int | None:
+    """The offset of the long layer id in ``raw``'s geometry subrecord; ``None`` for a short track or arc,
+    which holds none, and for every other type. ``RecordError`` for a track, an arc or a fill whose length
+    is neither a short form nor a long form with a recorded offset (a fill of 46 bytes, for one)."""
+    kind, subs = split(raw)
+    if kind not in LONG_LAYER:
+        return None
+    length = len(subs[_geometry(kind)])
+    shortest, offset = LONG_LAYER[kind]
+    if length >= shortest:
+        return offset
+    if length == SHORT_FORM.get(kind):
+        return None
+    raise RecordError(f"no row records the long layer id of a type {kind} record of {length} bytes")
+
+
 # --- coordinates -------------------------------------------------------------------------------------
 
 

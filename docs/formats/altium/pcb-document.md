@@ -138,6 +138,8 @@ sessions (`fenolite.backends.altium.edit`) and the integrity check rely on none 
 | Deleting the last component removes its records and its entries of `UniqueIDPrimitiveInformation`; no renumbering was observable, since nothing followed it | S-1420 | INFERRED | H-A-EDIT-DELETE |
 | Moving a region to another mechanical layer changes its layer byte and its `V7_LAYER` key, in `Regions6` and `ShapeBasedRegions6` alike | S-1420 | INFERRED | H-A-EDIT-LAYER, H-A-INTEG-LAYER |
 | Setting the clearance to 0.25 mm writes `GAP=9.8425mil` in the rule's record of `Rules6` | S-1420 | INFERRED | H-A-EDIT-RULE |
+| Altium Designer 24.5 shows a long track on the layer that its long layer id names, not on that of its layer byte: a track with the byte of Mechanical 15 and the long id of Mechanical 13 stays on Mechanical 13 (case J23) | S-1588 | INFERRED | H-A-EDIT-LAYER |
+| A Clearance whose `GAP` differs from its `GENERICCLEARANCE` shows the `GENERICCLEARANCE` value in Altium Designer 24.5, and its save writes `GAP` back from it (case J23) | S-1588 | INFERRED | H-A-EDIT-RULE |
 | A repour gives the poured pieces of a polygon `SUBPOLYINDEX` 0 and writes each piece in `Regions6` and in `ShapeBasedRegions6` | S-1420 | INFERRED | H-A-INTEG-SUBPOLY |
 | Deleting the polygon of pour index 1 leaves the other with `POURINDEX=0` | S-1420 | INFERRED | H-A-INTEG-POURINDEX |
 | `PrimitiveParameters` is empty in every saved file: its form is not observed | S-1420 | INFERRED | H-A-INTEG-PARAMCOUNT, H-A-INTEG-PARAMORPHAN |

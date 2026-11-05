@@ -89,6 +89,17 @@
   - Blocker on 2026-11-05: J4 did not read whether the free tracks stayed. Six cases (J7, J9, J14, J18, J19, J21) used a scripted edit in place of the Properties panel, and the S-1582 redo through the panel was not possible.
 - [ ] 4.2 (from c0241 4.2) **Maintainer, in Altium Designer.** Run J23 to J33 and give the report; record it as task 1.2 does and set the rows `H-A-EDIT-KIT` and `H-A-INTEG-*`. Set an operation's gate only when its case passes. OPEN until Altium was run. Proof: `uv run pytest tests/unit/test_altium_verification_docs.py -k part_j tests/unit/test_hypotheses_register.py -q`.
   - Blocker on 2026-11-05: `remap_layer` and `set_rule` failed, J33 was not run, and J25 and J29–J31 were dropped.
+  - 2026-11-05, needs J23–J33 rerun: both writer failures of J23 (S-1588) are fixed.
+    - `remap_layer` now selects a saved long track, arc or fill by its long layer id. It moves that id
+      with the layer byte (`ops.relayer`, `ops.on_layer`; offsets 41, 52 and 42 of `pcb-records.md`).
+      The census of S-1654 shows that on Mechanical 17 to 32 the byte is 72 and only the long id names
+      the layer.
+    - `set_rule` changes `GAP` and `GENERICCLEARANCE` together, and refuses a rule whose two keys differ
+      (`PAIRED_RULE_KEYS`). Every public Clearance record holds them equal (S-1654), and Altium shows
+      `GENERICCLEARANCE`.
+    - Proof: `uv run pytest tests/unit/backends/altium/edit/test_ops.py -q` passed.
+    - J25 and J29–J31 have no sample or code and stay as they were. Left open for the J23–J33 rerun in
+      Altium.
 - [ ] 4.3 (from c0241 6.2) Update the evidence labels of the rows `H-A-EDIT-*` and `H-A-INTEG-*` and the matrix. Proof: `uv run python tools/gen_evidence_matrix.py --check`; `uv run pytest tests/unit/test_hypotheses_register.py -q`.
   - Blocker on 2026-11-05: Tasks 1.2 and 4.2 stay open, so no label moves.
 

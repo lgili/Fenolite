@@ -30,6 +30,7 @@ from fractions import Fraction
 
 from fenolite.backends.altium.edit import records as rec
 from fenolite.backends.altium.edit.state import PRIMITIVE_STORAGES, SHAPE_BASED, WIDE, State
+from fenolite.backends.altium.libboard import long_id
 from fenolite.backends.altium.pcbrecords import (
     FLIP_PAIRS,
     LAYER_NAMES,
@@ -390,9 +391,7 @@ def move_primitives(
             if layers:
                 layer = rec.prefix_of(new)[0]
                 if layer in layers:
-                    new = rec.set_prefix(new, layer=layers[layer])
-                    if new[0] in (REGION, rec.BODY):
-                        new = rec.set_region_keys(new, {"V7_LAYER": v7_layer(layers[layer])})
+                    new = relayer(new, layers[layer], strict=False)
             if new[0] == PAD and mirror:
                 new = _swap_pad_sides(new)
             state.replace(storage, position, new)
@@ -688,10 +687,41 @@ def _carry(template: bytes, source: Primitive) -> bytes:
     return template
 
 
+def relayer(raw: bytes, layer: int, *, strict: bool = True) -> bytes:
+    """``raw`` on ``layer``: its layer byte, a region's or body's ``V7_LAYER``, and the long layer id of a
+    saved long track, arc or fill, which Altium shows the primitive on (S-1588, case J23: a track whose
+    layer byte alone was changed stayed on its old layer). A form whose long layer id no row records
+    (``rec.long_layer_offset``) raises ``RecordError`` when ``strict``, else keeps its other bytes."""
+    moved = rec.set_prefix(raw, layer=layer)
+    if moved[0] in (REGION, rec.BODY):
+        moved = rec.set_region_keys(moved, {"V7_LAYER": v7_layer(layer)})
+    try:
+        offset = rec.long_layer_offset(moved)
+    except rec.RecordError:
+        if strict:
+            raise
+        return moved
+    return moved if offset is None else rec.patch(moved, offset, "<I", long_id(layer))
+
+
+def on_layer(raw: bytes, layer: int) -> bool:
+    """Whether ``raw`` lies on ``layer``: by its long layer id when its form holds one, else by its layer
+    byte. A saved long track, arc or fill on Mechanical 17 to 32 holds the layer byte of Mechanical 16 (72),
+    and only its long layer id names its layer (``pcb-records.md``, S-1654)."""
+    try:
+        offset = rec.long_layer_offset(raw)
+    except rec.RecordError:
+        offset = None
+    if offset is None:
+        return rec.prefix_of(raw)[0] == layer
+    return rec.unpack(raw, offset, "<I") == (long_id(layer),)
+
+
 def remap_layer(state: State, old: str, new: str) -> None:
-    """Every primitive on the layer ``old`` moves to ``new``, its layer byte and a region's or body's
-    ``V7_LAYER`` together (``H-A-EDIT-LAYER``). Copper layers are not remapped: a polygon's pour and the
-    pads' stacks would need a change of their own."""
+    """Every primitive on the layer ``old`` (``on_layer``) moves to ``new``: its layer byte, a region's or
+    body's ``V7_LAYER`` and a long track's, arc's or fill's long layer id together (``relayer``,
+    ``H-A-EDIT-LAYER``). Copper layers are not remapped: a polygon's pour and the pads' stacks would need a
+    change of their own. A text keeps any layer field other than its layer byte: no row records one."""
     view = View(state)
     a, b = view.layer_id(old), view.layer_id(new)
     _assert(
@@ -703,27 +733,45 @@ def remap_layer(state: State, old: str, new: str) -> None:
         if not state.has(storage):
             continue
         for position, raw in enumerate(state.get(storage)):
-            if rec.prefix_of(raw)[0] != a:
+            if not on_layer(raw, a):
                 continue
-            moved = rec.set_prefix(raw, layer=b)
-            if moved[0] in (REGION, rec.BODY):
-                moved = rec.set_region_keys(moved, {"V7_LAYER": v7_layer(b)})
+            try:
+                moved = relayer(raw, b)
+            except rec.RecordError as error:
+                raise Refused("altium.edit.assertion", str(error), f"{storage}#{position}") from error
             state.replace(storage, position, moved)
             count += 1
     _assert(count > 0, f"no primitive lies on {old}")
 
 
+PAIRED_RULE_KEYS: Mapping[str, str] = {"GAP": "GENERICCLEARANCE", "GENERICCLEARANCE": "GAP"}
+"""Keys that a saved rule holds equal and that change together: a Clearance's or Board Outline Clearance's
+``GAP`` and ``GENERICCLEARANCE`` (``pcb-copper.md``, "Rules"; ``rule-file.md``). Altium Designer shows the
+gap from ``GENERICCLEARANCE`` and saves ``GAP`` back from it (S-1588, case J23)."""
+
+
+def _same_value(held: str, old: str) -> bool:
+    return held == old or (parse_mil(held) is not None and parse_mil(held) == parse_mil(old))
+
+
 def set_rule(state: State, name: str, key: str, value: str, old: str) -> None:
+    """The key ``key`` of the rule ``name`` set from ``old`` to ``value`` (``H-A-EDIT-RULE``), with its paired
+    key of ``PAIRED_RULE_KEYS`` when the rule holds it, which must hold ``old`` too."""
     rules = state.properties("Rules6")
     found = [i for i, r in enumerate(rules) if r.get("NAME") == name]
     _assert(len(found) == 1, f"{len(found)} rules are named {name!r}, not one", "Rules6")
     record = rules[found[0]]
     where = f"Rules6/Data#{found[0]}"
     held = record.get(key)
-    _assert(held is not None, f"the rule {name!r} holds no key {key!r}", where)
-    same = held == old or (parse_mil(held) is not None and parse_mil(held) == parse_mil(old))
-    _assert(same, f"{key} of {name!r} is {held}, not the stated {old}", where)
-    state.replace("Rules6", found[0], rec.set_property(record.raw, {key: value}, lead=2))
+    if held is None:
+        raise Refused("altium.edit.assertion", f"the rule {name!r} holds no key {key!r}", where)
+    _assert(_same_value(held, old), f"{key} of {name!r} is {held}, not the stated {old}", where)
+    changes = {key: value}
+    paired = PAIRED_RULE_KEYS.get(key)
+    if paired is not None and (other := record.get(paired)) is not None:
+        _assert(_same_value(other, old), f"{paired} of {name!r} is {other}, not {key}'s {old}", where)
+        changes[paired] = value
+    state.replace("Rules6", found[0], rec.set_property(record.raw, changes, lead=2))
 
 
 def add_component(
