@@ -119,6 +119,28 @@ Measured on 2026-10-16 on the four public documents (task 2.2, public half); the
 | A view's `Scale` holds two small integers: Denominator 1 and Numenator 1 or 2 in most views, Denominator 2 and Numenator 5 in one; read as numerator over denominator, the views are drawn at 1:1, 2:1 and 2.5:1. Which member is which is confirmed by round F0 | S-0785, S-0786 | INFERRED | H-A-DWF-KIT |
 | A Bill Of Materials table holds `ViewSide` (`All` in the one public table) beside its `DataSource` members | S-0778, S-0786 | INFERRED | H-A-DWF-KIT |
 
+## Round F0 as saved by Altium Designer 24.5.2.23 (census)
+
+Measured on 2026-11-04 with Fenolite's reader on the thirteen documents of round F0 (S-1421: an agent
+run, not the maintainer's report; task 2.2, F0 half). The counts are in `docs/evidence/altium-draftsman.md`,
+"Census", "Tree, round F0". One run of one board: every row is `INFERRED`.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| Every document of round F0 is one chunk of flag 1 (an LZ4 block of under 64 KiB to 132 KiB decoded) and decodes into one well-formed XML document of the Draftsman namespace | S-1421 | INFERRED | H-A-DWF-CONTAINER |
+| `FormatVersion` is 24 in every document of round F0, where the public documents hold 21 or 22 | S-1421 | INFERRED | H-A-DWF-MINIMAL |
+| Every document of round F0 holds 38 root members: those of format version 22 and `MbaInformationData` (`i:nil`) | S-1421 | INFERRED | H-A-DWF-MINIMAL |
+| The empty document (F0.1) has 1 844 elements: the eight board data members are `i:nil`, one A4 sheet holds no item, 29 document parameters; most of the rest is under `DocumentOptions` (728) and `LayerStackLogic` (669), then `ParametersData` (205) and `Parameters` (117) | S-1421 | INFERRED | H-A-DWF-MINIMAL |
+| Closing, opening and saving the empty document again (F0.2) gives the same bytes | S-1421 | INFERRED | H-A-DWF-READBACK |
+| One Text (F0.3) adds 47 elements, all under `Pages`; changing its text (F0.4) changes no count | S-1421 | INFERRED | H-A-DWF-MINIMAL |
+| A board assembly view (F0.5) fills `BillOfMaterialsInformation`, `BoardAssemblyInformation`, `BoardFabricationInformation`, `BoardLayersGeometryInformation` and `EmbeddedInformation` (2 224 elements in all); a drill drawing view with its table (F0.7) fills `BoardAssemblyInformation`, `BoardFabricationInformation`, `DrillTableInformation` and `EmbeddedInformation` (2 438); a layer stack legend alone (F0.8) fills `LayerStackInformation` and `EmbeddedInformation` (1 012) | S-1421 | INFERRED | H-A-DWF-IMPORT |
+| A second assembly view (F0.6) adds items under `Pages` only: the board data members are shared by the views of a document | S-1421 | INFERRED | H-A-DWF-IMPORT |
+| Import Changes after a move of `R1` (F0.12) changes bytes but no element count of the document of F0.5 | S-1421 | INFERRED | H-A-DWF-IMPORT |
+| Saving as a template (F0.13) drops the Linear Dimension of F0.10 and keeps its views, table and note | S-1421 | INFERRED | H-A-DWF-TEMPLATE |
+| A second sheet (F0.11) adds 17 elements under `Pages` | S-1421 | INFERRED | H-A-DWF-MINIMAL |
+| Every document of round F0 holds the absolute path of the source PCB document of the VM it was saved in; a document written for a person's kit must not carry Fenolite's own paths (`docs/formats/altium/draftsman.md`, "Binding to a project and a PCB document") | S-1421 | INFERRED | H-A-DWF-MINIMAL |
+| The candidate documents FP3 and FP4 of 2026-11-04, which Altium refused to open (S-1314), hold 6 of the 38 root members (`Id`, `FontStyles`, `FormatVersion` 22, `Pages`, an empty `Parameters`, `SourceDocumentName`); the 32 missing members are a candidate cause of the refusal, not a measured one | S-1421 | INFERRED | H-A-DWF-MINIMAL |
+
 ## Drawing geometry (change c0180)
 
 Measured on 2026-10-25 on the four public documents of S-0785 and S-0786 and on the two boards they were made

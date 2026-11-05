@@ -93,6 +93,33 @@ What the rows show:
   nil).
 - Round F0 adds what each pending step of the approved Altium Designer 24.5.2.23 adds (task 2.2, the F0 half).
 
+### Tree, round F0 (task 2.2, F0 half, 2026-11-04)
+
+Measured by `uv run python tools/draftsman_census.py --json --tree <F0 files>` on the documents that an
+agent saved on 2026-11-04 (S-1421), outside the repository. Names and counts only; no path or value of
+the documents. All 13 are format version 24, one chunk each, 38 root members.
+
+| step | decoded bytes | elements | under board data | under `Pages` | sheets (items) | items by kind | board data members filled |
+|---|---|---|---|---|---|---|---|
+| F0.1 | 53 882 | 1 844 | 8 | 18 | 1 (0) | none | none |
+| F0.2 | 53 882 | 1 844 | 8 | 18 | 1 (0) | none (same bytes as F0.1) | none |
+| F0.3 | 54 977 | 1 891 | 8 | 42 | 1 (1) | `Text` 1 | none |
+| F0.4 | 54 978 | 1 891 | 8 | 42 | 1 (1) | `Text` 1 | none |
+| F0.5 | 117 164 | 4 595 | 2 224 | 460 | 1 (1) | `BoardAssemblyViewData` 1 (Top, 1:1) | BOM, assembly, fabrication, layers geometry, embedded |
+| F0.6 | 129 547 | 5 043 | 2 224 | 902 | 1 (2) | `BoardAssemblyViewData` 2 (Top, Bottom) | as F0.5 |
+| F0.7 | 126 130 | 4 804 | 2 438 | 474 | 1 (2) | `DrillViewView` 1, `DrillTableBoardView` 1 | assembly, fabrication, drill table, embedded |
+| F0.8 | 82 091 | 3 003 | 1 012 | 124 | 1 (1) | `LayerStackLegendView` 1 | layer stack, embedded |
+| F0.9 | 121 179 | 4 732 | 2 224 | 582 | 1 (2) | `BoardAssemblyViewData` 1, `BillOfMaterialsView` 1 (side `All`) | as F0.5 |
+| F0.10 | 132 027 | 5 001 | 2 438 | 653 | 1 (4) | as F0.7, `Note` 1 (2 entries), `LinearDimension` 1 | as F0.7 |
+| F0.11 | 54 304 | 1 861 | 8 | 35 | 2 (0, 0) | none | none |
+| F0.12 | 117 189 | 4 595 | 2 224 | 460 | 1 (1) | as F0.5 | as F0.5 |
+| F0.13 (`.DwfDot`) | 127 900 | 4 867 | 2 438 | 537 | 1 (3) | as F0.10 without `LinearDimension` | as F0.7 |
+
+Every document holds 29 document parameters and no parameter text. The F0 half of gate G1 is answered on
+these files by Fenolite's reader (all decode), but `test_f0_files_decode` was not run: the kit privacy scan
+refuses the folder for its VM paths (S-1314), and only the maintainer's review may clear it (task 1.4).
+Fact rows: `docs/formats/altium/draftsman.md`, "Round F0 as saved by Altium Designer 24.5.2.23".
+
 ### Phase 1 budget
 
 Phase 1 has a budget of 2 design-days (design Decision 1). The container of the public documents was

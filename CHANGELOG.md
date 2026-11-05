@@ -30,6 +30,13 @@ All notable changes to Fenolite are documented here. The format follows
 - Record current Altium 24.5.2.23 Part T steps T1–T6 (c0160, c0166, S-1571). A Claude agent ran them at the maintainer's request. At `d155b258` the SCHEMATIC case is refused (`FEN-3005`) and the DIFAT case fails (`FEN-1001`), so both were observed on the 2026-10-12 bundle; PADSTACK used current bytes. All three open and compile, T5 shows no footprint change, and T6 reads equal Full Stack pads in the PCB, the PcbLib and a placed copy. The four `H-A-CONV-*` rows stay `INFERRED`.
 
 - Record current Altium 24.5.2.23 Part S cases S1, S2 and S8 (c0168, S-1570). A Claude agent ran them at the maintainer's request on the S-1297 input digests. S2 and S8 are as expected. In S1 the pad and NC Drill are as expected, and Drill Drawings show the slot only by its tool symbol. `H-A-SLOT-KIT` stays `INFERRED` and task 5.2 stays open.
+- **Draftsman round F0 census** (c0172, task 2.2): the thirteen documents of round F0 that an agent saved
+  in Altium Designer 24.5.2.23 on 2026-11-04 (S-1421) read with Fenolite's reader; their element counts,
+  sheets, items and filled board data members are recorded `INFERRED` (counts and member names only).
+  The candidate documents that Altium refused hold 6 of the 38 root members that every saved document
+  holds. Gate G1 is decided GO for decoding (task 1.5 stays open: the kit privacy scan rightly refuses the
+  F0 files for the VM's absolute work folder, so the F0 intake proof is not run).
+
 - **Altium edit sessions** (c0241, tasks 2.1, 3.1 to 3.4, 4.1 and 5.1): the opt-in check stage
   `altium.integrity` (`fenolite check DOC --stages altium.integrity`) warns about the index-table faults of
   a PCB document (`altium.integrity.*`, every rule `INFERRED` and a warning until Part J phase B); the
