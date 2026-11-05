@@ -1,6 +1,6 @@
 schema = "fenolite.package.v0"
 id = "Fenolite:SOIC_8"
-version = "1.0.1"
+version = "1.1.0"
 summary = "Eight-lead 1.27 mm-pitch small-outline package land"
 category = "Small-outline IC"
 licence = "CC0-1.0"
@@ -13,56 +13,56 @@ kind = "smd"
 number = "1"
 shape = "rect"
 size = ["1.55mm", "0.6mm"]
-at = ["-2.7mm", "1.905mm"]
+at = ["-2.7mm", "-1.905mm"]
 layers = ["F.Cu", "F.Paste", "F.Mask"]
 
 [[pad]]
 number = "2"
 shape = "rect"
 size = ["1.55mm", "0.6mm"]
-at = ["-2.7mm", "0.635mm"]
+at = ["-2.7mm", "-0.635mm"]
 layers = ["F.Cu", "F.Paste", "F.Mask"]
 
 [[pad]]
 number = "3"
 shape = "rect"
 size = ["1.55mm", "0.6mm"]
-at = ["-2.7mm", "-0.635mm"]
+at = ["-2.7mm", "0.635mm"]
 layers = ["F.Cu", "F.Paste", "F.Mask"]
 
 [[pad]]
 number = "4"
 shape = "rect"
 size = ["1.55mm", "0.6mm"]
-at = ["-2.7mm", "-1.905mm"]
+at = ["-2.7mm", "1.905mm"]
 layers = ["F.Cu", "F.Paste", "F.Mask"]
 
 [[pad]]
 number = "5"
 shape = "rect"
 size = ["1.55mm", "0.6mm"]
-at = ["2.7mm", "-1.905mm"]
+at = ["2.7mm", "1.905mm"]
 layers = ["F.Cu", "F.Paste", "F.Mask"]
 
 [[pad]]
 number = "6"
 shape = "rect"
 size = ["1.55mm", "0.6mm"]
-at = ["2.7mm", "-0.635mm"]
+at = ["2.7mm", "0.635mm"]
 layers = ["F.Cu", "F.Paste", "F.Mask"]
 
 [[pad]]
 number = "7"
 shape = "rect"
 size = ["1.55mm", "0.6mm"]
-at = ["2.7mm", "0.635mm"]
+at = ["2.7mm", "-0.635mm"]
 layers = ["F.Cu", "F.Paste", "F.Mask"]
 
 [[pad]]
 number = "8"
 shape = "rect"
 size = ["1.55mm", "0.6mm"]
-at = ["2.7mm", "1.905mm"]
+at = ["2.7mm", "-1.905mm"]
 layers = ["F.Cu", "F.Paste", "F.Mask"]
 
 [[graphic]]
@@ -76,10 +76,6 @@ kind = "rect"
 layer = "F.CrtYd"
 points = [["-3.975mm", "-2.95mm"], ["3.975mm", "2.95mm"]]
 width = "0.05mm"
-
-[[waiver]]
-code = "library.pin1-location"
-reason = "Legacy shipped catalog drawing keeps its established orientation and pin numbering; the c0262 zero-orientation convention is intentionally waived."
 
 [[waiver]]
 code = "library.pin1-marker"

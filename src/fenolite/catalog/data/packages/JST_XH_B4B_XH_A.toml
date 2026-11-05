@@ -1,6 +1,6 @@
 schema = "fenolite.package.v0"
 id = "Fenolite:JST_XH_B4B_XH_A"
-version = "1.0.1"
+version = "1.1.0"
 summary = "JST B4B-XH-A vertical header without locating boss"
 category = "Through-hole connector"
 licence = "CC0-1.0"
@@ -48,22 +48,22 @@ layers = ["*.Cu", "*.Mask"]
 [[graphic]]
 kind = "rect"
 layer = "F.Fab"
-points = [["-6.2mm", "-2.35mm"], ["6.2mm", "3.4mm"]]
+points = [["-6.2mm", "-3.4mm"], ["6.2mm", "2.35mm"]]
 width = "0.1mm"
 
 [[graphic]]
 kind = "rect"
 layer = "F.CrtYd"
-points = [["-6.7mm", "-2.85mm"], ["6.7mm", "3.9mm"]]
+points = [["-6.7mm", "-3.9mm"], ["6.7mm", "2.85mm"]]
 width = "0.05mm"
 
 [[graphic]]
 key = "pin1"
 kind = "line"
 layer = "F.Fab"
-points = [["5.5mm", "-2.35mm"], ["6.2mm", "-1.65mm"]]
+points = [["5.5mm", "2.35mm"], ["6.2mm", "1.65mm"]]
 width = "0.1mm"
 
 [[waiver]]
 code = "library.pin1-location"
-reason = "Legacy shipped catalog drawing keeps its established orientation and pin numbering; the c0262 zero-orientation convention is intentionally waived."
+reason = "The S-0410 PCB-top view (page 2) puts pin 1 at the right with the 2.35 mm housing edge below the pad line; c0385 keeps that orientation."

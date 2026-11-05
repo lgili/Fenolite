@@ -1,6 +1,6 @@
 schema = "fenolite.package.v0"
 id = "Fenolite:SOT143_4_Diodes"
-version = "1.0.1"
+version = "1.1.0"
 summary = "Diodes SOT143 four-lead suggested land"
 category = "Small-outline semiconductor"
 licence = "CC0-1.0"
@@ -13,28 +13,28 @@ kind = "smd"
 number = "1"
 shape = "rect"
 size = ["1mm", "0.7mm"]
-at = ["-0.76mm", "-1mm"]
+at = ["-0.76mm", "1mm"]
 layers = ["F.Cu", "F.Paste", "F.Mask"]
 
 [[pad]]
 number = "2"
 shape = "rect"
 size = ["0.6mm", "0.7mm"]
-at = ["0.96mm", "-1mm"]
+at = ["0.96mm", "1mm"]
 layers = ["F.Cu", "F.Paste", "F.Mask"]
 
 [[pad]]
 number = "3"
 shape = "rect"
 size = ["0.6mm", "0.7mm"]
-at = ["0.96mm", "1mm"]
+at = ["0.96mm", "-1mm"]
 layers = ["F.Cu", "F.Paste", "F.Mask"]
 
 [[pad]]
 number = "4"
 shape = "rect"
 size = ["0.6mm", "0.7mm"]
-at = ["-0.96mm", "1mm"]
+at = ["-0.96mm", "-1mm"]
 layers = ["F.Cu", "F.Paste", "F.Mask"]
 
 [[graphic]]
@@ -48,3 +48,7 @@ kind = "rect"
 layer = "F.CrtYd"
 points = [["-1.95mm", "-1.85mm"], ["1.95mm", "1.85mm"]]
 width = "0.05mm"
+
+[[waiver]]
+code = "library.pin1-location"
+reason = "The S-0369 top view draws pad 1 at the lower left, leads below the body; c0385 keeps that orientation, numbered counter-clockwise as the source is."

@@ -1754,7 +1754,7 @@ notes = "a rules.json with one invented rule of each of the twelve rule kinds of
 path = "tests/data/specctra/c0107_before_planebench_norules.dsn"
 origin = "authored"
 corpus_id = ""
-notes = "written by Fenolite's own Specctra writer of the commit before change c0107 (7d8c0d0a) from the authored plane bench of tests/routing/_planebench.py without its rules, with no plane layer and no layer set: the text that write_dsn must still give for such a call (tests/unit/backends/specctra/test_dsn.py -k unchanged)"
+notes = "written by Fenolite's own Specctra writer of the commit before change c0107 (7d8c0d0a) from the authored plane bench of tests/routing/_planebench.py without its rules, with no plane layer and no layer set: the text that write_dsn must still give for such a call (tests/unit/backends/specctra/test_dsn.py -k unchanged); change c0385 recorded it again after the SOIC_8 land was numbered counter-clockwise, and only the eight pin lines of image P3 changed"
 
 [[file]]
 path = "tests/data/specctra/c0107_before_blink_t10.dsn"
@@ -4238,6 +4238,11 @@ corpus_id = ""
 
 [[file]]
 path = "tests/data/library_rules/bad/pin1_location.toml"
+origin = "authored"
+corpus_id = ""
+
+[[file]]
+path = "tests/data/library_rules/bad/pin_order.toml"
 origin = "authored"
 corpus_id = ""
 

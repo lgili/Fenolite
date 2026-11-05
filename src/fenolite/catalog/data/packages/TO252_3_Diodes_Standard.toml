@@ -1,6 +1,6 @@
 schema = "fenolite.package.v0"
 id = "Fenolite:TO252_3_Diodes_Standard"
-version = "1.0.1"
+version = "1.1.0"
 summary = "Diodes TO252 Standard suggested land"
 category = "Power semiconductor"
 licence = "CC0-1.0"
@@ -13,21 +13,21 @@ kind = "smd"
 number = "1"
 shape = "rect"
 size = ["1.06mm", "2.6mm"]
-at = ["-2.286mm", "-4.05mm"]
+at = ["-2.286mm", "4.05mm"]
 layers = ["F.Cu", "F.Paste", "F.Mask"]
 
 [[pad]]
 number = "2"
 shape = "rect"
 size = ["5.632mm", "5.7mm"]
-at = ["0mm", "2.5mm"]
+at = ["0mm", "-2.5mm"]
 layers = ["F.Cu", "F.Paste", "F.Mask"]
 
 [[pad]]
 number = "3"
 shape = "rect"
 size = ["1.06mm", "2.6mm"]
-at = ["2.286mm", "-4.05mm"]
+at = ["2.286mm", "4.05mm"]
 layers = ["F.Cu", "F.Paste", "F.Mask"]
 
 [[graphic]]
@@ -41,6 +41,10 @@ kind = "rect"
 layer = "F.CrtYd"
 points = [["-3.79mm", "-5.85mm"], ["3.79mm", "5.85mm"]]
 width = "0.05mm"
+
+[[waiver]]
+code = "library.pin1-location"
+reason = "The S-0373 top view draws pad 1 at the lower left, leads below the body; c0385 keeps that orientation, numbered counter-clockwise as the source is."
 
 [[waiver]]
 code = "library.pin1-marker"

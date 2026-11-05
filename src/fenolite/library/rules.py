@@ -40,6 +40,11 @@ LAND_TOLERANCE_NM = 50_000
 PIN_GRID_NM = 254_000
 PREFERRED_PIN_GRID_NM = 2_540_000
 ROW_LETTERS = "ABCDEFGHJKLMNPRTUVWY"
+TAB_AREA_RATIO = 2
+"""A numbered pad more than this many times the median numbered-pad area is a tab or an exposed pad,
+not a lead of the perimeter (``pin_order``, c0385)."""
+PIN_ORDER_SOURCE = re.compile(r"\b[SD]-\d{4}\b")
+"""A ``library.pin-order`` waiver names the S- or D- source whose top view shows the numbering (c0385)."""
 UNWAIVABLE = frozenset({"library.record-invalid", "library.evidence-claim", "library.review-stale"})
 RULES: Mapping[str, Severity] = {
     **{
@@ -48,6 +53,7 @@ RULES: Mapping[str, Severity] = {
             "record-invalid",
             "pad-count",
             "pin1-location",
+            "pin-order",
             "courtyard-missing",
             "courtyard-containment",
             "pad-clearance",
@@ -83,7 +89,11 @@ ISSUE_CODES: Mapping[str, tuple[Severity, ...]] = {
         dict.fromkeys(
             (
                 severity,
-                *(("warning",) if code in {"library.pin-grid", "library.land-mismatch"} else ()),
+                *(
+                    ("warning",)
+                    if code in {"library.pin-grid", "library.land-mismatch", "library.pin-order"}
+                    else ()
+                ),
                 *(("info",) if code not in UNWAIVABLE else ()),
             )
         )
@@ -112,6 +122,120 @@ def electrical_pads(footprint: FootprintDef) -> set[str]:
         for p in footprint.pads
         if p.number and p.kind != "np_thru_hole" and any(layer.endswith(".Cu") for layer in p.layers)
     }
+
+
+def _cross(ax: int, ay: int, bx: int, by: int) -> int:
+    return ax * by - ay * bx
+
+
+def _on_sides(points: Sequence[Point]) -> bool:
+    """Whether every lead lies on a side of the leads' bounding box and the leads of each side are one run
+    of the numbering, read around (an outline numbered side by side: DIP, SO, QFP, QFN, SOT)."""
+    x0, x1 = min(p.x for p in points), max(p.x for p in points)
+    y0, y1 = min(p.y for p in points), max(p.y for p in points)
+    if any(p.x not in (x0, x1) and p.y not in (y0, y1) for p in points):
+        return False
+    count = len(points)
+    for side in (
+        {i for i, p in enumerate(points) if p.x == x0},
+        {i for i, p in enumerate(points) if p.x == x1},
+        {i for i, p in enumerate(points) if p.y == y0},
+        {i for i, p in enumerate(points) if p.y == y1},
+    ):
+        if 0 < len(side) < count and sum((i + 1) % count not in side for i in side) > 1:
+            return False
+    return True
+
+
+def _row_beside_tab(points: Sequence[Point], tab: Point) -> str | None:
+    """The order of leads in one row beside one tab (SOT-89, SOT-223, TO-252): pin 1 to the last lead turns
+    counter-clockwise around the tab when the numbering does; ``None`` when the leads are no such row."""
+    first, last = points[0], points[-1]
+    dx, dy = last.x - first.x, last.y - first.y
+    along = [(q.x - first.x) * dx + (q.y - first.y) * dy for q in points]
+    turn = _cross(dx, dy, tab.x - first.x, tab.y - first.y)
+    tab_along = (tab.x - first.x) * dx + (tab.y - first.y) * dy
+    if (
+        turn == 0
+        or any(b <= a for a, b in zip(along, along[1:], strict=False))
+        or not 0 < tab_along < dx * dx + dy * dy
+        or any(2 * abs(_cross(dx, dy, q.x - first.x, q.y - first.y)) >= abs(turn) for q in points)
+    ):
+        return None
+    return "clockwise" if turn > 0 else "counter-clockwise"
+
+
+def _outline(points: Sequence[Point]) -> bool:
+    """Whether the leads are numbered side by side around an outline: three leads as a SOT-23 (pins 1 and 2,
+    or 2 and 3, on one side and the other lead across, within their span), four as two pairs on opposite
+    sides (1-2 and 3-4: SOT-143, a four-pad crystal or LED), five or more on the sides of their bounding box,
+    the leads of each side one run of the numbering read around (DIP, SO, QFP, QFN, DFN)."""
+    if len(points) == 3:
+        for i in (0, 1):
+            a, b, c = points[i], points[i + 1], points[2 - 2 * i]
+            if a.x == b.x != c.x and min(a.y, b.y) < c.y < max(a.y, b.y):
+                return True
+            if a.y == b.y != c.y and min(a.x, b.x) < c.x < max(a.x, b.x):
+                return True
+        return False
+    if len(points) == 4:
+        a, b, c, d = points
+        return (a.x == b.x != c.x == d.x) or (a.y == b.y != c.y == d.y)
+    return _on_sides(points)
+
+
+def pin_order(footprint: FootprintDef) -> str | None:
+    """``"clockwise"`` or ``"counter-clockwise"``: the turn of the numbered leads in the top view (X right,
+    Y down), or ``None`` when the land is not numbered around a perimeter (c0385,
+    ``docs/formats/library/rules.md`` row "Pin order").
+
+    Only pads numbered ``1``, ``2``, ... count. A pad more than ``TAB_AREA_RATIO`` times the median area is
+    a tab or an exposed pad: it moves the reference centre but is no lead, and a number keeps its smallest
+    other pad. A row of leads beside one tab is read against the tab (``_row_beside_tab``). Otherwise the
+    leads must be numbered side by side around an outline (``_outline``), and around the centre (the
+    middle of the numbered pads' extent) every turn from one lead to the next must have the same sign;
+    zig-zag rows, staggered rows (TO-92), single rows and scattered pins have no perimeter order."""
+    pads = [
+        p
+        for p in footprint.pads
+        if re.fullmatch(r"[1-9][0-9]*", p.number) and p.number in electrical_pads(footprint)
+    ]
+    if len({p.number for p in pads}) < 3:
+        return None
+    areas = sorted(p.size.w * p.size.h for p in pads)
+    median = areas[(len(areas) - 1) // 2]
+    tabs = [p for p in pads if p.size.w * p.size.h > TAB_AREA_RATIO * median]
+    leads: dict[int, Pad] = {}
+    for pad in pads:
+        if pad in tabs:
+            continue
+        number = int(pad.number)
+        kept = leads.get(number)
+        if kept is None or pad.size.w * pad.size.h < kept.size.w * kept.size.h:
+            leads[number] = pad
+    points = [leads[n].position for n in sorted(leads)]
+    if len(points) < 2:
+        return None
+    if len({(t.position.x, t.position.y) for t in tabs}) == 1:
+        beside = _row_beside_tab(points, tabs[0].position)
+        if beside is not None:
+            return beside
+    first = points[0]
+    if all(
+        _cross(q.x - first.x, q.y - first.y, r.x - first.x, r.y - first.y) == 0
+        for q in points
+        for r in points
+    ):
+        return None  # one row without a tab: no order the pads can show
+    if not _outline(points):
+        return None
+    xs, ys = [p.position.x for p in pads], [p.position.y for p in pads]
+    cx, cy = min(xs) + max(xs), min(ys) + max(ys)
+    vectors = [(2 * q.x - cx, 2 * q.y - cy) for q in points if (2 * q.x, 2 * q.y) != (cx, cy)]
+    turns = [_cross(*a, *b) for a, b in zip(vectors, vectors[1:], strict=False)]
+    if len(vectors) < 3 or 0 in turns or (min(turns) < 0 < max(turns)):
+        return None
+    return "clockwise" if turns[0] > 0 else "counter-clockwise"
 
 
 def _ring(graphic: Graphic) -> tuple[Point, ...] | None:
@@ -176,8 +300,12 @@ def check_footprint(
     pins: int | None = None,
     polarized: bool = False,
     unused_pads: Iterable[str] = (),
+    recorded: bool = True,
 ) -> list[Issue]:
-    """Check standalone copper, courtyard and pin-1 geometry, with no external tool."""
+    """Check standalone copper, courtyard and pin-1 geometry, with no external tool.
+
+    ``recorded`` is false for a plain library item with no record: it has no waiver to name the source
+    of a clockwise numbering, so ``library.pin-order`` is a warning there (c0385)."""
     record_id = record_id or footprint.lib_id
     found: list[Issue] = []
     numbers = electrical_pads(footprint) - set(unused_pads)
@@ -207,6 +335,16 @@ def check_footprint(
                         f"pad {first.number}",
                     )
                 )
+    if pin_order(replace(footprint, pads=tuple(pads))) == "clockwise":
+        found.append(
+            issue(
+                "library.pin-order",
+                "pads are numbered clockwise in the top view; JEDEC/IPC lands number counter-clockwise",
+                record_id,
+                "pads",
+                severity=None if recorded else "warning",
+            )
+        )
     if first is not None and (len(numbers) >= 3 or polarized):
         marker = False
         for graphic in footprint.graphics:
@@ -619,6 +757,12 @@ def apply_waivers(
     for code, reason in waivers.items():
         if code in UNWAIVABLE or not reason.strip() or code not in RULES:
             raise FormatError(f"invalid or forbidden waiver {code!r}", locator="waiver")
+        if code == "library.pin-order" and not PIN_ORDER_SOURCE.search(reason):
+            raise FormatError(
+                "a library.pin-order waiver names the S- or D- source whose top view numbers the pads "
+                "clockwise",
+                locator="waiver",
+            )
     used = {finding.code for finding in findings if finding.code in waivers}
     found = [
         replace(finding, severity="info", hint=f"waived: {waivers[finding.code]}")

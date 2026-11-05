@@ -534,24 +534,24 @@ def test_new_chip_and_diode_lands_match_source_dimensions(
 
 def test_sot_pad_numbering_and_pitch_follow_top_view_drawings() -> None:
     expected = {
-        "SOT23_3": ((1, -1050, 950), (2, -1050, -950), (3, 1050, 0)),
-        "SOT23_5": ((1, -1300, 950), (2, -1300, 0), (3, -1300, -950), (4, 1300, -950), (5, 1300, 950)),
-        "SC70_5": ((1, -1100, 650), (2, -1100, 0), (3, -1100, -650), (4, 1100, -650), (5, 1100, 650)),
+        "SOT23_3": ((1, -1050, -950), (2, -1050, 950), (3, 1050, 0)),
+        "SOT23_5": ((1, -1300, -950), (2, -1300, 0), (3, -1300, 950), (4, 1300, 950), (5, 1300, -950)),
+        "SC70_5": ((1, -1100, -650), (2, -1100, 0), (3, -1100, 650), (4, 1100, 650), (5, 1100, -650)),
         "SOT23_6_TI_DBV0006A": (
-            (1, -1300, 950),
+            (1, -1300, -950),
             (2, -1300, 0),
-            (3, -1300, -950),
-            (4, 1300, -950),
+            (3, -1300, 950),
+            (4, 1300, 950),
             (5, 1300, 0),
-            (6, 1300, 950),
+            (6, 1300, -950),
         ),
         "SC70_6_TI_DCK0006A": (
-            (1, -1100, 650),
+            (1, -1100, -650),
             (2, -1100, 0),
-            (3, -1100, -650),
-            (4, 1100, -650),
+            (3, -1100, 650),
+            (4, 1100, 650),
             (5, 1100, 0),
-            (6, 1100, 650),
+            (6, 1100, -650),
         ),
     }
     for name, positions in expected.items():
@@ -563,11 +563,11 @@ def test_sot_pad_numbering_and_pitch_follow_top_view_drawings() -> None:
 @pytest.mark.parametrize(
     ("name", "centers", "size"),
     [
-        ("SOT323_3_Diodes_Standard", ((-950, 325), (-950, -325), (950, 0)), (600, 470)),
-        ("SOT523_3_Diodes", ((-645, 350), (-645, -350), (645, 0)), (510, 400)),
+        ("SOT323_3_Diodes_Standard", ((-950, -325), (-950, 325), (950, 0)), (600, 470)),
+        ("SOT523_3_Diodes", ((-645, -350), (-645, 350), (645, 0)), (510, 400)),
         (
             "SOT563_6_Diodes",
-            ((-635, 500), (-635, 0), (-635, -500), (635, -500), (635, 0), (635, 500)),
+            ((-635, -500), (-635, 0), (-635, 500), (635, 500), (635, 0), (635, -500)),
             (670, 300),
         ),
     ],
@@ -586,22 +586,22 @@ def test_compact_sot_lands_follow_package_pitch(
     [
         (
             "SOT143_4_Diodes",
-            ((-760, -1000), (960, -1000), (960, 1000), (-960, 1000)),
+            ((-760, 1000), (960, 1000), (960, -1000), (-960, -1000)),
             ((1000, 700), (600, 700), (600, 700), (600, 700)),
         ),
         (
             "SOT223_3_Diodes",
-            ((-2300, -3100), (0, 3100), (2300, -3100)),
+            ((-2300, 3100), (0, -3100), (2300, 3100)),
             ((1200, 1400), (3500, 1400), (1200, 1400)),
         ),
         (
             "TO252_3_Diodes_Standard",
-            ((-2286, -4050), (0, 2500), (2286, -4050)),
+            ((-2286, 4050), (0, -2500), (2286, 4050)),
             ((1060, 2600), (5632, 5700), (1060, 2600)),
         ),
         (
             "TO263_3_Diodes_Standard",
-            ((-2540, -6245), (0, 4490), (2540, -6245)),
+            ((-2540, 6245), (0, -4490), (2540, 6245)),
             ((1100, 3500), (10410, 7010), (1100, 3500)),
         ),
     ],
@@ -642,8 +642,8 @@ def test_sod128_keeps_manufacturer_cathode_numbering() -> None:
 def test_sot883_and_to220_distinct_pads_and_body_projection() -> None:
     sot = get_footprint("Fenolite:SOT883_3_Nexperia_DFN1006")
     assert [(pad.number, pad.position.x, pad.position.y, pad.size.w, pad.size.h) for pad in sot.pads] == [
-        ("1", -350_000, 225_000, 400_000, 250_000),
-        ("2", -350_000, -225_000, 400_000, 250_000),
+        ("1", -350_000, -225_000, 400_000, 250_000),
+        ("2", -350_000, 225_000, 400_000, 250_000),
         ("3", 350_000, 0, 400_000, 700_000),
     ]
     to220 = get_footprint("Fenolite:TO220_3_Diodes_Vertical")
@@ -651,9 +651,9 @@ def test_sot883_and_to220_distinct_pads_and_body_projection() -> None:
     assert all(pad.kind == "thru_hole" and pad.drill == 1_500_000 for pad in to220.pads)
     assert all(pad.size.w == pad.size.h == 2_200_000 for pad in to220.pads)
     fab = to220.graphics_on("F.Fab")[0]
-    assert (fab.points[0].y, fab.points[1].y) == (1_075_000, 5_925_000)
+    assert (fab.points[0].y, fab.points[1].y) == (-5_925_000, -1_075_000)
     court = to220.graphics_on("F.CrtYd")[0]
-    assert (court.points[0].y, court.points[1].y) == (-1_600_000, 6_425_000)
+    assert (court.points[0].y, court.points[1].y) == (-6_425_000, 1_600_000)
 
 
 @pytest.mark.parametrize(
@@ -673,8 +673,8 @@ def test_soic_variants_follow_named_manufacturer_lands(
     assert len(pads) == count
     assert [pad.number for pad in pads] == [str(i) for i in range(1, count + 1)]
     assert (pads[0].position.x, pads[-1].position.x) == (-row * 500, row * 500)
-    assert pads[0].position.y == pads[-1].position.y == (count // 2 - 1) * 635_000
-    assert pads[count // 2 - 1].position.y == pads[count // 2].position.y == -(count // 2 - 1) * 635_000
+    assert pads[0].position.y == pads[-1].position.y == -(count // 2 - 1) * 635_000
+    assert pads[count // 2 - 1].position.y == pads[count // 2].position.y == (count // 2 - 1) * 635_000
     assert all((pad.size.w, pad.size.h) == (length * 1000, width * 1000) for pad in pads)
 
 
@@ -700,8 +700,8 @@ def test_fine_pitch_small_outline_source_spacing(
     left, right = pads[: count // 2], pads[count // 2 :]
     assert [pad.number for pad in left] == [str(i) for i in range(1, count // 2 + 1)]
     assert [pad.number for pad in right] == [str(i) for i in range(count // 2 + 1, count + 1)]
-    assert all(b.position.y - a.position.y == -pitch * 1000 for a, b in pairwise(left))
-    assert all(b.position.y - a.position.y == pitch * 1000 for a, b in pairwise(right))
+    assert all(b.position.y - a.position.y == pitch * 1000 for a, b in pairwise(left))
+    assert all(b.position.y - a.position.y == -pitch * 1000 for a, b in pairwise(right))
     assert all(pad.position.x == -row * 500 for pad in left)
     assert all(pad.position.x == row * 500 for pad in right)
     assert all((pad.size.w, pad.size.h) == (length * 1000, width * 1000) for pad in pads)
@@ -759,14 +759,14 @@ def test_lqfp32_pads_rotate_around_four_sides() -> None:
     pads = get_footprint("Fenolite:LQFP32_P0.8").pads
     assert len(pads) == 32
     corners = {
-        1: (-4200, 2800),
-        8: (-4200, -2800),
-        9: (-2800, -4200),
-        16: (2800, -4200),
-        17: (4200, -2800),
-        24: (4200, 2800),
-        25: (2800, 4200),
-        32: (-2800, 4200),
+        1: (-4200, -2800),
+        8: (-4200, 2800),
+        9: (-2800, 4200),
+        16: (2800, 4200),
+        17: (4200, 2800),
+        24: (4200, -2800),
+        25: (2800, -4200),
+        32: (-2800, -4200),
     }
     for number, (x, y) in corners.items():
         pad = pads[number - 1]
@@ -796,7 +796,7 @@ def test_quad_package_source_pitch_numbering_and_axes(
     assert [pad.number for pad in pads] == [str(i) for i in range(1, count + 1)]
     per_side = count // 4
     half_run = (per_side - 1) * pitch * 500
-    assert (pads[0].position.x, pads[0].position.y) == (-row * 500, half_run)
+    assert (pads[0].position.x, pads[0].position.y) == (-row * 500, -half_run)
     for side in range(4):
         members = pads[side * per_side : (side + 1) * per_side]
         assert all(
@@ -829,7 +829,7 @@ def test_dfn_distinct_exposed_copper_and_stencil(
     assert ep.layers == ("F.Cu", "F.Mask")
     assert (footprint.pads[0].position.x, footprint.pads[0].position.y) == (
         -row * 500,
-        (count // 2 - 1) * 325_000,
+        -(count // 2 - 1) * 325_000,
     )
     assert all((pad.size.w, pad.size.h) == (length * 1000, width * 1000) for pad in footprint.pads[:-1])
     windows = footprint.graphics_on("F.Paste")
@@ -903,7 +903,7 @@ def test_dip_body_variant_and_authored_through_hole_pattern(name: str, count: in
     )
     assert all(p.layers == ("*.Cu", "*.Mask") for p in footprint.pads)
     assert [p.position.x for p in footprint.pads] == [-3_810_000] * (count // 2) + [3_810_000] * (count // 2)
-    assert all(b.position.y - a.position.y == -2_540_000 for a, b in pairwise(footprint.pads[: count // 2]))
+    assert all(b.position.y - a.position.y == 2_540_000 for a, b in pairwise(footprint.pads[: count // 2]))
     assert sum(p.position.y for p in footprint.pads) == 0
     readback = read_footprint(write_footprint(footprint), library="Fenolite")
     assert [p.drill for p in readback.pads] == [p.drill for p in footprint.pads]
@@ -935,7 +935,7 @@ def test_jst_xh_bossless_top_view_has_pin_one_at_right(count: int, drill: int) -
     assert [p.position.x for p in fp.pads] == [(count - 1 - 2 * i) * 1_250_000 for i in range(count)]
     assert all(p.position.y == 0 and p.drill == drill for p in fp.pads)
     fab = fp.graphics_on("F.Fab")[0]
-    assert (fab.points[0].y, fab.points[1].y) == (-2_350_000, 3_400_000)
+    assert (fab.points[0].y, fab.points[1].y) == (-3_400_000, 2_350_000)
     assert fp.graphics_on("F.Fab")[-1].points[0].x > 0
 
 
@@ -945,12 +945,12 @@ def test_micro_usb_has_mixed_mount_pegs_shell_slots_and_top_view_contacts() -> N
     assert len({p.id for p in fp.pads}) == 11
     signals, shell, pegs = fp.pads[:5], fp.pads[5:9], fp.pads[9:]
     assert [(p.number, p.position.x, p.position.y) for p in signals] == [
-        (str(i + 1), (i - 2) * 650_000, 5_500_000) for i in range(5)
+        (str(i + 1), (i - 2) * 650_000, -5_500_000) for i in range(5)
     ]
     assert all(p.size.w == 450_000 and p.size.h == 1_300_000 for p in signals)
     assert all(p.number == "SH" and p.layers == ("*.Cu", "*.Mask") for p in shell)
     assert all(p.kind == "np_thru_hole" and p.number == "" and p.drill == 800_000 for p in pegs)
-    assert [(p.position.x, p.position.y) for p in pegs] == [(-2_500_000, 4_550_000), (2_500_000, 4_550_000)]
+    assert [(p.position.x, p.position.y) for p in pegs] == [(-2_500_000, -4_550_000), (2_500_000, -4_550_000)]
     for p, length in zip(shell, (1_400_000, 1_400_000, 1_300_000, 1_300_000), strict=True):
         assert p.padstack and p.padstack.hole_shape == "slot"
         assert p.padstack.hole_length == length and p.padstack.hole_rotation == 90_000_000
@@ -1006,14 +1006,14 @@ def test_leaded_passives_have_explicit_pitch_and_inferred_drills(
 def test_abm8_sourced_inner_gaps_and_top_view_pin_order() -> None:
     fp = get_footprint("Fenolite:Crystal_3225_Abracon_ABM8")
     assert [(p.number, p.position.x, p.position.y) for p in fp.pads] == [
-        ("1", -1_150_000, -875_000),
-        ("2", 1_150_000, -875_000),
-        ("3", 1_150_000, 875_000),
-        ("4", -1_150_000, 875_000),
+        ("1", -1_150_000, 875_000),
+        ("2", 1_150_000, 875_000),
+        ("3", 1_150_000, -875_000),
+        ("4", -1_150_000, -875_000),
     ]
     assert all(p.size.w == 1_300_000 and p.size.h == 1_050_000 for p in fp.pads)
     assert fp.pads[1].position.x - fp.pads[0].position.x - fp.pads[0].size.w == 1_000_000
-    assert fp.pads[3].position.y - fp.pads[0].position.y - fp.pads[0].size.h == 700_000
+    assert fp.pads[0].position.y - fp.pads[3].position.y - fp.pads[0].size.h == 700_000
 
 
 @pytest.mark.parametrize(
@@ -1094,13 +1094,13 @@ def test_testpoint_is_round_copper_with_mask_and_no_stencil_or_bom() -> None:
 def test_ws2812b_v6_sourced_gaps_numbering_and_pin_three_corner() -> None:
     fp = get_footprint("Fenolite:LED5050_Worldsemi_WS2812B_V6")
     assert [(p.number, p.position.x, p.position.y) for p in fp.pads] == [
-        ("1", -2_450_000, 1_650_000),
-        ("2", -2_450_000, -1_650_000),
-        ("3", 2_450_000, -1_650_000),
-        ("4", 2_450_000, 1_650_000),
+        ("1", -2_450_000, -1_650_000),
+        ("2", -2_450_000, 1_650_000),
+        ("3", 2_450_000, 1_650_000),
+        ("4", 2_450_000, -1_650_000),
     ]
     assert all(p.size.w == 1_500_000 and p.size.h == 1_000_000 for p in fp.pads)
     assert fp.pads[3].position.x - fp.pads[0].position.x - fp.pads[0].size.w == 3_400_000
-    assert fp.pads[0].position.y - fp.pads[1].position.y + fp.pads[0].size.h == 4_300_000
+    assert fp.pads[1].position.y - fp.pads[0].position.y + fp.pads[0].size.h == 4_300_000
     corner = fp.graphics_on("F.Fab")[1]
-    assert all(p.x > 0 and p.y < 0 for p in corner.points)
+    assert all(p.x > 0 and p.y > 0 for p in corner.points)

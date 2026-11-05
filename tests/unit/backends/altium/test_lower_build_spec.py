@@ -56,10 +56,10 @@ FORMER_DOCUMENTS: dict[tuple[str, str], str] = {
     ("blink_2layer/design.py", "flat"): "642ce93cdfd14136c421406e3ba261aab055fcdb437dff9cfc9fefebdd3e0a32",
     ("blink_routed/design.py", "flat"): "6691042bc82ef6250d4944f6b08ab8be16b8aeb83d39f0c6975d42cfc332333a",
     ("board_40parts/design.py", "flat"): "4c536e64a5a41ffa86b03054a69e334f6048b88d46b0cf5273a2fe3e972a19b8",
-    ("kit/board6/design.py", "flat"): "b936f2aab597591304a522a6155cec200d79cd5c10cd2112cacca826573a2e61",
-    ("kit/flat/design.py", "flat"): "afe2c1d88355f2cc7d01a72f3b068c423da753b053fd4e264bca6925323b4b87",
-    ("kit/libs/design.py", "flat"): "a7218f03522a6039d8da3aa871cb960d7265fb2a5737077840ae7c4f93ba8c97",
-    ("kit/routed/design.py", "flat"): "22364b8ffbfb3088d1df64561a5499906d7dd6e9c0c8a9cd4239fd2e108415ad",
+    ("kit/board6/design.py", "flat"): "4d4cb5ff7f479faa431ebc16f9914fae27b7dd2493c45bef1b2f029166d86a31",
+    ("kit/flat/design.py", "flat"): "093ca4608592b311898c34e86c4ff296cbc19d9d64c9da556069c582e85cb5a3",
+    ("kit/libs/design.py", "flat"): "9441b7f9a874f739df6679885a0669c54c35f3fda3c214db45d5d5c822018eba",
+    ("kit/routed/design.py", "flat"): "76734ddcdaeacf7d83db6dcf26bc657fb397c0e9117c905a74cafb6a52ec3e89",
     (
         "altium_hier_board/design.py",
         "modules",
@@ -70,14 +70,16 @@ FORMER_DOCUMENTS: dict[tuple[str, str], str] = {
         "board_40parts/design.py",
         "modules",
     ): "fc999ff008fa4134cf5aeb6d3c95c15fd06615d99a55664d10685b228232f258",
-    ("kit/board6/design.py", "modules"): "b936f2aab597591304a522a6155cec200d79cd5c10cd2112cacca826573a2e61",
-    ("kit/flat/design.py", "modules"): "afe2c1d88355f2cc7d01a72f3b068c423da753b053fd4e264bca6925323b4b87",
-    ("kit/libs/design.py", "modules"): "a7218f03522a6039d8da3aa871cb960d7265fb2a5737077840ae7c4f93ba8c97",
-    ("kit/routed/design.py", "modules"): "22364b8ffbfb3088d1df64561a5499906d7dd6e9c0c8a9cd4239fd2e108415ad",
+    ("kit/board6/design.py", "modules"): "4d4cb5ff7f479faa431ebc16f9914fae27b7dd2493c45bef1b2f029166d86a31",
+    ("kit/flat/design.py", "modules"): "093ca4608592b311898c34e86c4ff296cbc19d9d64c9da556069c582e85cb5a3",
+    ("kit/libs/design.py", "modules"): "9441b7f9a874f739df6679885a0669c54c35f3fda3c214db45d5d5c822018eba",
+    ("kit/routed/design.py", "modules"): "76734ddcdaeacf7d83db6dcf26bc657fb397c0e9117c905a74cafb6a52ec3e89",
 }
 """(example script, sheet mode) → the SHA-256 of its PCB document as ``lens.altium.pcb_document`` wrote it,
 measured on 2026-10-08 before the switch of task 6.2. ``blink_official/design.py`` needs KiCad's official
-libraries; where they are absent its build exits 3 and it is not compared."""
+libraries; where they are absent its build exits 3 and it is not compared. The four ``kit/`` samples place
+``DIP8_Microchip_P``, whose land change c0385 numbered counter-clockwise: their digests are the lowered bytes
+measured after that change; the other entries are unchanged."""
 
 
 def _plain(entity: object) -> dict[str, object]:

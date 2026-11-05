@@ -39,7 +39,7 @@ def test_bad_buck_joined_to_its_scene(bad_buck: tuple[Path, dict[str, Any], dict
         m for m in reply["result"]["measures"] if m["kind"] == "loop" and m["subject"] == "hot_SW"
     )
     assert hot["area_nm2"] == measured["values"]["area_nm2"]
-    assert groups["gate_Q1"]["pads"] == ["U1-7", "Q1-2", "Q1-1", "U1-6"]
+    assert groups["gate_Q1"]["pads"] == ["U1-6", "Q1-2", "Q1-1", "U1-7"]
     assert groups["kelvin_R12"]["type"] == "kelvin" and len(groups["kelvin_R12"]["points"]) == 4
     found = {(f["code"], f["where"]): f for f in data["findings"]}
     kelvin = found[("roles.kelvin-outer", "kelvin_R12:R12-1")]

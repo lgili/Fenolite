@@ -16,26 +16,26 @@ in [matrix.md](matrix.md). Exact-head CI and unperformed native acceptance remai
 |---|---|---|---|---|---|
 | altium_draftsman | write | — | — | INFERRED | — |
 | altium_harness | write | — | — | INFERRED | — |
-| altium_outjob | write | AD 26.5 | Altium Designer 26.5 | INFERRED | 2026-10-13-87c930fa |
+| altium_outjob | write | AD 24.5 | Altium Designer 24.5 | INFERRED | 2026-11-05-e28d0bb1 |
 | altium_pcbdoc | detect | — | — | INFERRED | — |
 | altium_pcbdoc | read | — | — | INFERRED | — |
-| altium_pcbdoc | write | AD 26.5 | Altium Designer 26.5 | INFERRED | 2026-10-13-87c930fa |
+| altium_pcbdoc | write | AD 24.5 | Altium Designer 24.5 | INFERRED | 2026-11-05-e28d0bb1 |
 | altium_pcblib | detect | — | — | INFERRED | — |
 | altium_pcblib | read | — | — | INFERRED | — |
 | altium_pcblib | write | — | — | INFERRED | — |
 | altium_prjpcb | detect | — | — | INFERRED | — |
 | altium_prjpcb | read | — | — | INFERRED | — |
-| altium_prjpcb | write | AD 26.5 | Altium Designer 26.5 | INFERRED | 2026-10-13-87c930fa |
+| altium_prjpcb | write | AD 24.5 | Altium Designer 24.5 | INFERRED | 2026-11-05-e28d0bb1 |
 | altium_schdoc_ascii | detect | — | — | INFERRED | — |
 | altium_schdoc_ascii | read | — | — | INFERRED | — |
-| altium_schdoc_ascii | write | AD 26.5 | Altium Designer 26.5 | INFERRED | 2026-10-13-87c930fa |
+| altium_schdoc_ascii | write | AD 24.5 | Altium Designer 24.5 | INFERRED | 2026-11-05-e28d0bb1 |
 | altium_schdoc_binary | detect | — | — | INFERRED | — |
 | altium_schdoc_binary | read | — | — | INFERRED | — |
-| altium_schdoc_binary | write | AD 26.5 | Altium Designer 26.5 | INFERRED | 2026-10-13-87c930fa |
-| altium_schdot | write | AD 26.5 | Altium Designer 26.5 | INFERRED | 2026-10-13-87c930fa |
+| altium_schdoc_binary | write | AD 24.5 | Altium Designer 24.5 | INFERRED | 2026-11-05-e28d0bb1 |
+| altium_schdot | write | AD 24.5 | Altium Designer 24.5 | INFERRED | 2026-11-05-e28d0bb1 |
 | altium_schlib | detect | — | — | INFERRED | — |
 | altium_schlib | read | — | — | INFERRED | — |
-| altium_schlib | write | AD 26.5 | Altium Designer 26.5 | INFERRED | 2026-10-13-87c930fa |
+| altium_schlib | write | AD 24.5 | Altium Designer 24.5 | INFERRED | 2026-11-05-e28d0bb1 |
 
 ## kicad
 

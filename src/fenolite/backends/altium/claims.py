@@ -142,9 +142,9 @@ _GRADUATED, GRADUATION_MISSING = decisions(RAW_MATRIX, OWN_READBACK)
 
 # Current kit-labelled hypotheses of these cells cite the published run. This records that scope
 # at the generic cell's existing level, never promoting an arbitrary file to a native kit verdict.
-KIT_VERSION = "AD 26.5"
-KIT_TOOL = "Altium Designer 26.5"
-KIT_SOURCE = "2026-10-13-87c930fa"
+KIT_VERSION = "AD 24.5"
+KIT_TOOL = "Altium Designer 24.5"
+KIT_SOURCE = "2026-11-05-e28d0bb1"
 KIT_WRITE_KINDS = frozenset(
     {
         outjob.OUTJOB_KIND,

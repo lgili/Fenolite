@@ -111,21 +111,21 @@ def make(design: Design, variant: str, *, power: bool = True) -> Design:
     )
     zone(gnd, "GND", (63.2, 15.0), (78.0, 15.0), (78.0, 24.8), (62.8, 24.8), (62.8, 16.3), (63.2, 16.3))
     zone(bat_p, "BAT_P", (2.0, 26.0), (78.0, 26.0), (78.0, 36.0), (2.0, 36.0))
-    design.track("bat", u1.pad(1), p(64.2, 3.19), p(64.2, 2.2), p(79.0, 2.2), p(79.0, 27.0), p(77.5, 27.0),
+    design.track("bat", u1.pad(7), p(64.2, 3.19), p(64.2, 2.2), p(79.0, 2.2), p(79.0, 27.0), p(77.5, 27.0),
                  width=mm("0.25"))  # fmt: skip
     design.via("gnd_vss", *p(64.6, 9.54), net=gnd, **VIA)
     if power:
         design.via("gnd_plane", *p(64.6, 15.6), net=gnd, **VIA)  # the plane joins the battery negative's pour
-    design.track("gnd_vss_t", u1.pad(6), p(64.6, 9.54), width=mm("0.25"))
+    design.track("gnd_vss_t", u1.pad(2), p(64.6, 9.54), width=mm("0.25"))
     # the cell taps, over the ground plane on B.Cu
-    design.track("tap3", j2.pad(1), p(68.19, 4.46), u1.pad(2), width=mm("0.25"))
-    design.track("tap2", j2.pad(2), p(70.73, 6.3), p(64.4, 6.3), u1.pad(3), width=mm("0.25"))
+    design.track("tap3", j2.pad(1), p(68.19, 4.46), u1.pad(6), width=mm("0.25"))
+    design.track("tap2", j2.pad(2), p(70.73, 6.3), p(64.4, 6.3), u1.pad(5), width=mm("0.25"))
     design.track("tap1", j2.pad(3), p(73.27, 7.0), u1.pad(4), width=mm("0.25"))
-    design.track("tap0", j2.pad(4), p(75.81, 8.27), u1.pad(5), width=mm("0.25"))
+    design.track("tap0", j2.pad(4), p(75.81, 8.27), u1.pad(3), width=mm("0.25"))
     # each gate out on F.Cu, its return on B.Cu under it from the Kelvin-source pad to COM
     design.via("com", *p(55.4, 8.27), net=fet_s, **VIA)
-    design.track("com_t", u1.pad(10), p(55.4, 8.27), width=mm("0.25"))
-    design.track("dsg", u1.pad(9), p(38.2, 9.54), p(38.2, 23.0), q1.pad(1), width=mm("0.25"))
+    design.track("com_t", u1.pad(12), p(55.4, 8.27), width=mm("0.25"))
+    design.track("dsg", u1.pad(13), p(38.2, 9.54), p(38.2, 23.0), q1.pad(1), width=mm("0.25"))
     design.via("ks1", *p(37.2, 21.5), net=fet_s, **VIA)
     design.track("ks1_t", q1.pad(2), p(37.2, 21.5), width=mm("0.25"))
     design.track(
@@ -151,8 +151,8 @@ def _good(design, gnd, pack_n, zone, r1, u1):  # type: ignore[no-untyped-def]
     zone(gnd, "GND_PLANE", (56.2, 1.0), (66.9, 1.0), (66.9, 13.6), (65.3, 13.6), (65.3, 17.5), (63.4, 17.5),
          (63.4, 13.6), (56.2, 13.6), layer="B.Cu")  # fmt: skip
     zone(pack_n, "PACK_N", (2.0, 15.0), (26.3, 15.0), (26.3, 24.8), (2.0, 24.8))
-    design.track("sns_p", r1.pad(2), p(62.7, 12.6), u1.pad(7), width=mm("0.25"))
-    design.track("sns_n", r1.pad(3), p(57.3, 12.6), u1.pad(8), width=mm("0.25"))
+    design.track("sns_p", r1.pad(2), p(62.7, 12.6), u1.pad(1), width=mm("0.25"))
+    design.track("sns_n", r1.pad(3), p(57.3, 12.6), u1.pad(14), width=mm("0.25"))
 
 
 def _bad(design, gnd, pack_n, zone, u1, power, sense=True):  # type: ignore[no-untyped-def]
@@ -168,5 +168,5 @@ def _bad(design, gnd, pack_n, zone, u1, power, sense=True):  # type: ignore[no-u
         design.track("pack_neck", p(9.5, 20.0), p(17.5, 20.0), width=mm(1), net=pack_n)
     if not sense:
         return
-    design.track("sns_p", p(64.5, 17.0), p(62.7, 13.0), u1.pad(7), width=mm("0.25"))
-    design.track("sns_n", p(55.5, 17.0), p(57.3, 13.0), u1.pad(8), width=mm("0.25"))
+    design.track("sns_p", p(64.5, 17.0), p(62.7, 13.0), u1.pad(1), width=mm("0.25"))
+    design.track("sns_n", p(55.5, 17.0), p(57.3, 13.0), u1.pad(14), width=mm("0.25"))

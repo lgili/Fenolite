@@ -22,6 +22,7 @@ Land:    specified [==], actual [===]  Hidden power: hidden VCC, no visible stac
 | `library.record-invalid` | error | TOML, schema, missing references and the parser's FEN code |
 | `library.pad-count` | error | terminal count; missing pin numbers, pad numbers and map edges |
 | `library.pin1-location` | error | pad 1/A1 against the numbered-pad centroid |
+| `library.pin-order` | error (warning for a plain item with no record) | perimeter leads numbered clockwise in the top view: the land is the part's mirror image |
 | `library.pin1-marker` | warning | silk/fab graphic centres nearest pad 1 |
 | `library.courtyard-missing` | error | a closed top/bottom courtyard |
 | `library.courtyard-containment` | error | copper and body outlines within the courtyard |
@@ -47,10 +48,15 @@ Land:    specified [==], actual [===]  Hidden power: hidden VCC, no visible stac
 
 The constants and their evidence are in [the facts page](formats/library/rules.md). The checks are
 Fenolite conventions labelled `INFERRED`. Existing shipped orientation and 50 mil layout conventions
-have explicit compatibility waivers; their generated definitions remain unchanged.
+have explicit compatibility waivers; their generated definitions remain unchanged. Change c0385 mirrored
+the 55 catalog lands that had been drawn with Y up (numbered clockwise in the top view); the parts whose
+source top view puts pad 1 at the lower left or the right keep that orientation with a waiver naming the
+source.
 
 An exceptional connector can record `[[waiver]]`, `code = "library.pin1-location"` and a nonempty
-`reason`. A matched finding remains visible with `severity = "info"` and `waived = true`. Record-invalid,
+`reason`. A `library.pin-order` waiver is refused (`library.record-invalid`) unless its reason names the
+S- or D- source whose top view numbers the part clockwise: a mirrored land swaps the pins of every part
+fitted on it, so no generic reason may silence it (change c0385). A matched finding remains visible with `severity = "info"` and `waived = true`. Record-invalid,
 evidence-claim and review-stale cannot be waived. With selected rules, omitted waivers are not called
 unused. For devices, dependency findings retain their waivers and effective evidence is the weakest
 current label, including stale or unreviewed dependencies.

@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
-"""Render Fenolite catalog geometry as a self-contained SVG review sheet."""
+"""Render Fenolite catalog geometry as a self-contained SVG review sheet, in the footprint frame: X right,
+Y down, the top view (c0385: the sheet drew Y up until then, which showed mirrored lands unmirrored)."""
 
 from __future__ import annotations
 
@@ -20,10 +21,10 @@ def _graphic_svg(graphic: Graphic, cx: float, cy: float, scale: float) -> str:
     dash = ' stroke-dasharray="5 4"' if graphic.layer == "F.CrtYd" else ""
     if graphic.kind == "rect":
         a, b = graphic.points
-        x = cx + a.x / 1_000_000 * scale
-        y = cy - b.y / 1_000_000 * scale
-        width = (b.x - a.x) / 1_000_000 * scale
-        height = (b.y - a.y) / 1_000_000 * scale
+        x = cx + min(a.x, b.x) / 1_000_000 * scale
+        y = cy + min(a.y, b.y) / 1_000_000 * scale
+        width = abs(b.x - a.x) / 1_000_000 * scale
+        height = abs(b.y - a.y) / 1_000_000 * scale
         return (
             f'<rect x="{x:.2f}" y="{y:.2f}" width="{width:.2f}" height="{height:.2f}" '
             f'fill="{color if graphic.filled else "none"}" stroke="{color}" '
@@ -34,16 +35,16 @@ def _graphic_svg(graphic: Graphic, cx: float, cy: float, scale: float) -> str:
         radius = ((edge.x - center.x) ** 2 + (edge.y - center.y) ** 2) ** 0.5 / 1_000_000 * scale
         return (
             f'<circle cx="{cx + center.x / 1_000_000 * scale:.2f}" '
-            f'cy="{cy - center.y / 1_000_000 * scale:.2f}" r="{radius:.2f}" '
+            f'cy="{cy + center.y / 1_000_000 * scale:.2f}" r="{radius:.2f}" '
             f'fill="none" stroke="{color}" stroke-width="1.5"/>'
         )
     if graphic.kind == "line":
         a, b = graphic.points
         return (
             f'<line x1="{cx + a.x / 1_000_000 * scale:.2f}" '
-            f'y1="{cy - a.y / 1_000_000 * scale:.2f}" '
+            f'y1="{cy + a.y / 1_000_000 * scale:.2f}" '
             f'x2="{cx + b.x / 1_000_000 * scale:.2f}" '
-            f'y2="{cy - b.y / 1_000_000 * scale:.2f}" '
+            f'y2="{cy + b.y / 1_000_000 * scale:.2f}" '
             f'stroke="{color}" stroke-width="2"{dash}/>'
         )
     return ""
@@ -51,7 +52,7 @@ def _graphic_svg(graphic: Graphic, cx: float, cy: float, scale: float) -> str:
 
 def _pad_svg(pad: Pad, cx: float, cy: float, scale: float) -> str:
     x = cx + (pad.position.x - pad.size.w // 2) / 1_000_000 * scale
-    y = cy - (pad.position.y + pad.size.h // 2) / 1_000_000 * scale
+    y = cy + (pad.position.y - pad.size.h // 2) / 1_000_000 * scale
     width = pad.size.w / 1_000_000 * scale
     height = pad.size.h / 1_000_000 * scale
     color = "white" if pad.kind == "np_thru_hole" else "#f59e0b"
@@ -105,7 +106,7 @@ def render(names: tuple[str, ...]) -> str:
         height = (upper.y - lower.y) / 1_000_000
         scale = min(55, 360 / width, 130 / height)
         cx -= (lower.x + upper.x) / 2_000_000 * scale
-        cy += (lower.y + upper.y) / 2_000_000 * scale
+        cy -= (lower.y + upper.y) / 2_000_000 * scale
         title_size = min(16, 400 / (0.62 * len(name)))
         parts.append(
             f'<rect x="{ox + 10}" y="{oy + 10}" width="430" height="220" rx="12" '

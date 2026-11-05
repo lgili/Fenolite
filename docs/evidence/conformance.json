@@ -23,10 +23,10 @@
       "backend": "altium",
       "kind": "altium_outjob",
       "operation": "write",
-      "version": "AD 26.5",
-      "tool": "Altium Designer 26.5",
+      "version": "AD 24.5",
+      "tool": "Altium Designer 24.5",
       "level": "INFERRED",
-      "source": "2026-10-13-87c930fa"
+      "source": "2026-11-05-e28d0bb1"
     },
     {
       "backend": "altium",
@@ -50,10 +50,10 @@
       "backend": "altium",
       "kind": "altium_pcbdoc",
       "operation": "write",
-      "version": "AD 26.5",
-      "tool": "Altium Designer 26.5",
+      "version": "AD 24.5",
+      "tool": "Altium Designer 24.5",
       "level": "INFERRED",
-      "source": "2026-10-13-87c930fa"
+      "source": "2026-11-05-e28d0bb1"
     },
     {
       "backend": "altium",
@@ -104,10 +104,10 @@
       "backend": "altium",
       "kind": "altium_prjpcb",
       "operation": "write",
-      "version": "AD 26.5",
-      "tool": "Altium Designer 26.5",
+      "version": "AD 24.5",
+      "tool": "Altium Designer 24.5",
       "level": "INFERRED",
-      "source": "2026-10-13-87c930fa"
+      "source": "2026-11-05-e28d0bb1"
     },
     {
       "backend": "altium",
@@ -131,10 +131,10 @@
       "backend": "altium",
       "kind": "altium_schdoc_ascii",
       "operation": "write",
-      "version": "AD 26.5",
-      "tool": "Altium Designer 26.5",
+      "version": "AD 24.5",
+      "tool": "Altium Designer 24.5",
       "level": "INFERRED",
-      "source": "2026-10-13-87c930fa"
+      "source": "2026-11-05-e28d0bb1"
     },
     {
       "backend": "altium",
@@ -158,19 +158,19 @@
       "backend": "altium",
       "kind": "altium_schdoc_binary",
       "operation": "write",
-      "version": "AD 26.5",
-      "tool": "Altium Designer 26.5",
+      "version": "AD 24.5",
+      "tool": "Altium Designer 24.5",
       "level": "INFERRED",
-      "source": "2026-10-13-87c930fa"
+      "source": "2026-11-05-e28d0bb1"
     },
     {
       "backend": "altium",
       "kind": "altium_schdot",
       "operation": "write",
-      "version": "AD 26.5",
-      "tool": "Altium Designer 26.5",
+      "version": "AD 24.5",
+      "tool": "Altium Designer 24.5",
       "level": "INFERRED",
-      "source": "2026-10-13-87c930fa"
+      "source": "2026-11-05-e28d0bb1"
     },
     {
       "backend": "altium",
@@ -194,10 +194,10 @@
       "backend": "altium",
       "kind": "altium_schlib",
       "operation": "write",
-      "version": "AD 26.5",
-      "tool": "Altium Designer 26.5",
+      "version": "AD 24.5",
+      "tool": "Altium Designer 24.5",
       "level": "INFERRED",
-      "source": "2026-10-13-87c930fa"
+      "source": "2026-11-05-e28d0bb1"
     },
     {
       "backend": "kicad",

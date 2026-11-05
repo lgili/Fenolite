@@ -1,6 +1,6 @@
 schema = "fenolite.package.v0"
 id = "Fenolite:MSOP10_Diodes"
-version = "1.0.1"
+version = "1.1.0"
 summary = "Diodes ten-lead MSOP land"
 category = "Small-outline IC"
 licence = "CC0-1.0"
@@ -13,14 +13,14 @@ kind = "smd"
 number = "1"
 shape = "rect"
 size = ["1.35mm", "0.3mm"]
-at = ["-1.975mm", "1mm"]
+at = ["-1.975mm", "-1mm"]
 layers = ["F.Cu", "F.Paste", "F.Mask"]
 
 [[pad]]
 number = "2"
 shape = "rect"
 size = ["1.35mm", "0.3mm"]
-at = ["-1.975mm", "0.5mm"]
+at = ["-1.975mm", "-0.5mm"]
 layers = ["F.Cu", "F.Paste", "F.Mask"]
 
 [[pad]]
@@ -34,28 +34,28 @@ layers = ["F.Cu", "F.Paste", "F.Mask"]
 number = "4"
 shape = "rect"
 size = ["1.35mm", "0.3mm"]
-at = ["-1.975mm", "-0.5mm"]
+at = ["-1.975mm", "0.5mm"]
 layers = ["F.Cu", "F.Paste", "F.Mask"]
 
 [[pad]]
 number = "5"
 shape = "rect"
 size = ["1.35mm", "0.3mm"]
-at = ["-1.975mm", "-1mm"]
+at = ["-1.975mm", "1mm"]
 layers = ["F.Cu", "F.Paste", "F.Mask"]
 
 [[pad]]
 number = "6"
 shape = "rect"
 size = ["1.35mm", "0.3mm"]
-at = ["1.975mm", "-1mm"]
+at = ["1.975mm", "1mm"]
 layers = ["F.Cu", "F.Paste", "F.Mask"]
 
 [[pad]]
 number = "7"
 shape = "rect"
 size = ["1.35mm", "0.3mm"]
-at = ["1.975mm", "-0.5mm"]
+at = ["1.975mm", "0.5mm"]
 layers = ["F.Cu", "F.Paste", "F.Mask"]
 
 [[pad]]
@@ -69,14 +69,14 @@ layers = ["F.Cu", "F.Paste", "F.Mask"]
 number = "9"
 shape = "rect"
 size = ["1.35mm", "0.3mm"]
-at = ["1.975mm", "0.5mm"]
+at = ["1.975mm", "-0.5mm"]
 layers = ["F.Cu", "F.Paste", "F.Mask"]
 
 [[pad]]
 number = "10"
 shape = "rect"
 size = ["1.35mm", "0.3mm"]
-at = ["1.975mm", "1mm"]
+at = ["1.975mm", "-1mm"]
 layers = ["F.Cu", "F.Paste", "F.Mask"]
 
 [[graphic]]
@@ -90,10 +90,6 @@ kind = "rect"
 layer = "F.CrtYd"
 points = [["-3.15mm", "-2mm"], ["3.15mm", "2mm"]]
 width = "0.05mm"
-
-[[waiver]]
-code = "library.pin1-location"
-reason = "Legacy shipped catalog drawing keeps its established orientation and pin numbering; the c0262 zero-orientation convention is intentionally waived."
 
 [[waiver]]
 code = "library.pin1-marker"

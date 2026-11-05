@@ -1,6 +1,6 @@
 schema = "fenolite.package.v0"
 id = "Fenolite:SC70_6_TI_DCK0006A"
-version = "1.0.1"
+version = "1.1.0"
 summary = "Six-lead TI DCK0006A SC-70 package land"
 category = "Small-outline IC"
 licence = "CC0-1.0"
@@ -13,7 +13,7 @@ kind = "smd"
 number = "1"
 shape = "rect"
 size = ["0.9mm", "0.4mm"]
-at = ["-1.1mm", "0.65mm"]
+at = ["-1.1mm", "-0.65mm"]
 layers = ["F.Cu", "F.Paste", "F.Mask"]
 
 [[pad]]
@@ -27,14 +27,14 @@ layers = ["F.Cu", "F.Paste", "F.Mask"]
 number = "3"
 shape = "rect"
 size = ["0.9mm", "0.4mm"]
-at = ["-1.1mm", "-0.65mm"]
+at = ["-1.1mm", "0.65mm"]
 layers = ["F.Cu", "F.Paste", "F.Mask"]
 
 [[pad]]
 number = "4"
 shape = "rect"
 size = ["0.9mm", "0.4mm"]
-at = ["1.1mm", "-0.65mm"]
+at = ["1.1mm", "0.65mm"]
 layers = ["F.Cu", "F.Paste", "F.Mask"]
 
 [[pad]]
@@ -48,7 +48,7 @@ layers = ["F.Cu", "F.Paste", "F.Mask"]
 number = "6"
 shape = "rect"
 size = ["0.9mm", "0.4mm"]
-at = ["1.1mm", "0.65mm"]
+at = ["1.1mm", "-0.65mm"]
 layers = ["F.Cu", "F.Paste", "F.Mask"]
 
 [[graphic]]
@@ -62,10 +62,6 @@ kind = "rect"
 layer = "F.CrtYd"
 points = [["-2.05mm", "-1.5mm"], ["2.05mm", "1.5mm"]]
 width = "0.05mm"
-
-[[waiver]]
-code = "library.pin1-location"
-reason = "Legacy shipped catalog drawing keeps its established orientation and pin numbering; the c0262 zero-orientation convention is intentionally waived."
 
 [[waiver]]
 code = "library.pin1-marker"

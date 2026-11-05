@@ -120,13 +120,13 @@ def make(design: Design, variant: str, *, power: bool = True) -> Design:
         design.via("gnd_c1", *p(11, 24.6), net=gnd, **VIA)
         design.track("gnd_c1t", c1.pad(2), p(11, 24.6), width=mm("0.6"))
     # the driver: bootstrap, supply and inputs
-    design.track("vb", u2.pad(8), p(42.4, 18.095), p(42.4, 15.6), c2.pad(1), width=mm("0.25"))
-    design.track("hs_boot", c2.pad(2), p(45.5, 15.6), p(45.5, 20.635), u2.pad(6), width=mm("0.4"))
-    design.track("vcc", u2.pad(1), p(56.5, 18.095), p(56.5, 26.19), j3.pad(1), width=mm("0.4"))
-    design.track("hin", u2.pad(2), p(55, 19.365), p(55, 28.73), j3.pad(2), width=mm("0.25"))
-    design.track("lin", u2.pad(3), p(54, 20.635), p(54, 31.27), j3.pad(3), width=mm("0.25"))
-    design.track("isns", u3.pad(1), p(34.2, 48.0), p(62.5, 48.0), p(62.5, 33.81), j3.pad(4), width=mm("0.25"))
-    design.track("vdrv_u3", u3.pad(5), p(38.5, 43.95), c4.pad(1), width=mm("0.4"))
+    design.track("vb", u2.pad(5), p(42.4, 18.095), p(42.4, 15.6), c2.pad(1), width=mm("0.25"))
+    design.track("hs_boot", c2.pad(2), p(45.5, 15.6), p(45.5, 20.635), u2.pad(7), width=mm("0.4"))
+    design.track("vcc", u2.pad(4), p(56.5, 18.095), p(56.5, 26.19), j3.pad(1), width=mm("0.4"))
+    design.track("hin", u2.pad(3), p(55, 19.365), p(55, 28.73), j3.pad(2), width=mm("0.25"))
+    design.track("lin", u2.pad(2), p(54, 20.635), p(54, 31.27), j3.pad(3), width=mm("0.25"))
+    design.track("isns", u3.pad(3), p(34.2, 48.0), p(62.5, 48.0), p(62.5, 33.81), j3.pad(4), width=mm("0.25"))
+    design.track("vdrv_u3", u3.pad(4), p(38.5, 43.95), c4.pad(1), width=mm("0.4"))
     design.track(
         "vdrv_c4", c4.pad(1), via_step(*p(41.5, 44.8), to="In2.Cu", **BLIND), p(58.5, 44.8), p(58.5, 26.19),
         j3.pad(1), width=mm("0.4"),
@@ -136,12 +136,12 @@ def make(design: Design, variant: str, *, power: bool = True) -> Design:
     design.via("gnd_c4", *p(41.4, 43.2), net=gnd, **VIA)
     design.track("gnd_c4t", c4.pad(2), p(41.4, 43.2), width=mm("0.4"))
     # the high side's gate out on F.Cu
-    design.track("gh", u2.pad(7), p(38.0, 19.365), p(38.0, 11.0), q1.pad(1), width=mm("0.25"))
+    design.track("gh", u2.pad(6), p(38.0, 19.365), p(38.0, 11.0), q1.pad(1), width=mm("0.25"))
     # the low side's gate out on F.Cu and its return under it on In1.Cu, from the Kelvin-source pad
     design.track(
         "gl_ret", q2.pad(2), via_step(*p(30.6, 32.5), to="In1.Cu", **BLIND), p(30.6, 31.0), p(37.0, 31.0),
         p(37.0, 21.905), p(44.5, 21.905), p(44.5, 23.4), via_step(*p(48.7, 23.4), to="F.Cu", **BLIND),
-        u2.pad(4), width=mm("0.25"),
+        u2.pad(1), width=mm("0.25"),
     )  # fmt: skip
     zone(sw, "SW", (25.7, 11.85), (28.3, 11.85), (28.3, 13.4), (29.9, 13.4), (29.9, 14.0), (33.5, 14.0),
          (33.5, 30.0), (26.8, 30.0), (26.8, 41.6), (3.0, 41.6), (3.0, 33.6), (13.6, 33.6), (13.6, 22.2),
@@ -149,10 +149,10 @@ def make(design: Design, variant: str, *, power: bool = True) -> Design:
     # the sense pair from the inner halves of the shunt's pads
     if variant != "open":
         design.track(
-            "sense_p", r1.pad(1).at(mm("0.5")), p(33.1, 38.5), p(34.2, 39.6), u3.pad(3), width=mm("0.25")
+            "sense_p", r1.pad(1).at(mm("0.5")), p(33.1, 38.5), p(34.2, 39.6), u3.pad(1), width=mm("0.25")
         )
         design.track(
-            "sense_n", r1.pad(2).at(mm("-0.5")), p(37.9, 38.5), p(36.8, 39.6), u3.pad(4), width=mm("0.25")
+            "sense_n", r1.pad(2).at(mm("-0.5")), p(37.9, 38.5), p(36.8, 39.6), u3.pad(5), width=mm("0.25")
         )
     if good:
         _good(design, q1, q2, u2, vbus, zone)
@@ -166,9 +166,9 @@ def _good(design, q1, q2, u2, vbus, zone):  # type: ignore[no-untyped-def]
     zone(vbus, "VBUS", (1.5, 1.5), (12.8, 1.5), (12.8, 8.5), (24.1, 8.5), (24.1, 20.6), (1.5, 20.6))
     design.track(
         "gh_ret", q1.pad(2), via_step(*p(30.6, 12.5), to="In1.Cu", **BLIND), p(30.6, 11.0), p(38.0, 11.0),
-        p(38.0, 20.635), via_step(*p(39.6, 20.635), to="F.Cu", **BLIND), u2.pad(6), width=mm("0.25"),
+        p(38.0, 20.635), via_step(*p(39.6, 20.635), to="F.Cu", **BLIND), u2.pad(7), width=mm("0.25"),
     )  # fmt: skip
-    design.track("gl", u2.pad(5), p(37.0, 21.905), p(37.0, 31.0), q2.pad(1), width=mm("0.25"))
+    design.track("gl", u2.pad(8), p(37.0, 21.905), p(37.0, 31.0), q2.pad(1), width=mm("0.25"))
 
 
 def _bad(design, j1, q1, q2, u2, vbus, sw, zone, power, gates=True):  # type: ignore[no-untyped-def]
@@ -186,10 +186,10 @@ def _bad(design, j1, q1, q2, u2, vbus, sw, zone, power, gates=True):  # type: ig
         design.via("gh_ret_via", *p(31.0, 14.6), net=sw, **BLIND, layers=("F.Cu", "In1.Cu"))
         design.track(
             "gh_ret", p(31.0, 14.6), p(31.0, 11.0), p(38.0, 11.0), p(38.0, 20.635),
-            via_step(*p(39.6, 20.635), to="F.Cu", **BLIND), u2.pad(6), layer="In1.Cu", width=mm("0.25"),
+            via_step(*p(39.6, 20.635), to="F.Cu", **BLIND), u2.pad(7), layer="In1.Cu", width=mm("0.25"),
         )  # fmt: skip
         design.track(
-            "gl", u2.pad(5), p(42.0, 21.905), p(42.0, 26.0), p(52.0, 26.0), p(52.0, 33.0), p(37.0, 33.0),
+            "gl", u2.pad(8), p(42.0, 21.905), p(42.0, 26.0), p(52.0, 26.0), p(52.0, 33.0), p(37.0, 33.0),
             p(37.0, 31.0), q2.pad(1), width=mm("0.25"),
         )  # fmt: skip
     zone(sw, "SW_UNDER", (25.4, 37.6), (39.5, 37.6), (39.5, 41.4), (25.4, 41.4), layer="In1.Cu")

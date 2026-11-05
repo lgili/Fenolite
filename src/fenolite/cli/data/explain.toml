@@ -5184,6 +5184,11 @@ meaning = "Library rule render-failed: the record or generated geometry needs re
 fix = "Inspect the item and its source dimensions with library check --sheets; correct the record or add an allowed waiver with a reason."
 see = "library"
 
+["library.pin-order"]
+meaning = "Library rule pin-order: the leads of a perimeter-numbered land (DIP, SO, SOT, QFP, QFN, DFN, a row beside one tab) are numbered clockwise in the top view, so the land is the mirror image of the part and a fitted part has its pins swapped."
+fix = "Mirror the land so the leads run counter-clockwise from pin 1 as the datasheet top view shows; only a part whose cited source numbers it clockwise may waive the rule, with a reason that names that S- or D- source. A plain library item with no record gets a warning, since it has no waiver to carry."
+see = "library"
+
 ["library.pin1-marker"]
 meaning = "Library rule pin1-marker: the record or generated geometry needs review; see docs/library-rules.md."
 fix = "Inspect the item and its source dimensions with library check --sheets; correct the record or add an allowed waiver with a reason."

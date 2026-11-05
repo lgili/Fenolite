@@ -473,10 +473,13 @@ def _base_checks(item: Item) -> None:
             pins = dimensions.get("pins", (None,))[0]
         polarized = bool(item.package and item.package.keys.text("polarity") == "pad1")
         item.add(
-            rules.check_footprint(item.footprint, record_id=item.id, pins=pins, polarized=polarized),
+            rules.check_footprint(
+                item.footprint, record_id=item.id, pins=pins, polarized=polarized, recorded=header is not None
+            ),
             (
                 "library.pad-count",
                 "library.pin1-location",
+                "library.pin-order",
                 "library.pin1-marker",
                 "library.courtyard-missing",
                 "library.courtyard-containment",

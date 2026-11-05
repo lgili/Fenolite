@@ -192,6 +192,137 @@ def test_record_evidence_sources_waivers_and_effective_evidence():
     )
 
 
+def lands(*rows: tuple[str, int, int, int, int]) -> FootprintDef:
+    """A footprint of ``(number, x, y, w, h)`` pads in micrometres, with a courtyard around them."""
+    pads = tuple(
+        Pad(
+            id=f"q{i}",
+            number=number,
+            shape="rect",
+            size=Size(w * 1000, h * 1000),
+            position=Point(x * 1000, y * 1000),
+            layers=("F.Cu",),
+        )
+        for i, (number, x, y, w, h) in enumerate(rows)
+    )
+    return FootprintDef(id="fp", name="Order", library="Rules", pads=pads)
+
+
+def mirrored(fp: FootprintDef) -> FootprintDef:
+    """``fp`` mirrored about its X axis: the land of the same part seen from below."""
+    return replace(fp, pads=tuple(replace(p, position=Point(p.position.x, -p.position.y)) for p in fp.pads))
+
+
+SOT23 = lands(("1", -1050, -950, 1300, 600), ("2", -1050, 950, 1300, 600), ("3", 1050, 0, 1300, 600))
+SOIC8 = lands(
+    *((str(i + 1), -2700, -1905 + 1270 * i, 1550, 600) for i in range(4)),
+    *((str(8 - i), 2700, -1905 + 1270 * i, 1550, 600) for i in range(4)),
+)
+QFN8_EP = lands(
+    *((str(i + 1), -1000, -500 + 1000 * i, 600, 300) for i in range(2)),
+    *((str(3 + i), -500 + 1000 * i, 1000, 300, 600) for i in range(2)),
+    *((str(5 + i), 1000, 500 - 1000 * i, 600, 300) for i in range(2)),
+    *((str(7 + i), 500 - 1000 * i, -1000, 300, 600) for i in range(2)),
+    ("9", 0, 0, 1200, 1200),
+)
+SOT89 = lands(
+    ("1", -1500, 1450, 580, 1630),
+    ("2", 0, 1490, 760, 1550),
+    ("3", 1500, 1450, 580, 1630),
+    ("2", 0, -750, 1933, 3030),
+)
+TO252 = lands(("1", -2286, 4050, 1060, 2600), ("3", 2286, 4050, 1060, 2600), ("2", 0, -2500, 5632, 5700))
+
+
+@pytest.mark.parametrize(
+    "fp", [SOT23, SOIC8, QFN8_EP, SOT89, TO252], ids=["sot23", "soic8", "qfn", "sot89", "to252"]
+)
+def test_pin_order_counter_clockwise_passes_and_its_mirror_is_refused(fp):
+    assert rules.pin_order(fp) == "counter-clockwise"
+    assert "library.pin-order" not in codes(rules.check_footprint(fp))
+    assert rules.pin_order(mirrored(fp)) == "clockwise"
+    found = [f for f in rules.check_footprint(mirrored(fp)) if f.code == "library.pin-order"]
+    assert len(found) == 1 and found[0].severity == "error"
+
+
+def test_pin_order_turning_the_land_keeps_its_order():
+    turned = replace(
+        SOIC8, pads=tuple(replace(p, position=Point(-p.position.x, -p.position.y)) for p in SOIC8.pads)
+    )
+    quarter = replace(
+        SOIC8, pads=tuple(replace(p, position=Point(-p.position.y, p.position.x)) for p in SOIC8.pads)
+    )
+    assert rules.pin_order(turned) == rules.pin_order(quarter) == "counter-clockwise"
+
+
+def test_pin_order_ignores_lands_without_a_perimeter_numbering():
+    zigzag = lands(
+        *(
+            (str(2 * r + c + 1), -1270 + 2540 * c, -2540 + 2540 * r, 1800, 1800)
+            for r in range(3)
+            for c in range(2)
+        )
+    )
+    zigzag_even = lands(
+        *(
+            (str(2 * r + c + 1), -1270 + 2540 * c, -3810 + 2540 * r, 1800, 1800)
+            for r in range(4)
+            for c in range(2)
+        )
+    )
+    row = lands(*((str(i + 1), -3750 + 2500 * i, 0, 1800, 1800) for i in range(4)))
+    same_way = lands(
+        *((str(i + 1), -3750 + 2500 * i, -1250, 1000, 1000) for i in range(4)),
+        *((str(i + 5), -3750 + 2500 * i, 1250, 1000, 1000) for i in range(4)),
+    )
+    switch = lands(
+        ("1", -3500, 1500, 2000, 1400),
+        ("2", 3500, 1500, 2000, 1400),
+        ("3", -3500, -1500, 2000, 1400),
+        ("4", 3500, -1500, 2000, 1400),
+    )
+    grid = lands(
+        ("A1", -500, -500, 300, 300),
+        ("A2", 500, -500, 300, 300),
+        ("B1", -500, 500, 300, 300),
+        ("B2", 500, 500, 300, 300),
+    )
+    two = lands(("1", -1000, 0, 600, 600), ("2", 1000, 0, 600, 600))
+    two_mounts = lands(
+        *((str(i + 1), -1500 + 1000 * i, -2000, 600, 1500) for i in range(4)),
+        ("5", -3000, 1000, 1200, 1800),
+        ("6", 3000, 1000, 1200, 1800),
+    )
+    staggered = lands(("1", 0, 0, 1300, 1300), ("2", 1270, -1270, 1300, 1300), ("3", 2540, 0, 1300, 1300))
+    terminal_block = lands(
+        *((str(i + 1), -5000 + 2500 * i, 0, 1500, 1500) for i in range(5)),
+        *((str(i + 1), -5000 + 2500 * i, 5000, 1500, 1500) for i in range(5)),
+    )
+    cases = (zigzag, zigzag_even, row, same_way, switch, grid, two, two_mounts, staggered, terminal_block)
+    for fp in cases:
+        for case in (fp, mirrored(fp)):
+            assert rules.pin_order(case) is None, case.pads
+            assert "library.pin-order" not in codes(rules.check_footprint(case))
+
+
+def test_pin_order_is_a_warning_for_a_plain_library_item():
+    found = [
+        f for f in rules.check_footprint(mirrored(SOIC8), recorded=False) if f.code == "library.pin-order"
+    ]
+    assert len(found) == 1 and found[0].severity == "warning"
+    assert "warning" in rules.ISSUE_CODES["library.pin-order"]
+
+
+def test_pin_order_waiver_must_name_its_source():
+    finding = rules.issue("library.pin-order", "clockwise")
+    with pytest.raises(FormatError, match="S- or D- source"):
+        rules.apply_waivers([finding], {"library.pin-order": "Legacy drawing keeps its orientation."})
+    found, used = rules.apply_waivers(
+        [finding], {"library.pin-order": "S-0410 page 2 numbers this connector clockwise in the top view."}
+    )
+    assert used == {"library.pin-order"} and found[0].severity == "info"
+
+
 def test_shipped_catalog_rules_have_no_unexplained_findings():
     tree = records.shipped_tree()
     for record in tree.records:

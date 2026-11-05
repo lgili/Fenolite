@@ -1,6 +1,6 @@
 schema = "fenolite.package.v0"
 id = "Fenolite:TO220_3_Diodes_Vertical"
-version = "1.0.1"
+version = "1.1.0"
 summary = "Diodes TO220-3 vertical inferred through-hole land"
 category = "Through-hole semiconductor"
 licence = "CC0-1.0"
@@ -39,13 +39,13 @@ layers = ["*.Cu", "*.Mask"]
 [[graphic]]
 kind = "rect"
 layer = "F.Fab"
-points = [["-5.35mm", "1.075mm"], ["5.35mm", "5.925mm"]]
+points = [["-5.35mm", "-5.925mm"], ["5.35mm", "-1.075mm"]]
 width = "0.1mm"
 
 [[graphic]]
 kind = "rect"
 layer = "F.CrtYd"
-points = [["-5.85mm", "-1.6mm"], ["5.85mm", "6.425mm"]]
+points = [["-5.85mm", "-6.425mm"], ["5.85mm", "1.6mm"]]
 width = "0.05mm"
 
 [[waiver]]

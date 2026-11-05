@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import Any
 
 import pytest
@@ -14,6 +15,7 @@ from fenolite.catalog import get_footprint
 from fenolite.catalog.footprints import generate, positions_of
 from fenolite.catalog.footprints.drawing import DRAWING_1
 from fenolite.catalog.footprints.record import Package, package_from
+from fenolite.core.coords import Point
 from fenolite.model.board import Pad
 
 DRAWN = [p for p in every_record() if p.drawing == 1]
@@ -185,5 +187,22 @@ ZERO = [
 def test_drawing_0_reproduces_the_0_6_catalog(
     name: str, family: str, keys: dict[str, Any], land: dict[str, Any]
 ) -> None:
-    generated = generate(_catalog(name, family, keys, land))
-    assert generated.footprint == get_footprint(f"Fenolite:{name}")
+    """``drawing/0`` keeps the 0.6 rows (pin 1 at the most positive y): since c0385 the catalog's multi-pin
+    lands are their mirror about the X axis, numbered counter-clockwise; the two-pad chip is unchanged."""
+    generated = generate(_catalog(name, family, keys, land)).footprint
+    if name != "Chip_0603":
+        generated = replace(
+            generated,
+            pads=tuple(replace(p, position=Point(p.position.x, -p.position.y)) for p in generated.pads),
+            graphics=tuple(replace(g, points=_mirrored(g.kind, g.points)) for g in generated.graphics),
+        )
+    assert generated == get_footprint(f"Fenolite:{name}")
+
+
+def _mirrored(kind: str, points: tuple[Point, ...]) -> tuple[Point, ...]:
+    """``points`` mirrored about the X axis; a rectangle stays stored by its lower and upper corners."""
+    flipped = tuple(Point(q.x, -q.y) for q in points)
+    if kind != "rect":
+        return flipped
+    a, b = flipped
+    return (Point(min(a.x, b.x), min(a.y, b.y)), Point(max(a.x, b.x), max(a.y, b.y)))

@@ -32,15 +32,15 @@ def test_routes_of_the_half_bridge(reference: Callable[..., Built]) -> None:
     ]
     routes = {route.key: route for route in found.routes}
     (ret,) = [routes[key] for key in groups["gate_Q1"].routes]
-    assert (ret.kind, ret.a.label, ret.b.label, ret.net) == ("gate-return", "Q1-2", "U2-6", "SW")
+    assert (ret.kind, ret.a.label, ret.b.label, ret.net) == ("gate-return", "Q1-2", "U2-7", "SW")
     assert ret.isolated and ret.vias == 2 and ret.layers == ("F.Cu", "In1.Cu") and ret.width == 250_000
     assert ret.aggressors == () and ret.partner == ""
     (out,) = [routes[key] for key in groups["gate_Q2"].routes]
-    assert (out.kind, out.a.label, out.b.label, out.net) == ("gate-out", "U2-5", "Q2-1", "GL")
+    assert (out.kind, out.a.label, out.b.label, out.net) == ("gate-out", "U2-8", "Q2-1", "GL")
     assert not out.isolated and out.vias == 0 and out.layers == ("F.Cu",)
-    assert len(out.loop) > 4  # the return's copper under it, from Q2-2 to U2-4
+    assert len(out.loop) > 4  # the return's copper under it, from Q2-2 to U2-1
     pair = [routes[key] for key in groups["kelvin_R1"].routes]
-    assert [(r.a.label, r.b.label, r.net) for r in pair] == [("R1-1", "U3-3", "SRC"), ("R1-2", "U3-4", "GND")]
+    assert [(r.a.label, r.b.label, r.net) for r in pair] == [("R1-1", "U3-1", "SRC"), ("R1-2", "U3-5", "GND")]
     assert pair[0].partner == pair[1].key and pair[1].partner == pair[0].key
     assert all(r.isolated and r.aggressors == ("SW",) and r.keep_away == 1_000_000 for r in pair)
     assert all(r.width == 200_000 and r.gap == 300_000 and r.tier == 1 for r in pair)

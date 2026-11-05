@@ -131,18 +131,18 @@ r1.place(mm(15), mm(8))  # pads at (12.1, 8) and (17.9, 8)
 u1.place(mm(15), mm(20))  # IN+ at (13.7, 19.05), IN- at (16.3, 19.05)
 w = mm("0.25")
 p = lambda x, y: (mm(str(x)), mm(str(y)))  # noqa: E731
-design.track("sense_p", r1.pad(1).at(mm("0.5")), p(12.6, 12), p(13.7, 17), u1.pad(3), width=w)
+design.track("sense_p", r1.pad(1).at(mm("0.5")), p(12.6, 12), p(13.7, 17), u1.pad(1), width=w)
 {sense_n}
 """
-COUPLED = 'design.track("sense_n", r1.pad(2).at(mm("-0.5")), p(17.4, 12), p(16.3, 17), u1.pad(4), width=w)'
+COUPLED = 'design.track("sense_n", r1.pad(2).at(mm("-0.5")), p(17.4, 12), p(16.3, 17), u1.pad(5), width=w)'
 SPLIT = (
-    'design.track("sense_n", r1.pad(2).at(mm("-0.5")), p(17.4, 3), p(35, 3), p(35, 19.05), u1.pad(4), '
+    'design.track("sense_n", r1.pad(2).at(mm("-0.5")), p(17.4, 3), p(35, 3), p(35, 19.05), u1.pad(5), '
     "width=w)"
 )
 
 PAIR_ROLES = RoleSet(
     nets=(NetRole("VA", "power", "declared"), NetRole("VB", "power", "declared")),
-    kelvins=(KelvinPair("kelvin_R1", ("R1-1", "R1-2"), ("U1-3", "U1-4"), origin="declared"),),
+    kelvins=(KelvinPair("kelvin_R1", ("R1-1", "R1-2"), ("U1-1", "U1-5"), origin="declared"),),
 )
 
 

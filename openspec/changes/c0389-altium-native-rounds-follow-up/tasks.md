@@ -55,3 +55,10 @@
   - Blocker on 2026-11-05: The coordinator accepts the public project `PCB-PiDP11IOExpander` in place of the maintainer's own drawing, provided the comparison criteria pass. They do not: the assembly top view lacks silkscreen and hatching, the bottom view is empty, the right view's height reads `43.2` against `11.43mm`, and the BOM has fewer columns and no variant applied.
 - [ ] 5.3 (from c0186 2.2) The maintainer compares a variant of their own with Altium. Proof: the record under this task.
   - Blocker on 2026-11-05: The coordinator accepts the public project `PCB-PiDP11IOExpander` in place of the maintainer's own, provided the comparison criteria pass. The not-fitted set matches (A0, A1, A2, J2, R2, R3), but Altium's sheet was not switched to the variant, so the drawn marks were not compared.
+
+## 6. Kit script (c0385)
+
+- [ ] 6.1 (from c0385 5.2) The kit script creates `results/script.log`: `Rewrite` when the file is missing, `Append`
+  otherwise. Rerun group K2 in Altium and raise `H-A-KIT-SCRIPT` again on the new run.
+  - Blocker on 2026-11-05: in run `2026-11-05-e28d0bb1` (S-1590, AD 24.5.2.23) the script's `Append` on the missing
+    log raised `EInOutError` "The specified file was not found" and the script stopped; the row is `INFERRED`.

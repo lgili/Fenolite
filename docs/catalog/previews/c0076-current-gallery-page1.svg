@@ -4,18 +4,18 @@
 <text x="24" y="36" font-family="Arial" font-size="16.00" fill="#0f172a">C_Electrolytic_Panasonic_FR_D5_P2</text>
 <circle cx="225.00" cy="145.00" r="50.00" fill="none" stroke="#2563eb" stroke-width="1.5"/>
 <rect x="160.00" y="80.00" width="130.00" height="130.00" fill="none" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="5 4"/>
-<line x1="196.00" y1="120.00" x2="204.00" y2="120.00" stroke="#2563eb" stroke-width="2"/>
-<line x1="200.00" y1="124.00" x2="200.00" y2="116.00" stroke="#2563eb" stroke-width="2"/>
-<line x1="246.00" y1="120.00" x2="254.00" y2="120.00" stroke="#2563eb" stroke-width="2"/>
+<line x1="196.00" y1="170.00" x2="204.00" y2="170.00" stroke="#2563eb" stroke-width="2"/>
+<line x1="200.00" y1="166.00" x2="200.00" y2="174.00" stroke="#2563eb" stroke-width="2"/>
+<line x1="246.00" y1="170.00" x2="254.00" y2="170.00" stroke="#2563eb" stroke-width="2"/>
 <ellipse cx="205.00" cy="145.00" rx="16.00" ry="16.00" fill="#f59e0b" stroke="#b45309"/><rect x="197.00" y="137.00" width="16.00" height="16.00" rx="8.00" fill="white" stroke="#b45309"/><text x="205.00" y="149.00" text-anchor="middle" font-family="Arial" font-size="12.00" font-weight="bold" fill="#1e293b">1</text>
 <ellipse cx="245.00" cy="145.00" rx="16.00" ry="16.00" fill="#f59e0b" stroke="#b45309"/><rect x="237.00" y="137.00" width="16.00" height="16.00" rx="8.00" fill="white" stroke="#b45309"/><text x="245.00" y="149.00" text-anchor="middle" font-family="Arial" font-size="12.00" font-weight="bold" fill="#1e293b">2</text>
 <rect x="460" y="10" width="430" height="220" rx="12" fill="white" stroke="#cbd5e1"/>
 <text x="474" y="36" font-family="Arial" font-size="16.00" fill="#0f172a">C_Electrolytic_Panasonic_FR_D6.3_P2.5</text>
 <circle cx="675.00" cy="145.00" r="52.50" fill="none" stroke="#2563eb" stroke-width="1.5"/>
 <rect x="610.00" y="80.00" width="130.00" height="130.00" fill="none" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="5 4"/>
-<line x1="645.42" y1="118.75" x2="652.08" y2="118.75" stroke="#2563eb" stroke-width="2"/>
-<line x1="648.75" y1="122.08" x2="648.75" y2="115.42" stroke="#2563eb" stroke-width="2"/>
-<line x1="697.92" y1="118.75" x2="704.58" y2="118.75" stroke="#2563eb" stroke-width="2"/>
+<line x1="645.42" y1="171.25" x2="652.08" y2="171.25" stroke="#2563eb" stroke-width="2"/>
+<line x1="648.75" y1="167.92" x2="648.75" y2="174.58" stroke="#2563eb" stroke-width="2"/>
+<line x1="697.92" y1="171.25" x2="704.58" y2="171.25" stroke="#2563eb" stroke-width="2"/>
 <ellipse cx="654.17" cy="145.00" rx="13.33" ry="13.33" fill="#f59e0b" stroke="#b45309"/><rect x="647.50" y="138.33" width="13.33" height="13.33" rx="6.67" fill="white" stroke="#b45309"/><text x="654.17" y="149.00" text-anchor="middle" font-family="Arial" font-size="12.00" font-weight="bold" fill="#1e293b">1</text>
 <ellipse cx="695.83" cy="145.00" rx="13.33" ry="13.33" fill="#f59e0b" stroke="#b45309"/><rect x="689.17" y="138.33" width="13.33" height="13.33" rx="6.67" fill="white" stroke="#b45309"/><text x="695.83" y="149.00" text-anchor="middle" font-family="Arial" font-size="12.00" font-weight="bold" fill="#1e293b">2</text>
 <rect x="10" y="250" width="430" height="220" rx="12" fill="white" stroke="#cbd5e1"/>

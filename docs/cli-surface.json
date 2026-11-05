@@ -14796,6 +14796,14 @@
         "info"
       ]
     },
+    "library.pin-order": {
+      "experimental": false,
+      "severities": [
+        "error",
+        "warning",
+        "info"
+      ]
+    },
     "library.pin1-location": {
       "experimental": false,
       "severities": [

@@ -1,6 +1,6 @@
 schema = "fenolite.package.v0"
 id = "Fenolite:TSSOP24_TI_PW0024A"
-version = "1.0.1"
+version = "1.1.0"
 summary = "TI PW0024A TSSOP land"
 category = "Small-outline IC"
 licence = "CC0-1.0"
@@ -13,168 +13,168 @@ kind = "smd"
 number = "1"
 shape = "rect"
 size = ["1.5mm", "0.45mm"]
-at = ["-2.9mm", "3.575mm"]
+at = ["-2.9mm", "-3.575mm"]
 layers = ["F.Cu", "F.Paste", "F.Mask"]
 
 [[pad]]
 number = "2"
 shape = "rect"
 size = ["1.5mm", "0.45mm"]
-at = ["-2.9mm", "2.925mm"]
+at = ["-2.9mm", "-2.925mm"]
 layers = ["F.Cu", "F.Paste", "F.Mask"]
 
 [[pad]]
 number = "3"
 shape = "rect"
 size = ["1.5mm", "0.45mm"]
-at = ["-2.9mm", "2.275mm"]
+at = ["-2.9mm", "-2.275mm"]
 layers = ["F.Cu", "F.Paste", "F.Mask"]
 
 [[pad]]
 number = "4"
 shape = "rect"
 size = ["1.5mm", "0.45mm"]
-at = ["-2.9mm", "1.625mm"]
+at = ["-2.9mm", "-1.625mm"]
 layers = ["F.Cu", "F.Paste", "F.Mask"]
 
 [[pad]]
 number = "5"
 shape = "rect"
 size = ["1.5mm", "0.45mm"]
-at = ["-2.9mm", "0.975mm"]
+at = ["-2.9mm", "-0.975mm"]
 layers = ["F.Cu", "F.Paste", "F.Mask"]
 
 [[pad]]
 number = "6"
 shape = "rect"
 size = ["1.5mm", "0.45mm"]
-at = ["-2.9mm", "0.325mm"]
+at = ["-2.9mm", "-0.325mm"]
 layers = ["F.Cu", "F.Paste", "F.Mask"]
 
 [[pad]]
 number = "7"
 shape = "rect"
 size = ["1.5mm", "0.45mm"]
-at = ["-2.9mm", "-0.325mm"]
+at = ["-2.9mm", "0.325mm"]
 layers = ["F.Cu", "F.Paste", "F.Mask"]
 
 [[pad]]
 number = "8"
 shape = "rect"
 size = ["1.5mm", "0.45mm"]
-at = ["-2.9mm", "-0.975mm"]
+at = ["-2.9mm", "0.975mm"]
 layers = ["F.Cu", "F.Paste", "F.Mask"]
 
 [[pad]]
 number = "9"
 shape = "rect"
 size = ["1.5mm", "0.45mm"]
-at = ["-2.9mm", "-1.625mm"]
+at = ["-2.9mm", "1.625mm"]
 layers = ["F.Cu", "F.Paste", "F.Mask"]
 
 [[pad]]
 number = "10"
 shape = "rect"
 size = ["1.5mm", "0.45mm"]
-at = ["-2.9mm", "-2.275mm"]
+at = ["-2.9mm", "2.275mm"]
 layers = ["F.Cu", "F.Paste", "F.Mask"]
 
 [[pad]]
 number = "11"
 shape = "rect"
 size = ["1.5mm", "0.45mm"]
-at = ["-2.9mm", "-2.925mm"]
+at = ["-2.9mm", "2.925mm"]
 layers = ["F.Cu", "F.Paste", "F.Mask"]
 
 [[pad]]
 number = "12"
 shape = "rect"
 size = ["1.5mm", "0.45mm"]
-at = ["-2.9mm", "-3.575mm"]
+at = ["-2.9mm", "3.575mm"]
 layers = ["F.Cu", "F.Paste", "F.Mask"]
 
 [[pad]]
 number = "13"
 shape = "rect"
 size = ["1.5mm", "0.45mm"]
-at = ["2.9mm", "-3.575mm"]
+at = ["2.9mm", "3.575mm"]
 layers = ["F.Cu", "F.Paste", "F.Mask"]
 
 [[pad]]
 number = "14"
 shape = "rect"
 size = ["1.5mm", "0.45mm"]
-at = ["2.9mm", "-2.925mm"]
+at = ["2.9mm", "2.925mm"]
 layers = ["F.Cu", "F.Paste", "F.Mask"]
 
 [[pad]]
 number = "15"
 shape = "rect"
 size = ["1.5mm", "0.45mm"]
-at = ["2.9mm", "-2.275mm"]
+at = ["2.9mm", "2.275mm"]
 layers = ["F.Cu", "F.Paste", "F.Mask"]
 
 [[pad]]
 number = "16"
 shape = "rect"
 size = ["1.5mm", "0.45mm"]
-at = ["2.9mm", "-1.625mm"]
+at = ["2.9mm", "1.625mm"]
 layers = ["F.Cu", "F.Paste", "F.Mask"]
 
 [[pad]]
 number = "17"
 shape = "rect"
 size = ["1.5mm", "0.45mm"]
-at = ["2.9mm", "-0.975mm"]
+at = ["2.9mm", "0.975mm"]
 layers = ["F.Cu", "F.Paste", "F.Mask"]
 
 [[pad]]
 number = "18"
 shape = "rect"
 size = ["1.5mm", "0.45mm"]
-at = ["2.9mm", "-0.325mm"]
+at = ["2.9mm", "0.325mm"]
 layers = ["F.Cu", "F.Paste", "F.Mask"]
 
 [[pad]]
 number = "19"
 shape = "rect"
 size = ["1.5mm", "0.45mm"]
-at = ["2.9mm", "0.325mm"]
+at = ["2.9mm", "-0.325mm"]
 layers = ["F.Cu", "F.Paste", "F.Mask"]
 
 [[pad]]
 number = "20"
 shape = "rect"
 size = ["1.5mm", "0.45mm"]
-at = ["2.9mm", "0.975mm"]
+at = ["2.9mm", "-0.975mm"]
 layers = ["F.Cu", "F.Paste", "F.Mask"]
 
 [[pad]]
 number = "21"
 shape = "rect"
 size = ["1.5mm", "0.45mm"]
-at = ["2.9mm", "1.625mm"]
+at = ["2.9mm", "-1.625mm"]
 layers = ["F.Cu", "F.Paste", "F.Mask"]
 
 [[pad]]
 number = "22"
 shape = "rect"
 size = ["1.5mm", "0.45mm"]
-at = ["2.9mm", "2.275mm"]
+at = ["2.9mm", "-2.275mm"]
 layers = ["F.Cu", "F.Paste", "F.Mask"]
 
 [[pad]]
 number = "23"
 shape = "rect"
 size = ["1.5mm", "0.45mm"]
-at = ["2.9mm", "2.925mm"]
+at = ["2.9mm", "-2.925mm"]
 layers = ["F.Cu", "F.Paste", "F.Mask"]
 
 [[pad]]
 number = "24"
 shape = "rect"
 size = ["1.5mm", "0.45mm"]
-at = ["2.9mm", "3.575mm"]
+at = ["2.9mm", "-3.575mm"]
 layers = ["F.Cu", "F.Paste", "F.Mask"]
 
 [[graphic]]
@@ -188,10 +188,6 @@ kind = "rect"
 layer = "F.CrtYd"
 points = [["-4.15mm", "-4.4mm"], ["4.15mm", "4.4mm"]]
 width = "0.05mm"
-
-[[waiver]]
-code = "library.pin1-location"
-reason = "Legacy shipped catalog drawing keeps its established orientation and pin numbering; the c0262 zero-orientation convention is intentionally waived."
 
 [[waiver]]
 code = "library.pin1-marker"

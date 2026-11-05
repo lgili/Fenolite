@@ -1284,14 +1284,14 @@ connect(va, r1[1], u1["IN+"])
 connect(vb, r1[2], u1["IN-"])
 design.net_role(va, "power")
 design.net_role(vb, "power")
-design.kelvin("kelvin_R1", (r1.pad(1), r1.pad(2)), (u1.pad(3), u1.pad(4)))
+design.kelvin("kelvin_R1", (r1.pad(1), r1.pad(2)), (u1.pad(1), u1.pad(5)))
 r1.place(mm(8), mm(8), rot=90)
 u1.place(mm(28), mm(20), rot=90)
 {lines}
 """
 BAD_LINES = """\
-design.track("bad_a", r1.pad(1).at(mm("-0.6")), u1.pad(3), width=mm("0.2"))
-design.track("bad_b", r1.pad(2), u1.pad(4), width=mm("0.2"))
+design.track("bad_a", r1.pad(1).at(mm("-0.6")), u1.pad(1), width=mm("0.2"))
+design.track("bad_b", r1.pad(2), u1.pad(5), width=mm("0.2"))
 """
 
 

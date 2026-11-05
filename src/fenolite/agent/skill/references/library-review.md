@@ -19,6 +19,12 @@ fenolite library review data/record.toml --json
 Error findings exit 5; `--fail-on warning` also fails on warnings. Correct the source record and check
 again. An unusual item may use `[[waiver]]` with `code` and a reason; the waived finding stays visible
 as info. Unused waivers warn. Evidence claims, malformed records and stale reviews cannot be waived.
+`library.pin-order` means the land is the part's mirror image: mirror the record, do not waive it, unless
+the reason names the S- or D- source that numbers the part clockwise.
+
+```fenolite-cmd
+fenolite explain library.pin-order --json
+```
 Device evidence is the weakest current label of the device, pin table and package.
 
 Review `result.plan`, then confirm its `plan_id`. `review/index.html` links standalone sheets and

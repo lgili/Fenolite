@@ -114,7 +114,7 @@ def make(design: Design, variant: str, *, power: bool = True) -> Design:
     j2.place(mm(54), mm(26), rot=90)
     zone(sw, "SW", (15.4, 10.5), (20.6, 10.5), (20.6, 13.85), (28.15, 13.85), (28.15, 19.6), (15.4, 19.6))
     # the low side's gate: up and left of the switches, then down to LO; its return runs under it on B.Cu
-    design.track("gl", q2.pad(2), p(11.6, 9.2), p(11.6, 22.095), u1.pad(5), width=mm("0.25"))
+    design.track("gl", q2.pad(2), p(11.6, 9.2), p(11.6, 22.095), u1.pad(8), width=mm("0.25"))
     # the signal ground hangs from the source pad of the low side through a via in that pad, so no power
     # current shares it; it runs under the low side's gate on B.Cu
     design.via("gnd_q2", *p(17.6, 9.2), net=gnd, **VIA)
@@ -132,24 +132,24 @@ def make(design: Design, variant: str, *, power: bool = True) -> Design:
     # the high side's gate: under the switch node on B.Cu, then beside the HS track to HO
     design.track(
         "gh", q1.pad(2), via_step(*p(28.9, 17.2), to="B.Cu", **VIA), p(14.2, 17.2),
-        via_step(*p(14.2, 24.635), to="F.Cu", **VIA), u1.pad(7), width=mm("0.25"),
+        via_step(*p(14.2, 24.635), to="F.Cu", **VIA), u1.pad(6), width=mm("0.25"),
     )  # fmt: skip
-    design.track("hs", p(15.6, 19.0), p(15.6, 23.365), u1.pad(6), width=mm("0.4"))
+    design.track("hs", p(15.6, 19.0), p(15.6, 23.365), u1.pad(7), width=mm("0.4"))
     design.track("hs_boot", p(15.6, 23.365), p(15.6, 28.0), c6.pad(2), width=mm("0.4"))
-    design.track("vb", u1.pad(8), p(11.2, 26.6), c6.pad(1), width=mm("0.25"))
+    design.track("vb", u1.pad(5), p(11.2, 26.6), c6.pad(1), width=mm("0.25"))
     # the driver's supply, ground and inputs
-    design.track("vdrv_u1", c4.pad(1), p(3, 25.905), u1.pad(1), width=mm("0.4"))
+    design.track("vdrv_u1", c4.pad(1), p(3, 25.905), u1.pad(4), width=mm("0.4"))
     design.track("vdrv_j3", p(3, 25.905), p(3, 30), p(13.81, 30), p(13.81, 34.6), j3.pad(1), width=mm("0.4"))
-    design.track("vdrv_u3", p(13.81, 34.6), p(25.8, 34.6), p(31.3, 34.6), u3.pad(5), width=mm("0.4"))
+    design.track("vdrv_u3", p(13.81, 34.6), p(25.8, 34.6), p(31.3, 34.6), u3.pad(4), width=mm("0.4"))
     design.track("vdrv_c5", c5.pad(1), p(25.8, 34.6), width=mm("0.4"))
-    design.track("gnd_c4", c4.pad(2), p(5.3, 20.2), u1.pad(4), width=mm("0.4"))
+    design.track("gnd_c4", c4.pad(2), p(5.3, 20.2), u1.pad(1), width=mm("0.4"))
     design.track(
         "pwm_l", j3.pad(3), p(8.73, 32), p(6.6, 29.87), via_step(*p(6.6, 23.365), to="F.Cu", **VIA),
-        u1.pad(3), layer="B.Cu", width=mm("0.25"),
+        u1.pad(2), layer="B.Cu", width=mm("0.25"),
     )  # fmt: skip
     design.track(
         "pwm_h", j3.pad(2), p(11.27, 32), p(7.6, 28.33), via_step(*p(7.6, 24.635), to="F.Cu", **VIA),
-        u1.pad(2), layer="B.Cu", width=mm("0.25"),
+        u1.pad(3), layer="B.Cu", width=mm("0.25"),
     )  # fmt: skip
     # the amplifier's ground and output
     design.track("gnd_u3", u3.pad(2), p(27.4, 31.0), p(26.9, 31.0), p(26.9, 31.7), c5.pad(2), width=mm("0.4"))
@@ -157,7 +157,7 @@ def make(design: Design, variant: str, *, power: bool = True) -> Design:
     design.track("gnd_b", p(27.4, 31.0), p(12.5, 31.0), p(12.5, 21.0), p(11.6, 21.0), layer="B.Cu", net=gnd,
                  width=mm("0.4"))  # fmt: skip
     design.track(
-        "isns", u3.pad(1), via_step(*p(28.7, 33.4), to="B.Cu", **VIA), p(28.7, 38.6), p(6.19, 38.6),
+        "isns", u3.pad(3), via_step(*p(28.7, 33.4), to="B.Cu", **VIA), p(28.7, 38.6), p(6.19, 38.6),
         j3.pad(4), width=mm("0.25"),
     )  # fmt: skip
     if power:
@@ -186,10 +186,10 @@ def _good(design, j1, c1, r12, u3, vin, gnd, vl, vout, zone, power):  # type: ig
          (35.0, 28.3), (32.9, 28.3))  # fmt: skip
     # the sense pair: from the inner half of each shunt pad, converging to the amplifier
     design.track(
-        "sense_p", r12.pad(1).at(mm("0.5")), p(27.6, 28.6), p(28.7, 29.7), u3.pad(3), width=mm("0.25")
+        "sense_p", r12.pad(1).at(mm("0.5")), p(27.6, 28.6), p(28.7, 29.7), u3.pad(1), width=mm("0.25")
     )
     design.track(
-        "sense_n", r12.pad(2).at(mm("-0.5")), p(32.4, 28.6), p(31.3, 29.7), u3.pad(4), width=mm("0.25")
+        "sense_n", r12.pad(2).at(mm("-0.5")), p(32.4, 28.6), p(31.3, 29.7), u3.pad(5), width=mm("0.25")
     )
 
 
@@ -218,7 +218,7 @@ def _bad(design, j1, c1, r12, u3, vin, gnd, vl, vout, zone, power, sense=True): 
         return
     # the sense lines: one from the outer end of R12's pad 1, the other from the output pour
     design.track(
-        "sense_p", r12.pad(1).at(mm("-0.55")), p(26.55, 29.2), p(27.2, 29.7), u3.pad(3),
+        "sense_p", r12.pad(1).at(mm("-0.55")), p(26.55, 29.2), p(27.2, 29.7), u3.pad(1),
         width=mm("0.25"),
     )  # fmt: skip
-    design.track("sense_n", p(33.6, 29.0), p(32.0, 29.0), u3.pad(4), width=mm("0.25"))
+    design.track("sense_n", p(33.6, 29.0), p(32.0, 29.0), u3.pad(5), width=mm("0.25"))

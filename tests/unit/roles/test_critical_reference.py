@@ -76,8 +76,8 @@ def test_reply_of_an_open_buck(opened: Callable[[str], Built]) -> None:
     }
     kelvin = found["kelvin_R12"]
     assert [(c["net"], c["a"], c["b"], c["form"], c["layer"]) for c in kelvin["connections"]] == [
-        ("VL", "R12-1", "U3-3", "pair", "F.Cu"),
-        ("VOUT", "R12-2", "U3-4", "pair", "F.Cu"),
+        ("VL", "R12-1", "U3-1", "pair", "F.Cu"),
+        ("VOUT", "R12-2", "U3-5", "pair", "F.Cu"),
     ]
     assert kelvin["reason"] is None and kelvin["proposal"] is None and kelvin["findings_after"] == []
     assert kelvin["copper"] and len(kelvin["corridors"]) == 2
@@ -338,7 +338,7 @@ def test_gate_loops_of_the_half_bridge(routed_open: Callable[[str], Routed]) -> 
     ]
     found = entries(done.reply)
     (ret,) = found["gate_Q1"]["connections"]
-    assert (ret["a"], ret["b"], ret["form"], ret["vias"]) == ("Q1-2", "U2-6", "side-by-side", 0)
+    assert (ret["a"], ret["b"], ret["form"], ret["vias"]) == ("Q1-2", "U2-7", "side-by-side", 0)
 
 
 def test_half_bridge_pair_waits_for_its_switch_node(
