@@ -368,6 +368,13 @@ a claim), `see` (its code runs only inside the operations of the named modules o
 | `docset` | see `import_evidence` |
 | `draftsman` | `EVIDENCE` INFERRED: `H-A-DWF-CONTAINER`, `H-A-DWF-FIELD`, `H-A-DWF-GEOM`, `H-A-DWF-IMPORT`, `H-A-DWF-KIT`, `H-A-DWF-MINIMAL`, `H-A-DWF-PARAMS`, `H-A-DWF-READBACK`, `H-A-DWF-TEMPLATE` |
 | `drawn` | `EVIDENCE` INFERRED: `H-A-DRAWN-WRITE` |
+| `edit.connectivity` | see `edit.session` |
+| `edit.integrity` | `EVIDENCE` INFERRED: `H-A-EDIT-DELETE`, `H-A-INTEG-ID`, `H-A-INTEG-LAYER`, `H-A-INTEG-MODEL`, `H-A-INTEG-PARAMCOUNT`, `H-A-INTEG-PARAMORPHAN`, `H-A-INTEG-POURINDEX`, `H-A-INTEG-SUBPOLY` |
+| `edit.ops` | see `edit.session` |
+| `edit.records` | see `edit.session` |
+| `edit.schematic` | `EVIDENCE` INFERRED: `H-A-EDIT-KIT`, `H-A-EDIT-SCH` |
+| `edit.session` | `EVIDENCE` INFERRED: `H-A-EDIT-ADD`, `H-A-EDIT-CLONE`, `H-A-EDIT-DELETE`, `H-A-EDIT-FLIP`, `H-A-EDIT-IDS`, `H-A-EDIT-KIT`, `H-A-EDIT-LAYER`, `H-A-EDIT-MOVE`, `H-A-EDIT-PROPERTY`, `H-A-EDIT-ROTATE`, `H-A-EDIT-RULE` |
+| `edit.state` | see `edit.session` |
 | `frame` | `EVIDENCE` INFERRED: `H-A-IMP-FRAME`, `H-A-IMP-PADSTACK` |
 | `graduation` | `EVIDENCE` INFERRED: `H-A-ACC-KIT` |
 | `hierarchy` | `EVIDENCE` INFERRED: `H-A-SCH-HARN-FILE`, `H-A-SCH-HARN-NETS`, `H-A-SCH-HARN-OPEN`, `H-A-SCH-HARN-UNUSED`, `H-A-SCH-HIER-COMPILE`, `H-A-SCH-HIER-ECO`, `H-A-SCH-HIER-NAMES`, `H-A-SCH-HIER-OPEN`, `H-A-SCH-HIER-ORDER`, `H-A-SCH-HIER-PRJ` |

@@ -1083,6 +1083,13 @@ def test_altium_teaches_version_scopes_without_fresh_execution_claim() -> None:
     assert "not a new execution" in text
 
 
+def test_altium_teaches_the_integrity_stage_and_the_edit_gate() -> None:
+    """Change c0241: the opt-in stage ``altium.integrity`` and the gated edit sessions."""
+    text = (SKILL / "references/altium.md").read_text()
+    assert "fenolite check blink/altium/lamp.PcbDoc --stages altium.integrity --json" in text
+    assert "`altium.integrity.*`" in text and "`altium.edit.gate`" in text
+
+
 def test_viewer_teaches_actual_project_instance_context() -> None:
     page = guide.page("viewer")
     for words in (

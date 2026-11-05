@@ -32,6 +32,7 @@ import os
 import re
 from fractions import Fraction
 from pathlib import Path
+from typing import Any
 
 import fenolite.cli.main as cli_main
 from fenolite.backends.altium.pcbrecords import LAYER_NAMES
@@ -222,3 +223,164 @@ def test_phase_a_steps_match_the_evidence_page() -> None:
     ):  # fmt: skip
         assert word in readme, word
         assert word in part, word
+
+
+# --- phase B (task 4.1) -------------------------------------------------------------------------------
+
+SAVED = os.environ.get("FENOLITE_ALTIUM_PART_J_SAVED")
+"""The folder of the files saved in phase A (``J01-resave.PcbDoc`` … ``J21-library.PcbLib``), kept outside
+the repository; without it phase B is written from the kit board itself, for the unit test only."""
+
+
+def _nm(value: float) -> int:
+    return round(value * 1_000_000)
+
+
+def _pcb_cases(source: Path) -> dict[str, tuple[str, Any]]:
+    """Each file of ``written/``: its phase A case and the operations of the session, as in that case."""
+    from fenolite.backends.altium import edit
+
+    probe = edit.Track((_nm(10), _nm(5)), (_nm(20), _nm(5)), "GND")
+    return {
+        "move": ("J3", lambda s: s.move(probe, 0, _nm(1))),
+        "rotate": ("J8", lambda s: s.rotate(edit.Component("R2"), 90, old_rotation=0)
+                   .declare_connectivity("VIN", "GND")),
+        "flip": ("J9", lambda s: s.flip(edit.Component("D1")).declare_connectivity("MID", "GND")),
+        "set_property": ("J6", lambda s: s.set_property(edit.Component("R1"), "comment", "2k2", old="1k")),
+        "delete": ("J11", lambda s: s.delete(edit.Component("R2")).declare_connectivity("VIN", "GND")),
+        "clone": ("J12", lambda s: s.clone(probe, start=(_nm(10), _nm(8)), end=(_nm(20), _nm(8)))
+                  .clone(edit.Via((_nm(20), _nm(5)), "GND"), at=(_nm(20), _nm(8)))),
+        "add_component": ("J13", lambda s: s.add_component(source, "R1", designator="R9",
+                                                           at=(_nm(32), _nm(22)))),
+        "remap_layer": ("J14", lambda s: s.remap_layer("Mechanical 13", "Mechanical 15")),
+        "set_rule": ("J15", lambda s: s.set_rule("Clearance", "GAP", "9.8425mil", old="7.874mil")),
+    }  # fmt: skip
+
+
+def _sch_cases() -> dict[str, tuple[str, Any]]:
+    from fenolite.backends.altium import edit
+    from fenolite.backends.altium.edit.schematic import UNIT_NM
+
+    return {
+        "sch-move": ("J18", lambda s: s.move(edit.Part("R1"), UNIT_NM * 40, 0).declare_connectivity()),
+        "sch-parameter": ("J19", lambda s: s.set_property(edit.Part("R1"), "Comment", "2k2", old="1k")),
+        "sch-delete": ("J20", lambda s: s.delete(edit.Part("R2")).declare_connectivity()),
+    }
+
+
+def phase_b(folder: Path, saved: Path | None) -> dict[str, str]:
+    """Write phase B of the kit into ``folder`` from the files of phase A in ``saved`` (``None``: from the
+    kit board, built here); the SHA-256 of every file by its relative path. Every gate is forced on for the
+    kit only (``edit.GATES`` stays off); the faults are planted with the integrity check off."""
+    from fenolite.backends.altium import edit
+    from fenolite.backends.altium.edit import integrity
+    from tests.unit.backends.altium.edit import faults
+
+    for sub in ("written", "faults"):
+        if (folder / sub).exists():
+            for path in sorted((folder / sub).rglob("*"), reverse=True):
+                path.unlink() if path.is_file() else path.rmdir()
+    if saved is None:
+        built = folder / "source"
+        build_board(built)
+        source, repour, sheet, origin = (
+            built / "edit.PcbDoc",
+            built / "edit.PcbDoc",
+            built / "edit.SchDoc",
+            "the kit board",
+        )
+    else:
+        source, repour, sheet = (
+            saved / "J01-resave.PcbDoc",
+            saved / "J16-repour.PcbDoc",
+            saved / "edit.SchDoc",
+        )
+        origin = "`J01-resave.PcbDoc` (`J16-repour.PcbDoc` for `subpoly-gap`), `edit.SchDoc` of phase A"
+    written, broken = folder / "written", folder / "faults"
+    written.mkdir(parents=True)
+    broken.mkdir()
+    out = [
+        "# Part J phase B: expected values", "",
+        f"Written from {origin}, each gate forced on for the kit only.", "",
+        "## written/", "",
+    ]  # fmt: skip
+    before = set(expected_lines(source.read_bytes()))
+    on = dict.fromkeys(edit.OPERATIONS, True)
+    for name, (case, build) in _pcb_cases(source).items():
+        session = edit.open(source, gates=on)
+        build(session)
+        receipt = session.commit(written / f"{name}.PcbDoc", backup=False)
+        assert receipt.written, (name, receipt.issues)
+        after = expected_lines((written / f"{name}.PcbDoc").read_bytes())
+        out += [f"### `{name}.PcbDoc` (as {case})", "", *(f"- {op}" for op in receipt.operations), ""]
+        out += ["Rows of `expected.md` that change:", ""]
+        out += [f"    {line}" for line in after if line not in before and line.startswith("|")] or [
+            "    (none)"
+        ]
+        out.append("")
+    gates = dict.fromkeys(("move", "set_property", "delete"), True)
+    for name, (case, build) in _sch_cases().items():
+        session = edit.open(sheet, gates=gates)
+        build(session)
+        receipt = session.commit(written / f"{name}.SchDoc", backup=False)
+        assert receipt.written, (name, receipt.issues)
+        out += [f"### `{name}.SchDoc` (as {case})", "", *(f"- {op}" for op in receipt.operations), ""]
+    out += [
+        "`edit-library.PcbLib` (J25) is not written: no session edits a PCB library yet "
+        "(`H-A-EDIT-LIBRARY`).",
+        "", "## faults/", "",
+    ]  # fmt: skip
+    for name, (plant, code) in faults.FAULTS.items():
+        data = plant((repour if name == "subpoly-gap" else source).read_bytes())
+        [finding] = integrity.check_pcbdoc(data, file=f"{name}.PcbDoc")
+        assert finding.code == code, (name, finding)
+        (broken / f"{name}.PcbDoc").write_bytes(data)
+        out.append(f"- `{name}.PcbDoc`: Fenolite's check gives `{code}`: {finding.message}.")
+    out += [
+        "- `parameter-count.PcbDoc`, `parameter-orphan.PcbDoc` (J29, J30): dropped, no file of phase A "
+        "holds a parameter group.",
+        "- `model-unused.PcbDoc`, `model-missing.PcbDoc` (J31): dropped, the kit board embeds no model.",
+        "",
+    ]
+    (folder / "expected-b.md").write_text("\n".join(out), encoding="utf-8")
+    if saved is None:
+        for path in sorted(built.rglob("*"), reverse=True):
+            path.unlink() if path.is_file() else path.rmdir()
+        built.rmdir()
+    sums = sha256_sums(folder)
+    (folder / "SHA256SUMS").write_text("".join(f"{d}  {n}\n" for n, d in sums.items()), encoding="utf-8")
+    return sums
+
+
+def test_phase_b_kit(tmp_path: Path) -> None:
+    """Phase B: one written document per operation, read back strictly with no integrity finding, and one
+    document per planted fault with exactly its finding."""
+    from fenolite.backends.altium.edit import integrity
+    from fenolite.backends.altium.read.sch import read_schematic
+
+    folder = Path(HANDOVER).expanduser() / "phase-b" if HANDOVER else tmp_path / "J-edit-b"
+    if HANDOVER:
+        assert ROOT not in folder.resolve().parents, "the kit is written outside the repository"
+    folder.mkdir(parents=True, exist_ok=True)
+    saved = Path(SAVED).expanduser() if SAVED else None
+    sums = phase_b(folder, saved)
+    names = {
+        *(f"written/{n}.PcbDoc" for n in _pcb_cases(folder)),
+        *(f"written/{n}.SchDoc" for n in _sch_cases()),
+    }
+    assert names <= set(sums)
+    assert {
+        f"faults/{n}.PcbDoc" for n in ("subpoly-gap", "pour-index-twice", "unique-id-twice", "layer-fields")
+    } <= set(sums)
+    for name in sorted(names):
+        data = (folder / name).read_bytes()
+        if name.endswith(".PcbDoc"):
+            read_pcbdoc(data, strict=True)
+            assert integrity.check_pcbdoc(data) == (), name
+        else:
+            assert not [i for i in read_schematic(data).issues if i.severity == "error"], name
+    expected = (folder / "expected-b.md").read_text(encoding="utf-8")
+    assert "### `move.PcbDoc` (as J3)" in expected and "(10.000, 6.000) | (20.000, 6.000)" in expected
+    assert "altium.integrity.subpoly-gap" in expected and "J25" in expected
+    assert not re.search(r"(?:[A-Za-z]:\\|/home/|/tmp/|/Users/)", expected)
+    assert "source" not in {p.name for p in folder.iterdir()}

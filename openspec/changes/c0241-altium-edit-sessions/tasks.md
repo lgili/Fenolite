@@ -11,23 +11,30 @@ here on 2026-10-29 and renumbered: 6.1 is 1.1, 6.2 is 1.2, 6.3 is 2.1, 6.4 to 6.
 
 ## 2. Integrity check
 
-- [ ] 2.1 Add the integrity check stage, with warnings for unconfirmed rules (scenarios "A gap in polygon sub-indices", "Two pads with one unique id", "Two layer fields that disagree"). Proof: `uv run pytest tests/unit/backends/altium/edit/test_integrity.py -q`.
+- [x] 2.1 Add the integrity check stage, with warnings for unconfirmed rules (scenarios "A gap in polygon sub-indices", "Two pads with one unique id", "Two layer fields that disagree"). Proof: `uv run pytest tests/unit/backends/altium/edit/test_integrity.py -q`.
+  - 2026-11-04: `backends/altium/edit/integrity.py`, the stage `altium.integrity` (opt-in, `checks/documents.py`, through the protocol `backends.base.DocumentIntegrity`) and the codes in `explain`. Facts from the phase A files saved by an agent run on 2026-11-04 (S-1420, `INFERRED`; its report S-1316 is on the unmerged branch `claude/altium-pending-rounds-5d4baa`), not from task 1.2. No finding on the 18 saved PCB documents J01 to J17 nor on the kit board. Proof: `tests/unit/backends/altium/edit/test_integrity.py` 11 passed, `test_stage.py` 4 passed.
 
 ## 3. Edit session
 
-- [ ] 3.1 Add the session with `delete`, `move`, `rotate` and `set_property`, the assertions, the cloning and the index upkeep, behind a gate that is off by default (scenarios "A move written and read back", "A move refused on a wrong old value", "No record to clone from", "A deleted component leaves no index behind", "An operation behind its gate"). Proof: `uv run pytest tests/unit/backends/altium/edit/test_session.py -q`.
-- [ ] 3.2 Add the commit gates (scenario "An undeclared connectivity change"). Proof: `uv run pytest tests/unit/backends/altium/edit/test_commit.py -q`.
-- [ ] 3.3 Add `flip`, `clone`, `add_component`, `remap_layer` and `set_rule`, each behind its own gate. Proof: `uv run pytest tests/unit/backends/altium/edit -q`.
-- [ ] 3.4 Add the schematic session with the net-signature guard. Proof: `uv run pytest tests/unit/backends/altium/edit/test_schematic.py -q`.
+- [x] 3.1 Add the session with `delete`, `move`, `rotate` and `set_property`, the assertions, the cloning and the index upkeep, behind a gate that is off by default (scenarios "A move written and read back", "A move refused on a wrong old value", "No record to clone from", "A deleted component leaves no index behind", "An operation behind its gate"). Proof: `uv run pytest tests/unit/backends/altium/edit/test_session.py -q`.
+  - 2026-11-04: `backends/altium/edit/{records,state,ops,session}.py`; `edit.GATES` all off. Proof: `tests/unit/backends/altium/edit/test_session.py` 10 passed.
+- [x] 3.2 Add the commit gates (scenario "An undeclared connectivity change"). Proof: `uv run pytest tests/unit/backends/altium/edit/test_commit.py -q`.
+  - 2026-11-04: `session.verify` (strict read-back, stream and record diffs, `edit/connectivity.py`, new integrity findings). Proof: `test_commit.py` 6 passed.
+- [x] 3.3 Add `flip`, `clone`, `add_component`, `remap_layer` and `set_rule`, each behind its own gate. Proof: `uv run pytest tests/unit/backends/altium/edit -q`.
+  - 2026-11-04: each behind its own gate in `edit.GATES`. Proof: `uv run pytest tests/unit/backends/altium/edit -q` passed (with `test_ops.py` 10 passed).
+- [x] 3.4 Add the schematic session with the net-signature guard. Proof: `uv run pytest tests/unit/backends/altium/edit/test_schematic.py -q`.
+  - 2026-11-04: `backends/altium/edit/schematic.py`, `SCHEMATIC_GATES` all off. Proof: `test_schematic.py` 5 passed.
 
 ## 4. Kit phase B
 
-- [ ] 4.1 Build phase B (`written/`, `faults/`, `expected-b.md`) from the files of task 1.2 with each gate forced on for the kit only. Proof: `uv run pytest tests/unit/backends/altium/test_part_j.py -k phase_b -q`.
+- [x] 4.1 Build phase B (`written/`, `faults/`, `expected-b.md`) from the files of task 1.2 with each gate forced on for the kit only. Proof: `uv run pytest tests/unit/backends/altium/test_part_j.py -k phase_b -q`.
+  - 2026-11-04: `phase_b()` in `test_part_j.py` writes the nine PCB and three schematic documents of `written/` and the four faults of `faults/` (`tests/unit/backends/altium/edit/faults.py`), with `expected-b.md` and `SHA256SUMS`. With `FENOLITE_ALTIUM_PART_J_SAVED=<saved/board of phase A>` it starts from `J01-resave.PcbDoc` (`J16-repour.PcbDoc` for `subpoly-gap`), as J23 asks; run so on the agent's files of 2026-11-04, every written document read back strictly with no integrity finding. Without the variable it starts from the kit board (unit test only). Not written: `edit-library.PcbLib` (J25, no library session), the parameter faults (J29, J30: no parameter group in phase A) and the model faults (J31: the kit embeds no model). Proof: `test_part_j.py -k phase_b` 1 passed.
 - [ ] 4.2 **Maintainer, in Altium Designer.** Run J23 to J33 and give the report; record it as task 1.2 does and set the rows `H-A-EDIT-KIT` and `H-A-INTEG-*`. Set an operation's gate only when its case passes. OPEN until Altium was run. Proof: `uv run pytest tests/unit/test_altium_verification_docs.py -k part_j tests/unit/test_hypotheses_register.py -q`.
 
 ## 5. Teaching
 
-- [ ] 5.1 Add a tested line for the stage `altium.integrity` and for the session to the closest page of the agent guide; run `tools/gen_agent_guide.py`. Proof: `uv run pytest tests/unit/agent -q`; `uv run python tools/gen_agent_guide.py --check`.
+- [x] 5.1 Add a tested line for the stage `altium.integrity` and for the session to the closest page of the agent guide; run `tools/gen_agent_guide.py`. Proof: `uv run pytest tests/unit/agent -q`; `uv run python tools/gen_agent_guide.py --check`.
+  - 2026-11-04: `references/altium.md` names the stage and the edit gate, tested by `test_altium_teaches_the_integrity_stage_and_the_edit_gate`; `tools/gen_agent_guide.py` run. Proof: `tests/unit/agent` 177 passed, 1 failed (`test_pages_kicad.py::test_kicad_table_names_every_design_block`, `board-practice`, failing on the base commit too).
 
 ## 6. Closing
 

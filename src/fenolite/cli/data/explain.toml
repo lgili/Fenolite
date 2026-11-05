@@ -5462,3 +5462,78 @@ see = "Evidence of replies"
 meaning = "An older canonical folder was migrated in memory or its migration was planned. Reading writes nothing; confirmed migration rewrites six layers with backups and leaves native CAD alone."
 fix = "Review fenolite migrate DIR --dry-run --json, then confirm the reviewed plan. A current folder needs no write."
 see = "migrate"
+
+["altium.integrity.subpoly-gap"]
+meaning = "The poured pieces of one polygon hold SUBPOLYINDEX numbers that skip a value below their highest; the native tool numbers them 0 to n - 1."
+fix = "Repour the polygon in the native tool, or delete its poured pieces so that they are poured again."
+see = "check"
+
+["altium.integrity.pour-index-twice"]
+meaning = "Two polygons of the PCB document hold one POURINDEX; each polygon holds its own."
+fix = "Repour all polygons in the native tool, which numbers them again."
+see = "check"
+
+["altium.integrity.unique-id-twice"]
+meaning = "Two pads (in UniqueIDPrimitiveInformation), components, polygons or rules of the PCB document hold one unique id."
+fix = "Give one of them a new unique id in the native tool, or edit the document again with a session, which gives copies new ids."
+see = "check"
+
+["altium.integrity.unique-id-index"]
+meaning = "An entry of UniqueIDPrimitiveInformation names a pad position that the document does not hold, as after a deletion that did not renumber the entries."
+fix = "Save the document again in the native tool, or delete the item with an edit session, which renumbers the entries."
+see = "check"
+
+["altium.integrity.parameters-unjudged"]
+meaning = "PrimitiveParameters holds data; no public source gives its form, so the parameter rules are not judged."
+fix = "Nothing to do; the note says what the check does not judge."
+see = "check"
+
+["altium.integrity.model-unused"]
+meaning = "Models/Data holds a model that no component body names."
+fix = "Remove the model in the native tool, or ignore the warning: an unused embedded model only makes the file larger."
+see = "check"
+
+["altium.integrity.model-missing"]
+meaning = "A component body names a model id that Models/Data does not hold."
+fix = "Embed the model again in the native tool, or set the body's model."
+see = "check"
+
+["altium.integrity.layer-fields"]
+meaning = "A region's layer byte and its V7_LAYER key name two different layers."
+fix = "Move the region to its layer again in the native tool, or remap the layer with an edit session, which sets both."
+see = "check"
+
+["altium.edit.gate"]
+meaning = "The edit session's operation is behind a gate that is off: its rows of docs/hypotheses.md are not confirmed by the Part J kit. Nothing is written."
+fix = "Wait for the operation's Part J phase B case, or make the edit in the native tool."
+see = "check"
+
+["altium.edit.assertion"]
+meaning = "The item named by the operation is not in the document, more than one item matches, or a stated old value differs from the document's. Nothing is written."
+fix = "Inspect the document (fenolite inspect) and state the item and its old values as the document holds them."
+see = "check"
+
+["altium.edit.no-template"]
+meaning = "A clone or an added component needs a record of the same kind and form on the target layer to copy, and the document holds none. Nothing is written."
+fix = "Draw one such item on the layer in the native tool first, or clone onto a layer that holds one."
+see = "check"
+
+["altium.edit.readback"]
+meaning = "The document the operations made does not read back with the strict reader. Nothing is written."
+fix = "Report it with the operations: it is a bug of the session."
+see = "check"
+
+["altium.edit.unexpected-change"]
+meaning = "A stream outside the edited storages, or a record beyond those the operations declared, changed. Nothing is written."
+fix = "Report it with the operations: it is a bug of the session."
+see = "check"
+
+["altium.edit.connectivity"]
+meaning = "The edit changes the copper connectivity (a short, or a net whose pads lie in more or fewer groups), or the schematic's net signature, and the session does not declare it. Nothing is written."
+fix = "Check the edit; when the change is intended, declare it with declare_connectivity and the nets the message names."
+see = "check"
+
+["altium.edit.integrity"]
+meaning = "The integrity check finds on the edited document a fault that the input did not hold; the message starts with the check's code."
+fix = "Read the check's code (fenolite explain) and change the operations; while its row is unconfirmed the file is written with the warning."
+see = "check"

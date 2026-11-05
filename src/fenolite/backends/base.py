@@ -1356,6 +1356,15 @@ class ModelWriter(Protocol):
 
 
 @runtime_checkable
+class DocumentIntegrity(Protocol):
+    """A backend whose documents have index tables that a check reads without writing (change c0241, the
+    stage ``altium.integrity``). ``integrity_findings`` gives the findings of the PCB document at ``path``
+    and the evidence of its rules; the reader's ``FormatError`` is raised."""
+
+    def integrity_findings(self, path: Path) -> tuple[tuple[Issue, ...], Evidence]: ...
+
+
+@runtime_checkable
 class BodyComparer(Protocol):
     """A model writer that can write component bodies when asked (change c0121). ``body_differences``
     gives the differences of the kind ``body`` between ``model``, the model a build stored, and
@@ -1405,6 +1414,7 @@ __all__ = [
     "BodyModel",
     "BodyModelSource",
     "CutoutComparer",
+    "DocumentIntegrity",
     "CanaryState",
     "CapabilityReport",
     "Change",

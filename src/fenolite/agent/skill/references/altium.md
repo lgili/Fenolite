@@ -100,11 +100,14 @@ It matches `capabilities` (`result.backends`, `result.matrix`).
 fenolite check blink/altium --json
 fenolite parity blink/altium --json
 fenolite inspect blink/altium/lamp.PcbDoc --json
+fenolite check blink/altium/lamp.PcbDoc --stages altium.integrity --json
 fenolite equivalent blink/build blink/altium/lamp.PrjPcb --level 2 --json
 ```
 
 `check` measures model/ERC/copper/parity/readback with `INFERRED` evidence; run native checks too.
-`equivalent --level 2` compares circuits (page `files`).
+`equivalent --level 2` compares circuits (page `files`). The opt-in stage `altium.integrity` warns about
+index-table faults (`altium.integrity.*`) in a PCB document. Python edit sessions are gated off
+(`altium.edit.gate`).
 
 ## Keep native schematic presentation
 

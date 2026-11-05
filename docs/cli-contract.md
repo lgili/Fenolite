@@ -2123,7 +2123,8 @@ refused (both `FEN-2001`, exit 2, the hint naming the candidates).
 The stages are `DOCUMENT_STAGES`, in this order; `--stages` selects a subset (all by default), and a
 name of the KiCad list such as `drc.kicad` is a usage error whose hint lists them. One more stage,
 `roundtrip.rta3`, is opt-in (`OPT_IN_DOCUMENT_STAGES`, change c0090): it runs only when `--stages` names
-it, because it writes a whole project into a temporary folder and reads it again.
+it, because it writes a whole project into a temporary folder and reads it again. `altium.integrity` is
+opt-in too (change c0241): it judges the index tables of each PCB document (below).
 
 | stage | what it does | evidence |
 |---|---|---|
@@ -2138,6 +2139,7 @@ it, because it writes a whole project into a temporary folder and reads it again
 | `roundtrip.rta0` | RT-A0 of every compound file of the set: a copy through the reader and the compound writer keeps every storage and stream | `EVIDENCE_RT_A0`; `UNVERIFIED` when a copy fails |
 | `roundtrip.rta1` | RT-A1 of every document: every typed stream gives equal records after encoding and reading again | the reader's level per kind; `UNVERIFIED` when a stream fails |
 | `roundtrip.rta2` | RT-A2 on built input: the stored model against the readings of the documents the build wrote, inside the written scope (`docs/altium.md`, "Round trips"); footprints, pads and copper are compared, and no kind is only counted | `INFERRED` (`H-A-VER-RTA2-3`) |
+| `altium.integrity` | opt-in. The integrity check of each PCB document (`fenolite.backends.altium.edit.integrity`): the faults of its index tables that the native tool may refuse. `where` is `<document>:<stream>#<position>`, and the hint names the rule's row of `docs/hypotheses.md` | `INFERRED` (`H-A-INTEG-*`): every finding is a `warning` until Part J phase B confirms its row |
 | `roundtrip.rta3` | opt-in. RT-A3: the project file (else the PCB document, else the first schematic) is read, its model is written as new Altium documents in a temporary folder, and those are read again; the two models are compared inside the written scope | `INFERRED` (`H-A-VER-RTA3`); `UNVERIFIED` when a difference is reported |
 
 A stage is skipped with one of these reasons: `native-input` (`roundtrip.rta2` on files that no
@@ -2202,6 +2204,36 @@ carries `ORACLE-VERIFIED`, `KICAD-VERIFIED` or `ALTIUM-VERIFIED`: only Fenolite 
   board; inside a project the other documents are still checked and the exit code is 5.
 - Exit codes: 0 without an error issue, 5 with one, 2 for a usage error, 3 for a missing path or an
   unreadable single document, and never 6.
+
+- **`altium.integrity`.** Its codes are `altium.integrity.subpoly-gap` (the poured pieces of one polygon
+  skip a `SUBPOLYINDEX`), `altium.integrity.pour-index-twice` (two polygons hold one `POURINDEX`),
+  `altium.integrity.unique-id-twice` (two pads, components, polygons or rules hold one unique id),
+  `altium.integrity.unique-id-index` (an entry of `UniqueIDPrimitiveInformation` names no pad),
+  `altium.integrity.model-missing` and `altium.integrity.model-unused` (a body names a model the
+  document does not embed, or an embedded model no body names), `altium.integrity.layer-fields` (a
+  region's layer byte and its `V7_LAYER` key name two layers) and the `info` note
+  `altium.integrity.parameters-unjudged` (`PrimitiveParameters` holds data, whose form no source gives).
+  The summary holds `documents`. The stage is skipped with `not-judged` without a PCB document.
+
+### Altium edit sessions
+
+`fenolite.backends.altium.edit.open(path)` gives an edit session on a saved PCB document or binary
+schematic document (change c0241, Python API only). Its operations are queued; `commit(out)` makes
+them, reads the result back and writes atomically, keeping `<name>.bak`. Every operation is behind its
+gate in `edit.GATES` (all off until Part J phase B), and nothing it writes is `ALTIUM-VERIFIED`. A
+refused commit writes nothing and its receipt's exit code is 5. The codes are:
+
+- `altium.edit.gate`: the operation's gate is off; the message names the rows of `docs/hypotheses.md`;
+- `altium.edit.assertion`: the item is not in the document, or a stated old value differs;
+- `altium.edit.no-template`: a clone or an added component needs a record of the same kind and form on
+  the target layer, and the document holds none;
+- `altium.edit.readback`: the edited document does not read back strictly;
+- `altium.edit.unexpected-change`: a stream outside the edited storages, or a record beyond those the
+  operations declared, changed;
+- `altium.edit.connectivity`: the copper connectivity (a short, or a net whose pads lie in more or fewer
+  groups), or a schematic's net signature, changed and the session does not declare it;
+- `altium.edit.integrity`: a new finding of the integrity check on the edited document (a warning while
+  its row is unconfirmed).
 
 ### Copper guard of an Altium build
 

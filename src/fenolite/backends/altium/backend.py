@@ -443,6 +443,13 @@ class AltiumBackend:
         document = read_pcbdoc(path.read_bytes(), file=path.name)
         return read_board(document, file=path.name, sha256="", ids=Ids(KIND, EVIDENCE)).census.categories()
 
+    def integrity_findings(self, path: Path) -> tuple[tuple[Issue, ...], Evidence]:
+        """The findings of the stage ``altium.integrity`` on the PCB document at ``path``
+        (``edit.integrity.check_pcbdoc``; change c0241) and the evidence of its rules."""
+        from fenolite.backends.altium.edit.integrity import EVIDENCE, check_pcbdoc
+
+        return check_pcbdoc(path.read_bytes(), file=path.name), EVIDENCE
+
     def stage_evidence(self) -> Mapping[str, Evidence]:
         """The evidence this backend adds to a check stage, by stage name (``roundtrip.STAGE_EVIDENCE``)."""
         from fenolite.backends.altium.roundtrip import STAGE_EVIDENCE

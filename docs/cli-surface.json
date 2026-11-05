@@ -10204,6 +10204,49 @@
         "info"
       ]
     },
+    "altium.edit.assertion": {
+      "experimental": false,
+      "severities": [
+        "error"
+      ]
+    },
+    "altium.edit.connectivity": {
+      "experimental": false,
+      "severities": [
+        "error"
+      ]
+    },
+    "altium.edit.gate": {
+      "experimental": false,
+      "severities": [
+        "error"
+      ]
+    },
+    "altium.edit.integrity": {
+      "experimental": false,
+      "severities": [
+        "error",
+        "warning"
+      ]
+    },
+    "altium.edit.no-template": {
+      "experimental": false,
+      "severities": [
+        "error"
+      ]
+    },
+    "altium.edit.readback": {
+      "experimental": false,
+      "severities": [
+        "error"
+      ]
+    },
+    "altium.edit.unexpected-change": {
+      "experimental": false,
+      "severities": [
+        "error"
+      ]
+    },
     "altium.experimental": {
       "experimental": true,
       "severities": [
@@ -10495,6 +10538,61 @@
     "altium.import.zone-hole-outside": {
       "experimental": false,
       "severities": [
+        "warning"
+      ]
+    },
+    "altium.integrity.layer-fields": {
+      "experimental": false,
+      "severities": [
+        "error",
+        "warning"
+      ]
+    },
+    "altium.integrity.model-missing": {
+      "experimental": false,
+      "severities": [
+        "error",
+        "warning"
+      ]
+    },
+    "altium.integrity.model-unused": {
+      "experimental": false,
+      "severities": [
+        "error",
+        "warning"
+      ]
+    },
+    "altium.integrity.parameters-unjudged": {
+      "experimental": false,
+      "severities": [
+        "info"
+      ]
+    },
+    "altium.integrity.pour-index-twice": {
+      "experimental": false,
+      "severities": [
+        "error",
+        "warning"
+      ]
+    },
+    "altium.integrity.subpoly-gap": {
+      "experimental": false,
+      "severities": [
+        "error",
+        "warning"
+      ]
+    },
+    "altium.integrity.unique-id-index": {
+      "experimental": false,
+      "severities": [
+        "error",
+        "warning"
+      ]
+    },
+    "altium.integrity.unique-id-twice": {
+      "experimental": false,
+      "severities": [
+        "error",
         "warning"
       ]
     },

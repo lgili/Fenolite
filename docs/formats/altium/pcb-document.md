@@ -122,6 +122,27 @@ starting with `\|RECORD=Board`.
 | A `Components6` record holds, in this order, `SELECTION=FALSE`, `LAYER`, `LOCKED`, `POLYGONOUTLINE=FALSE`, `USERROUTED=TRUE`, `KEEPOUT=FALSE`, `PRIMITIVELOCK=TRUE`, `X`, `Y`, `PATTERN`, `NAMEON`, `COMMENTON`, `GROUPNUM=0`, `COUNT=0`, `ROTATION` (in the angle form above), `UNIONINDEX=0`, `CHANNELOFFSET`, `SOURCEDESIGNATOR`, `SOURCEUNIQUEID`, `SOURCEHIERARCHICALPATH`, `SOURCEFOOTPRINTLIBRARY`, `SOURCECOMPONENTLIBRARY`, `SOURCELIBREFERENCE`, `UNIQUEID` and `JUMPERSVISIBLE=TRUE`; optional keys (a height, text positions, descriptions, library identifiers) stand between them | S-0172, S-0174, S-0175, S-0176 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-03; no artefact) | H-A-PCB-DOC-OPEN |
 | The primitives are longer than those Fenolite writes: a track of 49 bytes, an arc of 60, pad subrecord 5 of 185 or 194 and subrecord 6 of 651, a text of 252. The first 119 bytes of a text follow the long form of `pcb-records.md` (the comment and designator flags at 40 and 41, the font name at 46, the wide-string index at 115), and the wide-string index of a text is its position in `Texts6`. Altium Designer 26.5 accepts the short pad, track and arc records in a library and in a document, and the 137-byte text in a document (maintainer's reports, 2026-10-03) | S-0172, S-0174, S-0175, S-0176 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-03; no artefact) | H-A-PCB-DOC-OPEN |
 
+## Edit observations (change c0241)
+
+What Altium Designer 24.5.2.23 changed when the Part J phase A cases (S-1420) edited and saved the kit
+board, read record by record against the saved input. They are one run of one board: each fact is
+`INFERRED` until its Part J phase B case passes (`docs/evidence/altium-edit.md`), and the edit
+sessions (`fenolite.backends.altium.edit`) and the integrity check rely on none of them as confirmed.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| Every save rewrites 16 bytes of each pad (offsets 156 to 171 of its record) and of each via (offsets 264 to 279), and gives each rule a new `UNIQUEID`, whatever the edit; a comparison of records leaves those bytes out | S-1420 | INFERRED | H-A-EDIT-KIT |
+| Placing a component from a library inserts its record at position 0 of `Components6` and renumbers the component index of every primitive of the other components | S-1420 | INFERRED | H-A-EDIT-ADD |
+| Pasting a copy inserts the new track inside `Tracks6` (at position 16 in the kit) and the new via before the others: a new record is not always appended | S-1420 | INFERRED | H-A-EDIT-CLONE |
+| Deleting the last component removes its records and its entries of `UniqueIDPrimitiveInformation`; no renumbering was observable, since nothing followed it | S-1420 | INFERRED | H-A-EDIT-DELETE |
+| Moving a region to another mechanical layer changes its layer byte and its `V7_LAYER` key, in `Regions6` and `ShapeBasedRegions6` alike | S-1420 | INFERRED | H-A-EDIT-LAYER, H-A-INTEG-LAYER |
+| Setting the clearance to 0.25 mm writes `GAP=9.8425mil` in the rule's record of `Rules6` | S-1420 | INFERRED | H-A-EDIT-RULE |
+| A repour gives the poured pieces of a polygon `SUBPOLYINDEX` 0 and writes each piece in `Regions6` and in `ShapeBasedRegions6` | S-1420 | INFERRED | H-A-INTEG-SUBPOLY |
+| Deleting the polygon of pour index 1 leaves the other with `POURINDEX=0` | S-1420 | INFERRED | H-A-INTEG-POURINDEX |
+| `PrimitiveParameters` is empty in every saved file: its form is not observed | S-1420 | INFERRED | H-A-INTEG-PARAMCOUNT, H-A-INTEG-PARAMORPHAN |
+| Rotating a component by 90 degrees moves its pads, texts and tracks about its origin and writes `ROTATION= 9.00000000000000E+0001` | S-1420 | INFERRED | H-A-EDIT-ROTATE |
+| `PrimitiveGuids` grows when primitives are added; its form is not decoded, and an edit session leaves it as it is | S-1420 | INFERRED | H-A-EDIT-IDS |
+
 ## Embedded board arrays (change c0173)
 
 What public pages say about Altium's panel object, the Embedded Board Array, read on 2026-10-16. No public
