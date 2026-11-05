@@ -93,6 +93,11 @@ Entry facts (2026-11-01; initial base 8dea6432, resolved prerequisite 7a2f6746):
   `docs/royal-historical-metadata-reconciliation-20261103.json`. That result
   repairs historical Royal metadata only, not its separate fresh L7 findings.
   Actual required external CI/publication remains unproved; task 4.1 stays open.
+  Local 2026-11-04, library `c58cdf2`, local stand-in runner for the `run:` steps of `check.yml` (act is not installed; KiCad 10.0.6 CLI, Python 3.12, core `e7673c81` in a clean venv), library branch `cac/library-completion`: `records`, `regenerate`, `versions` and `origin`
+  exit 0 over the device items, `renders` exit 0. They first failed: `records` on the four LibrePCB sheets
+  (accepted on Python 3.13, the CI runs 3.12: task 6.1), then `audit`/`versions`/`origin` on the device after
+  re-review (task 6.2). The library pins core `e7673c81` and records the maintainer-approved sheet renewal
+  (`docs/librepcb-sheet-renewal-20261104.json`). Open: the library's first pull request on GitHub (nothing pushed).
 - [ ] 4.2 First device items (authored `FenoliteDevices` items and, after review of the run, a seeded LibrePCB set), released by c0279's release job. Proof: `fenolite library audit . --json` exits 0 in the library on the release tag.
 
   Local prerequisites already proved — 2026-11-03: authored FenoliteDevices
@@ -105,6 +110,10 @@ Entry facts (2026-11-01; initial base 8dea6432, resolved prerequisite 7a2f6746):
   root audit on library `5edffa6` exits 0, but it was a local checkout audit,
   not the release-tag proof required here. No release job/tag or required
   external CI success is inferred; task 4.2 remains open.
+
+  Local 2026-11-04: `fenolite library audit . --json` exits 0 on library `c58cdf2` (the commit prepared as
+  `v1.0.0`, not tagged); the release build is reproducible (see c0279 3.3). Open: the tag and release job need
+  the maintainer's approval, and c0279 4.5's board blockers stop `release.yml` first.
 
 ## 5. Closing
 
