@@ -14,6 +14,8 @@
 
 ## 2. Library
 
-- [ ] 2.1 Once c0418 is on Fenolite `dev`: the library pin moves to that commit and the gallery is redeployed;
+- [x] 2.1 Once c0418 is on Fenolite `dev`: the library pin moves to that commit and the gallery is redeployed;
   the LibrePCB items show the derived-from line. Proof: library checks and a gallery run green on the PR,
   the deploy from `main`, and the live LibrePCB pages without "Authored for fenolite-library".
+
+  Closed: library PR lgili/fenolite-library#5 (squash 248913df, pin to Fenolite dev 5ab9d645), gallery run 42108815465 deployed from main; the four live LibrePCB pages say "Derived from LibrePCB Base" and none says "Authored for fenolite-library".
