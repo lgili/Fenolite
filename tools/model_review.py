@@ -238,6 +238,17 @@ def record_keep_all(data: dict[str, Any], *, reviewer: str, decision_date: str) 
     return result
 
 
+def reviewed(data: dict[str, Any]) -> dict[str, Any]:
+    """The part of an inventory a review decides on: classes, fields, types, defaults, extension keys and
+    decisions. The reader locations are review leads that move with every source edit, so a stale reader
+    index alone does not make the inventory stale (change c0404)."""
+    result = {key: value for key, value in data.items() if key not in {"generic_readers", "readers"}}
+    result["extension_keys"] = [
+        {key: value for key, value in entry.items() if key != "readers"} for entry in data["extension_keys"]
+    ]
+    return result
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=(__doc__ or "Review model fields and extensions.").splitlines()[0]
@@ -260,9 +271,12 @@ def main(argv: list[str] | None = None) -> int:
             parser.error(str(error))
     rendered = json.dumps(data, indent=2, ensure_ascii=False) + "\n"
     if args.check:
-        if not args.out.is_file() or args.out.read_text(encoding="utf-8") != rendered:
+        stored = json.loads(args.out.read_text(encoding="utf-8")) if args.out.is_file() else None
+        if stored is None or reviewed(stored) != reviewed(data):
             print("model review inventory is stale: run tools/model_review.py", file=sys.stderr)
             return 1
+        if args.out.read_text(encoding="utf-8") != rendered:
+            print("model review: reader locations moved (review leads only); the reviewed shape is current")
     else:
         args.out.parent.mkdir(parents=True, exist_ok=True)
         args.out.write_text(rendered, encoding="utf-8")

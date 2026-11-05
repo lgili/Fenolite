@@ -199,3 +199,40 @@ def test_usage_shipped_block_always_needs_output(tmp_path: Path, monkeypatch: py
     assert bench.build("--confirm")[0] == 0
     code, _, err = run(monkeypatch, str(bench.out), "--instance", "dut", "--dry-run")
     assert code == 2 and "-o" in err
+
+
+def test_current_model_remaps_copper_graphic_nets(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Change c0404: a copper graphic read from the user's board takes the recorded id of its net."""
+    import dataclasses
+
+    from fenolite.cli._blocks_capture import current_model
+    from fenolite.model import canonical
+    from fenolite.model.board import Graphic
+
+    bench = make_bench(tmp_path, monkeypatch)
+    assert bench.build("--confirm")[0] == 0
+    cached = canonical.load_dir(bench.out / ".fenolite")
+    assert cached.board
+    net = cached.circuit.nets[0]
+    renamed = {n.id: f"read-{n.id}" for n in cached.circuit.nets}
+    copper = Graphic(
+        id="authored-copper-graphic",
+        kind="polygon",
+        layer="F.Cu",
+        points=(Point(0, 0), Point(1_000_000, 0), Point(0, 1_000_000)),
+        filled=True,
+        net_id=renamed[net.id],
+    )
+    silk = Graphic(id="authored-silk-line", kind="line", layer="F.SilkS", points=(Point(0, 0), Point(1, 1)))
+    actual = dataclasses.replace(
+        cached,
+        circuit=dataclasses.replace(
+            cached.circuit,
+            nets=tuple(dataclasses.replace(n, id=renamed[n.id]) for n in cached.circuit.nets),
+        ),
+        board=dataclasses.replace(cached.board, graphics=(copper, silk)),
+    )
+    model = current_model(cached, actual)
+    assert model.board
+    held = {g.id: g.net_id for g in model.board.graphics}
+    assert held == {"authored-copper-graphic": net.id, "authored-silk-line": None}

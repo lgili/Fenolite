@@ -106,3 +106,36 @@ def test_actual_approved_model0_shapes_are_preserved_by_migration_candidate():
         (e["backend"], e["key"]) for e in actual["extension_keys"]
     }
     assert all(e["decision"] == "keep" for e in approved["extension_keys"])
+
+
+def test_stored_inventory_is_current():
+    """Change c0404: a model field, type, default or extension key that changes without the inventory
+    fails here, not only when someone runs the tool by hand."""
+    assert tool().main(["--check"]) == 0
+
+
+def test_check_fails_on_shape_and_passes_on_moved_readers(tmp_path: Path, monkeypatch, capsys):
+    module = tool()
+
+    def current():
+        data = inventory()
+        data["readers"] = {"status": ["src/authored.py"]}
+        data["generic_readers"] = []
+        data["extension_keys"][0]["readers"] = ["src/authored.py"]
+        return data
+
+    monkeypatch.setattr(module, "inventory", current)
+    path = tmp_path / "review.json"
+    assert module.main(["--out", str(path)]) == 0
+    moved = json.loads(path.read_text())
+    moved["readers"]["status"].append("src/other.py")
+    moved["extension_keys"][0]["readers"] = []
+    path.write_text(json.dumps(moved))
+    assert module.main(["--out", str(path), "--check"]) == 0
+    assert "reader locations moved" in capsys.readouterr().out
+    changed = json.loads(path.read_text())
+    changed["classes"][0]["fields"][0]["name"] = "renamed"
+    path.write_text(json.dumps(changed))
+    assert module.main(["--out", str(path), "--check"]) == 1
+    assert "inventory is stale" in capsys.readouterr().err
+    assert module.main(["--out", str(tmp_path / "absent.json"), "--check"]) == 1

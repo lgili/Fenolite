@@ -115,6 +115,11 @@ def current_model(cached: Design, actual: Design) -> Design:
             arcs=tuple(dataclasses.replace(i, net_id=net_id(i.net_id)) for i in board.arcs),
             vias=tuple(dataclasses.replace(i, net_id=net_id(i.net_id)) for i in board.vias),
             zones=tuple(dataclasses.replace(i, net_id=net_id(i.net_id)) for i in board.zones),
+            # change c0404: copper graphics carry a net id too (c0277); off copper it stays None
+            graphics=tuple(
+                dataclasses.replace(i, net_id=net_id(i.net_id)) if i.net_id is not None else i
+                for i in board.graphics
+            ),
         ),
     )
 
