@@ -614,6 +614,9 @@
    "example_sha256": "b36efc6f6fef1f229c55c820345a522110c55b6991436a114ca9e14b3a428b17",
    "rows": [
     "board-net-table",
+    "fp-circle-fill-no",
+    "fp-poly-fill-no",
+    "fp-rect-fill-no",
     "plot-hpglpendiameter",
     "plot-hpglpennumber",
     "plot-hpglpenspeed",
@@ -633,6 +636,9 @@
    "example_sha256": "b36efc6f6fef1f229c55c820345a522110c55b6991436a114ca9e14b3a428b17",
    "rows": [
     "board-net-table",
+    "fp-circle-fill-no",
+    "fp-poly-fill-no",
+    "fp-rect-fill-no",
     "plot-hpglpendiameter",
     "plot-hpglpennumber",
     "plot-hpglpenspeed",

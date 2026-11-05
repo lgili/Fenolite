@@ -717,7 +717,8 @@ def test_plane_variant_builds(tmp_path: Path) -> None:
     assert copper["layers"] == 4 and copper["vias"] == 3  # type: ignore[index]
     doc = read_pcbdoc(output.files["routed.PcbDoc"])
     assert doc.copper_chain == [1, 39, 3, 32] and doc.plane_nets == {1: "GND"}
-    assert doc.board["PLANE1NETNAME"] == "GND" and [p.layer for p in doc.polygons] == ["BOTTOM"]
+    # change c0389 task 2.7: the plane gets its Split Plane polygon on its net after the pours
+    assert doc.board["PLANE1NETNAME"] == "GND" and [p.layer for p in doc.polygons] == ["BOTTOM", "PLANE1"]
     assert sorted(t.prefix.layer for t in doc.free_tracks) == [1, 1, 3, 32] and len(doc.vias) == 3
     (merged,) = [i for i in output.issues if i.code == "altium.plane-zone-merged"]
     assert merged.severity == "info" and "the GND zone on In1.Cu at (1, 1) mm" in merged.message
@@ -928,7 +929,8 @@ def test_copper_does_not_depend_on_the_sheet_mode(tmp_path: Path) -> None:
     doc = read_pcbdoc(board.files["altium_hier_board.PcbDoc"])
     assert doc.copper_chain == [1, 39, 3, 32] and doc.plane_nets == {1: "GND"}
     assert all(c["SOURCEUNIQUEID"].count("\\") == 2 for c in doc.components)
-    assert [c.name for c in doc.classes] == ["PWR", "driver", "led"] and len(doc.rules) == 5
+    assert [c.name for c in doc.classes] == ["PWR", "driver", "led"] and len(doc.rules) == 7
+    assert {"PlaneConnect", "PlaneClearance"} <= {r.name for r in doc.rules}  # c0389 task 2.7
 
 
 # --- every board component links to a schematic component (H-A-SCH-HIER-ECO, step H7) ------------------
