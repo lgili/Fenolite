@@ -252,6 +252,39 @@ run above. The attempt stopped before any case:
 No case was redone, and nothing was saved. The six cases keep their scripted edits from the run above.
 Every `H-A-EDIT-*` and `H-A-INTEG-*` row keeps its level.
 
+### 2026-11-05, actual `AD 24.5.2.23`, J4 read and panel redo of six cases (source S-1609)
+
+At the maintainer's delegation of 2026-11-04, relayed by the coordinator, a Claude agent read J4's free
+tracks and redid J7, J9, J14, J18, J19 and J21 through the Properties panel. It worked on the phase A bytes
+of the run above: the same kit folder, whose `edit.PcbDoc` `0f6301a5…`, `edit.SchDoc` `4940e6af…`,
+`edit.PcbLib` `365b5ff3…` and `edit.PrjPcb` `21c386b7…` match `SHA256SUMS` before and after the run.
+Phase A was not built again. The cases of the run above that are not named here keep their outcomes.
+
+**Method.** An authored DelphiScript selected each object; it changed nothing else. The Properties panel was
+brought back with View » Panels » Properties and opened from its side tab. The S-1582 blocker did not recur:
+UI Automation reached every field. Each edit set a field of the panel: **P** in the table below. Each case
+opened the kit's own document, was saved with File » Save As in a new folder, and was closed. Every save
+showed only the Save As dialog, and no case raised a message. The diff column comes from
+`fenolite diff A B --view records`. PCB cases are compared with `J01` and name only the streams beyond the
+resave set of the run above. Schematic and library cases are compared with the kit's document.
+
+| case | file (SHA-256) | way | expected | observed |
+|---|---|---|---|---|
+| J4 (read) | `J04-move-component.PcbDoc` `8eb8732e…` of the run above | read by script | the tracks stay where they were | the nine free tracks (eight on Top Layer for `GND`, `MID` and `VIN`, and one on Mechanical 13) have the same ends, widths and nets as in the kit's document. The same read gives `R1` at (26, 20) and `R2` at (26, 12) mm, against (12, 20) and (12, 12) in the kit's document; `D1` stays at (26, 15). Fenolite's reader gives the same positions. So that file does not hold `R1` at (14, 20), and `R2` moved too, while J4 asks for `R1` alone at X 14 mm |
+| J7 | `J07-text.PcbDoc` `1f1013fe…` | P (Text) | the new text shows | the text reads `FENOLITE EDIT 2`. `WideStrings6` changes 1 record |
+| J9 | `J09-flip.PcbDoc` `ba7edb2b…` | P (Layer combo, Top Layer to Bottom Layer) | `D1` on the bottom, mirrored, overlay on Bottom Overlay | `D1` is on the Bottom Layer at rotation 180, its origin reads (28.55, 15), and its designator and comment are on Bottom Overlay. `Components6` changes 1 record, `Arcs6` 3, `UniqueIDPrimitiveInformation` 2 and `WideStrings6` 5. One `Tracks6` record is replaced, and a clearance and a short-circuit violation are added. The origin and rotation are those of the scripted edit of the run above |
+| J14 | `J14-layer.PcbDoc` `bbbf1fd3…` | P (Layer combo, both objects selected) | both on Mechanical 15 | the line and the region read Mechanical 15, and nothing is left on Mechanical 13. One `Tracks6` record is replaced, and `Regions6` and `ShapeBasedRegions6` each change 1 record, as with the scripted edit |
+| J18 | `J18-sch-move.SchDoc` `3cf69fff…` | P (X, 60.96 mm to 70.96 mm) | `R1` moves; note the wires | the field reads 2793.7 mil, and `R1` is at (2794, 6300) mil. The six wires keep all their vertices, so they did not follow |
+| J19 | `J19-sch-parameter.SchDoc` `b7224c00…` | P (Comment) | `R1` shows `2k2` | `R1`'s comment reads `2k2` |
+| J21 | `J21-library.PcbLib` `6678cc7d…` | P (X of pad 1) | only pad 1 moves | the field reads -0.9 mm. Pad 1 is at (-0.9, 0) mm and pad 2 stays at (0.8, 0). Against the kit's library both footprints' records change, as in the run above |
+
+The schematic files differ from the kit's document in their `FileHeader` (64 added, 31 removed and 14
+changed records) and add one `Additional` record, as in the run above. The saved files stay outside the
+repository.
+
+Every `H-A-EDIT-*` row keeps its level: the run is an agent run on 24.5 under the approved scope. The J4
+finding is the coordinator's to judge: the S-1574/S-1577 file does not show the move that J4 asks for.
+
 ### 2026-11-04 night, actual `AD 24.5.2.23`, phase B J23 to J33 (source S-1588)
 
 A Claude agent ran phase B at the maintainer's request of 2026-11-04/05, in the Altium Designer installed in
