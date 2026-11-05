@@ -426,3 +426,35 @@ __all__ = [
     "relative",
     "runner",
 ]
+
+
+SLOT_PADS: tuple[tuple[str, int, int, int, int], ...] = (
+    ("1", MM, 2_150_000, 0, 0),
+    ("2", 2_150_000, MM, 0, 0),
+    ("3", MM, 2_150_000, 30_000_000, 0),
+    ("4", 2_150_000, MM, 30_000_000, 0),
+    ("5", MM, 2_150_000, 90_000_000, 45_000_000),
+    ("6", 2_150_000, MM, 0, 30_000_000),
+)
+"""The slot pads of ``slot_library`` (change c0416): number, ``Pad.drill``, ``Padstack.hole_length``,
+``Padstack.hole_rotation`` and ``Pad.rotation``. Pads 2, 4 and 6 hold the slot length below the hole size,
+as an Altium record may; pads 3 and 4 have a hole rotation that no ``KiCad`` oval holds."""
+
+
+def slot_library() -> bytes:
+    """A PCB library of one footprint ``SL`` with the six through-hole slot pads of ``SLOT_PADS``, 4 mm
+    round, 6 mm apart, authored for Fenolite (change c0416). KiCad 10.0.6's ``fp upgrade`` writes the slot
+    length along the pad's x axis and the hole size across it, and loses the two slots at 30°
+    (``pcb-records.md``)."""
+    from fenolite.backends.altium.pcblib import LibFootprint, write_pcblib
+    from fenolite.core.coords import Size
+    from fenolite.model.board import Pad, Padstack
+    from fenolite.model.library import FootprintDef
+
+    pads = tuple(
+        Pad(id=f"pad{number}", number=number, kind="thru_hole", shape="circle", size=Size(4 * MM, 4 * MM),
+            position=Point(index * 6 * MM, 0), rotation=turn, drill=drill, layers=("*.Cu", "*.Mask"),
+            padstack=Padstack(id=f"pst{number}", hole_shape="slot", hole_length=length, hole_rotation=axis))
+        for index, (number, drill, length, axis, turn) in enumerate(SLOT_PADS)
+    )  # fmt: skip
+    return write_pcblib([LibFootprint(FootprintDef(id="fp", name="SL", pads=pads))], filename="slots.PcbLib")

@@ -390,6 +390,7 @@ AT_REF: tuple[str, ...] = (
     "pad-shape",
     "pad-size",
     "pad-drill",
+    "pad-slot",
     "pad-position",
     "pad-rotation",
     "pad-copper",

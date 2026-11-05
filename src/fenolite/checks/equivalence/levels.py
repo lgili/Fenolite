@@ -343,6 +343,16 @@ def _pad_differences(
                 "" if drill_b is None else str(drill_b),
             )
         )
+    slot_a, slot_b = norm.slot_form(one), norm.slot_form(other)  # length and axis (change c0416)
+    if (slot_a is None) != (slot_b is None) or (
+        slot_a is not None
+        and slot_b is not None
+        and not (
+            norm.lengths_equal(slot_a[1], slot_b[1], tolerances)
+            and norm.angles_equal(slot_a[2], slot_b[2], tolerances, norm.HALF_TURN)
+        )
+    ):
+        found.append(_difference(3, "pad-slot", where, norm.slot_text(slot_a), norm.slot_text(slot_b)))
     if not norm.points_equal(one.position, other.position, tolerances):
         found.append(_difference(3, "pad-position", where, _point(one.position), _point(other.position)))
     period_a, period_b = norm.pad_symmetry(one, tolerances), norm.pad_symmetry(other, tolerances)

@@ -103,6 +103,28 @@ def drill_width(pad: Pad) -> int | None:
     return min(pad.drill, stack.hole_length)
 
 
+def slot_form(pad: Pad) -> tuple[int, int, int] | None:
+    """The width, length and axis of a pad's slot hole (change c0416), read by its extents as ``KiCad``'s
+    oval is: the width is the shorter of ``Pad.drill`` and ``Padstack.hole_length``, the length the longer,
+    and the axis lies along the longer side, in the footprint's frame (``Pad.rotation`` plus
+    ``Padstack.hole_rotation``, plus a quarter turn when ``Pad.drill`` is the longer) modulo a half turn.
+    ``None`` for a hole that is not a slot with a length, and for a slot whose two numbers are equal (a round
+    hole, as ``KiCad`` reads ``(drill oval d d)``)."""
+    stack = pad.padstack
+    if pad.drill is None or stack is None or stack.hole_shape != "slot" or stack.hole_length is None:
+        return None
+    if pad.drill == stack.hole_length:
+        return None
+    across = QUARTER_TURN if pad.drill > stack.hole_length else 0
+    axis = (pad.rotation + stack.hole_rotation + across) % HALF_TURN
+    return min(pad.drill, stack.hole_length), max(pad.drill, stack.hole_length), axis
+
+
+def slot_text(form: tuple[int, int, int] | None) -> str:
+    """``<length>@<axis>`` of a ``slot_form``, or empty for a pad without a slot."""
+    return "" if form is None else f"{form[1]}@{form[2]}"
+
+
 def copper_span(pad: Pad, board: Board) -> frozenset[str] | None:
     """The subset of ``top``, ``inner`` and ``bottom`` that the pad's layers reach, by the ordinals of the
     board's copper layers; ``None`` (unknown) when the board declares one of the names not at all."""

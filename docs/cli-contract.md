@@ -4423,7 +4423,7 @@ The evidence is the lowest of the two readings (a built design counts as `INFERR
 | `equiv.footprint-missing` | error | a common component placed on one side only |
 | `equiv.footprint-name` | error | the footprint names differ (the library nickname is not compared) |
 | `equiv.pad-missing` | error | different counts of pads of one number |
-| `equiv.pad-kind`, `equiv.pad-shape`, `equiv.pad-size`, `equiv.pad-drill`, `equiv.pad-position`, `equiv.pad-rotation`, `equiv.pad-copper` | error | a field of a pad differs, in the footprint's frame |
+| `equiv.pad-kind`, `equiv.pad-shape`, `equiv.pad-size`, `equiv.pad-drill`, `equiv.pad-slot`, `equiv.pad-position`, `equiv.pad-rotation`, `equiv.pad-copper` | error | a field of a pad differs, in the footprint's frame |
 | `equiv.side`, `equiv.position`, `equiv.rotation` | error | the placement of a footprint differs |
 | `equiv.route-missing` | error | one side has copper on a net and the other has none |
 | `equiv.route-connectivity` | error | the copper of a net joins other pads on one side than on the other |

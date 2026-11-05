@@ -112,6 +112,11 @@ scene builders) and level S in `compare_drawn`. Both `fenolite verify-source` an
   a moved, turned or flipped footprint with unchanged pads is equal at level 3. Pads are paired by
   number; several pads of one number are sorted by `(x, y)` and paired in that order. Per-layer pad
   stacks, mask and paste, custom outlines, graphics, attributes and 3D models are not compared.
+- **Holes.** `pad-drill` compares the width of each hole: the shorter of `Pad.drill` and
+  `Padstack.hole_length` for a slot (change c0407). `pad-slot` compares a slot's length and axis, read by its
+  extents as KiCad's oval is (change c0416). The length is the longer number. The axis lies along it, in the
+  footprint's frame (`Pad.rotation + Padstack.hole_rotation`, plus a quarter turn when `Pad.drill` is the
+  longer number), modulo a half turn. A slot whose two numbers are equal is a round hole.
 
 ## Level 5: routing
 
@@ -284,6 +289,7 @@ level are sorted by `where`, then kind.
 | 3 | `pad-shape` | `shape` | the shapes differ |
 | 3 | `pad-size` | `size` | the sizes differ beyond the tolerance |
 | 3 | `pad-drill` | `drill` | the drills differ beyond the tolerance, or only one pad has a drill |
+| 3 | `pad-slot` | `slot` | the slot holes differ in length or axis beyond the tolerances, or only one pad has a slot; `a` and `b` are `<length>@<axis>`, the axis in the footprint's frame modulo a half turn along the longer side |
 | 3 | `pad-position` | `position` | the positions in the footprint differ beyond the tolerance |
 | 3 | `pad-rotation` | `rotation` | the rotations relative to the footprint differ beyond the tolerance |
 | 3 | `pad-copper` | `layers` | the copper spans differ |

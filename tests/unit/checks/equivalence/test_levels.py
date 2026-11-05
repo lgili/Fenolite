@@ -21,6 +21,7 @@ from fenolite.checks.equivalence import (
 )
 from fenolite.checks.equivalence.levels import level_components, level_netlist
 from fenolite.core.coords import Point, Size
+from fenolite.model.design import Design
 
 
 def _kinds(report: EquivalenceReport, level: int) -> list[tuple[str, str]]:
@@ -216,6 +217,53 @@ def test_level3_slot_drill_compares_widths() -> None:
         d for d in compare_designs(altium, wider, level=3).levels[2].differences if d.kind == "pad-drill"
     ]
     assert (drill.where, drill.a, drill.b) == ("D1-1", str(mm), "1200000")
+
+
+def test_level3_slot_compares_length_and_axis() -> None:
+    """Change c0416: a slot is read by its extents, as KiCad's oval is. Drill 2.15 mm with length 1.0 mm at
+    0° and drill 1.0 mm with length 2.15 mm at 90° are one slot (``fp upgrade`` 10.0.6 writes the first as
+    ``(drill oval 1 2.15)``). A longer slot, a slot along the other axis and a round hole of the slot's width
+    are a ``pad-slot`` each; the widths agree, so no ``pad-drill``."""
+    from fenolite.model.board import Padstack
+
+    a = _cases.two_layer()
+    mm = 1_000_000
+
+    def slot(length: int, rotation: int) -> Padstack:
+        return Padstack(id="pst-slot", hole_shape="slot", hole_length=length, hole_rotation=rotation)
+
+    def kinds(one: Design, other: Design) -> list[tuple[str, str, str, str]]:
+        found = compare_designs(one, other, level=3).levels[2].differences
+        return [(d.kind, d.where, d.a, d.b) for d in found if d.kind in ("pad-slot", "pad-drill")]
+
+    altium = _cases.with_pad(a, "D1", "1", drill=2_150_000, padstack=slot(mm, 0))
+    kicad = _cases.with_pad(a, "D1", "1", drill=mm, padstack=slot(2_150_000, 90_000_000))
+    assert kinds(altium, kicad) == []
+    longer = _cases.with_pad(a, "D1", "1", drill=mm, padstack=slot(3 * mm, 90_000_000))
+    assert kinds(altium, longer) == [("pad-slot", "D1-1", "2150000@90000000", "3000000@90000000")]
+    across = _cases.with_pad(a, "D1", "1", drill=mm, padstack=slot(2_150_000, 0))
+    assert kinds(altium, across) == [("pad-slot", "D1-1", "2150000@90000000", "2150000@0")]
+    turned = _cases.with_pad(a, "D1", "1", drill=mm, padstack=slot(2_150_000, 270_000_000))
+    assert kinds(altium, turned) == []  # a slot is the same turned by a half turn
+    round_hole = _cases.with_pad(a, "D1", "1", drill=mm)
+    assert kinds(altium, round_hole) == [("pad-slot", "D1-1", "2150000@90000000", "")]
+
+
+def test_level3_slot_of_equal_numbers_is_a_round_hole() -> None:
+    """Change c0416: KiCad reads ``(drill oval d d)`` as a round drill, so a slot whose two numbers are equal
+    is a round hole of that size and gives no ``pad-slot`` against one; its axis is not compared."""
+    from fenolite.checks.equivalence import norm
+    from fenolite.model.board import Padstack
+
+    a = _cases.two_layer()
+    mm = 1_000_000
+    stack = Padstack(id="pst", hole_shape="slot", hole_length=mm, hole_rotation=0)
+    even = _cases.with_pad(a, "D1", "1", drill=mm, padstack=stack)
+    round_hole = _cases.with_pad(a, "D1", "1", drill=mm)
+    found = compare_designs(even, round_hole, level=3).levels[2].differences
+    assert not [d for d in found if d.kind in ("pad-slot", "pad-drill")]
+    (pad,) = [p for p in _cases.footprint(even, "D1").pads if p.number == "1"]
+    assert norm.slot_form(pad) is None
 
 
 def test_level3_placement_does_not_reach_it() -> None:

@@ -12810,6 +12810,12 @@
         "error"
       ]
     },
+    "equiv.pad-slot": {
+      "experimental": false,
+      "severities": [
+        "error"
+      ]
+    },
     "equiv.pin-missing": {
       "experimental": false,
       "severities": [

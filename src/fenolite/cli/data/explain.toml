@@ -1763,6 +1763,11 @@ meaning = "The size of a pad differs by more than the length tolerance on an axi
 fix = "Correct the pad, or pass --tolerance-nm when the difference is rounding."
 see = "equivalent"
 
+["equiv.pad-slot"]
+meaning = "A pad's slot hole differs in length beyond the length tolerance or in axis beyond the angle tolerance, read by its extents in the footprint's frame, or only one side has a slot."
+fix = "Correct the slot, or pass --tolerance-nm when the difference is rounding."
+see = "equivalent"
+
 ["equiv.pin-missing"]
 meaning = "A pin or pad of a component both sides hold exists on one side only."
 fix = "Compare the footprint or the symbol of that component on the two sides; 'where' is REF-PIN."
