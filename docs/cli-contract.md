@@ -1541,7 +1541,7 @@ named like a verb is passed as `./audit`.
 | `library.licence-denied` | error | an id outside the allow-list (with the reason), a platform-restricted origin, a vendor-bundled example |
 | `library.licence-text` | error | `LICENSE` missing or not a listed text, and no `licence_review` |
 | `library.notice-missing` | error | `NOTICE` missing or not headed by the dated modification notice |
-| `library.provenance-invalid` | error | a schema rule, a disagreement of `item.json` and `PROVENANCE.json`, a depends error, a step with `--plan`, a README statement missing |
+| `library.provenance-invalid` | error | a schema rule, a disagreement of `item.json` and `PROVENANCE.json`, a depends error, a step with `--plan`, a README statement missing; in `library gallery`, a provenance that cannot attribute its item (nothing is written) |
 | `library.version-rule` | error | with `--base`, a changed item whose version did not rise |
 | `library.replay-differs` | error | the replay's outputs differ from the payload |
 | `library.proof-failed` | error | the proof gate of a board failed |

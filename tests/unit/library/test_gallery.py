@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
 """``fenolite library gallery`` (capability fenolite-library, "Gallery with attribution", change c0279;
-"Designed gallery pages", "Item images drawn by Fenolite" and "Image placeholders", change c0405)."""
+"Designed gallery pages", "Item images drawn by Fenolite" and "Image placeholders", change c0405;
+"Authored and third-party attribution" and "Contradictory provenance fails the gallery", change c0418)."""
 
 from __future__ import annotations
 
@@ -15,6 +16,7 @@ from typing import Any
 import pytest
 
 from fenolite.cli import main as cli_main
+from fenolite.library.gallery import attribution_line
 
 BOARD = "boards/cern-ohl-s/demo-src/blink"
 SVG = b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect width="10" height="10"/></svg>\n'
@@ -103,6 +105,82 @@ def test_card_attribution(monkeypatch: pytest.MonkeyPatch, demo: Path) -> None:
     device = _read(demo, "devices/Demo/EXB/index.html")
     assert "Authored for fenolite-library" in device and "Not endorsed" not in device
     assert envelope["result"]["hidden"] == []
+
+
+SEEDED = "footprints/cc-by-sa/Demo/SA_PAD"
+
+
+def test_authored_and_third_party_attribution(monkeypatch: pytest.MonkeyPatch, demo: Path) -> None:
+    """Scenario "Authored and third-party attribution": the seeded CC-BY-SA-4.0 footprint (authored for the
+    tests, recorded as seeded from example.org) names its upstream; only the authored device says
+    "Authored for fenolite-library"."""
+    _site(monkeypatch, demo, "--renders", str(_renders(demo)))
+    device = _read(demo, "devices/Demo/EXB/index.html")
+    assert "Authored for fenolite-library, licence CC0-1.0." in device
+    footprint = _read(demo, "footprints/Demo/SA_PAD/index.html")
+    line = (
+        "Derived from Demo Pad Authors (https://example.org/demo-pads) at commit 000000000000, licence "
+        "CC-BY-SA-4.0; converted to Fenolite&#x27;s formats, changes in its PROVENANCE.json. "
+        "Rendered by Fenolite"
+    )
+    assert line in footprint and "Not endorsed by the authors." in footprint
+    assert (
+        '<a href="https://example.org/demo-pads">example.org/demo-pads</a> at <code>000000000000</code>'
+        in footprint
+    )
+    assert "Authored for fenolite-library" not in footprint
+    index = _read(demo, "index.html")
+    card = index.split('href="footprints/Demo/SA_PAD/index.html"', 1)[1].split("</li>", 1)[0]
+    assert "Derived from Demo Pad Authors" in card and "Authored for" not in card
+
+
+@pytest.mark.parametrize(
+    ("change", "field"),
+    [
+        ({"spdx": "CC0-1.0"}, "spdx 'CC0-1.0' and the release index spdx 'CC-BY-SA-4.0' differ"),
+        ({"upstream": None}, "upstream is missing for a seeded item"),
+        ({"origin": None}, "origin is None"),
+        ({"authors": []}, "authors is empty for a seeded item"),
+    ],
+)
+def test_contradictory_provenance_fails_the_gallery(
+    monkeypatch: pytest.MonkeyPatch, demo: Path, change: dict[str, Any], field: str
+) -> None:
+    """Scenario "Contradictory provenance fails the gallery": no fallback to "Authored" or CC0, no write."""
+    _release(monkeypatch, demo)
+    path = demo / SEEDED / "PROVENANCE.json"
+    record = json.loads(path.read_text(encoding="utf-8"))
+    record.update(change)
+    path.write_text(json.dumps(record, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+    code, envelope = _cli(
+        monkeypatch,
+        demo.parent,
+        "library",
+        "gallery",
+        str(demo),
+        "--release",
+        "dist",
+        "--out",
+        "site",
+        "--confirm",
+    )
+    assert code == 5 and envelope["result"]["cards"] == []
+    issues = [i for i in envelope["issues"] if i["code"] == "library.provenance-invalid"]
+    assert issues and all(i["severity"] == "error" and i["where"] == SEEDED for i in issues)
+    assert any(
+        i["message"].startswith("Demo:SA_PAD: PROVENANCE.json") and field in i["message"] for i in issues
+    )
+    assert envelope["result"]["provenance"] == [i["message"] for i in issues]
+    assert not (demo.parent / "site").exists()
+
+
+def test_attribution_line_never_falls_back() -> None:
+    """A caller that skips the check still cannot print "Authored" for a third-party record."""
+    row = {"id": "X:Y", "spdx": "CC-BY-SA-4.0", "title": "Y"}
+    with pytest.raises(ValueError, match="upstream is missing"):
+        attribution_line(row, {"origin": "seeded", "spdx": "CC-BY-SA-4.0", "authors": ["A"]}, "0.0")
+    with pytest.raises(ValueError, match="origin is 'vendor'"):
+        attribution_line(row, {"origin": "vendor", "spdx": "CC-BY-SA-4.0"}, "0.0")
 
 
 def test_restricted_marks_hidden(monkeypatch: pytest.MonkeyPatch, demo: Path) -> None:

@@ -5,14 +5,18 @@
 
 An index page with a card grid (search, filters by kind and licence, a light and dark theme), one page per
 item of the release index and the benchmark page, styled by ``assets/site.css`` and ``assets/site.js``.
-Every item page shows the attribution line ("Converted from the open-source design <title> by <authors>
-(<link>), licence <SPDX>. Rendered by Fenolite <version>. Not endorsed by the authors.", or "Authored for
-fenolite-library."), the item's images, a facts table, the proof result, the ``fenolite get`` command and
-links to the item folder, its LICENSE and NOTICE. Images are made by Fenolite only (``Media``): symbols,
-footprints and devices drawn from the library viewer's scenes, board views and block schematics rendered
-by the library's workflow; no upstream image is used. An item whose image could not be made shows a
-placeholder that names why. An item with ``trademarks.restricted`` gets no card. Card text describes; it
-never says the item is a product of the upstream's owner. Nothing is loaded from another origin.
+Every item page shows the attribution line, taken from the item's ``PROVENANCE.json`` (change c0418):
+"Converted from the open-source design <title> by <authors> (<link>), licence <SPDX>. Rendered by Fenolite
+<version>. Not endorsed by the authors." for a converted item, "Derived from <authors> (<link>) at commit
+<commit>, licence <SPDX>; converted to Fenolite's formats, …" for a seeded one, and "Authored for
+fenolite-library" only for an authored one; a provenance it cannot attribute is refused, never defaulted
+(``attribution_problems``). Each page also shows the item's images, a facts table, the proof result, the
+``fenolite get`` command and links to the item folder, its LICENSE and NOTICE. Images are made by Fenolite
+only (``Media``): symbols, footprints and devices drawn from the library viewer's scenes, board views and
+block schematics rendered by the library's workflow; no upstream image is used. An item whose image could
+not be made shows a placeholder that names why. An item with ``trademarks.restricted`` gets no card. Card
+text describes; it never says the item is a product of the upstream's owner. Nothing is loaded from another
+origin.
 """
 
 from __future__ import annotations
@@ -52,17 +56,83 @@ def _e(value: object) -> str:
     return html.escape(str(value))
 
 
+ORIGINS = ("authored", "converted", "seeded")
+"""The origins of ``fenolite.library.provenance``; only ``authored`` items are the library's own work."""
+COMMIT_HEX = frozenset("0123456789abcdef")
+
+
+def _upstream_link(upstream: Mapping[str, Any]) -> str:
+    return str(upstream.get("source_location") or upstream.get("url") or "")
+
+
+def attribution_problems(row: Mapping[str, Any], record: Mapping[str, Any]) -> list[str]:
+    """Every reason the gallery cannot attribute an item from its ``PROVENANCE.json`` and its release index
+    row (change c0418): a missing or unknown origin, a licence that disagrees, an authored item with an
+    upstream, a third-party item without authors, an https link or a commit. Empty when it can."""
+    ident = str(row.get("id"))
+    origin = record.get("origin")
+    problems: list[str] = []
+    if origin not in ORIGINS:
+        problems.append(f"{ident}: PROVENANCE.json origin is {origin!r}, not one of {', '.join(ORIGINS)}")
+    spdx = record.get("spdx")
+    if not isinstance(spdx, str) or not spdx:
+        problems.append(f"{ident}: PROVENANCE.json has no spdx licence")
+    elif spdx != row.get("spdx"):
+        problems.append(
+            f"{ident}: PROVENANCE.json spdx {spdx!r} and the release index spdx {row.get('spdx')!r} differ"
+        )
+    upstream = record.get("upstream")
+    if origin == "authored" and upstream is not None:
+        problems.append(f"{ident}: PROVENANCE.json upstream must be null for an authored item")
+    if origin in ("converted", "seeded"):
+        if not isinstance(upstream, dict):
+            problems.append(f"{ident}: PROVENANCE.json upstream is missing for a {origin} item")
+        else:
+            source = cast(Mapping[str, Any], upstream)
+            if not _upstream_link(source).startswith("https://"):
+                problems.append(f"{ident}: PROVENANCE.json upstream has no https:// url or source_location")
+            commit = source.get("commit")
+            if not isinstance(commit, str) or len(commit) != 40 or not set(commit) <= COMMIT_HEX:
+                problems.append(f"{ident}: PROVENANCE.json upstream.commit is not a 40-hex commit")
+            expression = source.get("spdx_expression")
+            if expression is not None and expression != spdx:
+                problems.append(
+                    f"{ident}: PROVENANCE.json upstream.spdx_expression {expression!r} "
+                    f"and spdx {spdx!r} differ"
+                )
+        authors = record.get("authors")
+        names = cast(list[object], authors) if isinstance(authors, list) else []
+        if not names or not all(isinstance(a, str) and a for a in names):
+            problems.append(f"{ident}: PROVENANCE.json authors is empty for a {origin} item")
+    return problems
+
+
+def _checked(row: Mapping[str, Any], record: Mapping[str, Any]) -> str:
+    """The origin of an item the gallery can attribute; ``ValueError`` otherwise, never a fallback."""
+    problems = attribution_problems(row, record)
+    if problems:
+        raise ValueError("; ".join(problems))
+    return str(record["origin"])
+
+
 def attribution_line(row: Mapping[str, Any], record: Mapping[str, Any], fenolite_version: str) -> str:
-    """The attribution line of a card (plain text)."""
-    if record.get("origin") != "converted" or not isinstance(record.get("upstream"), dict):
-        spdx = row.get("spdx")
+    """The attribution line of a card (plain text), from the item's provenance (changes c0279 and c0418)."""
+    origin = _checked(row, record)
+    spdx = record["spdx"]
+    if origin == "authored":
         return f"Authored for fenolite-library, licence {spdx}. Rendered by Fenolite {fenolite_version}."
     upstream = cast(Mapping[str, Any], record["upstream"])
-    link = upstream.get("source_location") or upstream.get("url")
-    authors = ", ".join(cast(list[str], record.get("authors") or [])) or "its authors"
+    link = _upstream_link(upstream)
+    authors = ", ".join(cast(list[str], record["authors"]))
+    if origin == "seeded":
+        return (
+            f"Derived from {authors} ({link}) at commit {str(upstream['commit'])[:12]}, licence {spdx}; "
+            "converted to Fenolite's formats, changes in its PROVENANCE.json. "
+            f"Rendered by Fenolite {fenolite_version}. {NOT_ENDORSED}"
+        )
     return (
         f"Converted from the open-source design {row.get('title')} by {authors} ({link}), "
-        f"licence {row.get('spdx')}. "
+        f"licence {spdx}. "
         f"Rendered by Fenolite {fenolite_version}. {NOT_ENDORSED}"
     )
 
@@ -121,17 +191,15 @@ def _proof_badge(row: Mapping[str, Any]) -> str:
     return f'<span class="badge {tone}">proof: {_e(proof)}</span>'
 
 
-def _source(record: Mapping[str, Any]) -> str:
-    upstream = record.get("upstream")
-    if record.get("origin") != "converted" or not isinstance(upstream, dict):
+def _source(row: Mapping[str, Any], record: Mapping[str, Any]) -> str:
+    if _checked(row, record) == "authored":
         return "Authored for fenolite-library"
-    upstream = cast(Mapping[str, Any], upstream)
-    link = str(upstream.get("source_location") or upstream.get("url") or "")
+    upstream = cast(Mapping[str, Any], record["upstream"])
+    link = _upstream_link(upstream)
     parts = urlsplit(link)
-    label = (parts.netloc + parts.path) if parts.netloc else link
-    commit = str(upstream.get("commit") or "")
-    tail = f" at <code>{_e(commit[:12])}</code>" if commit else ""
-    return f'<a href="{_e(link)}">{_e(label)}</a>{tail}' if link.startswith("https://") else _e(link) + tail
+    label = parts.netloc + parts.path
+    commit = str(upstream["commit"])
+    return f'<a href="{_e(link)}">{_e(label)}</a> at <code>{_e(commit[:12])}</code>'
 
 
 PAPER_VIEWS = frozenset({"symbol.svg", "schematic.svg"})
@@ -178,7 +246,7 @@ def card(
         ("Identifier", f"<code>{_e(row.get('id'))}</code>"),
         ("Version", _e(row.get("version"))),
         ("Licence", _e(licence)),
-        ("Source", _source(record)),
+        ("Source", _source(row, record)),
         ("Proof", _e(row.get("proof") or "not applicable")),
         ("Evidence", _e(row.get("evidence"))),
     ]
@@ -396,6 +464,7 @@ __all__ = [
     "NOT_ENDORSED",
     "REPOSITORY",
     "attribution_line",
+    "attribution_problems",
     "card",
     "get_command",
     "site",

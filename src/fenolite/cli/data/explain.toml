@@ -4498,7 +4498,7 @@ fix = "Fix the cause, add a reviewed fidelity.accepted entry, or record the skip
 see = "library"
 
 ["library.provenance-invalid"]
-meaning = "fenolite library audit: item.json or PROVENANCE.json breaks its schema, the two disagree (the message names both values), a depends target is missing or forms a cycle, a conversion step names another tool or holds --plan, or README.md lacks a required statement."
+meaning = "library audit: item.json or PROVENANCE.json breaks its schema or they disagree (both values named), a depends target is missing or cyclic, a step names another tool or holds --plan, or README.md lacks a statement; library gallery: PROVENANCE.json cannot attribute the item (origin, upstream, authors, commit or licence), so nothing is written."
 fix = "Correct the field the message names; record a writing step with --confirm alone."
 see = "library"
 

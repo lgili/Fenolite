@@ -151,10 +151,23 @@ the older releases a lock may pin.
 
 ## Gallery
 
-Each card shows Fenolite renders only, the title and the line "Converted from the open-source design
-<title> by <authors> (<upstream link>), licence <SPDX>. Rendered by Fenolite <version>. Not endorsed by the
-authors." (authored items: "Authored for fenolite-library"), the proof result, the `fenolite get` command
-and a link to the item folder. An item with `trademarks.restricted` gets no card. Fenolite's README, site
+Each card shows Fenolite renders only, the title, the attribution line, the proof result, the `fenolite get`
+command and a link to the item folder. The attribution line comes from the item's `PROVENANCE.json`, checked
+against the release index (change c0418):
+
+| `origin` | attribution line |
+|---|---|
+| `converted` | "Converted from the open-source design <title> by <authors> (<upstream link>), licence <SPDX>. Rendered by Fenolite <version>. Not endorsed by the authors." |
+| `seeded` | "Derived from <authors> (<upstream link>) at commit <commit>, licence <SPDX>; converted to Fenolite's formats, changes in its PROVENANCE.json. Rendered by Fenolite <version>. Not endorsed by the authors." |
+| `authored` | "Authored for fenolite-library, licence <SPDX>. Rendered by Fenolite <version>." |
+
+The seeded line names the creator, links the material, names the licence and says it was modified, with the
+details in the linked item folder, as CC BY-SA 4.0 section 3(a) asks (S-1770); CC0 asks for no attribution
+(S-1771), but a CC0 item from LibrePCB Base (S-1772) is still never shown as the library's own work. A
+provenance the gallery cannot attribute (a missing or unknown `origin`, an authored item with an upstream, a
+third-party item without authors, an `https` link or a 40-hex commit, or a licence that differs between
+`PROVENANCE.json`, `upstream.spdx_expression` and the release index) is a `library.provenance-invalid` error:
+`library gallery` exits 5 and writes nothing, and never falls back to "Authored" or to CC0. An item with `trademarks.restricted` gets no card. Fenolite's README, site
 and launch material show third-party items only as gallery images with that line, and an item by an
 organisation needs `featured` first. The site stays within the Pages limits (S-1001).
 

@@ -7,7 +7,9 @@ made. Symbols, footprints and devices are drawn by Fenolite from the item's own 
 check`` reads them. ``--renders`` mirrors the gallery folders with the images that need KiCad or item code:
 ``top.svg`` and ``bottom.svg`` of a board, the sheet of a block (``schematic.kicad_sch``, drawn by Fenolite,
 or a ready ``schematic.svg``), and ``failures.json`` (``{item id: reason}``). An image that cannot be made
-becomes a placeholder naming why; ``result.placeholders`` lists them and the site is still planned."""
+becomes a placeholder naming why; ``result.placeholders`` lists them and the site is still planned. Each
+attribution comes from the item's ``PROVENANCE.json`` (change c0418): a provenance the gallery cannot
+attribute is a ``library.provenance-invalid`` error (``result.provenance``) and nothing is planned."""
 
 from __future__ import annotations
 
@@ -22,7 +24,8 @@ from fenolite.cli.api import Context, PlannedWrite, Result, depends_on
 from fenolite.cli.errors import CliError
 from fenolite.core.errors import FormatError
 from fenolite.core.evidence import Evidence, Level
-from fenolite.library.gallery import site, visible_rows
+from fenolite.library.codes import issue
+from fenolite.library.gallery import attribution_problems, site, visible_rows
 from fenolite.library.gallery_images import Media, View, footprint_media, scene_svg, symbol_media
 from fenolite.library.items import PROVENANCE_FILE, ItemError, load_json
 
@@ -216,6 +219,26 @@ def gallery_command(args: argparse.Namespace, ctx: Context) -> Result:
         failures = {str(k): str(v) for k, v in cast(dict[str, Any], loaded).items()}
         read.append(renders / FAILURES)
     rows = visible_rows(index, records)
+    unattributed = [
+        issue("library.provenance-invalid", problem, where=str(row.get("path")))
+        for row in rows
+        for problem in attribution_problems(row, records.get(str(row.get("path")), {}))
+    ]
+    if unattributed:
+        # A page may claim nothing its provenance does not say (change c0418): no fallback, no write.
+        return Result(
+            result={
+                "release": index.get("version"),
+                "out": Path(args.out).as_posix().rstrip("/"),
+                "cards": [],
+                "hidden": [],
+                "placeholders": [],
+                "provenance": [i.message for i in unattributed],
+            },
+            issues=tuple(unattributed),
+            evidence=EVIDENCE,
+            depends=depends_on(ctx.cwd, *sorted(set(read))),
+        )
     drawn: dict[tuple[str, str], Media] = {}
     pages = {(str(r.get("kind")), str(r.get("id"))): str(r["gallery"]) for r in rows}
     for row in cast(list[dict[str, Any]], index.get("items", [])):
