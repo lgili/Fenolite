@@ -81,6 +81,15 @@ of each entity in Part 21 order (inherited first). Label: `INFERRED` until the o
   colours are written once per file. The header names `Fenolite` without a version and takes the time stamp
   as an argument (`1970-01-01T00:00:00` by default): equal arguments give equal bytes.
 - **Colours.** `body` dark grey (0.2), leads, pins and tabs light grey (0.8), applied with `STYLED_ITEM`.
+- **Cylinders and spheres** (change c0423, `write_solids`). A cylinder is the prism over the regular polygon of
+  `n` vertices on its circle; a sphere has two poles, `n/2 − 1` rings of `n` vertices, triangles at the poles
+  and quadrilaterals between the rings. `n` is the smallest even number from 24 that keeps the sagitta
+  `r·(1 − cos(π/n))` at 10 µm or less, at most 96. Each quadrilateral is an isosceles trapezoid, planar before
+  the vertices are rounded to the nanometre and within the file's 0.0001 mm after. A face's plane takes its
+  first vertex as origin, the cross product of its first two edges as normal and its first edge as
+  reference direction, all from integer ratios. The entities are those of the prism: no curved surface is
+  written. The header's description is `Fenolite component bodies`; `write_bodies` keeps
+  `Fenolite extruded component bodies` and its bytes.
 - **Application protocol year** `2000` and the context names (`automotive design`, `mechanical`, `part
   definition`, `design`) are Fenolite's labels; the oracle accepts them.
 
@@ -88,4 +97,5 @@ of each entity in Part 21 order (inherited first). Label: `INFERRED` until the o
 
 | fact | source | label | hypothesis |
 |---|---|---|---|
+| `kicad-cli pcb export stl` of a converted board places every vertex of the generated prisms, cylinders and spheres and of the extracted models where the source puts them, within 2 µm, on 9.0.9 and 10.0.6 (change c0423; `tests/kicad/convert/test_altium_model_pose.py`) | S-1820 | KICAD-VERIFIED (9.0.x, 10.0.x; 2026-11-05) | H-K-MODEL-POSE |
 | `kicad-cli pcb export step` of a board whose footprints name generated STEP models adds one `NEXT_ASSEMBLY_USAGE_OCCURRENCE` per footprint and prints no `Could not add 3D model`; measured on 10.0.6 on 2026-10-30 by `tests/kicad/export/test_generated_models.py` (9.0 in CI) | S-0020, S-0029 | INFERRED until both majors pass in CI | H-K-STEP-MODELS |

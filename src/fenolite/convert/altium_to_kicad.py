@@ -468,8 +468,7 @@ def prepare(source: SourceProject, name: str, target: int, ledger: Ledger) -> De
             for reason in reasons:
                 ledger.drop(openings.KIND, pad.id, reason)
             pads.append(opened)
-        for body in fp.bodies:
-            ledger.drop("body", body.id, "the imported body has no portable KiCad model file")
+        # change c0423: KiCad holds no body; ``convert.models`` writes each as a model file and reports it
         footprints.append(dataclasses.replace(fp, lib_ref=link, pads=tuple(pads), bodies=()))
     for hole in board.holes:
         ledger.drop("hole", hole.id, "a standalone hole has no footprint")

@@ -1,11 +1,13 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
 """Model placement of imported footprints (capability design-conversion, "Model placement of imported
-footprints"; change c0223)."""
+footprints"; changes c0223 and c0423)."""
 
 from __future__ import annotations
 
 import dataclasses
+import itertools
+import math
 from collections import Counter
 from pathlib import Path
 
@@ -17,7 +19,7 @@ from fenolite.backends.kicad.sexpr import Node, dumps, parse
 from fenolite.backends.kicad.versions import LossyWriteError
 from fenolite.core.coords import Point
 from fenolite.model.base import Provenance
-from fenolite.model.board import ComponentBody
+from fenolite.model.board import ComponentBody, FootprintInstance
 from fenolite.model.library import FootprintDef, ModelPlacement
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -107,16 +109,19 @@ def test_a_rotated_body(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_a_model_on_the_bottom(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Scenario "A model on the bottom"."""
-    conversion, _ = _convert(monkeypatch, side="bottom")
-    assert not any(key.endswith(".step") for key in conversion.files)
+    """Scenario "A model on the bottom turned about X and Y" (change c0423): the model is written and
+    placed, and the report counts it changed."""
+    conversion, chosen = _convert(monkeypatch, side="bottom")
+    pattern = chosen.lib_ref.rsplit(":", 1)[-1]
+    model = _model(conversion.files[f"blink.pretty/{pattern}.kicad_mod"].decode())
+    assert conversion.files[model.atoms()[0].value.removeprefix("${KIPRJMOD}/")] == STEP
     row = conversion.report.row("model")
-    assert row is not None and row.lost == 1 and "bottom-side" in row.reasons[0].reason
+    assert row is not None and row.changed == 1 and row.lost == 0
 
 
 def test_placement_in_the_frame_of_a_turned_footprint() -> None:
     """A model beside a footprint turned by 90°: the offset is in the footprint's own frame."""
-    from fenolite.convert.models import TILTED, placement
+    from fenolite.convert.models import placement
     from fenolite.model.board import FootprintInstance
 
     fp = FootprintInstance(
@@ -124,6 +129,98 @@ def test_placement_in_the_frame_of_a_turned_footprint() -> None:
     )
     model = BodyModel(LOCATOR, "m", "step", STEP, Point(10_000_000, -1_000_000), 0, (0, 0, 90 * DEG))
     placed = placement(model, fp, "m.step")
-    assert isinstance(placed, ModelPlacement)
     assert placed.rotation == (0, 0, 0) and abs(placed.offset[0]) + abs(placed.offset[1]) == 1_000_000
-    assert placement(dataclasses.replace(model, rotation=(90 * DEG, 0, 0)), fp, "m.step") == TILTED
+
+
+# -- the pose, against an independent forward model (H-K-MODEL-POSE; H-A-BODY-MODEL-PLACE) --------------
+
+Matrix = tuple[tuple[float, ...], ...]
+
+
+def _turn(axis: int, udeg: float) -> Matrix:
+    angle = math.radians(udeg / DEG)
+    c, s = math.cos(angle), math.sin(angle)
+    if axis == 0:
+        return ((1, 0, 0), (0, c, -s), (0, s, c))
+    if axis == 1:
+        return ((c, 0, s), (0, 1, 0), (-s, 0, c))
+    return ((c, -s, 0), (s, c, 0), (0, 0, 1))
+
+
+def _times(a: Matrix, b: Matrix) -> Matrix:
+    return tuple(tuple(sum(a[i][k] * b[k][j] for k in range(3)) for j in range(3)) for i in range(3))
+
+
+def _apply(m: Matrix, p: tuple[float, ...]) -> tuple[float, ...]:
+    return tuple(sum(m[i][k] * p[k] for k in range(3)) for i in range(3))
+
+
+FLIP: Matrix = ((1, 0, 0), (0, -1, 0), (0, 0, -1))
+ONE: Matrix = ((1, 0, 0), (0, 1, 0), (0, 0, 1))
+PROBE = ((0.0, 0.0, 0.0), (3.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 2.0))
+
+
+def _source_pose(model: BodyModel, side: str) -> list[tuple[float, ...]]:
+    """``pcb-bodies.md``: ``T(position, face) · F · (Rz · Ry · Rx · p + (0, 0, z))``, in mm, Y up."""
+    rx, ry, rz = model.rotation
+    turns = _times(_turn(2, rz), _times(_turn(1, ry), _turn(0, rx)))
+    flip = FLIP if side == "bottom" else ONE
+    at = (model.position.x / 1e6, -model.position.y / 1e6, 0.0)
+    out = []
+    for p in PROBE:
+        q = _apply(turns, p)
+        q = _apply(flip, (q[0], q[1], q[2] + model.z / 1e6))
+        out.append(tuple(a + b for a, b in zip(q, at, strict=True)))
+    return out
+
+
+def _kicad_pose(placed: ModelPlacement, fp: FootprintInstance) -> list[tuple[float, ...]]:
+    """``H-K-MODEL-POSE`` of the written node: the writer negates Y and the angles (``placement_node``), and
+    KiCad puts ``p`` at ``T(x, −y, face) · Rz(θ) · F · (Rz(−c) · Ry(−b) · Rx(−a) · p + o)``."""
+    a, b, c = (-angle for angle in placed.rotation)
+    ox, oy, oz = placed.offset[0] / 1e6, -placed.offset[1] / 1e6, placed.offset[2] / 1e6
+    turns = _times(_turn(2, -c), _times(_turn(1, -b), _turn(0, -a)))
+    flip = FLIP if fp.side == "bottom" else ONE
+    place = _times(_turn(2, fp.rotation), flip)
+    at = (fp.position.x / 1e6, -fp.position.y / 1e6, 0.0)
+    out = []
+    for p in PROBE:
+        q = _apply(turns, p)
+        q = _apply(place, (q[0] + ox, q[1] + oy, q[2] + oz))
+        out.append(tuple(x + y for x, y in zip(q, at, strict=True)))
+    return out
+
+
+ANGLES = (0, 30 * DEG, 90 * DEG, -90 * DEG, 180 * DEG, 45_123_456, 270 * DEG)
+
+
+@pytest.mark.parametrize("side", ["top", "bottom"])
+@pytest.mark.parametrize("theta", [0, 25 * DEG, 90 * DEG, 180 * DEG, 333_333_333])
+def test_the_solved_pose_is_the_source_pose(side: str, theta: int) -> None:
+    """Every turn about X, Y and Z, on either side and any footprint angle: KiCad's pose of the placement
+    equals the source's within 1 nm (the µdeg rounding moves a point 3 mm away by less than 0.1 nm)."""
+    from fenolite.convert.models import placement
+    from fenolite.model.board import FootprintInstance
+
+    fp = FootprintInstance(
+        id="fp", component_id="c", lib_ref="L:A", position=Point(12_345_678, -7_654_321), rotation=theta,
+        side=side,  # type: ignore[arg-type]
+    )  # fmt: skip
+    for rx, ry, rz in itertools.product(ANGLES, repeat=3):
+        model = BodyModel(LOCATOR, "m", "step", STEP, Point(13_000_000, -6_500_000), 254_000, (rx, ry, rz))
+        placed = placement(model, fp, "m.step")
+        assert all(-180 * DEG < angle <= 180 * DEG for angle in placed.rotation)
+        for want, got in zip(_source_pose(model, side), _kicad_pose(placed, fp), strict=True):
+            assert math.dist(want, got) < 1e-6, (rx, ry, rz, placed)
+
+
+def test_a_turn_about_z_alone_keeps_c0223s_integers() -> None:
+    """No turn about X or Y: the angle is the exact difference of the two turns, as change c0223 wrote it."""
+    from fenolite.convert.models import placement
+    from fenolite.model.board import FootprintInstance
+
+    fp = FootprintInstance(id="fp", component_id="c", lib_ref="L:A", position=Point(0, 0), rotation=30 * DEG)
+    model = BodyModel(LOCATOR, "m", "step", STEP, Point(0, 0), 0, (0, 0, 75_000_001))
+    assert placement(model, fp, "m.step").rotation == (0, 0, 45_000_001)
+    bottom = dataclasses.replace(fp, side="bottom")
+    assert placement(model, bottom, "m.step").rotation == (0, 0, 105_000_001)

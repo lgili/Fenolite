@@ -93,10 +93,10 @@ def _per_reason(row: ReportRow, outcome: Literal["changed", "lost"]) -> str:
     return "; ".join(f"{r.count} {r.reason}" for r in row.reasons if r.outcome == outcome)
 
 
-WARNED_LOSSES: frozenset[str] = frozenset({"footprint-graphic", "footprint-text"})
+WARNED_LOSSES: frozenset[str] = frozenset({"body", "footprint-graphic", "footprint-text", "model"})
 """The ``report`` kinds whose losses still give a ``convert.lossy`` warning, without refusing (change
 c0409): a footprint's own drawing is on the board made, and an import of the conversion keeps its issues,
-not its report."""
+not its report. A lost body or model (change c0423) warns, so that no import loses one silently."""
 
 
 def lossy_issue(row: ReportRow) -> Issue:

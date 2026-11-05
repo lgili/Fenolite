@@ -349,15 +349,30 @@ a rule whose scope selects no pad (`IsVia`, `IsTrack`, in the closed scope gramm
 paste `Enabled` switch and the solder `Tented` option are not read (`docs/formats/altium/pcb-library.md`,
 U1 and U2), so a tented pad of the source is open in KiCad (`H-A-CONV-PADMASK`).
 
-**3D models** (change c0223). The model that the PCB document embeds for a body of a top-side part
+**3D models** (changes c0223 and c0423). The model that the PCB document embeds for a body
 (`models3d.body_models`) is written beside the derived library as `<name>.3dshapes/<footprint>_<sha12>.step`
-(`sha12`, the first 12 hex digits of the SHA-256 of the model's bytes) and named in the library footprint
-with its placement: the offset of the model from the footprint origin, its height `MODEL.3D.DZ` and its turn
-about Z less the part's (`H-K-MODEL-PLACE`, `H-A-BODY-MODEL-PLACE`); a placed model is a `model` change. A
-model of a bottom-side part or turned about X or Y is a `model` loss. The board's own footprints carry no
-model: KiCad's "update footprints from library" brings them. The bodies stay `body` losses.
+(`sha12`, the first 12 hex digits of the SHA-256 of the model's bytes) and named in the library footprint and
+in the board's footprint with the offset and turns that give KiCad the source's pose, on either side and for
+any turn about X, Y and Z (`H-K-MODEL-POSE`, `H-A-BODY-MODEL-PLACE`). KiCad applies the turn about X first,
+then Y, then Z, and flips a bottom-side part by a half turn about X, as Altium does. A placed model is a
+`model` change; a body whose model the document does not embed is a `model` loss.
 
-Unsupported imported rules and nonportable component bodies are reported. Libraries and projects use
+**Bodies** (change c0423). KiCad holds no body, so each body that no embedded model carries becomes a STEP
+file of Fenolite's own writer (`backends.step`), one per footprint, in the same folder:
+
+- an extruded body is the prism over its outline, from standoff to overall height;
+- a cylinder (`MODEL.MODELTYPE` 2) with a square outline and no turn about X or Y is a cylinder in that
+  square;
+- a sphere (3) whose outline side equals its height span is a sphere in that square;
+- any other is the prism over its outline, which holds the shape.
+
+Cylinders and spheres are faceted, every facet within 10 µm of the surface. Each body is a `body` change:
+"carried by its embedded model", "written as a generated STEP model" or "written as the prism over its
+outline" with the reason. A body whose geometry is not proved (`projection_unknown`) is a `body` loss. A
+`body` or `model` loss gives a `convert.lossy` warning, which `import --to python` keeps, so the import never
+loses one silently. The import also writes every model file the conversion writes.
+
+Unsupported imported rules are reported. Libraries and projects use
 relative paths. Loading with DRC (9.0.9 and 10.0.6), agreement with KiCad 10.0.6's own importer and
 the generated schematics' netlist and ERC are KICAD-VERIFIED on the public corpus (2026-10-15); the
 direction stays INFERRED because the Keep-Out mapping rests on Altium's documentation only.

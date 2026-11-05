@@ -95,3 +95,43 @@ def test_import_keeps_the_model(injected: SourceProject, tmp_path: Path) -> None
     ]
     assert len(found) == 1 and found[0].startswith("${KIPRJMOD}/blink.3dshapes/")
     assert (out / found[0].removeprefix("${KIPRJMOD}/")).read_bytes() == STEP
+
+
+# -- change c0423: every body and model of the authored document, and the ledger ----------------------------
+
+
+def _imported(tmp_path: Path, *, unknown: bool = False):  # type: ignore[no-untyped-def]
+    import _altium_models as am
+
+    source = am.write_folder(tmp_path, unknown=unknown)
+    conversion = convert_project(source, to="kicad", allow_lossy=True)
+    reply = run("import", source.name, "--to", "python", "--out", "out", "--confirm", "--allow-lossy",
+                cwd=tmp_path, timestamp=STAMP)  # fmt: skip
+    return conversion, reply
+
+
+def test_import_holds_every_model_of_the_conversion(tmp_path: Path) -> None:
+    """Scenario "The authored fixture imported": the same model paths as the conversion's board, each file
+    with the conversion's bytes, and no ``convert.lossy`` for ``body`` or ``model``."""
+    conversion, reply = _imported(tmp_path)
+    assert reply.exit_code == 0, reply.error
+    board = set(_models(conversion.files[conversion.read_back].decode()))
+    assert len(board) == 8
+    out = tmp_path / "out"
+    found = {path for mod in out.rglob("*.kicad_mod") for path in _models(mod.read_text(encoding="utf-8"))}
+    assert found == board
+    for path in found:
+        relative = path.removeprefix("${KIPRJMOD}/")
+        assert (out / relative).read_bytes() == conversion.files[relative]
+    assert reply.envelope is not None
+    lossy = [i for i in reply.envelope["issues"] if i["code"] == "convert.lossy"]
+    assert not [i for i in lossy if i.get("where") in ("body", "model")]
+
+
+def test_import_reports_a_lost_body(tmp_path: Path) -> None:
+    """Scenario "A loss is reported": the import keeps the conversion's ``convert.lossy`` for ``body``."""
+    _conversion, reply = _imported(tmp_path, unknown=True)
+    assert reply.exit_code == 0, reply.error
+    assert reply.envelope is not None
+    lossy = [i for i in reply.envelope["issues"] if i["code"] == "convert.lossy"]
+    assert [i["where"] for i in lossy if i.get("where") in ("body", "model")] == ["body"]

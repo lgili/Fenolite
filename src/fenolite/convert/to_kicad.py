@@ -281,6 +281,8 @@ FOOTPRINT_TEXT_REASON = "a text of the footprint itself (not a designator or com
 graphics, not free texts."""
 MODEL_KIND = "model"
 """The report kind of an embedded 3D model of an imported footprint (change c0223, ``convert.models``)."""
+BODY_KIND = "body"
+"""The report kind of a component body (change c0423, ``convert.models``): a generated or carried model."""
 PLATED_REASON = "a plated hole is written as a pad of its footprint without a net"
 """The reason a plated board hole is counted changed under ``hole`` (change c0170): KiCad holds it as the
 numbered pad of a generated footprint, which no net reaches."""
@@ -511,6 +513,10 @@ def write_altium(source: SourceProject, options: Options) -> Written:
         ledger.change(MODEL_KIND, body, reason)
     for body, reason in placed.lost.items():
         ledger.drop(MODEL_KIND, body, reason)
+    for body, reason in placed.bodies_changed.items():  # change c0423: every body is a model file or a loss
+        ledger.change(BODY_KIND, body, reason)
+    for body, reason in placed.bodies_lost.items():
+        ledger.drop(BODY_KIND, body, reason)
     for key, definition in holes.items():
         texts[f"{HOLE_FOLDER}/{key}{FOOTPRINT_SUFFIX}"] = write_footprint(
             definition, target=options.kicad_version
@@ -544,20 +550,23 @@ def write_altium(source: SourceProject, options: Options) -> Written:
 
 def _placed_models(source: SourceProject, design: Design, name: str) -> Placed:
     """The embedded models of the source board's bodies, placed for the derived library ``name`` (change
-    c0223, ``convert.models``); none when the source has no PCB document."""
+    c0223, ``convert.models``), and a generated model per footprint for its other bodies (change c0423);
+    none when the source has no board."""
     from fenolite.backends.altium.backend import AltiumBackend
     from fenolite.convert.altium_to_kicad import board_document
 
     board, prepared = source.design.board, design.board
-    document = board_document(source, source.design)
-    if board is None or prepared is None or document is None:
+    if board is None or prepared is None:
         return Placed()
+    document = board_document(source, source.design)
+    backend = AltiumBackend()
     names = {fp.id: fp.lib_ref.rsplit(":", 1)[-1] for fp in prepared.footprints}
     return place_models(
         board.footprints,
-        AltiumBackend().body_models(document),
+        backend.body_models(document) if document is not None else (),
         name,
         lambda fp: names.get(fp.id, fp.lib_ref.rsplit(":", 1)[-1]),
+        backend.body_forms(document) if document is not None else (),
     )
 
 
@@ -598,13 +607,19 @@ def _with_models(design: Design, placements: Mapping[str, tuple[ModelPlacement, 
 
 
 def placed_in(text: str, key: str) -> list[ModelPlacement]:
-    """The ``model`` paths of a written library footprint ``key`` (``.kicad_mod``), as placements."""
-    if not key.endswith(".kicad_mod"):
+    """The ``model`` paths of a written library footprint ``key`` (``.kicad_mod``) or of the footprints of a
+    written board (``.kicad_pcb``, change c0423), as placements."""
+    if not key.endswith((".kicad_mod", ".kicad_pcb")):
         return []
     from fenolite.backends.kicad.sexpr import parse
 
+    root = parse(text)
+    holders = root.nodes("footprint") if key.endswith(".kicad_pcb") else [root]
     return [
-        ModelPlacement(path=child.atoms()[0].value) for child in parse(text).nodes("model") if child.atoms()
+        ModelPlacement(path=child.atoms()[0].value)
+        for holder in holders
+        for child in holder.nodes("model")
+        if child.atoms()
     ]
 
 

@@ -114,26 +114,14 @@ def test_baseline_layers(item) -> None:
 
 
 CONVERTED_LOSSES = {  # footprint-text: a footprint's own text is reported lost (c0409)
-    "altium-third-party-pcbdoc-01": {"body": 247, "rule": 1, "model": 166},
-    "altium-third-party-pcbdoc-02": {"body": 42, "rule": 1, "text": 1, "model": 18, "footprint-text": 4},
-    "altium-third-party-pcbdoc-03": {
-        "body": 50,
-        "rule": 2,
-        "schematic": 1,
-        "model": 27,
-        "footprint-text": 46,
-    },
-    "altium-third-party-pcbdoc-04": {"body": 33, "rule": 1, "model": 2, "footprint-text": 3},
-    "altium-third-party-pcbdoc-05": {"body": 23, "rule": 1},
-    "altium-third-party-pcbdoc-06": {"body": 27, "rule": 1, "model": 19, "footprint-text": 25},
-    "altium-third-party-pcbdoc-07": {"body": 24, "model": 3, "footprint-text": 12},
-    "altium-third-party-pcbdoc-08": {
-        "body": 1298,
-        "text": 298,
-        "graphic": 1000,
-        "model": 52,
-        "footprint-text": 554,
-    },
+    "altium-third-party-pcbdoc-01": {"rule": 1},
+    "altium-third-party-pcbdoc-02": {"rule": 1, "text": 1, "footprint-text": 4},
+    "altium-third-party-pcbdoc-03": {"rule": 2, "schematic": 1, "footprint-text": 46},
+    "altium-third-party-pcbdoc-04": {"rule": 1, "footprint-text": 3},
+    "altium-third-party-pcbdoc-05": {"rule": 1},
+    "altium-third-party-pcbdoc-06": {"rule": 1, "footprint-text": 25},
+    "altium-third-party-pcbdoc-07": {"footprint-text": 12},
+    "altium-third-party-pcbdoc-08": {"text": 298, "graphic": 1000, "footprint-text": 554},
 }
 """The losses per kind, measured on 2026-10-15; on 2026-10-16 (change c0170) the slots of the pads of
 ``-07`` (8) and ``-08`` (4) are kept: the import holds a slot's axis in the pad's own frame, and none is
@@ -152,7 +140,12 @@ generator refused it as one page, and it is now a ``schematic`` change, not a lo
 Change c0407 (2026-11-05): the 12 lines and 8 arcs of the Keep-Out layer of ``-01`` are each the rule area of
 the band their width covers (they were ``graphic`` losses, open outlines that enclosed no area), and the three
 polygon cut-outs on the Multi-Layer layer of ``-06`` are rule areas of the import (they were ``graphic``
-losses of layer 74)."""
+losses of layer 74).
+
+Change c0423 (2026-11-05) places every embedded model, on either side and for any turn, and writes every
+other body as a generated STEP model: no row has a ``body`` or ``model`` loss. Of the bodies of rows ``-01``
+to ``-08``, 245, 42, 45, 3, 23, 27, 6 and 81 are carried by their embedded models and 2, 0, 5, 30, 0, 0, 18
+and 1217 are generated; none falls back to the prism over its outline."""
 ZONE_ARC_OUTLINES = {
     "altium-third-party-pcbdoc-02": 2,
     "altium-third-party-pcbdoc-07": 4,

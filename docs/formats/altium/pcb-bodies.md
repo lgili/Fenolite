@@ -209,6 +209,17 @@ maintainer's report), with Fenolite's reader after the kit privacy scan; values 
 A body without a component stays unmapped. Bounded MODELID and MODEL.CHECKSUM metadata are
 compatible with this contract; unbounded raw-record copies in ext are prohibited.
 
+## Body forms of a conversion to KiCad (c0423)
+
+`models3d.body_forms` reads, per framed component body, `MODEL.MODELTYPE` and the three `MODEL.3D.ROT*`
+turns. The import keeps neither: its bodies stay `extruded` or `model`. A conversion to KiCad uses them to
+write each body as a model file (`docs/conversion.md`, "Bodies").
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| A cylinder (type 2) is written as the cylinder in its square outline, from `STANDOFFHEIGHT` to `OVERALLHEIGHT`, when the outline is a square (sides within 1 µm) and the body has no turn about X or Y. A sphere (type 3) is written as the sphere in its square outline, centred between its two heights, when the square's side equals the height span within 1 µm. Any other cylinder or sphere is written as the prism over its outline, the box that Z2 shows holds the shape. A square outline turned with its component keeps its own centre and side | S-1604 (the outline is the square around the shape: 1 mm for the cylinder of radius 0.5 mm, 2 mm for the sphere of radius 1 mm, standoff −1 mm and overall +1 mm) | INFERRED | H-A-IMP-BODY |
+| A type outside 0 to 3 is written as the prism over its outline, with the reason "its model type is not one Fenolite knows" | S-0303 | INFERRED | H-A-IMP-BODY |
+
 ## Agent observations in AD 24.5 (S-1604)
 
 Part Z ran on AD 24.5.2.23 as an agent run, not a kit form, so these facts carry no native label, and the

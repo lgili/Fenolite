@@ -997,6 +997,22 @@ class BodyModel:
     rotation: tuple[Udeg, Udeg, Udeg] = (0, 0, 0)
 
 
+BodyShape = Literal["extruded", "model", "cylinder", "sphere", "other"]
+
+
+@dataclass(frozen=True, slots=True)
+class BodyForm:
+    """The shape a board file gives one component body, which the model does not carry (change c0423).
+
+    ``locator`` is the provenance locator of the body; ``shape`` is ``extruded`` (a prism over its outline),
+    ``model`` (a 3D model names it), ``cylinder``, ``sphere`` or ``other``; ``rotation`` holds its turns
+    about x, y and z in µdeg, as ``BodyModel.rotation``."""
+
+    locator: str
+    shape: BodyShape
+    rotation: tuple[Udeg, Udeg, Udeg] = (0, 0, 0)
+
+
 @runtime_checkable
 class BodyModelSource(Protocol):
     """A backend that gives the 3D models a board file holds for its bodies, read from the file."""
@@ -1414,8 +1430,10 @@ __all__ = [
     "BoardFrame",
     "BoardPad",
     "BodyComparer",
+    "BodyForm",
     "BodyModel",
     "BodyModelSource",
+    "BodyShape",
     "CutoutComparer",
     "DocumentIntegrity",
     "CanaryState",

@@ -1,19 +1,33 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
-"""The STEP writer of generated bodies (change c0260, scenario "Deterministic and closed").
+"""The STEP writer of generated bodies (change c0260, scenario "Deterministic and closed"; change c0423:
+cylinders and spheres).
 
 A small reader of our own checks the written file: every reference resolves, every solid is closed (each edge
 used once in each sense, V - E + F = 2) and no number has an exponent."""
 
 from __future__ import annotations
 
+import math
 import re
 from collections import Counter
 from pathlib import Path
 
 import pytest
 
-from fenolite.backends.step import SCHEMA, mm, write_bodies
+from fenolite.backends.step import (
+    MAX_SIDES,
+    MIN_SIDES,
+    SAGITTA,
+    SCHEMA,
+    Prism,
+    Sphere,
+    cylinder,
+    mm,
+    sides,
+    write_bodies,
+    write_solids,
+)
 from fenolite.catalog.footprints import generate, read_package
 from fenolite.core.coords import Point
 from fenolite.model.board import ComponentBody
@@ -137,3 +151,96 @@ def test_refusals() -> None:
     _, bodies = _bodies("chip0603")
     with pytest.raises(ValueError, match="printable ASCII"):
         write_bodies("Ω", bodies)
+
+
+# -- cylinders and spheres (change c0423) ------------------------------------------------------------------
+
+POINT = re.compile(r"CARTESIAN_POINT\('',\((-?[\d.]+),(-?[\d.]+),(-?[\d.]+)\)\)")
+
+
+def _nm(text: str) -> int:
+    whole, _dot, part = text.lstrip("-").partition(".")
+    value = int(whole) * 1_000_000 + int((part + "000000")[:6])
+    return -value if text.startswith("-") else value
+
+
+def _vertex_points(instances: dict[int, str]) -> list[tuple[int, int, int]]:
+    out: list[tuple[int, int, int]] = []
+    for body in instances.values():
+        if _head(body) == "VERTEX_POINT":
+            match = POINT.fullmatch(instances[_refs(body)[0]])
+            assert match, body
+            out.append((_nm(match.group(1)), _nm(match.group(2)), _nm(match.group(3))))
+    return out
+
+
+def _faces_are_planar(instances: dict[int, str], tolerance_nm: float) -> None:
+    """Every vertex of a face lies on the face's plane within ``tolerance_nm``."""
+    for body in instances.values():
+        if _head(body) != "ADVANCED_FACE":
+            continue
+        bound, plane = _refs(body)
+        axis = _refs(instances[plane])[0]
+        origin_ref, normal_ref, _ref = _refs(instances[axis])
+        origin = POINT.fullmatch(instances[origin_ref])
+        assert origin
+        o = [_nm(origin.group(k)) for k in (1, 2, 3)]
+        n = [float(v) for v in re.findall(r"-?\d+\.", instances[normal_ref])]
+        length = math.sqrt(sum(v * v for v in n))
+        loop = _refs(instances[bound])[0]
+        for oriented in _refs(instances[loop]):
+            edge = _refs(instances[oriented])[0]
+            for vertex in _refs(instances[edge])[:2]:
+                match = POINT.fullmatch(instances[_refs(instances[vertex])[0]])
+                assert match
+                p = [_nm(match.group(k)) for k in (1, 2, 3)]
+                assert abs(sum((a - b) * c for a, b, c in zip(p, o, n, strict=True))) / length <= tolerance_nm
+
+
+def test_sides_keep_the_sagitta() -> None:
+    assert sides(100_000) == MIN_SIDES and sides(10**9) == MAX_SIDES
+    for radius in (500_000, 2_000_000, 5_000_000):
+        n = sides(radius)
+        assert n % 2 == 0 and radius * (1 - math.cos(math.pi / n)) <= SAGITTA
+        assert n == MIN_SIDES or radius * (1 - math.cos(math.pi / (n - 2))) > SAGITTA
+
+
+def test_a_cylinder_is_a_closed_prism_on_its_circle() -> None:
+    solid = cylinder((1_000_000, -2_000_000), 750_000, -500_000, 1_500_000)
+    data = write_solids("c", [solid])
+    assert data == write_solids("c", [solid])
+    instances = _instances(data)
+    (brep,) = [i for i, body in instances.items() if _head(body) == "MANIFOLD_SOLID_BREP"]
+    _check_solid(instances, brep)
+    points = _vertex_points(instances)
+    assert len(points) == 2 * sides(750_000)
+    for x, y, z in points:
+        assert abs(math.hypot(x - 1_000_000, y + 2_000_000) - 750_000) <= 1 and z in (-500_000, 1_500_000)
+
+
+def test_a_sphere_is_closed_planar_and_on_its_surface() -> None:
+    sphere = Sphere((0, 1_000_000, 254_000), 1_016_000)
+    data = write_solids("s", [sphere, Prism(((0, 0), (10, 0), (0, 10)), 0, 5, "pin")])
+    instances = _instances(data)
+    breps = [i for i, body in instances.items() if _head(body) == "MANIFOLD_SOLID_BREP"]
+    assert len(breps) == 2
+    for brep in breps:
+        _check_solid(instances, brep)
+    n = sides(1_016_000)
+    sphere_points = [p for p in _vertex_points(instances) if max(abs(v) for v in p) > 10]
+    assert len(sphere_points) == 2 + (n // 2 - 1) * n
+    for point in sphere_points:
+        assert abs(math.dist(point, (0, 1_000_000, 254_000)) - 1_016_000) <= 1
+    _faces_are_planar(instances, 100)  # the file's accuracy is 0.0001 mm
+    assert "FILE_DESCRIPTION(('Fenolite component bodies'),'2;1');" in data.decode("ascii")
+
+
+def test_solid_refusals() -> None:
+    with pytest.raises(ValueError, match="at least one body"):
+        write_solids("x", [])
+    with pytest.raises(ValueError, match="no radius"):
+        write_solids("x", [Sphere((0, 0, 0), 0)])
+    with pytest.raises(ValueError, match="no height"):
+        write_solids("x", [Prism(((0, 0), (1, 0), (0, 1)), 3, 3)])
+    with pytest.raises(ValueError, match="encloses no area"):
+        write_solids("x", [Prism(((0, 0), (1, 0), (2, 0)), 0, 3)])

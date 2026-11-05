@@ -27,6 +27,7 @@ from fenolite.backends.base import (
     Backend,
     BoardFrame,
     BoardPad,
+    BodyForm,
     BodyModel,
     BodyModelSource,
     CapabilityReport,
@@ -488,6 +489,15 @@ class AltiumBackend:
         from fenolite.backends.altium import models3d
 
         return models3d.body_models(path, issues=issues)
+
+    def body_forms(self, path: Path) -> tuple[BodyForm, ...]:
+        """The shapes and turns of a PCB document's bodies (``models3d.body_forms``, change c0423); a file of
+        any other kind holds none."""
+        if path.suffix.lower() != ".pcbdoc":
+            return ()
+        from fenolite.backends.altium import models3d
+
+        return models3d.body_forms(path)
 
     def design_rules(
         self, design: Design, project: ProjectSet, *, issues: list[Issue] | None = None

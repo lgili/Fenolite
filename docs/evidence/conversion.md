@@ -646,3 +646,27 @@ Altium to KiCad (the eight public PCB documents, `FENOLITE_HEAVY=1`): `-03` 1 cu
 `-08` 1, none merged (no two overlap); the four round free holes of `-05` are written as the footprint
 `Fenolite_Holes:NPTH_…` that `design.hole` generates (`hole` 4 written); no ring difference, nothing
 unexplained.
+
+## Bodies and models — c0423, 2026-11-05
+
+Measured on 2026-11-05 on the branch of change c0423 (local run, macOS, `FENOLITE_HEAVY=1`), with
+`tests/corpus/test_convert_altium_census.py`. Every embedded model is now placed in the derived library, on
+either side and for any turn, through KiCad's model pose (`H-K-MODEL-POSE`, KICAD-VERIFIED on 9.0.9 and
+10.0.6). Every other body is written as a generated STEP model (`docs/formats/altium/pcb-bodies.md`, "Body
+forms of a conversion to KiCad"). No row has a `body` or `model` loss now.
+
+| Public PCB document | Bodies | Carried by a model | Generated | Models placed | Explicit losses now |
+| --- | --- | --- | --- | --- | --- |
+| 01 | 247 | 245 | 2 | 245 | 1 rule |
+| 02 | 42 | 42 | 0 | 42 | 1 rule, 1 text, 4 footprint texts |
+| 03 | 50 | 45 | 5 | 45 | 2 rules, 1 schematic, 46 footprint texts |
+| 04 | 33 | 3 | 30 | 3 | 1 rule, 3 footprint texts |
+| 05 | 23 | 23 | 0 | 23 | 1 rule |
+| 06 | 27 | 27 | 0 | 27 | 1 rule, 25 footprint texts |
+| 07 | 24 | 6 | 18 | 6 | 12 footprint texts |
+| 08 (heavy) | 1298 | 81 | 1217 | 81 | 298 texts, 1000 graphics, 554 footprint texts |
+
+No body falls back to the prism over its outline (a cylinder or sphere whose square does not hold it). On
+the authored document of `tests/_altium_models.py`, the KiCad oracle `tests/kicad/convert/test_altium_model_pose.py`
+finds every vertex of every model and generated body at the source's pose, on 9.0.9 (pinned image) and on
+10.0.6.
