@@ -521,6 +521,12 @@
         "holds": {
           "type": "boolean"
         },
+        "hole_clearance": {
+          "type": "integer"
+        },
+        "hole_clearance_judged": {
+          "type": "integer"
+        },
         "hole_in_cutout": {
           "type": "integer"
         },

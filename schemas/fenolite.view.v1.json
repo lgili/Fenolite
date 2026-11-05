@@ -899,6 +899,12 @@
         "floating-pin": {
           "type": "integer"
         },
+        "hole_clearance": {
+          "type": "integer"
+        },
+        "hole_clearance_judged": {
+          "type": "integer"
+        },
         "hole_in_cutout": {
           "type": "integer"
         },
@@ -1500,6 +1506,12 @@
           "type": "integer"
         },
         "floating-pin": {
+          "type": "integer"
+        },
+        "hole_clearance": {
+          "type": "integer"
+        },
+        "hole_clearance_judged": {
           "type": "integer"
         },
         "hole_in_cutout": {

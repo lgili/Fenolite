@@ -405,6 +405,8 @@ class CheckStagesItemSummary:
     floating_pin: int = field(metadata={"optional": True, "name": "floating-pin"})
     halves: CheckStagesItemSummaryHalves = field(metadata={"optional": True})
     holds: bool = field(metadata={"optional": True})
+    hole_clearance: int = field(metadata={"optional": True})
+    hole_clearance_judged: int = field(metadata={"optional": True})
     hole_in_cutout: int = field(metadata={"optional": True})
     hole_overlap: int = field(metadata={"optional": True})
     holes: int = field(metadata={"optional": True})

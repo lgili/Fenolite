@@ -94,14 +94,13 @@ fenolite build blink/design.py --out blink/build --take cad:R1#value --confirm -
 ## Exit 5 in general
 
 Exit 5 means the command ran and found problems: read `issues`. For a finding: read the code,
-ask `explain`, change one thing, check again. `copper.clearance` is repaired as `copper.short`: a
-finding between two tracks that a router drew by `route --rip` of those nets or by room between the
-parts, one that names script copper in the script. Move copper of `copper.edge-clearance` off
-the ring in `where`, a drill of `copper.hole-in-cutout` off the cut-out. A build stops on
-`layout.relative-cycle` (give one part of the cycle `x, y`) and `reuse.port-unmapped` (name the net
-after a port of the block); `layout.relative-unresolved`, `layout.strategy-overflow` and
-`layout.block-moved` only report. A `family.*` error names a field of a grammar
-file: fix it until `fenolite family lint FILE` is clean.
+ask `explain`, change one thing, check again. `copper.clearance` is repaired as `copper.short`:
+router tracks by `route --rip` of those nets or room between the parts, script copper in the
+script. Move copper off the ring in `where` (`copper.edge-clearance`) or off the hole
+(`copper.hole-clearance`), a drill off the cut-out (`copper.hole-in-cutout`). A build stops on `layout.relative-cycle` (give one part of the
+cycle `x, y`) and `reuse.port-unmapped` (name the net after a port of the block);
+`layout.relative-unresolved`, `layout.strategy-overflow` and `layout.block-moved` only report. A
+`family.*` error names a grammar-file field: fix it until `fenolite family lint FILE` is clean.
 
 ## Exit 6, `FEN-6001`: a tool is not installed
 

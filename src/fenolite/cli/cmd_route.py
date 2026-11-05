@@ -21,7 +21,9 @@ Change c0110: the differential pairs among the candidates (``routing.pairs.job_p
 by ``--escape`` (``routing.escape.requests``) go to a router whose ``router_features`` name ``pairs`` and
 ``escape``; a router without ``pairs`` gets no pair net (``route.pair-skipped``) unless ``--pairs-as-nets``
 gives them as single nets. Routed copper narrower than its job width gives ``route.width-below-job``
-(capability cli-contract, "Pairs and escape in the route command").
+(capability cli-contract, "Pairs and escape in the route command"). Change c0403: routed copper narrower
+than the ``min`` of its governing ``track_width`` rule gives ``route.width-below-minimum`` (error) and is
+not written (``_minimum_guard``).
 
 Change c0228: the job's ``extra`` also holds ``clearance`` and ``copper_check`` (``_job_checks``), the
 clearance in force and the copper check of the project's rules, which the octilinear router uses
@@ -67,6 +69,7 @@ from fenolite.backends.kicad.pcb import read_board, source_info, write_board
 from fenolite.backends.kicad.projectset import resolve_board
 from fenolite.checks.clearance import ClearanceResolver
 from fenolite.checks.copper import check_copper, frame_edges
+from fenolite.checks.widths import track_width_findings
 from fenolite.cli import _external_candidates, _gate, _propose, _roleroute, plans
 from fenolite.cli._boardview import to_json
 from fenolite.cli._examples import EXAMPLE_UNROUTED
@@ -912,6 +915,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         issues.append(
             Issue("route.fill-stale", "info", "routing changed copper; run fenolite fill before check")
         )
+    issues.extend(_minimum_guard(as_read, merged, router.name))
     board_text = write_board(merged, target=major, allow_lossy=ctx.allow_lossy).text
     failed = any(found.severity == "error" for found in issues)
     writes = (
@@ -1128,6 +1132,24 @@ def _width_guard(
         )
         for name in sorted(narrowest)
     ]
+
+
+def _minimum_guard(before: Design, merged: Design, router: str) -> tuple[Issue, ...]:
+    """One ``route.width-below-minimum`` (error) per net and governing ``track_width`` rule whose copper that
+    the command added (the tracks and arcs of ``merged`` that ``before`` lacks) is narrower than the rule's
+    ``min`` (``checks.widths``; change c0403): KiCad's DRC would report it as ``track_width``, so the board
+    is not written."""
+    if merged.board is None:
+        return ()
+    held = before.board
+    known: set[str] = {item.id for item in (*held.tracks, *held.arcs)} if held is not None else set()
+    added = {item.id for item in (*merged.board.tracks, *merged.board.arcs) if item.id not in known}
+    if not added:
+        return ()
+    hint = "route again with a job width the rules allow; nothing is written"
+    if router == "freerouting":
+        hint = "route again with --router-option fanout=off: Freerouting's fanout stage narrows wires at pins"
+    return track_width_findings(merged, ids=added, code="route.width-below-minimum", hint=hint)
 
 
 def _copper_of(runs: tuple[FinishedRun, ...]) -> RoutingResult:

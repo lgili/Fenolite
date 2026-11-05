@@ -8,7 +8,8 @@ are not in this table. Codes of an oracle start with its name, written ``<oracle
 (``checks.drc_json.type_code``; "Findings stage issue codes").
 The ``copper.*`` codes are those of the copper check (``checks.copper``; "Copper stage issue codes"), which
 the build's copper guard emits too; change c0169 adds the copper-to-edge clearance and the two findings of
-drilled holes.
+drilled holes, and change c0403 the copper narrower than its governing ``track_width`` rule
+(``checks.widths``), which the build's copper guard reports.
 The last six codes are those of the document check (``checks.documents``; "Document check issue codes",
 change c0044): the input of a backend whose project is a set of documents.
 The row ``<oracle>.erc.<type>`` stands for every ERC finding code of an oracle (``checks.erc_json``), and
@@ -85,6 +86,8 @@ ISSUE_CODES: Mapping[str, tuple[Severity, ...]] = MappingProxyType(
         "copper.edge-clearance": ("error", "warning"),
         "copper.hole-in-cutout": ("error",),
         "copper.hole-overlap": ("warning",),
+        "copper.hole-clearance": ("error", "warning"),
+        "copper.track-width": ("error", "warning"),
         "zone.unfilled": ("warning",),
         "zone.fill-stale": ("warning",),
         "zone.fill-unchecked": ("info",),

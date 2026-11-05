@@ -135,9 +135,9 @@ def test_run_flags_take_no_part() -> None:
 # --- the store -------------------------------------------------------------------------------------
 
 
-def _stage(root: Path, plan: str, data: bytes = b"x") -> None:
+def _stage(root: Path, plan: str, data: bytes = b"x", cwd: str = "/work") -> None:
     row = {"path": "a.txt", "kind": "text", "bytes": len(data), "sha256": sha(data), "replaces": None}
-    plans.stage(root, plan, command="_echo", args={}, cwd="/work", depends=[], writes=[row], payloads=[data],
+    plans.stage(root, plan, command="_echo", args={}, cwd=cwd, depends=[], writes=[row], payloads=[data],
                 reply={"result": {}, "issues": [], "evidence": {}, "input": None})  # fmt: skip
 
 
@@ -465,3 +465,24 @@ def test_staged_reply_survives_json(monkeypatch: MonkeyPatch, tmp_path: Path) ->
     assert stage["reply"]["input"] == env["input"] and stage["reply"]["evidence"] == env["evidence"]
     assert sorted(p.name for p in (store() / plan).iterdir()) == ["files", "plan.json"]
     assert len(list((store() / plan / "files").iterdir())) == len(env["result"]["plan"])
+
+
+def test_other_projects_do_not_drop_a_plan_under_review(tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
+    """Change c0403, F7: the count is per working folder; another project's dry runs leave this one's plan,
+    and the store still has a bound in all."""
+    root = tmp_path / "state"
+    review = "f" * 16
+    now = 1_800_000_000
+    _stage(root, review, cwd="/project-a")
+    os.utime(root / "plans" / review, (now - 2000, now - 2000))
+    others = [f"{n:016x}" for n in range(plans.PLAN_KEEP + 4)]
+    for age, name in enumerate(others):
+        _stage(root, name, cwd="/project-b")
+        os.utime(root / "plans" / name, (now - 1000 + age, now - 1000 + age))
+    kept = {p.name for p in (root / "plans").iterdir()}
+    assert review in kept
+    assert len(kept - {review}) == plans.PLAN_KEEP and others[0] not in kept and others[-1] in kept
+    monkeypatch.setattr(plans, "PLAN_KEEP_ALL", 4)
+    _stage(root, "e" * 16, cwd="/project-c")
+    kept = {p.name for p in (root / "plans").iterdir()}
+    assert len(kept) == 4 and review not in kept and "e" * 16 in kept, "the bound in all drops the oldest"

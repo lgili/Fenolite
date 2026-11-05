@@ -13,10 +13,14 @@ from pathlib import Path
 
 import pytest
 from _coppercheck import bridge_pads, renet_bench
+from _outlinehelp import build_script
 
 import fenolite.cli.main as cli_main
+from fenolite import dsl
 from fenolite.backends.kicad.triad import write_triad
-from fenolite.cli.cmd_build import COPPER_CHECK_MODES, WARN_NOTE, copper_guard
+from fenolite.cli import cmd_build
+from fenolite.cli.cmd_build import CLEARANCE_NOTE, COPPER_CHECK_MODES, WARN_NOTE, copper_guard
+from fenolite.core.errors import Issue
 
 ROOT = Path(__file__).resolve().parents[3]
 BLINK_DIR = ROOT / "examples" / "blink_2layer"
@@ -95,6 +99,28 @@ def test_guard_reports_incomplete_rules() -> None:
     issues, result = copper_guard(files, name="bench", mode="refuse", target=10)
     assert result["rules"]["unread"] == ["bench.kicad_pro"]  # type: ignore[index]
     assert sum(1 for i in issues if i.code == "copper.rules-incomplete") == 2
+
+
+def test_guard_refuses_copper_across_a_mounting_hole() -> None:
+    """Change c0403: a script track across an unplated 3 mm hole is judged against the planned project's
+    ``min_hole_clearance`` (0.25 mm) and refuses the build; the track 0.3 mm from the hole wall passes."""
+
+    def planned(y: float) -> dict[str, bytes]:
+        design = dsl.Design("holed")
+        design.board(dsl.mm(40), dsl.mm(30))
+        design.hole("MH1", dsl.mm(20), dsl.mm(15), drill=dsl.mm(3))
+        net = dsl.Net("SIG")
+        design.add(net)
+        design.track("t1", (dsl.mm(10), dsl.mm(y)), (dsl.mm(30), dsl.mm(y)), net=net, width=dsl.mm(0.2))
+        return dict(build_script(design, 10, copper_intents=dsl.copper(design)).files)
+
+    issues, result = copper_guard(planned(15), name="holed", mode="refuse", target=10)
+    (found,) = [i for i in issues if i.code == "copper.hole-clearance"]
+    assert found.severity == "error" and found.where.endswith(", MH1")
+    assert "is 0 mm from the drill of pad MH1" in found.message and "0.25 mm (floor)" in found.message
+    assert result["hole_clearance"] == 1 and result["shorts"] == 0
+    issues, result = copper_guard(planned(16.9), name="holed", mode="refuse", target=10)
+    assert result["hole_clearance"] == 0 and not [i for i in issues if i.severity == "error"]
 
 
 # --- the command ----------------------------------------------------------------------------------
@@ -304,3 +330,64 @@ def test_waiver_guard_on_a_triad() -> None:
     (short,) = [i for i in issues if i.code == "copper.short"]
     assert short.severity == "info" and short.message.endswith("(waived by bench: re-net bench)")
     assert check["waivers"] == {"matched": {"bench": 1}, "unmatched": []}
+
+
+# --- the width of script copper (change c0403, F10) ---------------------------------------------------
+
+NARROW = """
+design.rules.minimum(track_width=mm(0.2))
+design.track_table(
+    "narrow", net=vin, layer="F.Cu", width=mm(0.162), rows_nm=[(2_000_000, 27_000_000, 8_000_000, 27_000_000)]
+)
+"""
+
+
+def narrow(blink: Blink) -> None:
+    """A script ``track_table`` row 0.162 mm wide on a board whose minimum track width is 0.2 mm."""
+    blink.script.write_text(blink.script.read_text(encoding="utf-8") + NARROW, "utf-8")
+
+
+@pytest.mark.parametrize("target", [9, 10])
+def test_narrow_script_copper_refused(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, target: int) -> None:
+    """F10: script copper narrower than ``design.rules.minimum(track_width=...)`` is refused on the dry
+    run, which plans no write, as KiCad's DRC would report ``track_width``."""
+    blink = Blink(tmp_path, monkeypatch, target)
+    narrow(blink)
+    code, env, err = blink.build("--dry-run")
+    assert code == 5 and err["code"] == "FEN-5001"
+    (found,) = [i for i in copper_issues(env) if i["code"] == "copper.track-width"]
+    assert found["severity"] == "error" and found["where"] == "VIN"
+    assert "0.162mm" in found["message"] and "0.2mm min" in found["message"]
+    assert "min_track_width" in found["message"]
+    assert env["result"]["files"] == [] and not env["result"].get("plan")  # type: ignore[union-attr]
+    assert not blink.out.exists()
+
+
+def test_narrow_script_copper_in_warn_mode(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    blink = Blink(tmp_path, monkeypatch)
+    narrow(blink)
+    code, env, _ = blink.build("--copper-check", "warn", "--dry-run")
+    assert code == 0, env["issues"]
+    (found,) = [i for i in copper_issues(env) if i["code"] == "copper.track-width"]
+    assert found["severity"] == "warning" and found["message"].endswith(WARN_NOTE)
+
+
+def test_narrow_script_copper_on_the_altium_target(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The Altium guard judges the width rules the document holds and reports a width finding as it reports
+    clearance: a warning with its note. The document's ``Width`` rule spans the copper written (``MINLIMIT``
+    is the narrowest width, change c0038), so the blink's narrow row gives none of its own."""
+    blink = Blink(tmp_path, monkeypatch)
+    narrow(blink)
+    code, env, _ = blink.build("--target", "altium", "--dry-run")
+    assert code == 0 and not [i for i in copper_issues(env) if i["code"] == "copper.track-width"]
+    seen: list[object] = []
+
+    def planted(design: object) -> tuple[Issue, ...]:
+        seen.append(design)
+        return (Issue("copper.track-width", "error", "net VIN has 1 track(s) or arc(s) narrower", "VIN"),)
+
+    monkeypatch.setattr(cmd_build, "track_width_findings", planted)
+    code, env, _ = blink.build("--target", "altium", "--dry-run")
+    assert code == 0, env["issues"]
+    (found,) = [i for i in copper_issues(env) if i["code"] == "copper.track-width"]
+    assert found["severity"] == "warning" and found["message"].endswith(CLEARANCE_NOTE) and seen

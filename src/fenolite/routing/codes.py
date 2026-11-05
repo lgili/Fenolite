@@ -45,6 +45,7 @@ ISSUE_CODES: dict[str, Severity] = {
     "route.tool-unpinned": "warning",
     "route.unrouted": "warning",
     "route.width-below-job": "warning",
+    "route.width-below-minimum": "error",
     "route.zone-net-skipped": "info",
 }
 

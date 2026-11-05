@@ -186,8 +186,10 @@ other bytes than the plan showed. `--confirm --plan ID` writes the reviewed byte
   receipt is an ordinary one: `fenolite restore` undoes it.
 - **The state folder.** The planned bytes are kept outside the user's tree, under `plans/<id>/` of
   `~/.cache/fenolite/state`. `FENOLITE_STATE_DIR` names another folder when it is an absolute path, and
-  `off` turns the store off. The store keeps at most 16 plans and 512 MiB, dropping the oldest first,
-  drops a plan older than 7 days, and removes a plan once it is written. It holds nothing the command did
+  `off` turns the store off. The store keeps at most 16 plans per working folder, and 128 plans and
+  512 MiB in all, dropping the oldest first, drops a plan older than 7 days, and removes a plan once it is
+  written. A plan made in another working folder does not count against this folder's 16 (c0403); to keep
+  a long review's plans apart from every other project, give `FENOLITE_STATE_DIR` a folder of its own. It holds nothing the command did
   not plan, and it can be deleted at any time. A run that writes nothing creates no file in the working
   directory, the project or the output folder.
 - **Not staged.** When the plan cannot be kept (the store is off, not writable, or smaller than the
@@ -734,8 +736,9 @@ the merge with an existing board (0 without one): script items are written again
 selects a rule area by a name that the board about to be written does not hold stops the build:
 `build.area-unknown` (error, exit 5, nothing written), with the hint to declare the area with
 `design.rule_area()` or to remove the selector. The copper guard reports copper in a keep-out as
-`copper.keepout`, copper too close to the board edge, a cut-out or a slot as `copper.edge-clearance`, and
-the two findings of drilled holes, `copper.hole-in-cutout` and `copper.hole-overlap` (change c0169).
+`copper.keepout`, copper too close to the board edge, a cut-out or a slot as `copper.edge-clearance`,
+the two findings of drilled holes, `copper.hole-in-cutout` and `copper.hole-overlap` (change c0169), and
+copper too close to a drilled hole as `copper.hole-clearance` (change c0403).
 
 A script may also declare meanders (`Design.meander`; `docs/dsl.md`, "Meanders"; change c0106). The
 build resolves them right after the copper, for the major of `--kicad-version`, and `result.copper`
@@ -757,8 +760,14 @@ writes. There is no way to switch the guard off. Without `--copper-check`, a scr
 `PROVENANCE.json` holds an import record whose `copy` is not `false` (a copy of someone else's board,
 `docs/import.md`, "Copy mode"; change c0281) builds in `warn`, any other in `refuse`; the guard judges a
 gap down to 500 nm below the clearance as clean, as KiCad's DRC does (`H-K-COPPER-EPSILON`).
+The guard also judges the width of each track and arc against the `track_width` rule that governs it in
+the planned rules file (change c0403): the last matching rule in KiCad's order, which governs below the
+board-setup `min_track_width` too (`H-K-PRO-MIN-RULE-2`), so a `design.rules.minimum(track_width=...)`
+holds script copper to its value. One `copper.track-width` per net and rule names the narrowest width,
+the rule and its `min`; the mode treats it as the other copper errors. Copper that no rule selects is not
+judged for width.
 `result.copper_check` holds `mode`, `mode_source` (`option`, `copy` or `default`), `ran` (false when
-the build was already refused), `shorts`, `clearance`, `edge_clearance`, `rules` (`min_clearance`,
+the build was already refused), `shorts`, `clearance`, `edge_clearance`, `hole_clearance`, `rules` (`min_clearance`,
 `opaque_clearance_rules`, `unread`), `evidence` and `waivers`. The design's `copper.*` waivers
 (`design.waive()`) are applied before the mode: a waived finding is `info` in `refuse` and in `warn`
 mode, so it neither refuses the build nor gains the warn note. `result.copper_check.waivers` holds
@@ -1165,11 +1174,12 @@ after the readers' own issues and before the `model.*` findings. An error issue 
 - **Differential pairs.** Two selected nets that KiCad pairs by name (`docs/routing.md`, "Differential pairs and escape") and that share a class with a pair width and gap form a pair (`routing.pairs.job_pairs`). A router whose `features` (below) lack `pairs` gets neither net: each pair gives `route.pair-skipped`, whose hint names `--pairs-as-nets` and the routers that route pairs. A pair with one net selected, nets in two classes, or no pair width or gap is left out the same way. `--pairs-as-nets` gives the two nets as single nets to any router, with one `route.pair-uncoupled` per pair.
 - **Escape.** `--escape REF[=grid|perimeter]` (repeatable, `fnmatch` on references) asks a router with the feature `escape` to escape the pads of the matching parts before it routes; the kind is found from the centres of the part's surface pads unless given, and a suffix other than `=grid` or `=perimeter` exits 2 with `FEN-2001`. A pattern that matches no part, a part without a selected net, and every request to a router without the feature give `route.escape-skipped`.
 - **Width guard.** A routed track or arc narrower than the width the job gave its net (the pair width for a pair net) gives one `route.width-below-job` per net, naming the smallest width and the width asked; the copper is kept. With `freerouting` the hint names `--router-option fanout=off`.
+- **Width rules.** The copper the command adds is judged against the `track_width` rules of the design (the rules file beside the board): a track or arc narrower than the `min` of the rule that governs it (the last matching rule in KiCad's order, also below the board-setup `min_track_width`) gives one `route.width-below-minimum` per net and rule, an error: nothing is written and the exit code is 5 (change c0403). With `freerouting` the hint names `--router-option fanout=off`.
 - **Routing layers.** A net's tracks may use the copper layers that are not plane layers and that no `no_tracks` rule forbids to it; a selected net left with none gives `route.no-layer` and is not routed.
 - **`--gate drc`** judges the copper the command adds or removes with `kicad-cli` DRC and writes the board without the tracks and vias that bring new findings ([DRC gate](#drc-gate)); the verdict and the counts are those of the kept board.
 - **Resumed.** The copper of each router process that finished is kept in the state folder until the board is written. The same call made again on the same board reuses it and does not route those nets again: the reply then holds one `route.resumed` info and `result.resumed` (`runs`, `nets`), and `tracks` and `vias` count the reused copper too. Without a record `result.resumed` is `null`. See `docs/routing.md`, "The job record". The recorded copper is merged after the plane fan-out, as the router of the earlier call saw the board. A dry run that the budget cut keeps the record, so the same dry run made again goes on with the nets that were not attempted.
 
-`result` contains `board`, `router`, `tool_version`, `selected`, `routed`, `unrouted`, `open`, `connections`, `tracks`, `vias`, `ripped`, `rip_kept`, `fills_stale`, `budget`, `runs`, `not_attempted`, `resumed`, `plane_layers`, `plane_fanout`, `pairs`, `escape`, `gate` ([DRC gate](#drc-gate)) and up to 20 sanitised `log` lines. `pairs` lists `{name, positive, negative, width, gap, routed}` for the pairs given to the router (`routed`: both nets are in `routed`), and `escape` lists `{ref, kind, pitch, nets}` for the escape requests given to it; `selected` names every net given to the router, pair nets included. `open` holds one object per net of `unrouted`, sorted by name: `net`, `islands` and `connections`, each connection with `a` and `b` (`kind`: `pad`, `track`, `arc` or `via`; `where`; `position`; `layers`) and `length` in nanometres; `--limit` and `--cursor` page it. `connections` holds `before` and `after`, the open connections of the selected nets before the router and after the merge. `rip_kept` holds `locked` and `script`, the items of the ripped nets that `--rip` kept. `fills_stale` is true when the board has fills and the command added copper. `budget` holds `seconds` (the budget the step ran with: `--timeout`, else the router's default; `null` for a router without one), `spent` (the seconds the router took, rounded to 0.1; 0.0 for a router without a budget) and `exhausted` (whether the budget ended before every run was done). `runs` holds one object per process the router started, in order: `tier`, `nets` (a count), `seconds` (rounded to 0.1) and `outcome` (`done`, `failed`, or `cut` for the run the budget stopped). `not_attempted` lists the nets of the runs that were never started; they are in `unrouted` too. `spent` and the `seconds` of a run are wall-clock times and differ from one run to the next. `resumed` is `null`, or holds `runs` and `nets`: the router runs of an earlier call whose copper was reused, and the nets they routed. Evidence for a complete guarded route plan is `INFERRED` in its byte-materialization/provenance scope, not electrical correctness. Actual router hypotheses are retained only from that outcome; DirectRouter receives no DSN claim. Incomplete/error/unattempted results remain `UNVERIFIED`, UNKNOWN remains UNKNOWN, and actual DRC-gate evidence is independent; run `check` after routing and refill zones before checking. The exit code is 5 for `route.bad-item`, `route.tool-failed` or `route.incomplete`, and 0 otherwise.
+`result` contains `board`, `router`, `tool_version`, `selected`, `routed`, `unrouted`, `open`, `connections`, `tracks`, `vias`, `ripped`, `rip_kept`, `fills_stale`, `budget`, `runs`, `not_attempted`, `resumed`, `plane_layers`, `plane_fanout`, `pairs`, `escape`, `gate` ([DRC gate](#drc-gate)) and up to 20 sanitised `log` lines. `pairs` lists `{name, positive, negative, width, gap, routed}` for the pairs given to the router (`routed`: both nets are in `routed`), and `escape` lists `{ref, kind, pitch, nets}` for the escape requests given to it; `selected` names every net given to the router, pair nets included. `open` holds one object per net of `unrouted`, sorted by name: `net`, `islands` and `connections`, each connection with `a` and `b` (`kind`: `pad`, `track`, `arc` or `via`; `where`; `position`; `layers`) and `length` in nanometres; `--limit` and `--cursor` page it. `connections` holds `before` and `after`, the open connections of the selected nets before the router and after the merge. `rip_kept` holds `locked` and `script`, the items of the ripped nets that `--rip` kept. `fills_stale` is true when the board has fills and the command added copper. `budget` holds `seconds` (the budget the step ran with: `--timeout`, else the router's default; `null` for a router without one), `spent` (the seconds the router took, rounded to 0.1; 0.0 for a router without a budget) and `exhausted` (whether the budget ended before every run was done). `runs` holds one object per process the router started, in order: `tier`, `nets` (a count), `seconds` (rounded to 0.1) and `outcome` (`done`, `failed`, or `cut` for the run the budget stopped). `not_attempted` lists the nets of the runs that were never started; they are in `unrouted` too. `spent` and the `seconds` of a run are wall-clock times and differ from one run to the next. `resumed` is `null`, or holds `runs` and `nets`: the router runs of an earlier call whose copper was reused, and the nets they routed. Evidence for a complete guarded route plan is `INFERRED` in its byte-materialization/provenance scope, not electrical correctness. Actual router hypotheses are retained only from that outcome; DirectRouter receives no DSN claim. Incomplete/error/unattempted results remain `UNVERIFIED`, UNKNOWN remains UNKNOWN, and actual DRC-gate evidence is independent; run `check` after routing and refill zones before checking. The exit code is 5 for `route.bad-item`, `route.tool-failed`, `route.incomplete` or `route.width-below-minimum`, and 0 otherwise.
 
 | code | severity | when |
 |---|---|---|
@@ -1211,6 +1221,7 @@ after the readers' own issues and before the `model.*` findings. An error issue 
 | `route.tool-unpinned` | warning | external router checkout is not the supported pinned version |
 | `route.unrouted` | warning | a selected net still has an open connection after the merge: the message gives the number of open connections and the shortest one, and says so when the router listed the net as routed |
 | `route.width-below-job` | warning | routed copper is narrower than the width the job gave its net; the message gives the smallest width and the width asked |
+| `route.width-below-minimum` | error | routed copper is narrower than the `min` of the `track_width` rule that governs it; one per net and rule, naming the narrowest width, the rule and its `min`; nothing is written |
 | `route.zone-net-skipped` | info | a zone net was omitted without the inclusion flag |
 | `kicad.fanout.failed` | warning | no fan-out via fits beside an SMD pad of a plane net; the pad stays open, and the message names the pad, the net and what blocked the first candidate |
 
@@ -1807,10 +1818,27 @@ gives `copper.rules-incomplete`, and a board whose edge does not close `copper.i
 `where` `edge`. Every drilled hole (a pad's drill, round or slot, unplated ones included; a via's drill;
 a board hole) is judged too: `copper.hole-in-cutout` when its area overlaps a cut-out or slot or crosses
 the board ring, `copper.hole-overlap` when two holes overlap (two copies of one hole are not). No value
-applies to holes: hole-to-hole and hole clearance stay KiCad's DRC's. The summary adds
+applies between two holes: hole-to-hole stays KiCad's DRC's. The summary adds
 `edge_clearance`, `edges` (`rings`, `judged`, `unset_items`, `max`), `holes`, `hole_in_cutout` and
 `hole_overlap`. A board whose copper lies too close to its edge, which `check` never reported before,
 now gains these findings, as KiCad's DRC always gave them.
+
+**Hole clearance** (change c0403). Each drilled hole is also judged against the copper of every copper
+layer it passes (a via's drill only the layers of its span): a gap from the copper to the hole's wall
+strictly below the hole clearance in force gives one `copper.hole-clearance` per hole and copper item, on
+the first layer where it applies, at the closest place there; `where` names the copper item and the
+hole's item, and the message gives the gap, the limit and its source. The limit is the last
+`hole_clearance` rule that selects the pair (either side on either item, as for `clearance`), with its
+severity, else the board minimum with severity `error`: on KiCad the project's `min_hole_clearance`
+(`docs/formats/kicad/project.md`); a board-wide rule governs below the minimum (`H-K-PRO-MIN-RULE-3`).
+With no minimum and no rule (an Altium document, or a KiCad project without the key) holes are not
+judged against copper. Left out: the copper of the hole's own pad or via, the copper of a plated hole's
+own net (an unplated hole has no net, so every copper item counts), and a pair that already has a
+`copper.short` or `copper.clearance` finding, as KiCad's DRC reports one violation per item pair
+(`H-K-DRU-KIND-2`). The gap is exact and strict, without the clearance tolerance. KiCad 9.0.9 reports no
+`hole_clearance` between a pad and an unplated hole, which 10.0.6 does (`H-K-DRC-LIMITS`): the finding
+is kept for both targets. The summary adds `hole_clearance` (findings) and `hole_clearance_judged`
+(copper shapes judged against a hole).
 
 **Findings.** The code is `kicad.drc.` followed by KiCad's type in lower case with `_` as `-`
 (`shorting_items` gives `kicad.drc.shorting-items`). The severity is the report's, which follows the
@@ -1984,6 +2012,8 @@ repeat.
 | `copper.edge-clearance` | error, warning | copper closer to the board edge, a cut-out or a slot than the edge clearance in force; the governing rule sets the severity, the board minimum gives an error; `where` names the item and the ring. No waiver applies |
 | `copper.hole-in-cutout` | error | a drilled hole breaks into a cut-out or a slot, or crosses the board edge; `where` names the hole's item and the ring |
 | `copper.hole-overlap` | warning | two drilled holes overlap; `where` names both items |
+| `copper.hole-clearance` | error, warning | copper closer to a drilled hole's wall than the hole clearance in force; the governing rule sets the severity, the board minimum gives an error; `where` names the copper item and the hole's item. No waiver applies |
+| `copper.track-width` | error, warning | the build's copper guard: tracks or arcs of a net narrower than the `min` of the `track_width` rule that governs them; the rule sets the severity; one per net and rule, `where` is the net name, the message gives the narrowest width, the rule and its `min` |
 | `check.waiver-unmatched` | warning | a waiver of the design script that was judged matched no finding; `where` is the waiver's name |
 | `check.waiver-expired` | warning | a `circuit.*` waiver whose code and item match a finding under another digest: the value or the limit judged changed since the waiver; `where` is the waiver's name, the message names both digests |
 | `check.exclusion-stale` | warning | a DRC exclusion stored in the KiCad project no longer applies: `moved` or `gone` |
@@ -2221,7 +2251,7 @@ carries `ORACLE-VERIFIED`, `KICAD-VERIFIED` or `ALTIUM-VERIFIED`: only Fenolite 
 - **`copper.clearance` on a PCB document.** The codes and severities are those of the KiCad stage
   (`copper.short`, `copper.clearance`, `copper.zone-overlap`, `copper.clearance-unset`,
   `copper.rules-incomplete`, `copper.item-unsupported`, `copper.edge-clearance`, `copper.hole-in-cutout`,
-  `copper.hole-overlap`); the edge rings are the board outline of the document (cut-out regions with
+  `copper.hole-overlap`, `copper.hole-clearance`); the edge rings are the board outline of the document (cut-out regions with
   change c0168), and the board minimum is its board-wide `BoardOutlineClearance`. The summary is that of the KiCad stage plus `unpoured`, `zones_unjudged` and `clearance_cells`
   (`{judged, unjudged}`: the cells of the document's clearance matrices that a rule holds and that none
   holds).
@@ -2287,12 +2317,13 @@ refused commit writes nothing and its receipt's exit code is 5. The codes are:
 `fenolite build --target altium` judges the copper of the PCB document it is about to write (change
 c0088), on `--dry-run` and `--confirm` alike: the planned bytes are read back with the Altium reader,
 the rules are those the document holds, and the copper check of `check` runs on the result. A
-`copper.short` refuses the build (exit 5, nothing written). Every other copper error is reported as a
+`copper.short` refuses the build (exit 5, nothing written). Every other copper error, a
+`copper.track-width` against a width rule of the document included (change c0403), is reported as a
 warning whose message ends with ` (reported, not refused: the Altium copper guard refuses shorts)`,
 and the files are written. `--copper-check warn` reports the short as a warning too, with
 ` (copper guard in warn mode)`, and writes; there is no way to switch the guard off.
 `result.copper_check` holds `mode`, `ran` (false without a PCB document), `shorts`, `clearance`,
-`edge_clearance`, `unpoured`, `rules`, `evidence` and `waivers` (as on KiCad: the design's `copper.*` waivers are applied
+`edge_clearance`, `hole_clearance`, `unpoured`, `rules`, `evidence` and `waivers` (as on KiCad: the design's `copper.*` waivers are applied
 before the mode, so a waived short is `info` and does not refuse the build); the evidence is `UNVERIFIED`
 when the document holds unpoured polygons, which the guard cannot judge. No file is read from disk and no tool runs.
 

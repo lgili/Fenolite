@@ -381,7 +381,9 @@ board with such a BGA needs a `hole_clearance` rule below KiCad's default of 0.2
 (`--router.automatic_neckdown=false`), which narrowed wires at pins below their class. Its fanout stage
 still wrote wires of 0.1124 mm under a 0.15 mm class at QFN pins on a board with inner signal layers
 (`H-G-DSN-NARROW`); `route` reports any copper narrower than asked with `route.width-below-job`, whose hint
-for Freerouting names `fanout=off`.
+for Freerouting names `fanout=off`. Copper narrower than the `min` of the `track_width` rule that governs it
+in the rules file beside the board (KiCad's DRC would report `track_width`) gives
+`route.width-below-minimum`, an error: the board is not written (change c0403).
 
 **Limits.** A pair needs two selected nets of one class with pair values; a leg may be 0.4 µm narrower
 than asked; the tool may leave skew, which KiCad's `diff_pair_skew` rule reports; per-part escape is not

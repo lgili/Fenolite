@@ -434,7 +434,10 @@ class Rules:
     ) -> None:
         """Declare design-rule minimums: one rule per given length, for the whole board, or for the nets
         of the declared class ``netclass``. The build writes them where the design-rule check of the
-        target reads them; a class minimum governs over the board minimum of its kind."""
+        target reads them; a class minimum governs over the board minimum of its kind. A class minimum is
+        written last (priority 1), so it also governs every ``rule()`` of that class without ``priority=``,
+        a lower one included (``rules.shadowed`` names it); ``precedence("specificity")`` lets the more
+        specific rule govern (change c0403)."""
         if netclass is not None and netclass not in self.netclasses:
             raise DslError(
                 f"minimum(): netclass {netclass!r} is not a declared net class; "

@@ -12289,6 +12289,13 @@
         "warning"
       ]
     },
+    "copper.hole-clearance": {
+      "experimental": false,
+      "severities": [
+        "error",
+        "warning"
+      ]
+    },
     "copper.hole-in-cutout": {
       "experimental": false,
       "severities": [
@@ -12330,6 +12337,13 @@
       "experimental": false,
       "severities": [
         "info"
+      ]
+    },
+    "copper.track-width": {
+      "experimental": false,
+      "severities": [
+        "error",
+        "warning"
       ]
     },
     "copper.zone-overlap": {
@@ -16204,6 +16218,12 @@
       "experimental": false,
       "severities": [
         "warning"
+      ]
+    },
+    "route.width-below-minimum": {
+      "experimental": false,
+      "severities": [
+        "error"
       ]
     },
     "route.zone-net-skipped": {

@@ -313,6 +313,23 @@ def project_floors(data: JsonObject, *, issues: list[Issue] | None = None) -> di
     return floors
 
 
+HOLE_CLEARANCE_KEY = "min_hole_clearance"
+"""The board-setup copper-to-hole clearance in ``board.design_settings.rules`` (``project.md``, "Board-setup
+minimums"; ``INFERRED``, change c0403). Read for the copper check only: it is not one of ``MINIMUM_KEYS``,
+so nothing writes it from a rule."""
+
+
+def project_hole_clearance(data: JsonObject, *, issues: list[Issue] | None = None) -> Nm | None:
+    """The nm value of ``HOLE_CLEARANCE_KEY`` in ``board.design_settings.rules`` when it is a JSON number,
+    else ``None``; an inexact value reads as absent with ``kicad.project.inexact-value``."""
+    found = issues if issues is not None else []
+    rules = _json.get(data, MINIMUM_POINTER)
+    if not isinstance(rules, dict):
+        return None
+    table = cast(JsonObject, rules)
+    return _nm(table.get(HOLE_CLEARANCE_KEY), f"{MINIMUM_POINTER}/{HOLE_CLEARANCE_KEY}", found)
+
+
 def project_minimums(data: JsonObject, *, issues: list[Issue] | None = None) -> dict[str, Nm]:
     """Key → the nm value of each ``MINIMUM_KEYS`` member of ``board.design_settings.rules`` that is a
     JSON number; an inexact value reads as absent with ``kicad.project.inexact-value``."""
@@ -1238,6 +1255,7 @@ def _conflicts(kept: Sequence[Any], assignments: Any, names: Mapping[str, str], 
 __all__ = [
     "DEFAULT_CLASS",
     "EVIDENCE",
+    "HOLE_CLEARANCE_KEY",
     "ISSUE_CODES",
     "MINIMUM_POINTER",
     "NET_SETTINGS_READ_MAX",
@@ -1256,6 +1274,7 @@ __all__ = [
     "holds_default",
     "pattern_matches",
     "project_floors",
+    "project_hole_clearance",
     "project_minimums",
     "project_major",
     "read_project",

@@ -45,6 +45,16 @@ and still fail creepage.
   scoped rule with a reason and an approval, never a lower class value.
 - **Audit the scope and the priority of the rules.** A broad rule with a higher priority can silently
   override a class rule.
+- **A class minimum governs the rules of its class.** `minimum(..., netclass=)` is written last, so a
+  rule of that class without `priority=`, such as a lower distance between the class's own nets, never
+  applies, and `check` names it with `rules.shadowed`. Call `design.rules.precedence("specificity")` so
+  that the more specific rule governs.
+- **A part-wide rule is a minimum, not an exception.** `where=select.ref(u1) & select.item("pad")` on
+  both sides holds for every pad pair of the part, its low-voltage pins too. For an exception inside one
+  part, write one rule per pair of domains: `where=select.ref(u1) & select.netclass("BUS")`,
+  `between=select.ref(u1) & select.netclass("CTRL")`.
+- **A no-connect pin has no class.** Its net (`unconnected-(...)` in KiCad) is in `Default`, so a class
+  exception does not reach it. Name its pad by part: `select.ref(u1) & select.item("pad")`.
 - **Give pours a larger clearance than tracks at a barrier.** A pour's edge moves at every refill.
 - **Scope the rules for cut-outs and slots on purpose,** and check them in the final tool.
 

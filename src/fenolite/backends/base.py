@@ -1020,7 +1020,9 @@ class DesignRules:
     the cells of the clearance matrices of those files (clearances per pair of object kinds): those that a
     rule of ``design`` holds, and those that none holds. ``min_edge_clearance`` is the board minimum of the
     copper-to-edge clearance, or ``None``, and ``edge_floor_over_rules`` says whether it also raises the
-    value of a governing ``edge_clearance`` rule (change c0169).
+    value of a governing ``edge_clearance`` rule (change c0169). ``min_hole_clearance`` is the board
+    minimum of the clearance between a drilled hole and copper of another item, or ``None`` (change c0403):
+    a governing ``hole_clearance`` rule replaces it, below and above.
     """
 
     design: Design
@@ -1037,6 +1039,7 @@ class DesignRules:
     clearance_tolerance: Nm = 0
     """How far below the value in force the tool still accepts a gap (change c0281): the copper check
     reports a pair only when its gap is below ``value − clearance_tolerance``."""
+    min_hole_clearance: Nm | None = None
 
 
 @runtime_checkable

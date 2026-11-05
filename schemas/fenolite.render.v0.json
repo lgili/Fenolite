@@ -443,6 +443,9 @@
         "evidence": {
           "$ref": "#/$defs/Evidence"
         },
+        "hole_clearance": {
+          "type": "integer"
+        },
         "mode": {
           "type": "string"
         },

@@ -12,7 +12,9 @@ whether the board minimum also raises a rule's value. A backend fills the switch
 board is judged against (``backends.base.DesignRules``); this module imports no backend.
 
 ``ClearanceResolver.edge`` gives the copper-to-edge clearance of one item the same way (change c0169): the
-governing ``edge_clearance`` rule, else the board's edge minimum.
+governing ``edge_clearance`` rule, else the board's edge minimum. ``ClearanceResolver.hole`` gives the
+clearance between a drilled hole and the copper of another item (change c0403): the governing
+``hole_clearance`` rule, else the board's hole minimum.
 """
 
 from __future__ import annotations
@@ -214,6 +216,7 @@ class ClearanceResolver:
         floor_over_rules: bool = False,
         min_edge_clearance: Nm | None = None,
         edge_floor_over_rules: bool = False,
+        min_hole_clearance: Nm | None = None,
     ) -> None:
         circuit = design.circuit
         classes = {netclass.id: netclass for netclass in circuit.netclasses}
@@ -253,6 +256,21 @@ class ClearanceResolver:
             edge_values.append(self._edge_floor)
         self.max_edge: Nm = max(edge_values, default=0)
         """The largest value ``edge`` can return for the design, or 0."""
+        self._hole_candidates = _candidates_of(rules, "hole_clearance")
+        """The ``hole_clearance`` rules with a ``min``, the governing one first (change c0403)."""
+        self._hole_floor: Nm | None = (
+            min_hole_clearance if min_hole_clearance is not None and min_hole_clearance > 0 else None
+        )
+        self._hole_memo: dict[tuple[RuleSubject, RuleSubject], Clearance] = {}
+        hole_values = [
+            c.rule.min
+            for c in self._hole_candidates
+            if c.rule.min is not None and c.rule.severity != "ignore"
+        ]
+        if self._hole_floor is not None:
+            hole_values.append(self._hole_floor)
+        self.max_hole: Nm = max(hole_values, default=0)
+        """The largest value ``hole`` can return for the design, or 0."""
         self._floor: Nm | None = min_clearance if min_clearance is not None and min_clearance > 0 else None
         self._rules_over_classes = rules_over_classes
         self._floor_over_rules = floor_over_rules
@@ -402,6 +420,34 @@ class ClearanceResolver:
         if self._edge_floor_over_rules and floor is not None and floor > governing.min:
             found = Clearance(floor, "error", "floor")
         return found
+
+    def hole(self, hole: RuleSubject, copper: RuleSubject) -> Clearance:
+        """The clearance in force between a drilled hole and copper of another item (change c0403):
+        ``hole`` is the subject of the hole's item (its pad or via) and ``copper`` that of the copper, both
+        on the copper's layer. The governing ``hole_clearance`` rule that selects the pair (the last in
+        ``rule_precedence``, either side of a two-sided rule on either item), else the board minimum
+        ``min_hole_clearance`` (source ``floor``). A governing rule of severity ``ignore`` silences the
+        pair. A board-wide rule governs below the minimum on 9.0.x and 10.0.x (``H-K-PRO-MIN-RULE-3``), so
+        the minimum never raises a rule."""
+        key = (hole, copper)
+        cached = self._hole_memo.get(key)
+        if cached is None:
+            cached = self._hole(hole, copper)
+            self._hole_memo[key] = cached
+        return cached
+
+    def _hole(self, hole: RuleSubject, copper: RuleSubject) -> Clearance:
+        folded_hole, folded_copper = _fold_subject(hole), _fold_subject(copper)
+        governing = next(
+            (c.rule for c in self._hole_candidates if c.matches(folded_copper, folded_hole)), None
+        )
+        floor = self._hole_floor
+        if governing is None:
+            return UNSET if floor is None else Clearance(floor, "error", "floor")
+        if governing.severity == "ignore":
+            return Clearance(None, None, f"rule:{governing.name}")
+        assert governing.min is not None
+        return Clearance(governing.min, governing.severity, f"rule:{governing.name}")
 
     def explain_edge(self, subject: RuleSubject, ring: str) -> EdgeClearanceExplanation:
         """Explain ``edge(subject)`` for the ring named ``ring``: every matching ``edge_clearance`` rule in

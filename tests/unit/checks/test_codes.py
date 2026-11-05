@@ -62,6 +62,8 @@ TABLE = {
     "copper.edge-clearance": ("error", "warning"),
     "copper.hole-in-cutout": ("error",),
     "copper.hole-overlap": ("warning",),
+    "copper.hole-clearance": ("error", "warning"),  # change c0403
+    "copper.track-width": ("error", "warning"),  # change c0403
     "zone.unfilled": ("warning",),
     "zone.fill-stale": ("warning",),
     "zone.fill-unchecked": ("info",),

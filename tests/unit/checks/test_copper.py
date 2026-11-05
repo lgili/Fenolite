@@ -577,6 +577,8 @@ def test_findings_and_issues_are_sorted() -> None:
         "clearance",
         "edge_clearance",
         "edges",
+        "hole_clearance",  # change c0403
+        "hole_clearance_judged",
         "hole_in_cutout",
         "hole_overlap",
         "holes",

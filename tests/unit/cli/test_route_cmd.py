@@ -11,6 +11,7 @@ from pathlib import Path
 
 import pytest
 from _checkcli import hide_kicad, run
+from _coppercheck import Copper
 from _fakefreerouting import create_fake_jar, create_fake_java
 from _fakerouter import create_fake_router
 from _openconn import rb
@@ -1181,6 +1182,44 @@ def test_narrower_copper_reported(monkeypatch, tmp_path: Path) -> None:
                                          net_id="n1"),))  # fmt: skip
     (hinted,) = guard(narrow, [cmd_route.JobNet("A", "n1", (), 200, 1, 1, 1)], (), "freerouting")
     assert "fanout=off" in (hinted.hint or "")
+
+
+MIN_WIDTH_RULE = '(version 1)\n(rule "fenolite_0_min_track_width"\n  (constraint track_width (min 0.2mm)))\n'
+
+
+def test_copper_below_the_minimum_refused(monkeypatch, tmp_path: Path) -> None:
+    """F6 (change c0403): routed copper narrower than the governing ``track_width`` rule of the rules file
+    beside the board gives ``route.width-below-minimum`` (error) and plans no write; the job-width warning
+    stays."""
+
+    class Narrow(StubRouter):
+        def route(self, job: RoutingJob) -> RoutingResult:
+            done = super().route(job)
+            return replace(done, tracks=tuple(replace(t, width=150_000) for t in done.tracks))
+
+    board = tmp_path / PAIR_BOARD.name
+    board.write_bytes(PAIR_BOARD.read_bytes())
+    board.with_suffix(".kicad_pro").write_bytes(PAIR_BOARD.with_suffix(".kicad_pro").read_bytes())
+    board.with_suffix(".kicad_dru").write_text(MIN_WIDTH_RULE, encoding="utf-8")
+    monkeypatch.setattr(cmd_route, "_router", lambda _name, _args: Narrow("test-narrow", "routed"))
+    code, env, error, _ = run(monkeypatch, tmp_path, "route", str(board), "--router", "test-narrow",
+                              "--nets", "S1", "--dry-run")  # fmt: skip
+    assert code == 5, (env, error)
+    (found,) = [issue for issue in env["issues"] if issue["code"] == "route.width-below-minimum"]
+    assert found["severity"] == "error" and found["where"] == "S1"
+    assert "0.15mm" in found["message"] and "0.2mm min" in found["message"]
+    assert "fenolite_0_min_track_width" in found["message"]
+    assert "route.width-below-job" in codes(env)
+    assert not env["result"].get("plan")
+    guard = cmd_route._minimum_guard  # pyright: ignore[reportPrivateUsage]
+    design = read_board(board.read_text(encoding="utf-8"))
+    assert guard(design, design, "freerouting") == ()  # no copper added
+    bench = Copper()
+    bench.rule("min_track_width", 200_000, kind="track_width")
+    before = bench.build()
+    bench.track("A", Point(0, 0), Point(MM, 0), width=125_000)
+    (hinted,) = guard(before, bench.build(), "freerouting")
+    assert hinted.code == "route.width-below-minimum" and "fanout=off" in hinted.hint
 
 
 # --- role mode (change c0244) ------------------------------------------------------------------------------

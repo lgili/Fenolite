@@ -1553,6 +1553,16 @@ meaning = "Two drilled holes overlap. KiCad's DRC says nothing about two overlap
 fix = "Move one hole; keep the overlap only when the two holes form one slot on purpose, or draw the slot as a milled design.slot()."
 see = "check"
 
+["copper.hole-clearance"]
+meaning = "Copper lies closer to a drilled hole (pad drill, plated or not, round or slot; via drill; board hole) than the hole clearance in force: the governing hole_clearance rule, else the board minimum (KiCad: min_hole_clearance). Gap to the wall. The hole's own pad or via and its own net are not judged. KiCad reports hole_clearance; 9.0.9 not for a pad and an unplated hole, 10.0.6 does: raised for both."
+fix = "Route the copper around the hole with the clearance in force, or move the part with the hole; never waive it. A rule (design.rules.rule(kind='hole_clearance')) sets its own value for some nets. Build with --copper-check warn to write anyway."
+see = "check"
+
+["copper.track-width"]
+meaning = "A track or arc of the board a build is about to write is narrower than the min of the track_width rule that governs it: the last matching rule in KiCad's order, which also governs below the board-setup min_track_width. One finding per net and rule; KiCad's DRC reports each item as track_width."
+fix = "Widen the copper in the script (the width of track(), track_table() or arc_table()), or lower the rule. Build with --copper-check warn to write anyway."
+see = "build"
+
 ["copper.rules-incomplete"]
 meaning = "The clearance rules are incomplete: a rule stayed opaque, a project file was not read, or no rules source was given."
 fix = "Rely on KiCad's DRC for the rules Fenolite could not read."
@@ -4020,6 +4030,11 @@ see = "route"
 ["route.width-below-job"]
 meaning = "The router returned a track or arc narrower than the width the job gave its net (the pair width for a pair net). The copper is kept; KiCad's DRC judges it against the board minimum and the class."
 fix = "Run fenolite check. With freerouting, pass --router-option fanout=off: its fanout stage writes narrow wires at fine-pitch pins."
+see = "route"
+
+["route.width-below-minimum"]
+meaning = "The router returned a track or arc narrower than the min of the track_width rule that governs it (the rules file beside the board), so KiCad's DRC would report track_width. One finding per net and rule; the board is not written."
+fix = "Route again with a narrower job width only where the rules allow it. With freerouting, pass --router-option fanout=off: its fanout stage writes narrow wires at fine-pitch pins."
 see = "route"
 
 ["route.zone-net-skipped"]

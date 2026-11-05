@@ -97,6 +97,7 @@ from fenolite.checks.copper import (
 from fenolite.checks.specificity import shadowed_rules
 from fenolite.checks.topology import build_issues as topology_build_issues
 from fenolite.checks.waivers import copper_waivers
+from fenolite.checks.widths import track_width_findings
 from fenolite.cli import _layout, blockvendored
 from fenolite.cli._contracts import classes_of
 from fenolite.cli._lock import check_library, lock_location, plan_lock, refuse_frozen_edits, with_lock
@@ -526,7 +527,9 @@ def copper_guard(
     The planned board text is read back with ``read_board``, the planned project and rules texts are
     applied with ``design_rules_from_texts`` for ``target`` (the build's KiCad major), the pads come from the
     KiCad board frame, and ``check_copper`` judges the result: the bytes that will be written, preserved
-    copper included. With ``mode == "warn"`` every error is reported as a warning with ``WARN_NOTE``.
+    copper included. ``track_width_findings`` judges the width of each track and arc against the planned
+    ``track_width`` rules (change c0403). With ``mode == "warn"`` every error is reported as a warning with
+    ``WARN_NOTE``.
     Nothing is read from disk and nothing is written.
     """
     if mode not in COPPER_CHECK_MODES:
@@ -560,9 +563,10 @@ def copper_guard(
         min_edge_clearance=rules.min_edge_clearance,
         edge_floor_over_rules=rules.edge_floor_over_rules,
         tolerance=rules.clearance_tolerance,
+        min_hole_clearance=rules.min_hole_clearance,
     )
     judged, waived = guard_waivers(report, waivers)
-    found = [*judged, *rules_issues(rules), *edge_issues]
+    found = [*judged, *track_width_findings(rules.design), *rules_issues(rules), *edge_issues]
     evidence = Evidence.combine(report.evidence, kicad_pcb.EVIDENCE, rules.evidence)
     if any(issue.code in LOWERING_CODES for issue in found):
         evidence = Evidence(Level.UNVERIFIED, hypotheses=evidence.hypotheses)
@@ -579,6 +583,7 @@ def copper_guard(
         "shorts": report.summary["shorts"],
         "clearance": report.summary["clearance"],
         "edge_clearance": report.summary["edge_clearance"],
+        "hole_clearance": report.summary["hole_clearance"],
         "rules": rules_summary(rules),
         "evidence": _evidence_json(evidence),
         "waivers": waived,
@@ -597,12 +602,12 @@ def altium_copper_guard(
 
     The planned bytes are read back with the Altium backend's own reader and adapter, the rules are those
     the document holds (``AltiumBackend.rules_from_bytes`` on the planned bytes), the pads come from the
-    Altium board frame, and ``check_copper`` judges the result. A ``copper.short`` keeps its severity, so the
-    build refuses; every other error is reported as a warning with ``CLEARANCE_NOTE``. With
-    ``mode == "warn"`` the short is a warning too, with ``WARN_NOTE``. Nothing is read from disk and
-    nothing is written; a build without a PCB document is not judged (``ran`` false). ``waivers`` are the
-    design's waivers, applied before the mode as on the KiCad target (``guard_waivers``): a waived short is
-    ``info`` and does not refuse the build."""
+    Altium board frame, and ``check_copper`` and ``track_width_findings`` (change c0403) judge the result.
+    A ``copper.short`` keeps its severity, so the build refuses; every other error is reported as a warning
+    with ``CLEARANCE_NOTE``. With ``mode == "warn"`` the short is a warning too, with ``WARN_NOTE``. Nothing
+    is read from disk and nothing is written; a build without a PCB document is not judged (``ran`` false).
+    ``waivers`` are the design's waivers, applied before the mode as on the KiCad target
+    (``guard_waivers``): a waived short is ``info`` and does not refuse the build."""
     if mode not in COPPER_CHECK_MODES:
         raise ValueError(f"unknown copper-check mode {mode!r}; use one of {', '.join(COPPER_CHECK_MODES)}")
     document = f"{name}.PcbDoc"
@@ -624,11 +629,12 @@ def altium_copper_guard(
         edges=edges,
         min_edge_clearance=rules.min_edge_clearance,
         edge_floor_over_rules=rules.edge_floor_over_rules,
+        min_hole_clearance=rules.min_hole_clearance,
     )
     unpoured = sum(1 for zone in rules.design.board.zones if not zone.fills) if rules.design.board else 0
     judged, waived = guard_waivers(report, waivers)
     found: list[Issue] = []
-    for issue in (*judged, *rules_issues(rules), *edge_issues):
+    for issue in (*judged, *track_width_findings(rules.design), *rules_issues(rules), *edge_issues):
         if issue.severity != "error":
             found.append(issue)
         elif issue.code != "copper.short":
@@ -648,6 +654,7 @@ def altium_copper_guard(
         "shorts": report.summary["shorts"],
         "clearance": report.summary["clearance"],
         "edge_clearance": report.summary["edge_clearance"],
+        "hole_clearance": report.summary["hole_clearance"],
         "unpoured": unpoured,
         "rules": rules_summary(rules),
         "evidence": _evidence_json(evidence),

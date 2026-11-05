@@ -436,15 +436,19 @@ def test_a_cutout_across_the_edge_stops_the_build(tmp_path: Path, monkeypatch: p
 
 
 def test_a_hole_over_a_part(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Scenario "A hole over a part": the placement guard judges a hole by its courtyard."""
+    """Scenario "A hole over a part": the placement guard judges a hole by its courtyard. The drill lies
+    across both pads of ``R1``, which the copper guard reports as ``copper.hole-clearance`` since change
+    c0403 (KiCad's DRC reports ``hole_clearance``): the build runs in warn mode to reach the guard."""
     p = Project(tmp_path, monkeypatch)
     p.script.write_text(
         p.script.read_text(encoding="utf-8")
         + 'design.hole("H3", mm(32), mm(9), drill=mm(1), courtyard=mm(3))\n',
         encoding="utf-8",
     )
-    code, env, _ = p.build("--dry-run")
+    code, env, _ = p.build(*COPPER_WARN, "--dry-run")
     assert code == 0
+    drilled = sorted(i["where"] for i in env["issues"] if i["code"] == "copper.hole-clearance")  # type: ignore[union-attr, index]
+    assert drilled == ["R1-1, H3", "R1-2, H3"]
     found = [i for i in env["issues"] if i["code"] == "place.courtyard-overlap"]  # type: ignore[union-attr, index]
     assert len(found) == 1 and found[0]["severity"] == "warning"
     assert "H3" in found[0]["message"] and "R1" in found[0]["message"]

@@ -86,7 +86,8 @@ def design_rules_from_texts(
 ) -> DesignRules:
     """``design`` with the classes, the class of each net and the rules of the two texts (``None``: the
     file is absent), the board minimum clearance, the board's edge clearance (the project's
-    ``min_copper_edge_clearance``, else ``EDGE_CLEARANCE_DEFAULT``), and the switches of ``major``.
+    ``min_copper_edge_clearance``, else ``EDGE_CLEARANCE_DEFAULT``), the board's hole clearance (the
+    project's ``min_hole_clearance``, else ``None``; change c0403), and the switches of ``major``.
 
     A text that the reader refuses is named in ``unread`` with the error's message, and the design keeps
     what that file would have given. The readers' warnings and infos are appended to ``issues``.
@@ -96,6 +97,7 @@ def design_rules_from_texts(
     evidence: list[Evidence] = []
     minimum: Nm | None = None
     edge: Nm = EDGE_CLEARANCE_DEFAULT
+    hole: Nm | None = None
     opaque = 0
     if project_text is not None:
         name = f"{file_stem}.kicad_pro"
@@ -108,6 +110,7 @@ def design_rules_from_texts(
         else:
             design, minimum = applied, info.floors.get(CLEARANCE)
             edge = pro.project_minimums(info.data).get(EDGE_KEY, EDGE_CLEARANCE_DEFAULT)
+            hole = pro.project_hole_clearance(info.data)
             found.extend(read)
             evidence.append(pro.EVIDENCE)
     if rules_text is not None:
@@ -133,6 +136,7 @@ def design_rules_from_texts(
         min_edge_clearance=edge,
         edge_floor_over_rules=major in lowering.FLOOR_OVER_RULES.get(EDGE_KEY, frozenset()),
         clearance_tolerance=KICAD_DRC_EPSILON_NM,
+        min_hole_clearance=hole,
     )
 
 

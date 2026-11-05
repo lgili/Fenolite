@@ -89,6 +89,7 @@ class BuildCopperCheck:
     clearance: int = field(metadata={"optional": True})
     edge_clearance: int = field(metadata={"optional": True})
     evidence: Evidence = field(metadata={"optional": True})
+    hole_clearance: int = field(metadata={"optional": True})
     mode: str
     mode_source: str
     ran: bool

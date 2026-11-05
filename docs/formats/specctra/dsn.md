@@ -133,13 +133,19 @@ the change (`tests/data/specctra/c0107_before_*.dsn`).
   name order); each other group is a class named `<class>@<n>` by the writer's namer, with
   `(use_layer <layers in stack order>)` in its circuit and the class's values. A net without a class that
   has a set is written in a class named from `CLASS`, one per layer set, with the default rule's values.
-- **Rules.** A closed table, combined by maximum, so the router keeps at least what any rule asks:
+- **Rules.** A closed table. Board-wide clearances and widths combine by maximum, so the router keeps at
+  least what any of them asks. A clearance between classes is the governing rule's (change c0403, F8,
+  `INFERRED`: no Freerouting run backs it yet): the clearance rules are taken in the order of
+  `rule_precedence` (priority 0 first, then descending priority, priority 1 last; ties by name, then id),
+  and the last that covers a pair of written classes sets that pair, as KiCad applies the later rule
+  (`H-K-DRU-ORDER`). Before c0403 every pair took the maximum of the rules that named it:
 
   | model rule (severity not `ignore`) | written as |
   |---|---|
   | `clearance`, one side `all` or absent, the other `all` or absent | the default rule's clearance and every class clearance raised to at least `min` |
-  | `clearance`, one side a class or an `or` of classes, the other `all` or absent | one `class_class` per class of that side and per other written class; the class's own clearance is not raised; nets without a class keep the default clearance against it, with `specctra.rule-not-sent` (`netclass Default` without such a class: the default rule is raised, every class keeps its value) (change c0197, `H-G-DSN-ONE-SIDED`) |
-  | `clearance`, both sides classes or `or`s of classes | one `class_class` per pair of written classes and of their groups; a class against itself takes the last such rule of the board, its own clearance a floor (change c0197) |
+  | `clearance`, one side a class or an `or` of classes, the other `all` or absent | one `class_class` per class of that side and per other written class, unless a later rule governs that pair (change c0403, `INFERRED`); the class's own clearance is not raised; nets without a class keep the default clearance against it, with `specctra.rule-not-sent` (`netclass Default` without such a class: the default rule is raised, every class keeps its value) (change c0197, `H-G-DSN-ONE-SIDED`) |
+  | `clearance`, both sides classes or `or`s of classes | one `class_class` per pair of written classes and of their groups, at the value of the pair's governing rule, which may be below an earlier one-sided or two-sided rule (change c0403, `INFERRED`) |
+  | `clearance`, a class on both sides (governing rule of the class against itself) | the class's `rule (clearance)` takes its value, even below the class's own clearance; when it goes below, a `class_class` per other written class keeps the larger of the two classes' previous values (class clearance raised by the board-wide rules, or the class's own rule when above), unless a rule governs that pair. With nets without a class in the file, which would take the lower value against the class, the class keeps its previous value and `specctra.rule-widened` names the rule and the class. A board-wide rule stays a floor: the value is raised to it, with `specctra.rule-widened` naming the rule (change c0403, `INFERRED`; before: the class's own clearance a floor, change c0197) |
   | `track_width`, A classes, with `opt` | their width becomes `opt`; with a layer clause, `layer_rule` per layer instead |
   | `track_width`, A `all`, with `opt` | `opt` for the classes without a width of their own and for the nets without a class; a class width is kept, clamped into `[min, max]`, with one `specctra.rule-widened` naming the rule and those classes (change c0197, `H-G-DSN-WIDTH-ALL`) |
   | `track_width`, A `all` or classes, without `opt` | each of those widths clamped into `[min, max]` |
