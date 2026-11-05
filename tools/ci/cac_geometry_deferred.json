@@ -11,12 +11,12 @@
     {
       "nodeid": "tests/corpus/test_altium_pour_census.py::test_pour_time[altium-third-party-pcbdoc-05]",
       "family": "enumeration-node",
-      "test_file_sha256": "5de00c444da394b425b162d4c92bba8a9e91147f60bd413a5b1143622190ed6b"
+      "test_file_sha256": "17733e42c14c91aab6be643d3611ea47544d9d7dff7fa90342bad3d031f6ad6c"
     },
     {
       "nodeid": "tests/corpus/test_altium_pour_census.py::test_pour_census[altium-third-party-pcbdoc-05]",
       "family": "enumeration-node",
-      "test_file_sha256": "5de00c444da394b425b162d4c92bba8a9e91147f60bd413a5b1143622190ed6b"
+      "test_file_sha256": "17733e42c14c91aab6be643d3611ea47544d9d7dff7fa90342bad3d031f6ad6c"
     },
     {
       "nodeid": "tests/corpus/test_altium_rta3.py::test_sets[altium-set:02]",
