@@ -23,8 +23,9 @@
   "error 13" line. Done: PR https://github.com/lgili/fenolite-library/pull/2 merged as `b7e141ea` after runs
   42008760140, 42008759586 and 42008770439; gallery run 42010062912 on `b7e141ea` deployed with no
   "error 13" or `/.cache` line in its log.
-- [ ] 3.2 Once c0405 is on Fenolite `dev`: the library pin moves to that commit and `gallery.yml` passes
+- [x] 3.2 Once c0405 is on Fenolite `dev`: the library pin moves to that commit and `gallery.yml` passes
   `--renders` (board views through `kicad-cli pcb export svg --page-size-mode 2 --exclude-drawing-sheet`,
   the block usage sheets as `schematic.kicad_sch`), drops the old render tolerance, and writes
   `result.placeholders` into the job summary. Proof: library checks and a gallery run green on the PR, then
   the deploy from `main`.
+  - Done on 2026-11-05: fenolite-library PR 3 (https://github.com/lgili/fenolite-library/pull/3) moved the pin to 3675515a and merged as 7ebbd960; gallery run 42039495006 deployed https://lgili.github.io/fenolite-library/ with the new template, all six boards (pic_programmer included) and the block sheet.
