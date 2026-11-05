@@ -19,7 +19,7 @@ EXPECTED = {
     "altium-third-party-pcbdoc-01": (0, 5),
     "altium-third-party-pcbdoc-02": (0, 0),
     "altium-third-party-pcbdoc-03": (0, 0),
-    "altium-third-party-pcbdoc-04": (1, 1),
+    "altium-third-party-pcbdoc-04": (0, 1),  # c0411: the component keep-out is a footprint area
     "altium-third-party-pcbdoc-05": (0, 0),
     "altium-third-party-pcbdoc-06": (2, 0),
     "altium-third-party-pcbdoc-07": (0, 0),

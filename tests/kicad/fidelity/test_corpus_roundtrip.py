@@ -30,6 +30,9 @@ def test_demo_project_roundtrip(board: dict[str, object], tmp_path: Path) -> Non
     original = materialize(board, ROWS, tmp_path / "original")
     started = time.monotonic()
     reply = roundtrip(original, tmp_path / "roundtrip")
+    if reply.exit_code == 6 and reply.error and reply.error.get("code") == "FEN-6002":
+        # the derived padvia cache proof of change c0413 needs KiCad 10; on 9 the row is not measurable
+        pytest.skip(f"{ident}: {reply.error['message']}")
     counts = difference_counts(reply)
     measurement = {
         "probe": "fidelity-demos", "id": ident, "counts": counts,
