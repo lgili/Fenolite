@@ -109,6 +109,15 @@ fenolite equivalent blink/build blink/altium/lamp.PrjPcb --level 2 --json
 index-table faults (`altium.integrity.*`) in a PCB document. Python edit sessions are gated off
 (`altium.edit.gate`).
 
+```fenolite-cmd
+fenolite explain altium.import.pcb-net-conflict --json
+fenolite explain import.arc-as-track --json
+```
+
+Reading a project, `altium.import.pcb-net-conflict` warns of pins that the PCB puts on another net than
+the sheets: the circuit keeps the sheet net, each pad its board net. Update one side in Altium. An arc
+whose three points lie on one line becomes a straight track (`import.arc-as-track`).
+
 ## Keep native schematic presentation
 
 Review `result.schematic_composition` and its SVGs (`INFERRED`). Groups follow blocks, modules,

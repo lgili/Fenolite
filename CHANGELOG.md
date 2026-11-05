@@ -135,11 +135,13 @@ All notable changes to Fenolite are documented here. The format follows
 - **Import copper coverage** (c0375): `import --to python` writes tracks and arcs on no net as track and
   arc tables without `net=` (the DSL tables now take no net), an arc whose three points lie on one line as
   the straight track it draws (reported once as the new info `import.arc-as-track`), and repeated or padded
-  zone names exactly: `Design.zone` with `key=` accepts a name that repeats or holds surrounding spaces.
+  zone names exactly: `Design.zone` with `key=` accepts a name that repeats or holds surrounding spaces. The
+  agent guide pages `files` and `altium` teach both.
 
 - **PCB net conflicts** (c0373): a pin that a net of the Altium sheets holds is no longer also added to a
   net that only the PCB document holds; the pad keeps its own net on the board and the new warning
   `altium.import.pcb-net-conflict` names each such pin with both nets (schematic and board out of sync).
+  The agent guide page `altium` explains it.
 
 - **Generated schematic limit** (c0372): when the schematic generator cannot lay an Altium circuit out on
   one A0 page, `convert --to kicad` still writes the board and declares the schematic lost (exit 7 without
