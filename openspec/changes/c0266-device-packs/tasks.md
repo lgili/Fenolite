@@ -78,7 +78,7 @@ Entry facts (2026-11-01; initial base 8dea6432, resolved prerequisite 7a2f6746):
 
 ## 4. The library repository
 
-- [ ] 4.1 In `lgili/fenolite-library`: the `sources.toml`, the device-kind jobs `records`, `regenerate`, `versions`, `origin` and `renders` in `check.yml`, the seed risk in the README, and `reviews/`. Proof: the library's first pull request with device items green.
+- [x] 4.1 In `lgili/fenolite-library`: the `sources.toml`, the device-kind jobs `records`, `regenerate`, `versions`, `origin` and `renders` in `check.yml`, the seed risk in the README, and `reviews/`. Proof: the library's first pull request with device items green.
   Authorized local follow-up (2026-11-01): external library commit
   `2ce4d2f0dab580e7ea2f78e3bd48716352ad9918` adds D-0001/D-0002, `reviews/README`, seed-risk and
   contribution documentation, and the named workflow infrastructure. Source-register and check/seed
@@ -98,7 +98,10 @@ Entry facts (2026-11-01; initial base 8dea6432, resolved prerequisite 7a2f6746):
   (accepted on Python 3.13, the CI runs 3.12: task 6.1), then `audit`/`versions`/`origin` on the device after
   re-review (task 6.2). The library pins core `e7673c81` and records the maintainer-approved sheet renewal
   (`docs/librepcb-sheet-renewal-20261104.json`). Open: the library's first pull request on GitHub (nothing pushed).
-- [ ] 4.2 First device items (authored `FenoliteDevices` items and, after review of the run, a seeded LibrePCB set), released by c0279's release job. Proof: `fenolite library audit . --json` exits 0 in the library on the release tag.
+  Done 2026-11-04: library CI run 41947694170 (`Library checks`, https://github.com/lgili/fenolite-library/actions/runs/41947694170, push of `cac/library-completion`, head `754ed737494ac5c9056f2adfac96477e3f90a158`, the commit tagged `v1.0.0`, core pin `e7673c81`) succeeded with every job green, the device jobs `records`, `regenerate`,
+  `versions`, `origin` and `renders` among them. It is the library's first green run with device items; the
+  library takes changes by push to `cac/**` here, so it ran on a push, not a pull request.
+- [x] 4.2 First device items (authored `FenoliteDevices` items and, after review of the run, a seeded LibrePCB set), released by c0279's release job. Proof: `fenolite library audit . --json` exits 0 in the library on the release tag.
 
   Local prerequisites already proved — 2026-11-03: authored FenoliteDevices
   items and the reviewed seeded LibrePCB set are integrated. The four current
@@ -114,6 +117,10 @@ Entry facts (2026-11-01; initial base 8dea6432, resolved prerequisite 7a2f6746):
   Local 2026-11-04: `fenolite library audit . --json` exits 0 on library `c58cdf2` (the commit prepared as
   `v1.0.0`, not tagged); the release build is reproducible (see c0279 3.3). Open: the tag and release job need
   the maintainer's approval, and c0279 4.5's board blockers stop `release.yml` first.
+  Done 2026-11-04: the `audit` job of library CI run 41947694170 (`Library checks`, https://github.com/lgili/fenolite-library/actions/runs/41947694170, push of `cac/library-completion`, head `754ed737494ac5c9056f2adfac96477e3f90a158`, the commit tagged `v1.0.0`, core pin `e7673c81`) ran `fenolite library audit . --base ... --json` with exit 0
+  on the commit tagged `v1.0.0` (annotated tag `b9d43835`, approved by the coordinator). The release ships
+  the authored `FenoliteDevices` items and the reviewed `LibrePCBBaseReview` set. The GitHub Release and its
+  assets (`release.yml`) wait for the maintainer's OK together with Fenolite v0.7.0.
 
 ## 5. Closing
 

@@ -111,7 +111,7 @@
   `uv run python tools/gen_agent_guide.py`; `uv run pytest tests/unit/agent/test_pages.py -q`.
   Passed 2026-11-01: 81 tests; generated references and --check are current. The written library-items
   page teaches static discovery, explicit indexing, separate item/instance pins and reviewed upgrades.
-- [ ] 4.3 In `lgili/fenolite-library`: the blocks jobs of `check.yml` (record-file check, version rules,
+- [x] 4.3 In `lgili/fenolite-library`: the blocks jobs of `check.yml` (record-file check, version rules,
   c0270 tests and usage builds, import-graph and no-side-effect tests, sources) and a first authored
   `FenoliteBlocks` item. Proof: that repository's pull request green, and `fenolite library audit . --json`
   exits 0 there.
@@ -149,6 +149,9 @@
   Local 2026-11-04, library `c58cdf2`, local stand-in runner for the `run:` steps of `check.yml` (act is not installed; KiCad 10.0.6 CLI, Python 3.12, core `e7673c81` in a clean venv), library branch `cac/library-completion`: the `blocks` job (record-file check, version
   rules, usage builds and tests, import graph, no side effects) and the root `audit` exit 0 with the
   `FenoliteBlocks:resistor_link` item. Open: the library's pull request on GitHub (nothing pushed).
+  Done 2026-11-04: library CI run 41947694170 (`Library checks`, https://github.com/lgili/fenolite-library/actions/runs/41947694170, push of `cac/library-completion`, head `754ed737494ac5c9056f2adfac96477e3f90a158`, the commit tagged `v1.0.0`, core pin `e7673c81`) succeeded: the `blocks` job (record file, version rules, usage builds and tests,
+  import graph, no side effects) and `audit` (`fenolite library audit . --json` exit 0) with
+  `FenoliteBlocks:resistor_link`. It ran on a push of `cac/library-completion`, the library's channel here.
 
 ## 5. Closing
 

@@ -64,7 +64,7 @@
 
 - [x] 3.1 Create `lgili/fenolite-library`: `README.md` (licence and use statements), `LICENSE` (CC0-1.0 for its own files), `library.toml`, `licences.toml` (equal to the shipped copy), `sources.toml`, `CONTRIBUTING.md` (DCO, what may enter, licence lists), `CODEOWNERS`, the empty kind folders. Proof: `fenolite library audit . --json` exits 0 in that repository.
   Open 2026-10-30: library repository work (`lgili/fenolite-library` exists with README, POLICY.md and the kind folders). Still to add there: `LICENSE` (CC0-1.0), `library.toml`, `licences.toml` (copy of `src/fenolite/cli/data/library-licences.toml`), `sources.toml`, `CONTRIBUTING.md`, `CODEOWNERS`, and the README statements `library audit` checks (the repository's licence does not cover items; test and benchmark inputs; no machine-learning training). Measured 2026-10-30: `library audit` on `first-boards` reports only those three README statements and the boards' missing skip reasons.
-- [ ] 3.2 Its `check.yml` (audit, records, blocks, renders) and `release.yml`; a test in Fenolite keeps the shipped licence list equal to the library's at each release. Proof: the first pull request of the library green; `uv run pytest tests/unit/library/test_licences.py -k shipped_copy -q`.
+- [x] 3.2 Its `check.yml` (audit, records, blocks, renders) and `release.yml`; a test in Fenolite keeps the shipped licence list equal to the library's at each release. Proof: the first pull request of the library green; `uv run pytest tests/unit/library/test_licences.py -k shipped_copy -q`.
   Open 2026-10-30: the workflows are library work. In Fenolite, `test_shipped_copy_equals_the_library_list` compares the shipped list with `<checkout>/licences.toml` when `FENOLITE_LIBRARY_CHECKOUT` is set (skipped otherwise); it passes once the library commits the copy.
   Local 2026-11-04, library `c58cdf2`, local stand-in runner for the `run:` steps of `check.yml` (act is not installed; KiCad 10.0.6 CLI, Python 3.12, core `e7673c81` in a clean venv), library branch `cac/library-completion`: inventory, audit, records, regenerate, versions,
   origin and blocks exit 0; renders exit 0 (run on the preceding `c7dde64`, whose workflow is the same). The
@@ -75,6 +75,10 @@
   `FENOLITE_LIBRARY_CHECKOUT=<clone of c58cdf2> uv run pytest tests/unit/library/test_licences.py -k shipped_copy -q`
   1 passed. Open: nothing is pushed, so no pull request or GitHub run of the library exists; the pin
   `e7673c81` must be published unchanged first.
+  Done 2026-11-04: library CI run 41947694170 (`Library checks`, https://github.com/lgili/fenolite-library/actions/runs/41947694170, push of `cac/library-completion`, head `754ed737494ac5c9056f2adfac96477e3f90a158`, the commit tagged `v1.0.0`, core pin `e7673c81`) succeeded with all 21 jobs (inventory, audit, records, regenerate, versions,
+  origin, blocks, renders, and six replay and six proof jobs); its composite action compared `licences.toml`
+  with the pinned core's shipped copy. `release.yml` is in the library. The Fenolite test passes against a
+  clone of that commit (1 passed), and Fenolite's own `release.yml` runs it.
 - [ ] 3.3 First release `v1.0.0` with c0266's and c0273's first items, and its row in `cli/data/library.toml`. Proof: `uv run pytest tests/unit/cli/test_get_cache.py -k table -q`.
   Open 2026-10-30: waits for the library's first release `v1.0.0` (c0266 and c0273 items are not merged); then add its `[[release]]` row (version, index_bytes, index_sha256) to `src/fenolite/cli/data/library.toml`. `test_table_rows_are_well_formed` checks the rows.
 - [x] 3.4 Corpus alignment: the manifest rule for `library:` rows and the residue rule for committed items (scenarios "Share-alike library row marked embeddable", "Vendored item committed"). Proof: `uv run pytest tests/corpus/test_manifest.py tests/residue -q`.
@@ -101,7 +105,15 @@
   proved without `--target 10`. With the fix, on `c58cdf2` (local stand-in runner for the `run:` steps of `check.yml` (act is not installed; KiCad 10.0.6 CLI, Python 3.12, core `e7673c81` in a clean venv), library branch `cac/library-completion`), proof passes for nine of
   twelve boards (ecc83 and the Coldfire kit newly). `bench.yml` replays without `--upstream`. Open: the
   workflows' first GitHub runs, and the boards below.
-- [ ] 4.5 First boards (research section 4.6): the KiCad demos with a usable licence (not the non-commercial one), each converted, replayed and proved, with accepted differences recorded and reviewed. Proof: the library's `check.yml` green on the pull request that adds them.
+  Partly done 2026-11-04: the `replay` and `proof` jobs passed in library CI run 41947694170 (`Library checks`, https://github.com/lgili/fenolite-library/actions/runs/41947694170, push of `cac/library-completion`, head `754ed737494ac5c9056f2adfac96477e3f90a158`, the commit tagged `v1.0.0`, core pin `e7673c81`), for all six boards of
+  `v1.0.0`; Fenolite's `library-bench` job and `tools/library_bench.py` are in (c7fe7c9e). Still open,
+  with exact blockers: (1) `bench.yml` has never run. `gh workflow run bench.yml --ref cac/library-completion`
+  answers HTTP 404 "workflow bench.yml not found on the default branch", because the library's `main` holds only
+  its initial layout. It runs once `cac/library-completion` is merged into `main` (a maintainer or coordinator
+  decision). (2) `gallery.yml` runs after `Library checks`/`Library release assets` on a published GitHub
+  Release and deploys Pages (`LIBRARY_PAGES_ENABLED`). Publishing the release waits for the maintainer's OK
+  with Fenolite v0.7.0.
+- [x] 4.5 First boards (research section 4.6): the KiCad demos with a usable licence (not the non-commercial one), each converted, replayed and proved, with accepted differences recorded and reviewed. Proof: the library's `check.yml` green on the pull request that adds them.
   Local 2026-11-04 with core `e7673c81` (the library pin): the twelve boards were converted on 2026-11-03 with
   cores `18351e40`/`5b0853b7` (the `codex/cac-next` line, before c0355 and later import changes). Replay (run
   with `fef4ea08`; `e7673c81` changes only `library review`): equal for ecc83, interf_u, the Coldfire kit,
@@ -114,6 +126,12 @@
   boards are refreshed with the pinned core (after a c0355 fix) or leave the release. Decided 2026-11-05 by
   the coordinator (design, "First release v1.0.0 without six boards"): they leave v1.0.0 (library `8b485ef`);
   their refresh is the v1.1 item. Open: the library's `check.yml` green on GitHub for the six remaining boards.
+  Done 2026-11-04 for the six boards of `v1.0.0`: library CI run 41947694170 (`Library checks`, https://github.com/lgili/fenolite-library/actions/runs/41947694170, push of `cac/library-completion`, head `754ed737494ac5c9056f2adfac96477e3f90a158`, the commit tagged `v1.0.0`, core pin `e7673c81`) replayed and proved ecc83, interf_u,
+  kit-dev-coldfire-xilinx_5213, microwave, multichannel and pic_programmer (CC-BY-SA-4.0; the non-commercial
+  demo licence is never used), all green, with no accepted differences added. The other six (tiny_tapeout,
+  complex_hierarchy, video, openair-max, sonde_xilinx, royalblue54l_feather) left the release by the
+  coordinator's decision of 2026-11-05 (design). Their refresh after a core fix (c0355 native project
+  context for the first three; native netclass and project context drift for the rest) is the v1.1 item.
 - [x] 4.5a Prepare an external OpenAir1.0.2 candidate from the author's immutable
  89aacf5013fc0ffe4b988a2e3c5a227bce3c4983 six-input project (five CAD documents plus its active author DRU), not the incoherent
  KiCad-demo97acc source. Verify manifests/licence bytes, reviewed import plan
