@@ -15,7 +15,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from fractions import Fraction
 from functools import cmp_to_key
-from math import gcd, lcm
+from math import ceil, floor, gcd, lcm
 
 from fenolite.geometry.boolean._exact_noding import Budget, ExactPoint, Segment, node_segments
 from fenolite.geometry.boolean._exact_seed_index import ClosedYIndex
@@ -253,25 +253,135 @@ def winding(edge: Edge, segments: Sequence[ExactSegment], budget: Budget) -> Cur
     return value[0], value[1]
 
 
+def _closed_rings(segments: Sequence[Segment]) -> tuple[tuple[int, int], ...] | None:
+    """The ranges of ``segments`` that each close a ring, in order, or None when they do not."""
+    rings: list[tuple[int, int]] = []
+    start = 0
+    for i, s in enumerate(segments):
+        if i > start and s.a != segments[i - 1].b:
+            return None
+        if s.b == segments[start].a:
+            rings.append((start, i + 1))
+            start = i + 1
+    return tuple(rings) if start == len(segments) else None
+
+
+def _scaled_winding(edge: Edge, segments: Sequence[Segment], value: list[int], budget: Budget) -> None:
+    """``winding`` on integer sources, every comparison scaled by positive common denominators."""
+    a, b = edge
+    mx, my = (a[0] + b[0]) / 2, (a[1] + b[1]) / 2
+    nx, ny = -(b[1] - a[1]), b[0] - a[0]
+    d = lcm(mx.denominator, my.denominator)
+    x, y = mx.numerator * (d // mx.denominator), my.numerator * (d // my.denominator)
+    e = lcm(nx.denominator, ny.denominator)
+    vx, vy = nx.numerator * (e // nx.denominator), ny.numerator * (e // ny.denominator)
+    below = (vy < 0) - (vy > 0)  # the sign of -n.y, deciding a source endpoint level with the seed
+    budget.visit(len(segments))
+    for i, s in enumerate(segments):
+        if i % 1024 == 0:
+            budget.check()
+        ya, yb = s.a[1] * d - y, s.b[1] * d - y
+        sa = ((ya > 0) - (ya < 0)) if ya else below
+        sb = ((yb > 0) - (yb < 0)) if yb else below
+        up, down = sa <= 0 < sb, sb <= 0 < sa
+        if not (up or down):
+            continue
+        dx, dy = s.b[0] - s.a[0], s.b[1] - s.a[1]
+        orientation = dx * (y - s.a[1] * d) - dy * (x - s.a[0] * d)
+        if orientation == 0:
+            orientation = dx * vy - dy * vx
+        require(orientation != 0, "infinitesimal seed remains on source line")
+        if up and orientation > 0:
+            value[s.channel] += 1
+        if down and orientation < 0:
+            value[s.channel] -= 1
+
+
+class _RingSeeds:
+    """Seed windings summed ring by ring: a closed ring winds zero around a point outside its closed box."""
+
+    def __init__(
+        self, segments: Sequence[Segment], rings: tuple[tuple[int, int], ...], budget: Budget
+    ) -> None:
+        from fenolite.geometry.index import SpatialIndex
+        from fenolite.geometry.shapes import BBox
+
+        self._segments = segments
+        self._rings = rings
+        self._budget = budget
+        self._boxes: list[tuple[Fraction, Fraction, Fraction, Fraction]] = []
+        for lo, hi in rings:
+            budget.visit(hi - lo)
+            xs = [Fraction(c) for s in segments[lo:hi] for c in (s.a[0], s.b[0])]
+            ys = [Fraction(c) for s in segments[lo:hi] for c in (s.a[1], s.b[1])]
+            self._boxes.append((min(xs), min(ys), max(xs), max(ys)))
+        self._index = SpatialIndex[int].build(
+            (
+                (BBox(floor(x0), floor(y0), ceil(x1), ceil(y1)), k)
+                for k, (x0, y0, x1, y1) in enumerate(self._boxes)
+            ),
+            capacity=8,
+        )
+        self._ys: dict[int, ClosedYIndex] = {}
+
+    def winding(self, edge: Edge) -> Current:
+        from fenolite.geometry.shapes import BBox
+
+        a, b = edge
+        mx, my = (a[0] + b[0]) / 2, (a[1] + b[1]) / 2
+        self._budget.coordinate(mx)
+        self._budget.coordinate(my)
+        probe = BBox(mx.__floor__(), my.__floor__(), mx.__ceil__(), my.__ceil__())
+        value = [0, 0]
+        for k in sorted(self._index.query(probe)):
+            x0, y0, x1, y1 = self._boxes[k]
+            self._budget.visit(1)
+            if not (x0 <= mx <= x1 and y0 <= my <= y1):
+                continue
+            lo, hi = self._rings[k]
+            ring = self._segments[lo:hi]
+            if hi - lo > 32:
+                if k not in self._ys:
+                    # integer proxies of the closed y ranges: a rational end widens its range outward
+                    proxies = [
+                        Segment((0, floor(min(s.a[1], s.b[1]))), (0, ceil(max(s.a[1], s.b[1]))), 0)
+                        for s in ring
+                    ]
+                    self._ys[k] = ClosedYIndex(proxies, self._budget)
+                ring = [ring[i] for i in self._ys[k].query(my)]
+            _scaled_winding(edge, ring, value, self._budget)
+        return value[0], value[1]
+
+
 def solve(frame: Frame, segments: Sequence[Segment], budget: Budget) -> dict[int, Current]:
     values: dict[int, Current] = {}
-    exact = tuple(
-        ExactSegment((Fraction(s.a[0]), Fraction(s.a[1])), (Fraction(s.b[0]), Fraction(s.b[1])), s.channel)
-        for s in segments
-    )
     budget.check()
-    # Keep the original exact producer whenever its complete scan fits. This
-    # avoids imposing tree storage on previously affordable connected inputs.
-    index = (
-        ClosedYIndex(segments, budget)
-        if len(segments) * len(frame.exteriors) > budget.remaining_visits
-        else None
-    )
+    rings = _closed_rings(segments)
+    seeds = _RingSeeds(segments, rings, budget) if rings is not None and frame.exteriors else None
+    exact: tuple[ExactSegment, ...] = ()
+    index: ClosedYIndex | None = None
+    if seeds is None:
+        exact = tuple(
+            ExactSegment(
+                (Fraction(s.a[0]), Fraction(s.a[1])), (Fraction(s.b[0]), Fraction(s.b[1])), s.channel
+            )
+            for s in segments
+        )
+        # Keep the original exact producer whenever its complete scan fits. This
+        # avoids imposing tree storage on previously affordable connected inputs.
+        index = (
+            ClosedYIndex(segments, budget)
+            if len(segments) * len(frame.exteriors) > budget.remaining_visits
+            else None
+        )
     for outside in frame.exteriors:
         edge = frame.cycles[outside][0]
-        y = (edge[0][1] + edge[1][1]) / 2
-        selected = exact if index is None else tuple(exact[i] for i in index.query(y))
-        values[outside] = winding(edge, selected, budget)
+        if seeds is not None:
+            values[outside] = seeds.winding(edge)
+        else:
+            y = (edge[0][1] + edge[1][1]) / 2
+            selected = exact if index is None else tuple(exact[i] for i in index.query(y))
+            values[outside] = winding(edge, selected, budget)
         todo = deque([outside])
         while todo:
             face = todo.popleft()
@@ -360,7 +470,9 @@ def boundaries(frame: Frame, values: dict[int, Current], budget: Budget) -> tupl
                 budget.check()
         for ring in split_contacts(tuple(points), budget):
             trimmed = clean(ring, budget)
-            require(len(trimmed) >= 3 and area2(trimmed, budget) != 0, "exact selected boundary collapse")
+            require(
+                len(trimmed) >= 3 and _face_area(trimmed, budget)[1] != 0, "exact selected boundary collapse"
+            )
             loops.append(trimmed)
     require(visited == edges, "unvisited selected halfedge")
     _area_identity(frame, tuple(loops), selected, budget)
@@ -422,15 +534,56 @@ def _component_current_identity(
     require(not balances, "component boundary/selected face current mismatch")
 
 
+def bounded_area2(ring: Ring, budget: Budget) -> Fraction | None:
+    """``area2``, or None when only its running sum, not one of its terms, exceeds the bit bound."""
+    result = Fraction(0)
+    for i, (a, b) in enumerate(zip(ring, ring[1:] + ring[:1], strict=True)):
+        if i % 256 == 0:
+            budget.check()
+        result += checked(a[0] * b[1] - b[0] * a[1], 4096)
+        if max(abs(result.numerator).bit_length(), result.denominator.bit_length()) > 4096:
+            return None
+    return result
+
+
+def _cross_terms(ring: Ring, budget: Budget) -> list[Fraction]:
+    budget.visit(len(ring))
+    return [checked(a[0] * b[1] - b[0] * a[1], 4096) for a, b in zip(ring, ring[1:] + ring[:1], strict=True)]
+
+
+def _sum_or_none(values: Sequence[Fraction | None], budget: Budget) -> Fraction | None:
+    if any(value is None for value in values):
+        return None
+    return global_area_sum([value for value in values if value is not None], budget)
+
+
+def _enclosable(term: Fraction) -> bool:
+    return abs(term.numerator).bit_length() + 32 <= 4096
+
+
+def _enclosure_terms(
+    rings: Sequence[Ring], areas: Sequence[Fraction | None], budget: Budget
+) -> list[Fraction]:
+    """Terms whose directed enclosures sum to an enclosure of the loops' total area: a loop whose scalar
+    area is too wide to scale contributes its bounded cross terms instead (the enclosure of a sum is the sum
+    of the enclosures of its terms)."""
+    terms: list[Fraction] = []
+    for ring, area in zip(rings, areas, strict=True):
+        terms.extend((area,) if area is not None and _enclosable(area) else _cross_terms(ring, budget))
+    return terms
+
+
 def _area_identity(frame: Frame, loops: Sequence[Ring], selected: dict[int, bool], budget: Budget) -> None:
     require(len(loops) <= budget.limits.halfedges, "area loop budget exceeded")
     require(len(frame.cycles) <= budget.limits.faces, "area component face budget exceeded")
-    loop_areas = tuple(area2(ring, budget) for ring in loops)
+    loop_areas = tuple(bounded_area2(ring, budget) for ring in loops)
     face_areas = {
-        i: area2(tuple(a for a, _ in cycle), budget) for i, cycle in enumerate(frame.cycles) if selected[i]
+        i: bounded_area2(tuple(a for a, _ in cycle), budget)
+        for i, cycle in enumerate(frame.cycles)
+        if selected[i]
     }
-    total = global_area_sum(loop_areas, budget)
-    expected = global_area_sum(tuple(face_areas.values()), budget)
+    total = _sum_or_none(loop_areas, budget)
+    expected = _sum_or_none(tuple(face_areas.values()), budget)
     if total is not None and expected is not None:
         require(total == expected and total >= 0, "boundary/selected face area mismatch")
         return
@@ -466,7 +619,7 @@ def _area_identity(frame: Frame, loops: Sequence[Ring], selected: dict[int, bool
                     pending.add(other)
                     todo.append(other)
     require(set(components) == set(range(len(frame.cycles))), "incomplete area component coverage")
-    totals: dict[int, list[Fraction]] = defaultdict(list)
+    totals: dict[int, list[Fraction | None]] = defaultdict(list)
     component_loops: dict[int, list[Ring]] = defaultdict(list)
     for ring, area in zip(loops, loop_areas, strict=True):
         budget.visit(1)
@@ -477,7 +630,7 @@ def _area_identity(frame: Frame, loops: Sequence[Ring], selected: dict[int, bool
             require(points.get(point) == owner, "ambiguous area loop ownership")
         totals[owner].append(area)
         component_loops[owner].append(ring)
-    targets: dict[int, list[Fraction]] = defaultdict(list)
+    targets: dict[int, list[Fraction | None]] = defaultdict(list)
     component_cycles: dict[int, list[Sequence[Edge]]] = defaultdict(list)
     for face, area in face_areas.items():
         budget.visit(1)
@@ -488,16 +641,21 @@ def _area_identity(frame: Frame, loops: Sequence[Ring], selected: dict[int, bool
     lower = upper = 0
     for owner in sorted(owners):
         budget.visit(1)
-        terms = totals.get(owner, [])
-        value = global_area_sum(terms, budget)
-        target = global_area_sum(targets.get(owner, []), budget)
+        terms: list[Fraction] = []
+        value = _sum_or_none(totals.get(owner, []), budget)
+        target = _sum_or_none(targets.get(owner, []), budget)
         if value is None or target is None:
             _component_current_identity(
                 component_loops.get(owner, []), component_cycles.get(owner, []), budget
             )
+            terms = _enclosure_terms(component_loops.get(owner, []), totals.get(owner, []), budget)
         else:
             require(value == target, "component boundary/selected face area mismatch")
-            terms = [value]
+            terms = (
+                [value]
+                if _enclosable(value)
+                else _enclosure_terms(component_loops.get(owner, []), totals.get(owner, []), budget)
+            )
         # Directed integer enclosure is a logical sign proof, NOT a tolerance.
         # Negative hole components remain signed and exterior baselines intact.
         for term in terms:

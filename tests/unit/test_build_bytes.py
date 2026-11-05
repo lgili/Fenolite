@@ -40,49 +40,22 @@ its actual Default class. Its explicit native10 sidecar refuses target9 and Alti
 before staging. Target-specific identity positives and independent refusal tests
 retain both compatibility directions. Full maps are in c0351/carrier-regression-proof.json.
 
-c0332's exact final neck cut is no longer called (maintainer decision, 2026-11-04): the floating
-final cut returns, and with it the one measured platform difference of c0323. Linux writes
-7f49a78f for board_40parts.PcbDoc, macOS writes 01fdc848 (only the Regions6 and ShapeBasedRegions6
-streams differ) and Windows writes 94c3fb4b (CI run 41829443943, 2026-11-04). That single file of that
-single row has its own macOS and Windows digests; every other digest stays the same on every platform.
+c0332's exact final neck cut is connected again (redesign by selective snap rounding, 2026-11-04). Its
+arithmetic is integer and rational only, so board_40parts.PcbDoc has one digest on every platform:
+9e3cabd7, the digest of the reviewed c0332 exact pilot. The floating final cut wrote 7f49a78f on Linux,
+01fdc848 on macOS and 94c3fb4b on Windows (c0323; CI run 41829443943); those per-platform digests are gone.
+Every other file of that row and every other row keep their digests.
 """
 
 from __future__ import annotations
 
-import copy
 import json
-import sys
 from pathlib import Path
 
 import pytest
 from _buildbytes import TABLE, TARGETS, examples, measure
 
 RECORDED: dict[str, dict[str, object]] = json.loads(TABLE.read_text(encoding="utf-8"))
-# The measured macOS and Windows digests of the floating final neck cut (c0323, c0332); see the docstring.
-PLATFORM: dict[str, dict[str, dict[str, str]]] = {
-    "darwin": {
-        "board_40parts@altium": {
-            "board_40parts.PcbDoc": "01fdc8486cd05e964850311b2e473487759ee11f81891da0bfe43220f8698911"
-        }
-    },
-    "win32": {
-        "board_40parts@altium": {
-            "board_40parts.PcbDoc": "94c3fb4bd790fa2ad152e0095f2640834ee1beca65707f715ad40d37a8fad06d"
-        }
-    },
-}
-
-
-def expected_bytes(row: str, platform: str = sys.platform) -> dict[str, object]:
-    """The recorded row, with the digest of a file listed for ``platform`` in ``PLATFORM``."""
-    expected = copy.deepcopy(RECORDED[row])
-    override = PLATFORM.get(platform, {}).get(row, {})
-    files = expected["files"]
-    assert isinstance(files, dict)
-    for name, digest in override.items():
-        assert name in files, (row, name)
-        files[name] = digest
-    return expected
 
 
 @pytest.fixture(autouse=True)
@@ -99,20 +72,12 @@ def test_table_covers_every_example() -> None:
 @pytest.mark.parametrize("row", sorted(RECORDED))
 def test_example_keeps_its_bytes(row: str, tmp_path: Path) -> None:
     example, target = row.split("@")
-    expected = expected_bytes(row)
+    expected = RECORDED[row]
     found = measure(example, target, tmp_path / f"{example}-{target}", expected=expected)
     assert found == expected
 
 
-def test_only_one_file_has_a_platform_digest() -> None:
-    assert {p: {row: sorted(files) for row, files in rows.items()} for p, rows in PLATFORM.items()} == {
-        "darwin": {"board_40parts@altium": ["board_40parts.PcbDoc"]},
-        "win32": {"board_40parts@altium": ["board_40parts.PcbDoc"]},
-    }
-    assert expected_bytes("board_40parts@altium", "linux") == RECORDED["board_40parts@altium"]
-    recorded = RECORDED["board_40parts@altium"]["files"]
-    assert isinstance(recorded, dict)
-    for platform in ("darwin", "win32"):
-        changed = expected_bytes("board_40parts@altium", platform)["files"]
-        assert isinstance(changed, dict)
-        assert {k for k in recorded if recorded[k] != changed[k]} == {"board_40parts.PcbDoc"}
+def test_the_exact_final_cut_digest_is_platform_independent() -> None:
+    files = RECORDED["board_40parts@altium"]["files"]
+    assert isinstance(files, dict)
+    assert files["board_40parts.PcbDoc"] == "9e3cabd7ab7fb0e204fb23c521a63a2985997266f272352d690b3e9a2cd14a98"

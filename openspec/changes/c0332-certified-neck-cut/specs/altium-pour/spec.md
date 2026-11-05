@@ -5,7 +5,24 @@ The final neck-removal difference SHALL use exact signed selection and one half-
 
 #### Scenario: Original corner retained
 - **WHEN** a final neck cut has an original nonzero boundary vertex
-- **THEN** the certified result retains its exact integer coordinate and a nonzero turn, or refuses before writing
+- **THEN** the result retains its exact integer coordinate and a nonzero turn, or refuses before writing, unless the realized boundary passes straight through that coordinate within the existing half-nanometre bound
+
+#### Scenario: Sub-nanometre source turn is flattened, not refused
+- **GIVEN** a source vertex at (0, 0) whose exact neighbour on the cut boundary is (-1, 1/4)
+- **WHEN** the neighbour takes its half-even point (-1, 0)
+- **THEN** the boundary keeps (0, 0) on a straight integer edge, the cut counts the flattened corner and writes no other change
+
+### Requirement: Integer realization by selective snap rounding
+Every exact boundary node SHALL take its half-even integer point. An exact edge SHALL be drawn straight between the points of its ends unless the drawing has a proper crossing, an edge current other than -1, 0 or 1, or a face winding other than 0 or 1; such an edge and the exact edges around it SHALL then pass through the centre of every hot pixel they meet, in order. Every point of every drawing SHALL lie within half a nanometre per axis of its exact edge. A conflict that remains with every edge bent SHALL refuse. Polygons whose grown boxes meet no cut polygon SHALL pass through unchanged; an arrangement above half the source-edge ceiling MAY be cut in vertical strips at integer seams that no cut polygon reaches and no subject vertex has, and SHALL then give the same selection.
+
+#### Scenario: A crossing straight drawing is bent
+- **GIVEN** a node at (3/10, 3/5) below an exact edge from (-10, 2/5) to (10, 9/10)
+- **WHEN** the straight drawings of the rounded nodes cross
+- **THEN** the edge is bent through the hot pixel (0, 1) and the realized boundary has no crossing
+
+#### Scenario: Strips equal one arrangement
+- **WHEN** the same subject and cut polygons are cut whole and in strips
+- **THEN** both give the same polygons
 
 ### Requirement: Existing debris order and certified refusal
 The cut SHALL test piece net area before removing small holes. Every removed whole face SHALL have exact/integer eligibility and unique parent/child ownership; a collapsed loop SHALL have zero signed line currents. Uncertified topology, precision or resource limits SHALL refuse through existing GeometryError without an approximate fallback.

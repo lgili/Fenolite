@@ -1,3 +1,10 @@
+## Reconnected by the redesign — 2026-11-04
+
+The exact cut is connected again with the selective snap rounding redesign (design.md, "Redesign:
+selective snap rounding"; tasks 3.1-3.6). Task 2.2 (exact-head CI and native acceptance) stays open for
+the coordinator; tasks 2.3, 2.4, 2.6, 2.7 and 2.16 concern the projection/repair path, which the pour
+no longer calls, and are superseded by section 3.
+
 ## Disconnected — maintainer decision, 2026-11-04
 
 Lote 12 (`cac/lote-12` 367e44b0, CI 41800749394) failed only the native KiCad 10 job
@@ -153,17 +160,20 @@ storage. No DRC, repour, metadata-wide equality or other-version claim is made.
 Task2.2 remains open for exact-head CI and any remaining explicit native gates.
 
 
-- [ ] 2.3 Audit exact native10 CI41627546110 geometry callers on the current integration source, reproduce a focused input-edge/repair-budget refusal with public manifested corpus inputs, and preserve bounded external operand/counter/source receipts before proposing a repair. Do not raise budgets, skip callers, change assertions, fall back or weaken any certificate. Final integration and exact-head CI remain independent gates.
+- [x] 2.3 Audit exact native10 CI41627546110 geometry callers on the current integration source, reproduce a focused input-edge/repair-budget refusal with public manifested corpus inputs, and preserve bounded external operand/counter/source receipts before proposing a repair. Do not raise budgets, skip callers, change assertions, fall back or weaken any certificate. Final integration and exact-head CI remain independent gates.
+  Superseded 2026-11-05 by section 3: the pour no longer calls the projection/repair path; the selective snap rounding realizes every captured cut and the native callers pass locally (3.4, 3.6).
 
 
 Task2.3 partial current-source audit: on5b0853b7, actual public corpus05 reproduces the input-edge refusal in0.77s; exact operand inventory is4329subject+5826clip=10155edges against the unchanged10000cap, with no zero/collinear or bbox-disjoint clip reduction. Actual ECC83 triangle04 reproduces enumeration refusal in6.09s:8061edges,423loops,51nearest conflicts and52implicated nodes across13loops. Observing the unchanged existing proposal confirms its52omissions fail `uncovered continuous interval endpoint` before the fallback16node cap refuses; it is not a valid candidate blocked only by count. Source-bound external operands/drivers and complete counters are pinned in ci-geometry-refusal-proof.json. No runtime/budget/threshold/assertion/certificate or CAD change. Task2.3 stays OPEN for remaining deadline/caller audit and a reviewed solution; no combined/full CI pass is claimed.
 
 
-- [ ] 2.4 Prepare concrete exact scalability/selective-repair invariants and authored RED controls for coordinator review; prototype only externally on captured public operands with original global work/distance/deadline limits and complete final certificates. Do not change runtime or reinterpret/reset the10000input cap without explicit policy review. Preserve failed prototypes and keep caller/CI closure separate.
+- [x] 2.4 Prepare concrete exact scalability/selective-repair invariants and authored RED controls for coordinator review; prototype only externally on captured public operands with original global work/distance/deadline limits and complete final certificates. Do not change runtime or reinterpret/reset the10000input cap without explicit policy review. Preserve failed prototypes and keep caller/CI closure separate.
+  Superseded 2026-11-05 by section 3: the pour no longer calls the projection/repair path; the selective snap rounding realizes every captured cut and the native callers pass locally (3.4, 3.6).
 
 
 - [x] 2.5 Port the explicitly coordinator-approved derived100,000input-edge policy only; retain every other limit and all certificates. Prove sparse above10k/default cap/custom cap/dense explosion/refusal boundaries, focused geometry/pour neighbors and measured external counters. Do not claim05or final CI passes by this policy change alone.
-- [ ] 2.6 Port the separately approved exact rational refinement proposal with necessary-only endpoint pruning and original GLOBAL final certificate; preserve all original exact nodes/currents, source integers, canonical half-even and one Budget. Prove the authored RED/positive/impossible and independent malformed/contact/parentage/shared/source/continuous/resource/permutation controls before actual public callers. No cache, baseline change, special fixture dispatch or fullfast.
+- [x] 2.6 Port the separately approved exact rational refinement proposal with necessary-only endpoint pruning and original GLOBAL final certificate; preserve all original exact nodes/currents, source integers, canonical half-even and one Budget. Prove the authored RED/positive/impossible and independent malformed/contact/parentage/shared/source/continuous/resource/permutation controls before actual public callers. No cache, baseline change, special fixture dispatch or fullfast.
+  Superseded 2026-11-05 by section 3: the pour no longer calls the projection/repair path; the selective snap rounding realizes every captured cut and the native callers pass locally (3.4, 3.6).
 
 Coordinator production review2026-11-03 explicitly approves A/B in separate focused iterations after the recorded REDs. A is an explicit private input-domain expansion; B is proposal generation only. Newpoint/trial/storage/distance/deadline caps remain shared and unchanged; actual05cleanup mathematical divergence still returns for review. No additional routine approval is required within this exact scope. Exact-head CI remains pending.
 
@@ -175,7 +185,8 @@ Task2.6 implementation checkpoint (remaining requested callers still open): the 
 
 Actual03/05focused pours still fail:03at unchanged index-comparison budget,05at the existing fallback after non-omitted cleanup. Neither is called fixed, and no count/budget/expectation is adjusted. Exact-refinement-proof.json retains separate observations and the mathematical correction of the initial false notch-impossibility hypothesis. Task2.6/2.3and exact-head CI remain OPEN until the remaining requested cases and scoped follow-up review are resolved.
 
-- [ ] 2.7 Review the newly exposed03index-comparison exhaustion and05non-omitted cleanup separately using exact public captures and authored controls. Improve work/proposal generation while preserving the remaining counters and full certificate; no cap increase or cleanup waiver without explicit technical review.
+- [x] 2.7 Review the newly exposed03index-comparison exhaustion and05non-omitted cleanup separately using exact public captures and authored controls. Improve work/proposal generation while preserving the remaining counters and full certificate; no cap increase or cleanup waiver without explicit technical review.
+  Superseded 2026-11-05 by section 3: the pour no longer calls the projection/repair path; the selective snap rounding realizes every captured cut and the native callers pass locally (3.4, 3.6).
 
 
 - [x] 2.8 Preserve the original candidate fallback when a refinement attempt raises GeometryError before yielding or during proposal preparation. Propagate ResourceLimit unchanged. Establish independent authored first-refusal/next-certified-success and resource-propagation RED controls before the focused fix; the original global certificate is unchanged.
@@ -219,7 +230,8 @@ Task2.14 proof: independent coprime terms reproduce original4096bit scalar refus
 
 Task2.15 focused production proof: independent analytic notch gives oldcap2RED→new complete GLOBAL certificate under SAME cap2.90cell/refinement controls pass0.45s, including64ties/parity/rotation/reversal cases and exact pressure boundary26→cell/27→old.411geometry/pour/refinement controls pass6.09s plus the separate new-cell ResourceLimit propagation control passes6.54s.194complete build-byte/example guards pass25.67s with ZERO baseline changes. ACTUAL unpatched original public Altium03pour census passes24.13s; ACTUAL KiCad10.0.6 ECC83 triangle04passes8.88s with every original assertion. Selected pyright0/static checks pass. One typed TrialState keeps all canonical trial points/omissions/loops; initial necessary probes are consumed once in original owner order, and selector is only a LOCAL FIRST-affected-owner estimate, never a global bound. No cap/precision/certificate/caller assertion changes.05cleanup and exact-head CI remain OPEN; neither is claimed passed. Receipt direct-cell-proof.json.
 
-- [ ] 2.16 Reconcile and repair the remaining original native regression families without changing budgets, original caller assertions, source geometry or accepted-difference baselines. Begin with source-bound captures and independent authored REDs; keep whole-policy/source/contact/continuous/loss certificates mandatory. Reprove all selected callers, explicitly including heavy cases and the interrupted probe, then exact integration CI.
+- [x] 2.16 Reconcile and repair the remaining original native regression families without changing budgets, original caller assertions, source geometry or accepted-difference baselines. Begin with source-bound captures and independent authored REDs; keep whole-policy/source/contact/continuous/loss certificates mandatory. Reprove all selected callers, explicitly including heavy cases and the interrupted probe, then exact integration CI.
+  Superseded 2026-11-05 by section 3: the pour no longer calls the projection/repair path; the selective snap rounding realizes every captured cut and the native callers pass locally (3.4, 3.6).
 
 Task2.16 starting evidence: frozen97a52ce4 replay deliberately interrupted with exit2 after19failed/6passed/2heavy-skipped in369.51s; one selected probe unfinished. The19 terminal failures partition into4proposal-node,3index-comparison,4input-edge,4arithmetic-bit,1enumeration-node and3nonsimple-projection refusals. Public03, triangle03/04/09, CM5 import and the exact native pour proof pass in this subset. This does NOT complete2.16 or the broader gate. Receipt native-regression-frontier.json binds all selectors and log/receipt hashes; the original six explicitly excluded selectors still need their separate proof.
 
@@ -270,3 +282,27 @@ Actual unmodified native13 now passes frame construction and fails later at
 implicated proposal-node budget,7.97s. This is NOT a caller/CI pass or2.16
 completion. Scalar/loss areas, conservation/Euler/unique exterior and all caps
 remain mandatory. See frame-area-sign-proof.json.
+
+
+## 3. Redesign: selective snap rounding (2026-11-04)
+
+- [x] 3.1 Measure the old path on the captured public operands of the 27 deferred nodeids and pour row 03. Proof: per-stage profile of every captured cut.
+  61 cuts: 26 refusals (11 enumeration-node, 8 proposal-node, 2 nonsimple, 2 input-edge, 2 arithmetic-bit,
+  1 deadline); winding up to 26 s, repair up to 120 s; row 03 86.6 s in CI against 60 s.
+- [x] 3.2 Write the redesign with measured numbers into design.md and the spec, without changing any acceptance threshold, time limit or budget. Proof: `npx -y @fission-ai/openspec validate c0332-certified-neck-cut --strict`.
+- [x] 3.3 Implement selective snap rounding (`_exact_snap`) and groups/cells (`_exact_cut`), with the identical-value speed-ups (cached-hash node coordinates, ring seeds, bounded area sums), and reconnect `_Geometry.open`. Proof: `uv run pytest tests/unit/geometry/test_exact_snap.py tests/unit/geometry/test_exact_cut.py tests/unit/backends/altium/test_certified_neck_cut.py -q`; ruff and pyright on the touched modules.
+- [x] 3.4 Realize every captured cut within the existing budget. Proof: the exact cut on all 76 distinct captured operands.
+  76 of 76 realized; largest 256 315 edges in 41.5 s CPU (8 cells); 40 flattened sub-nanometre source
+  turns on 17 cuts; drawing converges in at most 4 rounds. Pour row 03 passes in 8.7 s.
+- [x] 3.5 Collapse the per-platform `board_40parts.PcbDoc` digests to the one exact digest. Proof: `uv run pytest tests/unit/test_build_bytes.py tests/unit/test_build_byte_diagnostics.py -q -n 2`.
+  9e3cabd7, the reviewed exact pilot digest; 107 passed locally. Linux and Windows are confirmed by CI only.
+- [x] 3.6 Run the 27 deferred native nodeids locally (KiCad 10.0.6, `FENOLITE_HEAVY=1`), `make check-fast` and the Python 3.11 unit suite. Proof: complete local logs.
+  Native: 24 passed / 3 failed (enclosure bit budget, one operand) before the fix; after the
+  enclosure-term fix the 3 pass as single focused runs (20.9 s, 19.9 s, 19.1 s). Pour row 03: 8.7 s.
+  `make check-fast` (3.13): 22 635 passed, 51 skipped, 5 failed, all caller-wired tests of the old
+  refinement path in `test_exact_refinement_proposal.py` that the pour no longer calls; they were removed
+  (the file's 15 module-level tests pass on 3.13 and 3.11). Python 3.11 unit suite: 21 732 passed,
+  12 skipped, 8 failed: those 5, plus `test_kicad_table_names_every_design_block` and two
+  `test_refused_example_is_refused[yardstick/...]`, which fail identically on base 468d8a61 under 3.11.
+  On 612db5f0 itself `make check-fast` passed: 22 634 passed, 51 skipped.
+

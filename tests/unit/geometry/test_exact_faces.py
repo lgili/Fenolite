@@ -165,13 +165,21 @@ def test_disconnected_sparse_components_do_not_scan_unrelated_y_intervals() -> N
         for ring in (((3 * i, 3 * i), (3 * i + 1, 3 * i), (3 * i + 1, 3 * i + 1), (3 * i, 3 * i + 1)),)
         for a, b in zip(ring, ring[1:] + ring[:1], strict=True)
     )
+    # Closed rings in order: seeds sum ring by ring, visiting only rings whose closed box holds the seed.
     budget = Budget(replace(Limits(), winding_visits=5000))
     loops = exact.difference_loops(segments, budget)
     assert len(loops) == 100
     assert all(exact.area2(ring, budget) == 2 for ring in loops)
+    assert budget._visits == 900
+    with pytest.raises(GeometryError, match="visit budget"):
+        exact.difference_loops(segments, Budget(replace(Limits(), winding_visits=899)))
+    # Rotated by one edge the rings no longer close in order: the closed-Y producer is used unchanged.
+    rotated = segments[1:] + segments[:1]
+    budget = Budget(replace(Limits(), winding_visits=5000))
+    assert exact.difference_loops(rotated, budget) == loops
     assert budget._visits == 4947
     with pytest.raises(GeometryError, match="visit budget"):
-        exact.difference_loops(segments, Budget(replace(Limits(), winding_visits=4946)))
+        exact.difference_loops(rotated, Budget(replace(Limits(), winding_visits=4946)))
 
 
 def test_affordable_full_scan_does_not_acquire_index_storage(monkeypatch) -> None:
@@ -181,3 +189,13 @@ def test_affordable_full_scan_does_not_acquire_index_storage(monkeypatch) -> Non
     monkeypatch.setattr(exact, "ClosedYIndex", forbidden)
     result = exact.difference_loops(segments((SQUARE,), ()), Budget())
     assert len(result) == 1
+
+
+def test_a_loop_area_too_wide_to_scale_encloses_through_its_cross_terms() -> None:
+    ring = ((F(0), F(0)), (F(4), F(0)), (F(0), F(3)))
+    narrow = exact.area2(ring, Budget())
+    assert exact._enclosure_terms([ring], [narrow], Budget()) == [narrow]
+    wide = F(2**4070 + 1, 3**10)  # within 4096 bits, but not once scaled by 2**32
+    terms = exact._enclosure_terms([ring], [wide], Budget())
+    assert terms == exact._cross_terms(ring, Budget()) and sum(terms) == narrow
+    assert exact._enclosure_terms([ring], [None], Budget()) == terms

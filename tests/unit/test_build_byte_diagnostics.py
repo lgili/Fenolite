@@ -39,7 +39,6 @@ def _guard(monkeypatch: pytest.MonkeyPatch, *, mismatch: bool = True) -> Any:
     recorded = copy.deepcopy(RECORDED)
     if mismatch:
         recorded[ROW]["files"][OUTPUT] = "0" * 64
-        monkeypatch.setitem(guard.__globals__, "PLATFORM", {})  # the planted digest holds on every platform
     monkeypatch.setitem(guard.__globals__, "RECORDED", recorded)
     return guard
 

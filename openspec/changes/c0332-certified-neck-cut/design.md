@@ -296,3 +296,99 @@ finite faces have bounded exact areas; the single connected exterior sum exceeds
 4096bits. A translated/rotated/permuted fan must have the same101faces/one exterior
 and100 selected triangles. Strict area2 on the exterior must still refuse. Zero,
 unresolved sign, coordinate/storage/work and deadline controls remain mandatory.
+
+## Redesign: selective snap rounding (2026-11-04, tasks 3.x)
+
+### Why the projection and repair path could not fit
+
+Measured on the captured public operands of the native CI failures (lote 12, CI 41800749394), on
+the old path (projection, repair enumeration, refinement, certificate): of 61 final cuts, 26 refused
+— 11 enumeration-node, 8 proposal-node, 2 nonsimple projection, 2 input-edge, 2 arithmetic-bit,
+1 deadline. The winding stage alone took up to 26 s and the repair stage up to 120 s. Pour row 03 took
+86.6 s in CI against its 60 s limit; its floating final cut takes 2.3 s (44 073 edges). The refusals are
+structural: nearest projection of every node creates crossings wherever two exact boundaries pass
+within a nanometre, and the repair search enumerates subsets of such nodes under fixed node caps.
+
+### Realization
+
+Keep exact noding, face winding and selection (`difference_loops`) unchanged. Replace projection,
+repair, refinement and the continuous certificate by one integer realization whose precision follows
+from its construction (`_exact_snap`):
+
+1. Every exact boundary node takes its half-even point. Its *hot pixel* is the set of points with the
+   same half-even point: the unit square around it, closed for an even and open for an odd coordinate.
+2. Every exact edge is drawn straight between the points of its ends.
+3. The drawing is re-noded on integers. A *conflict* is a proper crossing, an edge current outside
+   {-1, 0, 1}, or a face winding outside {0, 1}.
+4. An edge in conflict, the exact edges whose boxes meet its box, and every edge that meets a hot pixel
+   that a bent edge passes through, are *bent*: drawn through the centre of every hot pixel they meet,
+   in order. Repeat from 3.
+5. With every edge bent the drawing is the snap rounding of the selected arrangement (Hobby;
+   Guibas and Marimont), which has no crossing. A conflict that remains then refuses (FEN-3005).
+
+Precision: a point of a drawn edge lies in the hot pixels of the exact edge's ends, or a pixel the exact
+edge meets, or between two such centres. So every point of every drawing, and of the straight-line
+deformation from the exact edge to it, lies within half a nanometre per axis of the exact edge. Membership
+changes only within the √2/2 nm tube of the exact boundary: the existing quantization bound, now by
+construction rather than by a certificate search. Source integer vertices are their own pixel centres and
+keep their coordinates. A source turn smaller than the grid can show is flattened when its neighbours
+round onto one line through it (spec scenario "Sub-nanometre source turn is flattened"); the realization
+counts such corners (`Cut.erased`) instead of refusing, since refusing failed real callers (one public
+Altium board has five of them on retained boundaries) and no integer drawing within the bound keeps them.
+
+Faces of the integer drawing are traced and wound like the exact frames (formal-infinitesimal seed per
+component); halfedges with winding 1 on the left and 0 on the right are the boundary. Rings are traced,
+cleaned of collinear points, and holes are assigned by exact integer winding of their edge midpoints.
+
+### Scale: groups and cells
+
+`_exact_cut.exact_difference` first groups subject and cut polygons whose boxes, grown by 2 nm, meet
+(union-find over the box self join; past 10^6 index visits everything is one group). Groups without a cut
+polygon pass unchanged. A group above half the source-edge ceiling (50 000 edges) is cut into
+rectangular cells by recursive integer seams on x or y near the median vertex, avoiding every vertex
+coordinate. Every subject and cut ring is clipped exactly to each closed half; the clip keeps the winding
+inside that half, so each cell holds the exact difference restricted to it. A cell's drawing lies in its
+closed cell, so cells meet only on seam lines, where `merge` splits edges at every vertex on the line and
+cancels opposite currents. Every per-arrangement cap holds per cell; the one `Budget` is shared.
+
+### Exact arithmetic speed-ups (identical values)
+
+- Node coordinates are `Q`, a `Fraction` subclass that caches its hash and compares with `Q`/`int`
+  directly, and each node is one shared tuple. Hashing was 40% of the exact path.
+- Seed windings sum ring by ring: a closed ring winds zero outside its closed box (`_RingSeeds`).
+- A component area sum that exceeds 4096 bits only in its running total (no single term does) uses the
+  existing component current identity instead of refusing (`bounded_area2`).
+
+### Measurements
+
+Local, macOS arm64, Python 3.13, CPU seconds of the exact cut alone (`time.process_time`), on the 76
+distinct public final-cut operands captured from the 27 deferred native nodeids before the restart
+(kept outside the repository; no private board):
+
+| | old path (projection + repair) | redesign |
+|---|---|---|
+| cuts realized | 35 of 61 (26 refusals) | 76 of 76 |
+| largest operand | refused (input-edge cap) | 256 315 edges: 8 cells, 41.5 s |
+| 125 759 edges (Altium public) | refused (proposal-node) | 4 cells, 21.4 s |
+| 34 036 edges (`212192ed`) | refused (arithmetic-bit) | 5.5 s |
+| pour row 03, whole test | 86.6 s in CI (limit 60 s) | 8.7 s (exact cut 6.8 s, 44 073 edges) |
+| sum over the 76 cuts | — | 225.7 s (floating Clipper: 70.0 s) |
+
+The 27 deferred native nodeids, run with the cut connected (KiCad 10.0.6, `FENOLITE_HEAVY=1`, 2 workers
+under the machine lock): 24 passed in 2371 s, and 3 refused with "area enclosure bit budget exceeded" on
+one 29 195-edge Altium operand. A loop area that fits 4096 bits but not once scaled by 2^32 now encloses
+through its cross terms, like a wider loop (same sign proof; a path that encloses its loop areas directly
+is unchanged). The 3 then pass alone. 149 distinct operands were cut; the largest, in DIFAT, has 465 907
+edges and takes 107 s (DIFAT's 131 cuts: 604 s; the test passes in 1066 s; budget 240 s per cut).
+
+Stages of the largest cut: noding 6.2 s, faces 7.5 s, selection 4.0 s, drawing 16.4 s, assembly 3.7 s.
+Drawing converges in at most 4 rounds. 40 source corners on 17 of the 76 cuts are flattened sub-nanometre
+turns. `board_40parts.PcbDoc` writes 9e3cabd7, the digest of the reviewed exact pilot (task 0.3), so
+the per-platform digests of the floating cut (Linux 7f49a78f, macOS 01fdc848, Windows 94c3fb4b) collapse
+to one: the realization uses only integer and `Fraction` arithmetic. Linux and Windows are confirmed by CI
+only (task 2.2). All 76 build-byte rows and their diagnostics pass locally (107 tests).
+
+The old modules (`_exact_realization`, `_exact_repair`, `_exact_refinement`, `_exact_distance`,
+`_exact_identity`, `_exact_cells`, `_exact_contacts`) are no longer called by the pour; they and their
+module-level tests stay until the coordinator decides to remove them; their six caller-wired tests, which drove that path through the pour with monkeypatches, are removed. Their requirements in the spec ("Certified repair
+of projected self-crossings", "Exact boundary subdivision proposals") describe that unused path.

@@ -34,7 +34,8 @@ class ClosedYIndex:
                 raise GeometryError("exact winding index requires integer source coordinates")
             for value in (segment.a[1], segment.b[1]):
                 budget.coordinate(Fraction(value))
-            bounds.append((min(segment.a[1], segment.b[1]), max(segment.a[1], segment.b[1])))
+            low, high = sorted((int(segment.a[1]), int(segment.b[1])))  # integers, checked above
+            bounds.append((low, high))
         self._bounds = tuple(bounds)
         self._root = self._build(tuple(range(len(source))))
         budget.check()

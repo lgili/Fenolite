@@ -876,9 +876,7 @@ class _Geometry:
             if found and not tips and max(box.width, box.height) <= half + tol:
                 continue  # the sliver the round opening takes off a corner of 89.5° or more stays
             cut.append(piece)
-        # c0332's exact `_certified_neck_cut` stays available but is not called: it refuses or overruns
-        # its budgets on large public boards (maintainer decision, 2026-11-04).
-        return _without_debris(self.minus(polys, cut), tol) if cut else tuple(polys)
+        return _certified_neck_cut(polys, cut, tol) if cut else tuple(polys)
 
     def union(self, polys: Sequence[Polygon]) -> tuple[Polygon, ...]:
         return self.backend.union(polys) if polys else ()
@@ -908,67 +906,15 @@ def _without_debris(polys: Sequence[Polygon], tol: int) -> tuple[Polygon, ...]:
     return tuple(kept)
 
 
-# Kept, not called, since 2026-11-04 (c0332): its tests and a later redesign use it.
-def _certified_neck_cut(  # pyright: ignore[reportUnusedFunction]
-    subject: Sequence[Polygon], cut: Sequence[Polygon], tol: int
-) -> tuple[Polygon, ...]:
-    """Exact final opening cut; retain the existing debris policy and certify its result."""
-    from fenolite.geometry.boolean._exact_faces import difference_loops
-    from fenolite.geometry.boolean._exact_noding import Budget, ResourceLimit, Segment
-    from fenolite.geometry.boolean._exact_realization import project_boundaries, project_nodes
-    from fenolite.geometry.boolean._exact_refinement import refinement_candidates
-    from fenolite.geometry.boolean._exact_repair import candidates
+def _certified_neck_cut(subject: Sequence[Polygon], cut: Sequence[Polygon], tol: int) -> tuple[Polygon, ...]:
+    """The final cut of the opening (c0332): ``subject`` minus ``cut`` selected exactly, realized on integers
+    within half a nanometre per axis of the exact boundary (``geometry.boolean._exact_cut``), then the
+    existing debris policy. Integer arithmetic only, so the result is the same on every platform; a
+    resource bound refuses with ``GeometryError`` and no floating fallback."""
+    from fenolite.geometry.boolean._exact_cut import exact_difference
+    from fenolite.geometry.boolean._exact_noding import Budget
 
-    budget = Budget()
-    segments: list[Segment] = []
-    for channel, polygons in enumerate((subject, cut)):
-        for poly in polygons:
-            for ring in poly.rings():
-                for a, b in zip(ring, ring[1:] + ring[:1], strict=True):
-                    if len(segments) >= budget.limits.input_edges:
-                        raise GeometryError("exact final neck cut input-edge budget exceeded")
-                    segments.append(Segment((a.x, a.y), (b.x, b.y), channel))
-                    if len(segments) % 256 == 0:
-                        budget.check()
-    loops = difference_loops(segments, budget)
-    budget.stage("realization")
-    projected = project_nodes(loops, budget)
-    try:
-        projection = project_boundaries(loops, segments, budget, projected=projected)
-        result = _without_debris(projection.polygons, tol)
-        projection.certify(result, tol, budget)
-        return result
-    except ResourceLimit:
-        raise
-    except GeometryError as failure:
-        refinement_attempted = False
-        for projection in candidates(loops, segments, projected, budget):
-            result = _without_debris(projection.polygons, tol)
-            try:
-                projection.certify(result, tol, budget)
-            except ResourceLimit:
-                raise
-            except GeometryError:
-                if refinement_attempted:
-                    continue
-                refinement_attempted = True
-                try:
-                    for refined in refinement_candidates(projection, segments, result, budget):
-                        refined_result = _without_debris(refined.polygons, tol)
-                        try:
-                            refined.certify(refined_result, tol, budget)
-                        except ResourceLimit:
-                            raise
-                        except GeometryError:
-                            continue
-                        return refined_result
-                except ResourceLimit:
-                    raise
-                except GeometryError:
-                    pass  # Reject preparation too; the original candidates remain available.
-                continue
-            return result
-        raise failure
+    return _without_debris(exact_difference(subject, cut, Budget()).polygons, tol)
 
 
 def _convex_corners(polys: Sequence[Polygon], radius: int) -> dict[Point, int]:

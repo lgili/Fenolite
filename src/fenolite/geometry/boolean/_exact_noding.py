@@ -13,14 +13,67 @@ import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from fractions import Fraction
+from math import ceil, floor
 
 from fenolite.geometry.boolean.base import COORD_LIMIT
 from fenolite.geometry.errors import OUT_OF_RANGE, GeometryError
 from fenolite.geometry.index import SpatialIndex
 from fenolite.geometry.shapes import BBox
 
+
+class Q(Fraction):
+    """A node coordinate: a ``Fraction`` whose hash is computed once and whose comparisons with another
+    ``Q`` or an ``int`` skip the generic numeric dispatch. Its value, hash and order are the Fraction's."""
+
+    __slots__ = ("_hash",)
+
+    def __hash__(self) -> int:
+        try:
+            return self._hash
+        except AttributeError:
+            value = self._hash = Fraction.__hash__(self)
+            return value
+
+    def __eq__(self, other: object) -> bool:
+        if type(other) is Q:
+            return self.numerator == other.numerator and self.denominator == other.denominator
+        if type(other) is int:
+            return self.denominator == 1 and self.numerator == other
+        return Fraction.__eq__(self, other)
+
+    def __lt__(self, other: object) -> bool:  # pyright: ignore[reportIncompatibleMethodOverride]
+        if type(other) is Q:
+            return self.numerator * other.denominator < other.numerator * self.denominator
+        return bool(Fraction.__lt__(self, other))  # pyright: ignore[reportArgumentType]
+
+    def __gt__(self, other: object) -> bool:  # pyright: ignore[reportIncompatibleMethodOverride]
+        if type(other) is Q:
+            return self.numerator * other.denominator > other.numerator * self.denominator
+        return bool(Fraction.__gt__(self, other))  # pyright: ignore[reportArgumentType]
+
+    def __le__(self, other: object) -> bool:  # pyright: ignore[reportIncompatibleMethodOverride]
+        if type(other) is Q:
+            return self.numerator * other.denominator <= other.numerator * self.denominator
+        return bool(Fraction.__le__(self, other))  # pyright: ignore[reportArgumentType]
+
+    def __ge__(self, other: object) -> bool:  # pyright: ignore[reportIncompatibleMethodOverride]
+        if type(other) is Q:
+            return self.numerator * other.denominator >= other.numerator * self.denominator
+        return bool(Fraction.__ge__(self, other))  # pyright: ignore[reportArgumentType]
+
+
+def _q(value: Fraction | int) -> Q:
+    result = object.__new__(Q)
+    if type(value) is int:
+        result._numerator, result._denominator = value, 1  # pyright: ignore[reportAttributeAccessIssue]
+    else:
+        result._numerator, result._denominator = value.numerator, value.denominator  # pyright: ignore[reportAttributeAccessIssue]
+    return result
+
+
 IntPoint = tuple[int, int]
 ExactPoint = tuple[Fraction, Fraction]
+SourcePoint = tuple[int | Fraction, int | Fraction]
 
 
 class ResourceLimit(GeometryError):
@@ -125,8 +178,10 @@ class Budget:
 
 @dataclass(frozen=True, slots=True)
 class Segment:
-    a: IntPoint
-    b: IntPoint
+    """A signed source edge; its ends are integers, or rationals where a caller clipped it exactly."""
+
+    a: SourcePoint
+    b: SourcePoint
     channel: int
 
 
@@ -153,12 +208,16 @@ def _validate(segments: Sequence[Segment], budget: Budget, edge_limit: int) -> N
         if type(s.channel) is not int or s.channel not in (0, 1):
             raise GeometryError("exact geometry requires operand channel 0 or 1")
         for p in (s.a, s.b):
-            if any(type(c) is not int for c in p):
-                raise GeometryError("exact geometry requires integer input coordinates")
+            if any(type(c) is not int and type(c) is not Fraction for c in p):
+                raise GeometryError("exact geometry requires integer or Fraction input coordinates")
             if any(abs(c) > COORD_LIMIT for c in p):
                 raise GeometryError("exact geometry input outside coordinate domain", code=OUT_OF_RANGE)
             for c in p:
-                budget.coordinate(Fraction(c))
+                if isinstance(c, int):  # the numerator of Fraction(c), over denominator 1
+                    if abs(c).bit_length() > budget.limits.coordinate_bits:
+                        raise ResourceLimit("exact geometry coordinate bit budget exceeded")
+                else:
+                    budget.coordinate(c)
 
 
 def candidate_pairs(
@@ -177,9 +236,18 @@ def candidate_pairs(
             raise GeometryError("exact geometry tree-node storage budget exceeded")
         if level == 1:
             break
+    # Closed integer boxes; a rational endpoint widens its box outward, which only over-includes.
     index = SpatialIndex[int].build(
         (
-            (BBox(min(s.a[0], s.b[0]), min(s.a[1], s.b[1]), max(s.a[0], s.b[0]), max(s.a[1], s.b[1])), i)
+            (
+                BBox(
+                    floor(min(s.a[0], s.b[0])),
+                    floor(min(s.a[1], s.b[1])),
+                    ceil(max(s.a[0], s.b[0])),
+                    ceil(max(s.a[1], s.b[1])),
+                ),
+                i,
+            )
             for i, s in enumerate(segments)
         ),
         capacity=4,
@@ -210,7 +278,7 @@ def candidate_pairs(
     return ordered
 
 
-def _on(p: IntPoint, s: Segment) -> bool:
+def _on(p: SourcePoint, s: Segment) -> bool:
     return (
         (p[0] - s.a[0]) * (s.b[1] - s.a[1]) == (p[1] - s.a[1]) * (s.b[0] - s.a[0])
         and min(s.a[0], s.b[0]) <= p[0] <= max(s.a[0], s.b[0])
@@ -237,9 +305,17 @@ def node_segments(segments: Sequence[Segment], budget: Budget | None = None) -> 
     budget = budget if budget is not None else Budget()
     pairs = candidate_pairs(segments, budget)
     budget.stage("noding")
-    cuts: list[set[ExactPoint]] = [
-        {(Fraction(s.a[0]), Fraction(s.a[1])), (Fraction(s.b[0]), Fraction(s.b[1]))} for s in segments
-    ]
+    # Every node is one shared tuple of ``Q`` coordinates: later dictionaries hash each coordinate once.
+    canonical: dict[ExactPoint, ExactPoint] = {}
+
+    def node(p: SourcePoint) -> ExactPoint:
+        found = canonical.get(p)  # pyright: ignore[reportArgumentType]
+        if found is None:
+            found = (_q(p[0]), _q(p[1]))
+            canonical[found] = found
+        return found
+
+    cuts: list[set[ExactPoint]] = [{node(s.a), node(s.b)} for s in segments]
     incidence_count = sum(map(len, cuts))
     if incidence_count > budget.limits.incidences:
         raise GeometryError("exact geometry cut-incidence budget exceeded")
@@ -250,9 +326,10 @@ def node_segments(segments: Sequence[Segment], budget: Budget | None = None) -> 
         hits = _hits(segments[i], segments[j])
         if hits:
             hits_count += 1
-            for q in hits:
-                budget.coordinate(q[0])
-                budget.coordinate(q[1])
+            for hit in hits:
+                budget.coordinate(hit[0])
+                budget.coordinate(hit[1])
+                q = node(hit)
                 for source in (i, j):
                     if q not in cuts[source]:
                         cuts[source].add(q)

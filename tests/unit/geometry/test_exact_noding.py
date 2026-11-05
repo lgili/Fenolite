@@ -96,7 +96,7 @@ def test_fraction_bit_limit_and_deadline_refuse() -> None:
 
 @pytest.mark.parametrize("coordinate", [True, 0.5])
 def test_noninteger_coordinates_are_refused(coordinate: object) -> None:
-    with pytest.raises(GeometryError, match="integer input coordinates"):
+    with pytest.raises(GeometryError, match="integer or Fraction input coordinates"):
         node_segments((Segment((cast(int, coordinate), 0), (1, 1), 0),))
 
 

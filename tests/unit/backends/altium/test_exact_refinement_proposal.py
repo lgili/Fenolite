@@ -1,13 +1,14 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
-"""Original analytic notch controls for exact-curve subdivision proposals (c0332)."""
+"""Original analytic notch controls for exact-curve subdivision proposals (c0332).
+
+The pour no longer calls this path (c0332 redesign, selective snap rounding): its caller-wired tests were
+removed with that change; these controls test the modules directly."""
 
 from fractions import Fraction as F
 
 import pytest
 
-from fenolite.backends.altium.pour import _certified_neck_cut
-from fenolite.geometry.boolean import _exact_faces as faces
 from fenolite.geometry.errors import GeometryError
 from fenolite.geometry.polygon import Polygon
 from fenolite.geometry.vector import Point
@@ -19,28 +20,6 @@ def authored_notch(x=F(2, 5), y=F(43, 10)):
         tuple((F(a), F(b)) for a, b in anchors[:3]) + ((x, y),) + tuple((F(a), F(b)) for a, b in anchors[3:])
     )
     return loop, Polygon(tuple(Point(a, b) for a, b in anchors))
-
-
-def test_exact_subdivision_proposal_preserves_every_integer_corner(monkeypatch):
-    # Isolate the projection/caller boundary with an original rational notch.
-    # It is not a claim that this mocked selection is the difference of subject and ().
-    loop, subject = authored_notch()
-    monkeypatch.setattr(faces, "difference_loops", lambda segments, budget: (loop,))
-    result = _certified_neck_cut((subject,), (), 1)
-    assert len(result) == 1 and result[0].holes == ()
-    assert set(subject.outer) <= set(result[0].outer)
-    assert Point(1, 4) in result[0].outer
-    assert Point(0, 4) not in result[0].outer
-
-
-def test_unrepresentable_integer_corner_retains_strict_refusal():
-    # The selected narrow band flattens the protected corner, and all half-even
-    # subdivisions of its low exact edge remain on y=0. It cannot waive that turn.
-    subject = Polygon((Point(-8, 1), Point(0, 0), Point(8, 0), Point(8, 3), Point(-8, 3)))
-    left = Polygon((Point(-9, -1), Point(-1, -1), Point(-1, 4), Point(-9, 4)))
-    right = Polygon((Point(1, -1), Point(9, -1), Point(9, 4), Point(1, 4)))
-    with pytest.raises(GeometryError, match="protected source vertex missing"):
-        _certified_neck_cut((subject,), (left, right), 1)
 
 
 def failed_projection():
@@ -112,27 +91,6 @@ def test_malformed_parentage_is_not_a_refinement_opportunity():
         tuple(refinement_candidates(wrong, source, projection.polygons, budget))
 
 
-def test_endpoint_pruning_cannot_accept_an_uncertified_proposal(monkeypatch):
-    from fenolite.geometry.boolean import _exact_refinement as refinement
-    from fenolite.geometry.boolean._exact_realization import Projection
-
-    bad, _, _, _ = failed_projection()
-    checked = []
-    original = Projection.certify
-
-    def observed(self, result, tol, budget):
-        checked.append(self)
-        return original(self, result, tol, budget)
-
-    monkeypatch.setattr(Projection, "certify", observed)
-    monkeypatch.setattr(refinement, "refinement_candidates", lambda *args: iter((bad,)))
-    loop, subject = authored_notch()
-    monkeypatch.setattr(faces, "difference_loops", lambda *args: (loop,))
-    with pytest.raises(GeometryError):
-        _certified_neck_cut((subject,), (), 1)
-    assert any(projection is bad for projection in checked)
-
-
 @pytest.mark.parametrize(
     "field",
     [
@@ -166,19 +124,6 @@ def test_refinement_does_not_reset_the_shared_stage_deadline():
         tuple(refinement_candidates(projection, source, result, budget))
 
 
-def test_refinement_result_is_invariant_under_ring_start_and_source_direction(monkeypatch):
-    loop, subject = authored_notch()
-    expected = None
-    for shift in range(len(loop)):
-        current = loop[shift:] + loop[:shift]
-        monkeypatch.setattr(faces, "difference_loops", lambda *args, current=current: (current,))
-        for direction in (subject.outer, tuple(reversed(subject.outer))):
-            result = _certified_neck_cut((Polygon(direction),), (), 1)
-            if expected is None:
-                expected = result
-            assert result == expected
-
-
 def certified_manual_proposal():
     from fenolite.geometry.boolean._exact_noding import Budget
     from fenolite.geometry.boolean._exact_realization import project_boundaries
@@ -190,43 +135,6 @@ def certified_manual_proposal():
     refined = loop[:3] + (point,) + loop[3:]
     good = project_boundaries((refined,), source, Budget(), omitted=frozenset({(0, 4)}))
     return bad, good
-
-
-def test_refinement_refusal_before_yield_preserves_next_original_candidate(monkeypatch):
-    from fenolite.geometry.boolean import _exact_refinement as refinement
-    from fenolite.geometry.boolean import _exact_repair as repair
-
-    bad, good = certified_manual_proposal()
-    refused = []
-
-    def refusal(*args):
-        refused.append(True)
-        raise GeometryError("planted refinement preparation refusal")
-
-    monkeypatch.setattr(refinement, "refinement_candidates", refusal)
-    monkeypatch.setattr(repair, "candidates", lambda *args: iter((bad, good)))
-    loop, subject = authored_notch()
-    monkeypatch.setattr(faces, "difference_loops", lambda *args: (loop,))
-    assert _certified_neck_cut((subject,), (), 1) == good.polygons
-    assert refused == [True]
-
-
-def test_refinement_resource_refusal_before_yield_is_not_swallowed(monkeypatch):
-    from fenolite.geometry.boolean import _exact_refinement as refinement
-    from fenolite.geometry.boolean import _exact_repair as repair
-    from fenolite.geometry.boolean._exact_noding import ResourceLimit
-
-    bad, good = certified_manual_proposal()
-
-    def refusal(*args):
-        raise ResourceLimit("planted refinement resource budget")
-
-    monkeypatch.setattr(refinement, "refinement_candidates", refusal)
-    monkeypatch.setattr(repair, "candidates", lambda *args: iter((bad, good)))
-    loop, subject = authored_notch()
-    monkeypatch.setattr(faces, "difference_loops", lambda *args: (loop,))
-    with pytest.raises(ResourceLimit, match="planted refinement resource"):
-        _certified_neck_cut((subject,), (), 1)
 
 
 def test_pressure_selected_cells_fit_two_shared_proposal_slots():
