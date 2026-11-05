@@ -217,3 +217,24 @@ It does not close task 5.3. Three things remain:
 - per-kind graduation, which needs a current `ALTIUM-VERIFIED` kit support that the approved 24.5 scope
   cannot give;
 - exact-source CI.
+
+## Native run of the handoff steps 2 to 6, 2026-11-04 evening (source S-1586)
+
+A Claude agent ran steps 2 to 6 of the handoff at the maintainer's request of 2026-11-04/05. It operated
+the Altium Designer installed in the maintainer's Parallels Windows VM, which reports
+`Client.GetProductVersion` 24.5.2.23 (Trial). This is not the maintainer's own review. The same eight
+top-level files of prepared-v2 were copied unchanged into a new VM folder. Their digests before the run
+equal the table above.
+
+| step | observed |
+|---|---|
+| 2. open | all seven logical documents open with no new message. The compile leaves one message and flattens 4 components (R1 to R4) and 4 nets. The nets are `D0` = R1.1, R3.1; `D1` = R2.1, R4.1; `GND` = R1.2, R2.2, R3.2, R4.2; plus the bus entry `D[0..1]` with no pin. This is the expected partition: no pin is missing or merged, and there is no singleton net |
+| 3. PCB scope | four components `TwoPin` on Top. Three GND vias of 0.3 / 0.6 mm: through (Top–Bottom), blind (Top–Mid 1) and buried (Mid 1–Mid 2). One polygon, one keepout region, 9 texts, 4 bodies, one free non-plated 2 mm hole. `LayerIsUsed` reports Top, Mid 1, Mid 2 and Bottom, so the six-layer stack is not confirmed by this listing. The rule iterator lists 37 rules under the default names, so the 8 written rule kinds are not singled out |
+| 4. ERC and DRC | the compile is the ERC and leaves one message. DRC gives 14 violations: 9 UnRoutedNet and 5 NetAntennae (three vias and the free track). This is the expected outcome for the sparse, partly routed exercise board; nothing was suppressed |
+| 5. save, close, reopen | each logical document was saved in place by `DoFileSave` and closed. The PcbDoc, the three SchDocs and the PrjPcb keep their bytes. The OutJob (`f7c759cb…`), the PcbLib (`476b6c86…`) and the SchLib (`2c6ae35b…`) are rewritten. After reopening, the compile, the nets and the PCB scope are the same as in steps 2 and 3, and there are still 37 rules |
+| 6. Fenolite read-back of the saved copy | `fenolite inspect` exits 0 on the saved PcbLib, SchLib and PrjPcb. Counts are unchanged: PcbLib 1 footprint, 2 pads, 4 graphics, with 26 opaque records against 20 before; SchLib 1 symbol, 1 unit, 2 pins, with a new `cfb.note.entry-fields` note. The prepared originals were not rewritten |
+
+The saved files and logs stay in `claude-2026-11-04/c0092-saved/` and `c0092-out/`, outside the
+repository. This is an agent run on the acceptance tree. It records the steps and does not graduate any
+kind. Task 5.3 stays open: per-kind graduation needs a current `ALTIUM-VERIFIED` kit support, which the
+approved 24.5 scope cannot give, and exact-source CI is still pending.
