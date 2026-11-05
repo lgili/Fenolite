@@ -1,3 +1,9 @@
+## Re-scoped — coordinator decision on the maintainer's authority, 2026-11-05
+
+The proven TEST-ONLY descriptors, their guards, ledger v5 and the native-project context correction
+ship with this change. Every open task below is moved to c0384-native-identity-follow-up and is not
+done here; it stays unticked. See design, "Re-scope".
+
 ## Deferred — maintainer decision, 2026-11-04
 
 The investigation showed a real limit: the generated code does not carry the normal fills and original
@@ -13,24 +19,24 @@ branch `codex/cac-royal-identity-copy` are kept as they are. L7 is not recorded 
 - [x] 0.2 Coordinator approves bounded identity/reference/multiset matching, annotation preservation preconditions, unknown/ambiguity boundaries, ordinary-cache retention and exact result semantics BEFORE runtime. Proof: explicit recorded decision.
 - [x] 0.3 Coordinator reviews the separate import-only native pad-slot carrier addendum before its focused preservation iteration. No new public name/model field/default writer behavior. Approved2026-11-03; repeated references require complete physical identity, never a ref dictionary or Pin fallback; ambiguous annotated identity refuses.
 
-- [ ] 0.4 After nonconvergent common-ID COPY, profile numeric netcode structural references and author conservative missing/duplicate/conflicting/outside/JSON negatives, then measure native table-order-only and renumber-only controls before any Royal transformation. Coordinator approved this diagnostic plan; caches/names/classes/rules remain untouched and native results return for review.
+- [ ] 0.4 **Moved to c0384 (decided 2026-11-05; design, "Re-scope").** After nonconvergent common-ID COPY, profile numeric netcode structural references and author conservative missing/duplicate/conflicting/outside/JSON negatives, then measure native table-order-only and renumber-only controls before any Royal transformation. Coordinator approved this diagnostic plan; caches/names/classes/rules remain untouched and native results return for review.
 
 ## 1. Independent pre-runtime controls
 
-- [ ] 1.0 Author the import-only physical-pad annotation/presence regression, prove the existing loss, then implement only the approved vendor callback restoration through the validated order-preserving local transform. Prove duplicates, variants, missing/empty, malformed/identity negatives, native loads/save, unchanged generic library defaults and fresh Royal exact physical annotations before proceeding to identity normalization.
-- [ ] 1.1 Author native pad/via/track/junction UUID/order controls and complete electrical/geometry before proofs. Add changed physical/net/class/config/annotation/unknown/reference/missing/duplicate ambiguity negatives.
+- [ ] 1.0 **Moved to c0384 (decided 2026-11-05; design, "Re-scope").** Author the import-only physical-pad annotation/presence regression, prove the existing loss, then implement only the approved vendor callback restoration through the validated order-preserving local transform. Prove duplicates, variants, missing/empty, malformed/identity negatives, native loads/save, unchanged generic library defaults and fresh Royal exact physical annotations before proceeding to identity normalization.
+- [ ] 1.1 **Moved to c0384 (decided 2026-11-05; design, "Re-scope").** Author native pad/via/track/junction UUID/order controls and complete electrical/geometry before proofs. Add changed physical/net/class/config/annotation/unknown/reference/missing/duplicate ambiguity negatives.
 - [x] 1.2 Resolve measured pad annotation preservation through an approved contract and prove source/output values, rather than removing fields from the matcher. If unsupported, keep proof refusal visible.
-- [ ] 1.3 Prove full object correspondence, no first-match, collision/reference closure and unchanged normal-fill/editable field multisets before any private rewrite.
+- [ ] 1.3 **Moved to c0384 (decided 2026-11-05; design, "Re-scope").** Prove full object correspondence, no first-match, collision/reference closure and unchanged normal-fill/editable field multisets before any private rewrite.
 
 ## 2. One focused approved implementation
 
-- [ ] 2.1 Implement only approved private identity/order preparation with complete receipts and local refusals. One native run per side, every exact vertex/multiplicity and all old checks retained.
-- [ ] 2.2 Preserve defaults/source/canonical/native file bytes, add facts/guide/result-owner changes only if needed and approved, update CHANGELOG and run focused checks.
-- [ ] 2.3 Fresh production Royal/native public and authored neighbors with full inputs/context, exact raw and qualified observations, no normal-cache removal or acceptance waiver.
+- [ ] 2.1 **Moved to c0384 (decided 2026-11-05; design, "Re-scope").** Implement only approved private identity/order preparation with complete receipts and local refusals. One native run per side, every exact vertex/multiplicity and all old checks retained.
+- [ ] 2.2 **Moved to c0384 (decided 2026-11-05; design, "Re-scope").** Preserve defaults/source/canonical/native file bytes, add facts/guide/result-owner changes only if needed and approved, update CHANGELOG and run focused checks.
+- [ ] 2.3 **Moved to c0384 (decided 2026-11-05; design, "Re-scope").** Fresh production Royal/native public and authored neighbors with full inputs/context, exact raw and qualified observations, no normal-cache removal or acceptance waiver.
 
 ## 3. Required final closure
 
-- [ ] 3.1 Root-owned combined fast and exact-head native CI, source/format/surface review and all linked literal gates. Never archive merely because a private diagnostic improved.
+- [ ] 3.1 **Moved to c0384 (decided 2026-11-05; design, "Re-scope").** Root-owned combined fast and exact-head native CI, source/format/surface review and all linked literal gates. Never archive merely because a private diagnostic improved.
 
 Coordinator review2026-11-03: explicit bounded approval of task0.2 received before any identity runtime. Require complete editable fields/partitions/context/reference closure, one native run per side with ordinary fills intact, no default writer/raw-equality claim. Duplicate physical signatures/source IDs require separate authored native exchangeability and zero external references; otherwise REFUSE. Known unique pad-child field ordering may be matched by key only after authored native proof, without reordering children in the input copies; duplicate or unknown children refuse. Any public result/schema delta still needs owner review. This worktree implements no production identity normalizer.
 
@@ -67,7 +73,7 @@ carrier-review.md before implementation. This does not approve identity normaliz
 - [x] 4.1 Before runtime, author actual reviewed import/build REDs for a raw native spelling with scalar/list legacy assignment, moved-folder rebuild, closed decoder negatives, stale confirmation and composition with c0359; retain the failing output.
 - [x] 4.2 Implement the private bounded producer/consumer: original physical bijection and exact class values/membership, version-neutral pre-restoration fingerprint, digest guard/read-set, scoped existing stored-name bag restoration and qualified native assignment/pattern preservation. Reject missing/tamper/symlink/oversize/duplicate/unknown/collision/stale/edited model/target/nested capture. Never change IDs/canonical names, source bytes, comparator, derived eligibility, public DSL/model or default writer behavior.
 - [x] 4.3 Prove the authored REDs green, focused affected modules/types/lint and unchanged default build byte maps without updating baselines. Document portable read-only context and no input fetching. Return code/proofs and proposed original authored native bench to coordinator BEFORE any CAD/Royal execution.
-- [ ] 4.4 After coordinator review, perform only the approved authored native proof and then the approved original Royal comparison, retaining complete old acceptance gates; coordinator-owned combined fast/exact-head CI and final closure remain required.
+- [ ] 4.4 **Moved to c0384 (decided 2026-11-05; design, "Re-scope").** After coordinator review, perform only the approved authored native proof and then the approved original Royal comparison, retaining complete old acceptance gates; coordinator-owned combined fast/exact-head CI and final closure remain required.
 
 - [x] 4.2a Coordinator-approved prerequisite refactor: first prove literal authored parity for existing native `bindings`/`raw_bindings` (NO_NET, missing refs, unnamed pads, repeated physical copies, conflicting references/pads/names), then relocate only those helpers to the KiCad backend and reexport them from API. Preserve the exact old semantics and package-layering; no comparator/profile/baseline change.
 

@@ -253,6 +253,7 @@ All notable changes to Fenolite are documented here. The format follows
 
 - Declare the shared native-net binding helper under the existing inferred PCB-reader evidence and regenerate its matrix row; retain the independent rebuild and native Royal failures (c0355).
 - Record that the 2026-11-04 public RoyalBlue replay on the current head reproduces the retained level-7 result exactly (289/a562fa79 versus 293/4b439125, teardrop 263 to 0); levels 1–6, S and 8 stay equal and every identity task stays open for new approvals (c0355).
+- Re-scope c0355 on the coordinator's 2026-11-05 decision: the proven test-only descriptors, ledger v5 and the native-project context correction ship; the open identity tasks move unchanged to the new follow-up c0384, whose first finding is the public RoyalBlue level-7 failure (289/a562fa79 versus 293/4b439125) (c0355, c0384).
 
 - Reconcile existing native evidence against the literal remaining c0215 acceptance criteria, preserving source/version boundaries and unfinished aggregate, graduation and CI gates.
 

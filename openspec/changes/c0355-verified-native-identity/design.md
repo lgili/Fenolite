@@ -211,3 +211,17 @@ name drift remain mandatory via a private source fact, with the same bounded c03
 An ordinary raw Default name with no affected native project/rule context stays on the established
 editable path. Genuine context restore/model/output/target/class/member/stale guards remain exact.
 No immutable-rebuild lifecycle extension is claimed; a genuinely changed final model still refuses.
+
+## Re-scope — Decided 2026-11-05 by the coordinator on the maintainer's authority
+
+The descriptor-gated long tail cannot close in the 2026-11-05 batch, so c0355 is re-scoped. What is
+proven ships: the TEST-ONLY descriptors already approved and their guards (field order, duplicate
+identity and reference controls, netcode and numeric-role ledgers, zone_connect, silk render_cache,
+the ERC pin_map wire integers), ledger v5, and the approved private native-project context
+correction with its activation repairs (tasks 4.1–4.3, 4.2a, 4.3a, 4.3b). Tasks 0.4, 1.0, 1.1, 1.3,
+2.1–2.3, 3.1 and 4.4 move to c0384-native-identity-follow-up unchanged in scope and gates. Its first
+finding is the public RoyalBlue level-7 failure: source 289/a562fa79 versus generated 293/4b439125,
+teardrop 263 to 0, levels 1–6, S and 8 equal. Ledger v5 still leaves 331/339 project unknown key
+paths and 10 source PCB Plot numeric occurrences, recorded in c0384 0.4. Level 7 is not recorded
+as passing; no task is ticked by this decision. The proof files here and the branch
+`codex/cac-royal-identity-copy` stay unchanged.
