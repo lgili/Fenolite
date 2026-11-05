@@ -725,6 +725,41 @@ expected and observed outcome). Q1 to Q4 settle the measurement of `H-A-PANEL-RE
 `EMBEDDED_ARRAYS`. Saved native files stay outside the repository; only measured facts, digests and sizes
 are committed.
 
+## Part Z: component bodies (changes c0387 and c0175)
+
+The cases measure the component-body records that the Altium import keeps with unknown heights
+(`altium.import.body-unknown`, c0387) and how a document stores one 3D model placed at four rotations
+(c0175, task 10.4). Altium writes each file; Fenolite only reads the saved files. Prepare with
+`FENOLITE_ALTIUM_PART_Z=<outside folder> uv run pytest tests/unit/backends/altium/test_part_z.py -k kit`.
+The kit holds `body2/` (the committed project of step X8, `tests/data/altium/body2/`, as it is),
+`Box_2x1.step` (an authored CC0 box of 2 × 1 × 0.5 mm, `tests/data/models/Fenolite.3dshapes/`),
+`expected.md` (the bodies of `body2.PcbDoc` as Fenolite reads them), `README.md` (these steps) and
+`SHA256SUMS`. Work on a copy. Save each result with **File » Save As** in `body2/` under the name the case
+gives, and report per case the date, the exact version, what the Properties panel shows and whether a
+message appeared.
+
+1. **Z1** A body on the other side. Open `body2/body2.PcbDoc`, select the extruded body of `U1` (a top
+   part) and set its side in the Properties panel to the bottom side; save as `Z1.PcbDoc`. Expected:
+   Altium accepts the setting; report what the 3D view shows (the body above or below the board).
+2. **Z2** Each model type. Open `body2/body2.PcbDoc` and, on `R1`, place one 3D body of each type that
+   **Place » 3D Body** offers: an extruded body, a generic model from `Box_2x1.step` (embedded), a
+   cylinder and a sphere, with an overall height of 2 mm each; save as `Z2.PcbDoc`. Expected: one body per
+   type; report the names of the types the dialog offers.
+3. **Z3** Heights at the limits. Open `body2/body2.PcbDoc` and, on the extruded body of `R1`, try in turn:
+   standoff −0.5 mm with overall 1 mm; overall 1 mm with standoff 2 mm; overall 0 mm; overall 100 mm.
+   Report which values the panel accepts and which it changes or refuses. Save the last accepted state as
+   `Z3.PcbDoc`. Expected: the values that the panel keeps are the values the saved file holds.
+4. **Z4** One model at four rotations (c0175). Open `body2/body2.PcbDoc`, place on `U1` four generic model
+   bodies from `Box_2x1.step` (embedded) with a rotation about Z of 0°, 90°, 180° and 270°; save as
+   `Z4.PcbDoc`. Expected: four bodies; report whether Altium asks to embed the model once or four times.
+
+Read the saved files with `FENOLITE_ALTIUM_PART_Z_SAVED=<folder of the saved files> uv run pytest
+tests/unit/backends/altium/test_part_z.py -k saved -s`, which prints, per body, its component, projection,
+model type, heights, model name and rotation, and per entry of the `Models` storage its keys, and refuses
+a folder that fails the kit privacy scan. These cases settle `H-A-IMP-BODY` and `H-A-IMP-BODY-Z` for the
+cases they measure (c0387, task 1.2) and the model store per rotation (c0175, task 10.4); no case has run
+here, and no row moves before an actual report.
+
 ## Reports
 
 ### 2026-11-04, actual `AD24.5.2.23`, Part Q
