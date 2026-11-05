@@ -9,8 +9,8 @@ from typing import Literal
 
 from fenolite.core.coords import Point, Size
 from fenolite.core.evidence import Evidence, Level
-from fenolite.core.units import Nm, Udeg
-from fenolite.geometry.transform import Transform
+from fenolite.core.trig import FULL_TURN, ONE, table
+from fenolite.core.units import Nm, Udeg, round_half_even_div
 from fenolite.model.base import Entity
 from fenolite.model.presentation import SheetFrameRef, TitleBlock
 
@@ -643,7 +643,14 @@ def placed_keepout(footprint: FootprintInstance, area: Keepout) -> Keepout:
     """A rule area of ``footprint`` in the board's frame: each point ``p`` at ``position + R(rotation)·p``,
     placed as a pad's position is (``Transform.placement``, change c0411)."""
 
-    place = Transform.placement(footprint.position, footprint.rotation).apply
+    c, s = table(footprint.rotation % FULL_TURN)
+    at = footprint.position
+
+    def place(p: Point) -> Point:
+        # the model imports no geometry: Transform.placement(at, rotation).apply, exact then rounded half even
+        x, y = p.x * c + p.y * s, -p.x * s + p.y * c
+        return Point(at.x + round_half_even_div(x, ONE), at.y + round_half_even_div(y, ONE))
+
     return replace(area, outline=tuple(place(p) for p in area.outline))
 
 

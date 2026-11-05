@@ -96,10 +96,21 @@ def test_actual_approved_model0_shapes_are_preserved_by_migration_candidate():
     assert approved["decision_date"] == "2026-11-03"
     assert len(approved["classes"]) == approved["class_count"] == 174
     assert sum(len(c["fields"]) for c in approved["classes"]) == approved["field_count"] == 1247
+    # an approved field keeps its name, type, default and order; a later change may only add fields with a
+    # default (the design model's additive rule: a document written before it loads unchanged), e.g. c0411
+    # FootprintInstance.keepouts and c0419 SymbolDef.fields
     for c in approved["classes"]:
         assert c["decision"] == "keep"
-        assert shapes.pop(c["class"]) == {k: c[k] for k in ("class", "fields")}
-    assert set(shapes) == {"fenolite.model.migrate.Step"}
+        found = shapes.pop(c["class"])["fields"]
+        names = [f["name"] for f in found]
+        kept = [f for f in found if f["name"] in {g["name"] for g in c["fields"]}]
+        assert kept == c["fields"], c["class"]
+        added = [f for f in found if f not in kept]
+        assert all(f["default"]["kind"] != "required" for f in added), (c["class"], names)
+    added_classes = set(shapes) - {"fenolite.model.migrate.Step"}
+    assert "fenolite.model.migrate.Step" in shapes
+    for name in added_classes:  # a class added by a later change is reached only through a defaulted field
+        assert name.startswith("fenolite.model."), name
     assert len(shapes["fenolite.model.migrate.Step"]["fields"]) == 4
     assert len(approved["extension_keys"]) == approved["extension_key_count"] == 40
     assert {(e["backend"], e["key"]) for e in approved["extension_keys"]} == {
