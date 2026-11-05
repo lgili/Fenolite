@@ -18,7 +18,8 @@ import hashlib
 import os
 import tempfile
 from collections import Counter
-from contextlib import nullcontext
+from collections.abc import Mapping, Sequence
+from contextlib import ExitStack, nullcontext
 from pathlib import Path
 from typing import Any
 
@@ -42,6 +43,7 @@ from fenolite.importer.emit.design import design_name
 from fenolite.importer.provenance import Provenance, record
 from fenolite.importer.source import InputFile, InputKindError, Source, input_kind, read_kicad
 from fenolite.importer.upgrade import upgrader
+from fenolite.lens import native_fill_cache
 
 HELP = "turn a KiCad or Altium board into a Fenolite project folder (design.py, copper tables, library)"
 TARGETS = ("python",)
@@ -169,6 +171,43 @@ def _read(path: Path, args: argparse.Namespace, ctx: Context) -> tuple[Source, l
         return _altium(path, args, ctx)
     upgrade = None if args.no_upgrade else upgrader(find_kicad_cli())
     return read_kicad(path, upgrade=upgrade), []
+
+
+_PROJECT = "native/project.kicad_pro"
+_CARRIER = f"native/{native_fill_cache.CARRIER}"
+
+
+def _carry_fills(
+    emission: Emission,
+    last: tuple[Any, str],
+    source_board: bytes,
+    fill_capture: native_fill_cache.Capture,
+    build: tuple[str, int, Context],
+    inputs: Sequence[Mapping[str, object]],
+    issues: list[Issue],
+) -> tuple[Emission, Any, str]:
+    """``emission`` with the private native fill carrier of the last build's exact bytes, built once more,
+    when the source has ordinary fill caches that correspond one to one (c0384 0.3). The carrier is kept
+    only when that build carried it; otherwise the last build without it stands."""
+    name, target, ctx = build
+    if not fill_capture.emitted:
+        return emission, *last
+    carrier, _ = native_fill_cache.capture(source_board, fill_capture.emitted[-1], target, inputs)
+    if carrier is None:
+        return emission, *last
+    carried = dataclasses.replace(emission, files={**emission.files, _CARRIER: carrier})
+    found, built, built_text = _build(carried, name, target, ctx)
+    receipt = fill_capture.receipts[-1]
+    if built is not None and not found and receipt.get("status") == "carried":
+        return carried, built, built_text
+    issues.append(
+        issue(
+            "import.fill-cache-dropped",
+            f"the native fill caches did not carry over ({receipt.get('reason')}); the build has no fills",
+            where=_CARRIER,
+        )
+    )
+    return emission, *last
 
 
 def _build(emission: Emission, name: str, major: int, ctx: Context) -> tuple[list[Issue], Any, str]:
@@ -325,10 +364,13 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         build_issues, built, built_text = [], None, ""
         captured = None
         context_capture = None
+        fills = ExitStack()
+        fill_capture = fills.enter_context(native_fill_cache.capture_import())
         try:
             with project_capture as context_capture, rule_capture as captured:
                 build_issues, built, built_text = _build(emission, name, target, ctx)
         except FormatError:
+            fills.close()
             if built is not None or not build_issues:
                 raise
         issues += build_issues
@@ -381,10 +423,21 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
                 emitted_pcb=captured.emitted_pcb,
                 emitted_project=captured.emitted_project,
             )
-        if bound != emission.files:
-            emission = dataclasses.replace(emission, files=bound)
-            build_issues, built, built_text = _build(emission, name, target, ctx)
-            issues += build_issues
+        with fills:
+            if bound != emission.files:
+                emission = dataclasses.replace(emission, files=bound)
+                build_issues, built, built_text = _build(emission, name, target, ctx)
+                issues += build_issues
+            if built is not None and source.backend == "kicad" and _PROJECT in emission.files:
+                emission, built, built_text = _carry_fills(
+                    emission,
+                    (built, built_text),
+                    source.board_text.encode(),
+                    fill_capture,
+                    (name, target, ctx),
+                    inputs,
+                    issues,
+                )
         if built is not None:
             checked = self_check(source.design, built, (*emission.unexpressed, *emission.changed))
             issues += checked.issues

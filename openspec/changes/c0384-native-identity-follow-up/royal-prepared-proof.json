@@ -1,0 +1,96 @@
+{
+  "before_this_change": {
+    "generated": "293/4b439125",
+    "level7": "differs",
+    "source": "289/a562fa79"
+  },
+  "board": "RoyalBlue54L-Feather (KiCad 10.0.6 demos, public)",
+  "change": "c0384",
+  "import": {
+    "confirm_exit": 0,
+    "dry_exit": 0,
+    "fill_carrier": {
+      "fenolite_computed": false,
+      "fills": 35,
+      "origin": "native-carry-over",
+      "zones": 4
+    },
+    "fill_carrier_sha256": "55363b1c6a5ba72d274c45f21eec3d1037c90936b9a45da66e262d0fdee1eca1"
+  },
+  "level7": {
+    "identity_preparation": {
+      "identical_pairs": [
+        [
+          "0769d64d-1a21-55c1-9a92-06af366e7b70",
+          "5a1af00c-2b94-5685-82df-c86f2594b275"
+        ]
+      ],
+      "moved": 1125,
+      "moved_by_kind": {
+        "segment": 942,
+        "via": 183
+      },
+      "moved_sha256": "b2e159a3d0174b7db9df86eaf525c8edee6c56f11ebd008ed66ca41026115688",
+      "rewritten": 1522,
+      "rewritten_by_kind": {
+        "pad": 396,
+        "segment": 943,
+        "via": 183
+      },
+      "rewritten_sha256": "1e547013bf47c4aac26f015d61bad3252017c71ea57c5201ca68f0f76e7b22f7",
+      "scope": "private-native-input-copy",
+      "side": "b",
+      "source_aliases": {
+        "aliased_source_ids": 16,
+        "count": 32,
+        "identities_sha256": "64c32cf93a21d2d5116e682a981ddf16e686163ae49a570d0ae950ea66e56ee0",
+        "measured": "no difference on RoyalBlue: in a scratch refill against the unfilled source, carrying or leaving the 16 aliased J1 pad ids gave the same 221/222 equal parent keys (identities only, before order)",
+        "note": "source alias, not rewritten"
+      },
+      "status": "applied"
+    },
+    "label": "L7 after identity and order preparation",
+    "sides": {
+      "a": {
+        "exact_geometry_sha256": "a562fa7965020cc8dfd270a007b7dcf1da04d716c994b7ffeb8a8fb81278ad12",
+        "native_input_sha256": "cd42998d4db9bd250d0f02813836875fe585aef6d2b819b308be5274b6f07e3e",
+        "raw_caches": 263,
+        "regenerated_caches": 289
+      },
+      "b": {
+        "exact_geometry_sha256": "a562fa7965020cc8dfd270a007b7dcf1da04d716c994b7ffeb8a8fb81278ad12",
+        "native_input_sha256": "d921bb6d3734174b71a62a9db8c3e6e254c5ef02416ede38325199d942dd8997",
+        "raw_caches": 0,
+        "regenerated_caches": 289
+      }
+    },
+    "status": "equal",
+    "why": "By c0275's design a build gives copper its own identities and order; this level 7 measures geometry once identity and order are aligned on the private proof copy, and does not claim that Fenolite keeps the source's identities or order."
+  },
+  "schema": "fenolite.c0384.royal-prepared-proof.v0",
+  "source_files": 50,
+  "source_tree_sha256": "03ae090766fc5559939670b655a51326909acd20d41a05c83f2873d2e69599be",
+  "tasks": [
+    "0.3",
+    "2.1",
+    "2.3",
+    "4.4"
+  ],
+  "tool": "kicad-cli 10.0.6",
+  "verify_source": {
+    "accepted": [],
+    "error_issues": 0,
+    "exit": 0,
+    "levels": {
+      "1": "equal",
+      "2": "equal",
+      "3": "equal",
+      "4": "equal",
+      "5": "equal",
+      "6": "equal",
+      "7": "equal",
+      "8": "equal",
+      "S": "equal"
+    }
+  }
+}

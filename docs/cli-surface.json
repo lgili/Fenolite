@@ -13255,6 +13255,12 @@
         "info"
       ]
     },
+    "import.fill-cache-dropped": {
+      "experimental": false,
+      "severities": [
+        "info"
+      ]
+    },
     "import.footprint-variant": {
       "experimental": false,
       "severities": [

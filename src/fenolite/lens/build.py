@@ -2270,6 +2270,13 @@ def build_design(
     from fenolite.lens.native_rule_context import after_write
 
     after_write(files[pcb_name], files[pro_name], name, target)
+    from fenolite.lens import native_fill_cache
+
+    files[pcb_name], fill_cache = native_fill_cache.after_write(
+        files[pcb_name], files[pro_name], files.get(dru_name), target
+    )
+    if fill_cache["status"] != "absent":
+        preserved["native_fill_cache"] = fill_cache
     if write_base:
         codes = prepared.codes if prepared is not None and prepared.codes is not None else None
         files[edits_mod.BASE_FILE] = edits_mod.write_base(
@@ -2538,7 +2545,9 @@ def board_read(prepared: Prepared | None) -> TypeGuard[Prepared]:
 def _preserved(prepared: Prepared | None, merged: Mapping[str, object]) -> dict[str, object]:
     """``result.preserved`` (``layout-lens``, "Layout preservation evidence")."""
     zero = {"tracks": 0, "arcs": 0, "vias": 0, "zones": 0}
+    carried = {"native_fill_cache": merged["native_fill_cache"]} if "native_fill_cache" in merged else {}
     return {
+        **carried,
         "board": prepared is not None and prepared.board is not None,
         "kept": merged.get("kept", []),
         "replaced": merged.get("replaced", []),

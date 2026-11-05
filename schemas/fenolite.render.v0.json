@@ -1474,6 +1474,9 @@
             "type": "string"
           }
         },
+        "native_fill_cache": {
+          "$ref": "#/$defs/BuildPreservedNativeFillCache"
+        },
         "module_aliases": {
           "type": "object",
           "additionalProperties": {
@@ -1729,6 +1732,57 @@
       "required": [
         "dropped",
         "kept"
+      ]
+    },
+    "BuildPreservedNativeFillCache": {
+      "description": "Native ordinary fill caches carried over from a verified KiCad import (c0384): the source's bytes,",
+      "type": "object",
+      "properties": {
+        "origin": {
+          "type": "string",
+          "enum": [
+            "native-carry-over"
+          ]
+        },
+        "fenolite_computed": {
+          "type": "boolean",
+          "enum": [
+            false
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "carried",
+            "dropped"
+          ]
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "description": "Why a carrier was dropped: carrier-unreadable, target-changed, board-changed, project-changed or rules-changed; null when carried."
+            }
+          ]
+        },
+        "zones": {
+          "type": "integer"
+        },
+        "fills": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "origin",
+        "fenolite_computed",
+        "status",
+        "reason",
+        "zones",
+        "fills"
       ]
     },
     "BuildPreservedPadZones": {

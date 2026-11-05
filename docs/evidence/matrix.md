@@ -475,6 +475,7 @@ a claim), `see` (its code runs only inside the operations of the named modules o
 | `frame` | `EVIDENCE` INFERRED: `H-G-ROT-DIR`, `H-G-BOTTOM-PLACE`, `H-G-PAD-ANGLE-ABS`, `H-G-FRAME-SHAPE`, `H-G-FRAME-CRTYD-2` |
 | `generate` | `EVIDENCE` INFERRED: `H-K-GEN-DRC` |
 | `helpmatrix` | `EVIDENCE` KICAD-VERIFIED: `H-K-CLI-HELP` |
+| `identity_pairing` | none:  |
 | `ipcd356` | see `padnets` |
 | `layers` | see `pcb` |
 | `lengths` | `EVIDENCE` INFERRED: `H-K-NETLEN-STACKUP`, `H-K-NETLEN-TOTAL`, `H-K-NETLEN-VIA10`, `H-K-NETLEN-VIA9` |

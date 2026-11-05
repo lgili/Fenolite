@@ -135,6 +135,103 @@
         "proper_edge_pair_crossings"
       ]
     },
+    "DerivedCacheIdentityPreparation": {
+      "description": "Private identity and order preparation of side b's native input copy only (c0384 2.1). By c0275's",
+      "type": "object",
+      "properties": {
+        "scope": {
+          "type": "string",
+          "enum": [
+            "private-native-input-copy"
+          ]
+        },
+        "side": {
+          "type": "string",
+          "enum": [
+            "b"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "applied",
+            "unneeded",
+            "refused"
+          ]
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "label": {
+          "type": "string",
+          "enum": [
+            "L7",
+            "L7 after identity preparation",
+            "L7 after order preparation",
+            "L7 after identity and order preparation"
+          ]
+        },
+        "rewritten": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "description": "Every rewritten object: [kind, side-b identity, side-a identity]."
+        },
+        "moved": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            }
+          },
+          "description": "Every moved root segment, arc or via: [kind, side-b identity, old position, new position], positions 0-based among the root segments, arcs and vias."
+        },
+        "identical_pairs": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "description": "Side-b identities of each admitted pair of fully identical pads."
+        },
+        "source_aliases": {
+          "$ref": "#/$defs/DerivedCacheSourceAliases"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "scope",
+        "side",
+        "status",
+        "reason",
+        "label",
+        "rewritten",
+        "moved",
+        "identical_pairs",
+        "source_aliases"
+      ]
+    },
     "DerivedCacheRuleDelta": {
       "description": "Uninterpreted native JSON canonicalization; not judged rule/geometry semantics.",
       "type": "object",
@@ -275,6 +372,33 @@
       },
       "additionalProperties": true
     },
+    "DerivedCacheSourceAliases": {
+      "type": "object",
+      "properties": {
+        "note": {
+          "type": "string",
+          "enum": [
+            "source alias, not rewritten"
+          ]
+        },
+        "count": {
+          "type": "integer"
+        },
+        "identities": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Side-b identities kept because their side-a identity names several objects."
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "note",
+        "count",
+        "identities"
+      ]
+    },
     "DerivedCacheSummary": {
       "description": "Existing common-tool receipt, not raw-cache equality or a DRC safety certificate.",
       "type": "object",
@@ -351,6 +475,9 @@
           "enum": [
             false
           ]
+        },
+        "identity_preparation": {
+          "$ref": "#/$defs/DerivedCacheIdentityPreparation"
         }
       },
       "additionalProperties": true,

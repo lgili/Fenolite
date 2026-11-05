@@ -272,6 +272,25 @@ of a third-party board belongs in the library repository or your own folder.
 | `import.teardrops-regenerated` | info | teardrop zones left out because KiCad draws them again from the pad and via teardrop settings the code keeps (change c0277) |
 | `import.arc-as-track` | info | arcs whose start, mid and end lie on one line (after rounding to nanometres) are written as the straight track they draw; the self-check takes them as explained (change c0375) |
 | `import.board-only` | info | footprints that share a reference or have none a script can name, written as board-only parts named by key; the count of those that gain KiCad's `board_only` attribute (change c0277) |
+| `import.fill-cache-dropped` | info | the source's ordinary zone fill caches were written to `native/fill.cache.json` but the import's confirming build did not carry them, so the carrier is left out (change c0384) |
+
+## Native ordinary fill caches
+
+KiCad's teardrop generation reads the fill state a board already holds: with `td_on_pad_in_zone` false it
+draws no teardrop on a pad inside an already filled same-net zone (`docs/formats/kicad/board.md`). A
+verified KiCad import whose source zones hold fills therefore writes private `native/fill.cache.json`
+beside `native/project.kicad_pro`: the source's `fill` node and `filled_polygon` children of each ordinary
+zone, paired one to one with the emitted zone of equal content (identity, net code and fill flag aside;
+a missing or ambiguous pair writes no carrier). It is native carry-over: the source's bytes, never
+Fenolite-computed copper, never counted as a Fenolite fill in any proof or level. The carrier binds the
+SHA-256 of the exact board, project and custom-rule bytes the import's build emitted before any fill was
+added, and the target. A build whose emitted bytes are identical carries the fills and reports
+`preserved.native_fill_cache` with status `carried`; any other byte (a zone, its settings, any copper
+item, the outline, the clearance or teardrop rules) drops the whole carrier with status `dropped` and
+its reason (`board-changed`, `project-changed`, `rules-changed`, `target-changed`,
+`carrier-unreadable`), which gives the ordinary no-cache board. Nothing is refused for it. The import
+builds once more with the carrier to confirm that it carries; if not, it leaves the carrier out
+(`import.fill-cache-dropped`). Change c0384.
 
 ## Evidence
 

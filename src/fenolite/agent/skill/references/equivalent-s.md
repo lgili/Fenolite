@@ -47,6 +47,9 @@ the code: its exact digest and complete pre-restoration model are bound. Build n
 recorded source paths. Changed model/classes/membership/target require reviewed re-import, and a staged
 context edit invalidates confirmation. This is independent of `preserve_minimums`; ordinary identical
 representations remain editable. A preserved native representation alone proves no geometry or DRC pass.
+A filled source also keeps its ordinary zone fills in private `native/fill.cache.json`: native carry-over,
+never Fenolite fills or proof. A build of the unchanged code carries them (`preserved.native_fill_cache`);
+any changed board, project or rule byte drops them with a reason, never refuses.
 
 `design.kicad_project("native/project.kicad_pro", sha256="<64 lowercase hex digits>")` declares an
 explicit native project template relative to the script. Import emits this portable sidecar and its

@@ -25,11 +25,31 @@ def test_physical_coordinate_is_known_only_under_its_complete_declared_owner():
 
 def test_unknown_xy_plot_and_glyph_paths_are_not_exempted_by_spelling_or_values():
     result = ledger(
-        "(unknown (pts (xy 5 7))) (setup (pcbplotparams (hpglpennumber 5))) "
+        "(unknown (pts (xy 5 7))) (setup (pcbplotparams (plotframeref_number 5))) "
         '(gr_text "X" (render_cache "X" 5 (polygon (pts (xy 5 7)))))'
     )
     assert result["remaining_unknown_numeric_occurrences"] == 3
     assert result["invalid_known_role_instances"] > 0
+
+
+def test_witnessed_plot_and_project_numbers_are_bounded_to_their_exact_paths():
+    """c0384 0.4: only the witnessed leaves change; a sibling spelling or a wrong type stays a blocker."""
+    plot = ledger("(setup (pcbplotparams (hpglpennumber 5) (svgprecision 4)))")
+    assert plot["remaining_unknown_numeric_occurrences"] == 0
+    assert plot["invalid_known_role_instances"] == 0
+    elsewhere = ledger("(pcbplotparams (hpglpennumber 5))")
+    assert elsewhere["remaining_unknown_numeric_occurrences"] == 1
+    body = (
+        b'{"board": {"design_settings": {"defaults": {"copper_line_width": 0.2, "copper_line_widths": 1}}}}'
+    )
+    project = project_role_ledger(body)
+    paths = project["paths"]
+    assert paths["/board/design_settings/defaults/copper_line_width"]["role"] != "UNKNOWN"
+    assert paths["/board/design_settings/defaults/copper_line_widths"]["role"] == "UNKNOWN"
+    assert paths["/board/design_settings/defaults"]["role"] == "UNKNOWN"  # containers stay blockers
+    wrong = project_role_ledger(b'{"board": {"design_settings": {"defaults": {"copper_line_width": "0.2"}}}}')
+    assert wrong["invalid_known_role_instances"] == 1
+    assert project["renumbering_admitted"] is False
 
 
 def test_known_numeric_role_wrong_arity_or_type_remains_a_blocker():

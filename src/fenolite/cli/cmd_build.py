@@ -1336,6 +1336,7 @@ def _built(
     native_project_resources = ()
     native_rule_binding = None
     native_project_binding = None
+    native_fill_carrier: bytes | None = None
     native_project_request = design._kicad_project_input  # pyright: ignore[reportPrivateUsage] - DSL request state
     if native_project_request is not None:
         if args.target != "kicad":
@@ -1354,6 +1355,7 @@ def _built(
         native_project_resources = declared_project.resources
         native_rule_binding = declared_project.rules
         native_project_binding = declared_project.context
+        native_fill_carrier = declared_project.fill_cache
         if source_inputs is not None:
             source_inputs.append(declared_project.path)
             source_inputs.extend(item.path for item in declared_project.resources)
@@ -1673,10 +1675,12 @@ def _built(
             )
         else:
             model = changed
+    from fenolite.lens.native_fill_cache import build_scope as fill_scope
     from fenolite.lens.native_project_context import build_scope as project_scope
     from fenolite.lens.native_rule_context import build_scope
 
     with (
+        fill_scope(native_fill_carrier),
         build_scope(script_path, design.name, ctx.kicad_target, native_rule_binding),
         project_scope(
             script_path, design.name, ctx.kicad_target, native_project_binding, native_project_text

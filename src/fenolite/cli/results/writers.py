@@ -385,6 +385,24 @@ class BuildPreservedFills:
 
 
 @dataclass(frozen=True, kw_only=True)
+class BuildPreservedNativeFillCache:
+    """Native ordinary fill caches carried over from a verified KiCad import (c0384): the source's bytes,
+    never Fenolite-computed copper, never a Fenolite fill in any proof or level."""
+
+    origin: str = field(metadata={"enum": ["native-carry-over"]})
+    fenolite_computed: bool = field(metadata={"enum": [False]})
+    status: str = field(metadata={"enum": ["carried", "dropped"]})
+    reason: None | str = field(
+        metadata={
+            "description": "Why a carrier was dropped: carrier-unreadable, target-changed, board-changed, "
+            "project-changed or rules-changed; null when carried."
+        }
+    )
+    zones: int
+    fills: int
+
+
+@dataclass(frozen=True, kw_only=True)
 class BuildPreservedPadZones:
     forced: list[str]
     kept: list[str]
@@ -412,6 +430,7 @@ class BuildPreserved:
     fields: BuildPreservedFields
     fills: BuildPreservedFills
     kept: list[str]
+    native_fill_cache: BuildPreservedNativeFillCache = field(metadata={"optional": True})
     module_aliases: dict[str, str] = field(
         metadata={"description": "Keys are supplied by named items, rather than fixed record fields."}
     )

@@ -66,6 +66,22 @@ judged here; whole project JSON/rule-file equality and a safety DRC gate are not
 Rule-file syntax is checked before native regeneration: KiCad may otherwise
 report exit0 while ignoring a malformed custom rule file.
 
+Native teardrop generation orders neighbouring teardrops of different nets by the identities of their
+pads, tracks and vias, and one RoyalBlue teardrop outline depends on track order. By c0275's design a
+build gives copper its own identities and order, so before its one native run, side b's private native
+input copy takes the identity of each feature-equal side-a segment, arc, via and pad and the side-a file
+order of its root segments, arcs and vias, in the slots they occupy
+(`summary.derived_cache.identity_preparation`, c0384). Objects pair by their complete non-identity
+content with nets by declared name; changed, missing, extra or duplicated objects refuse the preparation
+(status `refused`, side b unprepared), except one proven case: exactly two pads identical apart from
+their identity, listed in `identical_pairs`. An object whose side-a identity names several objects keeps
+its own; `source_aliases` lists them with their count as "source alias, not rewritten". The receipt lists
+every rewritten identity (`rewritten`) and every moved object with its old and new position (`moved`).
+The result is labelled by what was prepared (`label`: "L7 after identity and order preparation", or
+identity or order alone), never plain level 7: it measures geometry once identity and order are aligned
+and does not claim that Fenolite keeps the source's identities or order. The editable model, the sources
+and every written file stay untouched.
+
 | reason | when |
 |---|---|
 | `no-footprints` | a side has no footprint: levels 3, 4, 6 and 7 |

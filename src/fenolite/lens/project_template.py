@@ -12,7 +12,7 @@ from pathlib import Path
 from fenolite.backends.kicad.pro_template import ProjectResource, read_project_resources
 from fenolite.backends.kicad.pro_template import validate_project_template as validate_project_template
 from fenolite.core.errors import FormatError
-from fenolite.lens import native_project_context
+from fenolite.lens import native_fill_cache, native_project_context
 from fenolite.lens.native_rule_context import CERTIFICATE, Binding, read_binding
 
 
@@ -25,6 +25,7 @@ class ProjectTemplate:
     rules: Binding | None = None
     rule_inputs: tuple[Path, ...] = ()
     context: native_project_context.Binding | None = None
+    fill_cache: bytes | None = None
 
 
 def read_project_template(
@@ -70,7 +71,31 @@ def read_project_template(
             path.with_suffix(".kicad_dru"),
             path.with_name(CERTIFICATE),
             path.with_name(native_project_context.CERTIFICATE),
+            path.with_name(native_fill_cache.CARRIER),
         )
         if given.is_file() or given.is_symlink()
     )
-    return ProjectTemplate(path, text, actual, resources, binding, rule_inputs, context)
+    return ProjectTemplate(
+        path,
+        text,
+        actual,
+        resources,
+        binding,
+        rule_inputs,
+        context,
+        _fill_cache(path.with_name(native_fill_cache.CARRIER)),
+    )
+
+
+def _fill_cache(path: Path) -> bytes | None:
+    """The carrier's bytes; a symlink, an unreadable or an oversized file is passed on as an unreadable
+    carrier, which the build drops (never refuses) with its reason."""
+    if not path.exists() and not path.is_symlink():
+        return None
+    if path.is_symlink():
+        return b""
+    try:
+        with path.open("rb") as stream:
+            return stream.read(native_fill_cache.MAX_BYTES + 1)
+    except OSError:
+        return b""

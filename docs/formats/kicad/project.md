@@ -361,3 +361,16 @@ sidecar are checked unchanged. Proof: `tests/kicad/importer/test_project_templat
 ### ERC matrix key linkage, scoped numeric-role witness (S-1299)
 
 `KICAD-VERIFIED`: the official Eeschema9 manual describes the pin-type conflict map with Ignore/Warning/Error choices (https://docs.kicad.org/9.0/en/eeschema/eeschema.html). `ORACLE-VERIFIED(KiCad9.0.9/10.0.6)`: original four-passive-terminal controls keep their complete labelled graph while changing only erc.pin_map: uniform0 yields no pin conflicts,1 yields three warnings,2 yields three errors. The12×12 JSON wire-integer0..2 descriptor is TEST-ONLY. The raw3 control also produces errors; no meaning is assigned because this can be invalid-value fallback, and3 remains refused. All other pin-pair meanings and unknown ERC keys remain unproved. Receipt: `openspec/changes/c0355-verified-native-identity/erc-numeric-role-proof.json`.
+
+### Project and plot numerics that are not netcode references, scoped witness (S-0020, c0384)
+
+`ORACLE-VERIFIED(KiCad10.0.6)`: an original authored board and project set 85 numeric project leaves
+(`board/design_settings` defaults, rules, track/via/diff-pair/teardrop/tuning tables, `schematic/drawing`,
+`schematic` ints and `net_settings/classes/*/line_style`) and the ten numeric `setup/pcbplotparams` children
+to the board's only netcode, then renumber only that netcode. `pcb drc --refill-zones --save-board` gives equal
+labelled partitions, refilled derived geometry, DRC findings and saved plot values for both inputs, and
+returns no companion file. The three section `meta/version` leaves keep their native values. The board
+saves `svgprecision` clamped to 3 and drops the obsolete `hpglpen*` children. This classifies those numeric
+leaves as TEST-ONLY non-reference roles in `tests/_native_numeric_roles.py`; it admits no renumbering, and
+their non-numeric containers and every other unknown project key remain blockers. Test:
+`tests/kicad/board/test_native_netcode_order.py::test_project_and_plot_numbers_are_not_netcode_references`.

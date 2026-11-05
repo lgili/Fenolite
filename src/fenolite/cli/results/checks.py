@@ -1010,6 +1010,52 @@ class DerivedCacheSides:
 
 
 @dataclass(frozen=True, kw_only=True)
+class DerivedCacheSourceAliases:
+    note: str = field(metadata={"enum": ["source alias, not rewritten"]})
+    count: int
+    identities: list[str] = field(
+        metadata={
+            "description": "Side-b identities kept because their side-a identity names several objects."
+        }
+    )
+
+
+@dataclass(frozen=True, kw_only=True)
+class DerivedCacheIdentityPreparation:
+    """Private identity and order preparation of side b's native input copy only (c0384 2.1). By c0275's
+    design a build gives copper its own identities and order; a prepared proof measures geometry once they
+    are aligned, is labelled accordingly, and never claims that Fenolite keeps the source's ids or order."""
+
+    scope: str = field(metadata={"enum": ["private-native-input-copy"]})
+    side: str = field(metadata={"enum": ["b"]})
+    status: str = field(metadata={"enum": ["applied", "unneeded", "refused"]})
+    reason: None | str
+    label: str = field(
+        metadata={
+            "enum": [
+                "L7",
+                "L7 after identity preparation",
+                "L7 after order preparation",
+                "L7 after identity and order preparation",
+            ]
+        }
+    )
+    rewritten: list[list[str]] = field(
+        metadata={"description": "Every rewritten object: [kind, side-b identity, side-a identity]."}
+    )
+    moved: list[list[str | int]] = field(
+        metadata={
+            "description": "Every moved root segment, arc or via: [kind, side-b identity, old position, new "
+            "position], positions 0-based among the root segments, arcs and vias."
+        }
+    )
+    identical_pairs: list[list[str]] = field(
+        metadata={"description": "Side-b identities of each admitted pair of fully identical pads."}
+    )
+    source_aliases: DerivedCacheSourceAliases
+
+
+@dataclass(frozen=True, kw_only=True)
 class DerivedCacheSummary:
     """Existing common-tool receipt, not raw-cache equality or a DRC safety certificate."""
 
@@ -1030,6 +1076,7 @@ class DerivedCacheSummary:
     )
     complete_regenerated_geometry_equal: bool = field(metadata={"optional": True})
     normal_zone_priorities_normalized: bool = field(metadata={"optional": True, "enum": [False]})
+    identity_preparation: DerivedCacheIdentityPreparation = field(metadata={"optional": True})
 
 
 @dataclass(frozen=True, kw_only=True)

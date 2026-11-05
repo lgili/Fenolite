@@ -13,7 +13,7 @@ from typing import Any, cast
 from fenolite.api._native_rules import bindings as _bindings
 from fenolite.api._native_rules import raw_bindings as _raw_bindings
 from fenolite.api.sides import ReadSide
-from fenolite.backends.kicad import _json, dru, pro
+from fenolite.backends.kicad import _json, dru, identity_pairing, pro
 from fenolite.backends.kicad.cli import KicadCli
 from fenolite.backends.kicad.derived_teardrops import (
     Tree,
@@ -192,6 +192,55 @@ def eligible(a: CacheInput, b: CacheInput) -> bool:
         return False
 
 
+LABELS = {
+    (False, False): "L7",
+    (True, False): "L7 after identity preparation",
+    (False, True): "L7 after order preparation",
+    (True, True): "L7 after identity and order preparation",
+}
+SOURCE_ALIAS = "source alias, not rewritten"
+
+
+def identities(a: CacheInput, b: CacheInput) -> tuple[dict[str, object], Any]:
+    """The private identity and order preparation of side b's native input copy (c0384 2.1) and its receipt.
+
+    Only the identities and root file order of b's paired segments, arcs, vias and pads become those of a's
+    counterparts; a refused pairing leaves b unprepared and says why. A prepared proof is never plain level 7:
+    by c0275's design a build gives copper its own identities and order, so this measures geometry once
+    they are aligned and never claims that Fenolite keeps the source's identities or order."""
+    receipt: dict[str, object] = {
+        "scope": "private-native-input-copy",
+        "side": "b",
+        "status": "refused",
+        "reason": None,
+        "label": "L7",
+        "rewritten": [],
+        "moved": [],
+        "identical_pairs": [],
+        "source_aliases": {"note": SOURCE_ALIAS, "count": 0, "identities": []},
+    }
+    try:
+        root = parse_bytes(b.files[b.name])
+        pairing = identity_pairing.pair(parse_bytes(a.files[a.name]), root)
+        changed = bool(pairing.rewritten or pairing.moved)
+        prepared = identity_pairing.apply(root, pairing) if changed else None
+    except ValueError as error:
+        return {**receipt, "reason": str(error)}, None
+    return {
+        **receipt,
+        "status": "applied" if changed else "unneeded",
+        "label": LABELS[bool(pairing.rewritten), bool(pairing.moved)],
+        "rewritten": [list(row) for row in pairing.rewritten],
+        "moved": [list(row) for row in pairing.moved],
+        "identical_pairs": [list(row) for row in pairing.identical_pairs],
+        "source_aliases": {
+            "note": SOURCE_ALIAS,
+            "count": len(pairing.source_aliases_kept),
+            "identities": list(pairing.source_aliases_kept),
+        },
+    }, prepared
+
+
 def prove(a: CacheInput, b: CacheInput, tool: KicadCli) -> tuple[dict[str, object], tuple[Difference, ...]]:
     """Regenerate isolated exact bytes twice, never replace editable models with native saved boards."""
     if tool.major() != 10:
@@ -209,6 +258,8 @@ def prove(a: CacheInput, b: CacheInput, tool: KicadCli) -> tuple[dict[str, objec
     }
     evidence: dict[str, dict[str, Any]] = {}
     normalized: list[tuple[Tree, ...]] = []
+    preparation, prepared = identities(a, b)
+    summary["identity_preparation"] = preparation
     for label, source in (("a", a), ("b", b)):
         raw = regions(parse_bytes(source.files[source.name]), source.bindings)
         argv = [
@@ -223,7 +274,8 @@ def prove(a: CacheInput, b: CacheInput, tool: KicadCli) -> tuple[dict[str, objec
             "derived-drc.json",
             source.name,
         ]
-        stripped = dumps(without_regions(parse_bytes(source.files[source.name]))).encode("utf-8")
+        board = prepared if label == "b" and prepared is not None else parse_bytes(source.files[source.name])
+        stripped = dumps(without_regions(board)).encode("utf-8")
         native_files = {**source.files, source.name: stripped}
         run = tool.run(argv, files=native_files)
         saved = run.outputs.get(source.name)

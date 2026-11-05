@@ -13,6 +13,11 @@ import _kicad
 import pytest
 from _drawn_curve import curve_project
 from _native_netcode_refs import exact_labelled_partitions, netcode_reference_facts
+from _native_numeric_roles import (
+    NONREFERENCE_PLOT_NUMBERS,
+    NONREFERENCE_PROJECT_NUMBERS,
+    SCHEMA_VERSION_PROJECT_NUMBERS,
+)
 
 from fenolite.backends.kicad.cli import KicadCli
 from fenolite.backends.kicad.derived_teardrops import regions
@@ -175,6 +180,134 @@ def test_authored_netcode_renumber_and_table_order(tmp_path: Path, no_net_shape:
             },
             sort_keys=True,
             indent=2,
+        )
+        + "\n"
+    )
+
+
+def _set_pointer(data: dict, pointer: str, value: object) -> None:
+    """Create the authored leaf; ``*`` makes a one-element array of objects (or of numbers at the end)."""
+    parts = pointer.split("/")
+    node: object = data
+    for index, part in enumerate(parts):
+        last = index == len(parts) - 1
+        following = None if last else parts[index + 1]
+        if part == "*":
+            assert isinstance(node, list)
+            if last:
+                node[:] = [value]
+                return
+            if not node or not isinstance(node[0], dict):
+                node[:] = [{}]
+            node = node[0]
+            continue
+        assert isinstance(node, dict)
+        if last:
+            node[part] = value
+            return
+        if following == "*":
+            if not isinstance(node.get(part), list):
+                node[part] = []
+        elif not isinstance(node.get(part), dict):
+            node[part] = {}
+        node = node[part]
+
+
+def test_project_and_plot_numbers_are_not_netcode_references(tmp_path: Path):
+    """c0384 0.4: every listed project/plot numeric equals a board netcode, then only the netcode changes."""
+    if not _kicad.supported_version().startswith("10."):
+        pytest.skip("actual native10 refill control only")
+    source = curve_project(tmp_path / "source", 9, 10_000)
+    path = source / "font_probe.kicad_pcb"
+    original = parse_bytes(path.read_bytes())
+    assert {n.atoms()[0].value for n in original.nodes("net")} == {"0", "1"}
+    collision = 1  # the authored board's only nonzero netcode
+    plot = parse(
+        "(pcbplotparams " + " ".join(f"({name} {collision})" for name in NONREFERENCE_PLOT_NUMBERS) + ")"
+    )
+    setup = original.nodes("setup")[0]
+    kept = tuple(c for c in setup.children if not (isinstance(c, Node) and c.name == "pcbplotparams"))
+    baseline = original.with_children(
+        tuple(setup.with_children((*kept, plot)) if c is setup else c for c in original.children)
+    )
+
+    def renumber(root: Node, old: int, new: int) -> Node:
+        def walk(node, parent=None, grandparent=None):
+            if isinstance(node, Atom):
+                return node
+            electrical = parent in {"segment", "via", "zone", "arc"} and grandparent == "kicad_pcb"
+            electrical |= parent == "pad" and grandparent == "footprint"
+            if (
+                node.name == "net"
+                and (parent == "kicad_pcb" or electrical)
+                and node.atoms()[0].value == str(old)
+            ):
+                return node.with_children((Atom.integer(new), *node.children[1:]))
+            return node.with_children(tuple(walk(c, node.name, parent) for c in node.children))
+
+        return walk(root)
+
+    moved = renumber(baseline, collision, 100_009)
+    assert {n.atoms()[0].value for n in moved.nodes("net")} == {"0", "100009"}
+    project = json.loads((source / "font_probe.kicad_pro").read_text())
+    versions = {}
+    for pointer in NONREFERENCE_PROJECT_NUMBERS:
+        _set_pointer(project, pointer, collision)
+    for pointer in SCHEMA_VERSION_PROJECT_NUMBERS:
+        node: object = project
+        for part in pointer.split("/"):
+            node = node.get(part) if isinstance(node, dict) else None
+        versions[pointer] = node  # the native-written value is kept; a changed version is a migration
+    project_bytes = (json.dumps(project, indent=2, sort_keys=True) + "\n").encode()
+    files = {"font_probe.kicad_pro": project_bytes, "font_probe.kicad_dru": b"(version 1)\n"}
+    expected = {"FONT_PROBE": ("R1-1", "R1-2")}
+    native = KicadCli(Path(_kicad.cli()))
+    observed = []
+    for label, root in (("netcode-equals-every-setting", baseline), ("renumbered-netcode", moved)):
+        folder = tmp_path / label
+        folder.mkdir()
+        board = folder / path.name
+        board.write_bytes(dumps(root).encode())
+        result = native.refill(board, files=files)
+        assert result.run.ok and result.board is not None
+        saved = parse_bytes(result.board)
+        labelled = exact_labelled_partitions(saved, expected)
+        assert labelled == expected
+        report = json.loads(result.run.outputs["drc.json"].decode())
+        violations = sorted(
+            (v.get("type"), v.get("severity"), v.get("description"), len(v.get("items", [])))
+            for key in ("violations", "unconnected_items", "schematic_parity")
+            for v in report.get(key, [])
+        )
+        plot_saved = {
+            child.name: child.atoms()[0].value
+            for params in saved.nodes("setup")[0].nodes("pcbplotparams")
+            for child in params.nodes()
+            if child.name in NONREFERENCE_PLOT_NUMBERS
+        }
+        rewritten = {name: data == files[name] for name, data in result.run.outputs.items() if name in files}
+        observed.append((regions(saved, labelled), violations, plot_saved, rewritten))
+    assert observed[0][0] == observed[1][0]  # exact refilled derived geometry
+    assert observed[0][1] == observed[1][1]  # DRC findings under the colliding project rules
+    assert observed[0][2] == observed[1][2]  # native-saved plot values
+    assert observed[0][3] == observed[1][3]  # companion files: never rewritten differently
+    assert all(value is not None for value in versions.values())
+    (tmp_path / "project-plot-nonreference-proof.json").write_text(
+        json.dumps(
+            {
+                "native_version": _kicad.supported_version(),
+                "project_numeric_leaves": len(NONREFERENCE_PROJECT_NUMBERS),
+                "schema_versions_kept": versions,
+                "plot_numbers": len(NONREFERENCE_PLOT_NUMBERS),
+                "collision_value": collision,
+                "geometry_regions": len(observed[0][0]),
+                "drc_findings": len(observed[0][1]),
+                "plot_saved": observed[0][2],
+                "companions_returned": observed[0][3],
+                "renumbering_admitted": False,
+            },
+            indent=2,
+            sort_keys=True,
         )
         + "\n"
     )

@@ -135,6 +135,14 @@ def roles() -> dict[str, Role]:
     add("setup/pad_to_mask_clearance", "physical-mask-clearance", (1,))
     for field in ("thickness", "epsilon_r", "loss_tangent"):
         add("setup/stackup/layer/" + field, "physical-stackup-property", (1,))
+    for field in NONREFERENCE_PLOT_NUMBERS:
+        add(
+            "setup/pcbplotparams/" + field,
+            "plot-setting-not-netcode-reference",
+            (1,),
+            "docs/formats/kicad/board.md; " + NONREFERENCE_WITNESS,
+            "native renumber witness only",
+        )
     return result
 
 
@@ -465,6 +473,10 @@ def project_role_ledger(body: bytes) -> dict:
             "erc-pin-type-conflict-matrix",
             "S-1299; official Eeschema ERC configuration manual and native9/10 passive-pair witness",
         )
+    for pointer in NONREFERENCE_PROJECT_NUMBERS:
+        add(pointer, "number", "numeric-setting-not-netcode-reference", NONREFERENCE_WITNESS)
+    for pointer in SCHEMA_VERSION_PROJECT_NUMBERS:
+        add(pointer, "number", "section-schema-version-not-netcode-reference", NONREFERENCE_WITNESS)
     data = _json.loads(body.decode("utf-8"))
     rows = {}
 
@@ -533,3 +545,115 @@ def project_role_ledger(body: bytes) -> dict:
         "renumbering_admitted": False,
         "full_project_profile_complete": False,
     }
+
+
+# c0384 task 0.4 (bounded): project numeric leaves and board plot numerics measured as NON-netcode-references
+# by the authored native renumber witness in tests/kicad/board/test_native_netcode_order.py. Each listed
+# leaf is set to the same integer as a board netcode and the board net is renumbered: native DRC, the
+# refilled geometry and the saved plot values stay equal. This classifies numeric LEAVES only; their
+# non-numeric containers and every other unknown key remain blockers, and renumbering is still NOT admitted.
+NONREFERENCE_PROJECT_NUMBERS = (
+    "board/design_settings/defaults/board_outline_line_width",
+    "board/design_settings/defaults/copper_line_width",
+    "board/design_settings/defaults/copper_text_size_h",
+    "board/design_settings/defaults/copper_text_size_v",
+    "board/design_settings/defaults/copper_text_thickness",
+    "board/design_settings/defaults/courtyard_line_width",
+    "board/design_settings/defaults/dimension_precision",
+    "board/design_settings/defaults/dimension_units",
+    "board/design_settings/defaults/dimensions/arrow_length",
+    "board/design_settings/defaults/dimensions/extension_offset",
+    "board/design_settings/defaults/dimensions/text_position",
+    "board/design_settings/defaults/dimensions/units_format",
+    "board/design_settings/defaults/fab_line_width",
+    "board/design_settings/defaults/fab_text_size_h",
+    "board/design_settings/defaults/fab_text_size_v",
+    "board/design_settings/defaults/fab_text_thickness",
+    "board/design_settings/defaults/other_line_width",
+    "board/design_settings/defaults/other_text_size_h",
+    "board/design_settings/defaults/other_text_size_v",
+    "board/design_settings/defaults/other_text_thickness",
+    "board/design_settings/defaults/pads/drill",
+    "board/design_settings/defaults/pads/height",
+    "board/design_settings/defaults/pads/width",
+    "board/design_settings/defaults/silk_line_width",
+    "board/design_settings/defaults/silk_text_size_h",
+    "board/design_settings/defaults/silk_text_size_v",
+    "board/design_settings/defaults/silk_text_thickness",
+    "board/design_settings/defaults/zones/min_clearance",
+    "board/design_settings/diff_pair_dimensions/*/gap",
+    "board/design_settings/diff_pair_dimensions/*/via_gap",
+    "board/design_settings/diff_pair_dimensions/*/width",
+    "board/design_settings/rules/min_connection",
+    "board/design_settings/rules/min_groove_width",
+    "board/design_settings/rules/min_hole_clearance",
+    "board/design_settings/rules/min_hole_to_hole",
+    "board/design_settings/rules/min_microvia_diameter",
+    "board/design_settings/rules/min_microvia_drill",
+    "board/design_settings/rules/min_resolved_spokes",
+    "board/design_settings/rules/min_silk_clearance",
+    "board/design_settings/rules/min_text_height",
+    "board/design_settings/rules/min_text_thickness",
+    "board/design_settings/rules/min_via_annular_width",
+    "board/design_settings/rules/solder_mask_clearance",
+    "board/design_settings/rules/solder_mask_min_width",
+    "board/design_settings/rules/solder_mask_to_copper_clearance",
+    "board/design_settings/teardrop_parameters/*/td_curve_segcount",
+    "board/design_settings/teardrop_parameters/*/td_height_ratio",
+    "board/design_settings/teardrop_parameters/*/td_length_ratio",
+    "board/design_settings/teardrop_parameters/*/td_maxheight",
+    "board/design_settings/teardrop_parameters/*/td_maxlen",
+    "board/design_settings/teardrop_parameters/*/td_width_to_size_filter_ratio",
+    "board/design_settings/track_widths/*",
+    "board/design_settings/tuning_pattern_settings/diff_pair_defaults/corner_radius_percentage",
+    "board/design_settings/tuning_pattern_settings/diff_pair_defaults/corner_style",
+    "board/design_settings/tuning_pattern_settings/diff_pair_defaults/max_amplitude",
+    "board/design_settings/tuning_pattern_settings/diff_pair_defaults/min_amplitude",
+    "board/design_settings/tuning_pattern_settings/diff_pair_defaults/spacing",
+    "board/design_settings/tuning_pattern_settings/diff_pair_skew_defaults/corner_radius_percentage",
+    "board/design_settings/tuning_pattern_settings/diff_pair_skew_defaults/corner_style",
+    "board/design_settings/tuning_pattern_settings/diff_pair_skew_defaults/max_amplitude",
+    "board/design_settings/tuning_pattern_settings/diff_pair_skew_defaults/min_amplitude",
+    "board/design_settings/tuning_pattern_settings/diff_pair_skew_defaults/spacing",
+    "board/design_settings/tuning_pattern_settings/single_track_defaults/corner_radius_percentage",
+    "board/design_settings/tuning_pattern_settings/single_track_defaults/corner_style",
+    "board/design_settings/tuning_pattern_settings/single_track_defaults/max_amplitude",
+    "board/design_settings/tuning_pattern_settings/single_track_defaults/min_amplitude",
+    "board/design_settings/tuning_pattern_settings/single_track_defaults/spacing",
+    "board/design_settings/via_dimensions/*/diameter",
+    "board/design_settings/via_dimensions/*/drill",
+    "net_settings/classes/*/line_style",
+    "schematic/annotate_start_num",
+    "schematic/connection_grid_size",
+    "schematic/drawing/dashed_lines_dash_length_ratio",
+    "schematic/drawing/dashed_lines_gap_length_ratio",
+    "schematic/drawing/default_line_thickness",
+    "schematic/drawing/default_text_size",
+    "schematic/drawing/junction_size_choice",
+    "schematic/drawing/label_size_ratio",
+    "schematic/drawing/operating_point_overlay_i_precision",
+    "schematic/drawing/operating_point_overlay_v_precision",
+    "schematic/drawing/overbar_offset_ratio",
+    "schematic/drawing/pin_symbol_size",
+    "schematic/drawing/text_offset_ratio",
+    "schematic/subpart_first_id",
+    "schematic/subpart_id_separator",
+)
+SCHEMA_VERSION_PROJECT_NUMBERS = (
+    "board/design_settings/meta/version",
+    "erc/meta/version",
+    "schematic/meta/version",
+)
+NONREFERENCE_PLOT_NUMBERS = (
+    "dashed_line_dash_ratio",
+    "dashed_line_gap_ratio",
+    "svgprecision",
+    "mode",
+    "hpglpennumber",
+    "hpglpenspeed",
+    "hpglpendiameter",
+    "outputformat",
+    "drillshape",
+    "scaleselection",
+)
+NONREFERENCE_WITNESS = "c0384 0.4 authored native renumber witness; test_native_netcode_order.py"

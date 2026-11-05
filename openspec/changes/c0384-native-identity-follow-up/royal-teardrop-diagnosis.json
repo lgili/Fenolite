@@ -1,0 +1,98 @@
+{
+ "attribution": {
+  "filled_source_vs_generated": {
+   "count": 1,
+   "equal": 201,
+   "extra_generated_regions": "4 on F.Cu net GND, at GND pads inside the filled GND zone of the source",
+   "fill_only": 16,
+   "only_generated": 3,
+   "outline": 1,
+   "parent_keys": [
+    219,
+    222
+   ]
+  },
+  "unfilled_source_vs_generated": {
+   "count": 0,
+   "equal": 205,
+   "fill_only": 16,
+   "only_either": 0,
+   "outline": 1,
+   "parent_keys": [
+    222,
+    222
+   ]
+  }
+ },
+ "board": {
+  "corpus_row": "kicad-demo-10-0-6-pcb-13",
+  "generated_by": "fenolite import (dry-run, confirm) then build --kicad-version 9 on this head",
+  "generated_pcb_sha256": "1758817b1385b5ff469422f14fe4e5d9b864acb895fe6c401753d11c0ca59011",
+  "source_pcb_sha256": "535dbe212f43a8bab12b23277e176a94ac9694177258af2981c0e7b08e4b7252",
+  "source_pro_sha256": "a25ffa7ff829d5eaff27b29724b57821ce2ee7fd39ae367b9ea078d290e37690"
+ },
+ "change": "c0384",
+ "claims": {
+  "acceptance_or_waiver": false,
+  "level7_pass": false,
+  "normal_cache_removed_in_production": false,
+  "repeat_refill_used": false
+ },
+ "conclusion": [
+  "The four extra generated regions come from the ordinary zone fill state: with td_on_pad_in_zone false, native teardrop generation skips pads inside an existing filled same-net zone. The source carries 35 ordinary fill caches, the generated board none.",
+  "Removing only those ordinary caches from the source gives the generated parent set and count (293); 17 regions still differ: 16 in teardrop fill only and 1 in outline, consistent with c0355's measured UUID (fill-only) and track-order (one junction outline) dependencies.",
+  "So identity/order remains necessary after the fill state is aligned; neither alone closes level 7."
+ ],
+ "drivers_sha256": {
+  "tdcmp.py": "370c173ec0e93adf923963e24711f9cfc1d90835bb73e7a242696d815806f160",
+  "tdfill.py": "e316a41373f387102daf4f0ff0e91919bcd2694bc236f63cb353022898c9d92a",
+  "tdparents.py": "ec6f1aafb2dfdea0cf3930210d2ad89642da05c758127bcd3883cdd00c33874f",
+  "tdrefill.py": "52ac5badf338d7ee0bb8bef5095b0a451df864d3443bb6ee5d3a70adf71c493a"
+ },
+ "head": "6e923b6d",
+ "measured": "2026-11-05",
+ "ordinary_zones": {
+  "generated": {
+   "filled": 0,
+   "zones": 4
+  },
+  "source": {
+   "filled": 4,
+   "filled_polygon_caches": 35,
+   "zones": 4
+  }
+ },
+ "project_teardrop_parameters_equal": true,
+ "runs": {
+  "generated_derived_stripped": {
+   "input_sha256": "1758817b1385b5ff469422f14fe4e5d9b864acb895fe6c401753d11c0ca59011",
+   "output_sha256": "d4750a5cbc466006fb8649819373c92179e9d4de8782b45cd6ad623f391aa10f",
+   "regions": 293
+  },
+  "source_derived_and_ordinary_fills_stripped": {
+   "input_sha256": "beb5f755961398199c0c299e8c2208e3e76c0805655d6e5a181881064602e5d3",
+   "output_sha256": "d4b3172720e9db9ea5d85a03dc63c2058dbd727f7193fd1ac1e87add5a198488",
+   "regions": 293,
+   "removed_ordinary_filled_polygons": 35
+  },
+  "source_derived_stripped": {
+   "input_sha256": "cd42998d4db9bd250d0f02813836875fe585aef6d2b819b308be5274b6f07e3e",
+   "output_sha256": "171b52991ac7253dda59e8c9c616793a772d2c2307be215936d540a8dcf15257",
+   "regions": 289
+  }
+ },
+ "schema": "fenolite.c0384.royal-teardrop-diagnosis.v0",
+ "td_on_pad_in_zone": false,
+ "teardrop_parents": {
+  "differing_settings": 0,
+  "generated": {
+   "enabled": 349,
+   "parents": 611
+  },
+  "source": {
+   "enabled": 349,
+   "parents": 611
+  }
+ },
+ "tool": "kicad-cli 10.0.6 (macOS), pcb drc --refill-zones --save-board, one run per input"
+}

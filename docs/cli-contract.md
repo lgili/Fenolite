@@ -1523,6 +1523,12 @@ named like a verb is passed as `./audit`.
 
 ## import
 
+Verified import of a source whose ordinary zones hold fills also retains private `native/fill.cache.json`
+(native carry-over, never Fenolite-computed copper or a Fenolite fill). It binds the SHA-256 of the exact
+emitted board, project and rule bytes and the target; `build` carries it only onto identical bytes and
+reports `result.preserved.native_fill_cache` (`carried`, or `dropped` with its reason), never refusing
+(`docs/import.md`, "Native ordinary fill caches"; c0384).
+
 Verified import also retains a private `native/project.context.json` when the ordinary DSL names would
 change native assignment/pattern representation, or preserved native-only rules need original spellings. Its literal script digest,
 explicit project digest, complete physical net partitions, class values/membership, target and whole
@@ -1588,6 +1594,7 @@ with `FEN-4002`.
 | `import.teardrops-regenerated` | info | teardrop zones left out because KiCad draws them again from the pad and via teardrop settings the code keeps (change c0277) |
 | `import.arc-as-track` | info | arcs whose start, mid and end lie on one line (after rounding to nanometres) are written as the straight track they draw; the self-check takes them as explained (change c0375) |
 | `import.board-only` | info | footprints that share a reference or have none a script can name, written as board-only parts named by key; the count of those that gain KiCad's `board_only` attribute (change c0277) |
+| `import.fill-cache-dropped` | info | the source's ordinary zone fill caches were written to `native/fill.cache.json` but the import's confirming build did not carry them, so the carrier is left out (change c0384) |
 
 ## check
 

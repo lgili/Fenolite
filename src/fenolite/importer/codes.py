@@ -24,6 +24,7 @@ ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "import.teardrops-regenerated": "info",
         "import.arc-as-track": "info",
         "import.board-only": "info",
+        "import.fill-cache-dropped": "info",
     }
 )
 """Every code that ``fenolite.importer`` and ``fenolite import`` report, with its severity."""
