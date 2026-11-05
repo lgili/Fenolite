@@ -252,6 +252,42 @@ run above. The attempt stopped before any case:
 No case was redone, and nothing was saved. The six cases keep their scripted edits from the run above.
 Every `H-A-EDIT-*` and `H-A-INTEG-*` row keeps its level.
 
+### 2026-11-04 night, actual `AD 24.5.2.23`, phase B J23 to J33 (source S-1588)
+
+A Claude agent ran phase B at the maintainer's request of 2026-11-04/05, in the Altium Designer installed in
+the maintainer's Parallels Windows VM. The tool reports `Client.GetProductVersion` 24.5.2.23 (Trial). This
+is not the maintainer's own review. The phase B kit was built at `aa49b069` (`origin/cac/lote-14`), which
+holds the session of tasks 3.1 to 3.4. The build ran with `FENOLITE_ALTIUM_PART_J_SAVED` set to the agent's
+phase A files of S-1577. Its `expected-b.md` is `354db907…`. Each document was opened on its own in a VM
+copy, saved with File » Save As as `<name>-saved`, closed, and opened again. A read-only DelphiScript listed
+the messages and objects at both openings. The written files are unchanged after the run. Fenolite's
+read-back of each saved file, at `aa49b069`, gives the same record counts as the written file, except where
+noted below.
+
+| case | file | expected (`expected-b.md`) | observed in Altium | result |
+|---|---|---|---|---|
+| J23 move | `move` | GND track at (10, 6)–(20, 6) mm | as expected; no message; the same after save and reopen | pass |
+| J23 rotate | `rotate` | R2 at 90° | as expected | pass |
+| J23 flip | `flip` | D1 on the bottom | D1 on Bottom Layer at (26, 15) mm | pass |
+| J23 set_property | `set_property` | R1 comment `2k2` | as expected | pass |
+| J23 delete | `delete` | R2 gone | R2 absent; D1 and R1 remain | pass |
+| J23 clone | `clone` | a GND track at (10, 8)–(20, 8) mm and a via at (20, 8) mm | both present; the original track and via remain | pass |
+| J23 add_component | `add_component` | R9 at (32, 22) mm, 0°, `Mini_R_0603` | as expected | pass |
+| J23 remap_layer | `remap_layer` | the track (2, 2)–(12, 2) mm and the filled region on Mechanical 15 | the region shows on Mechanical 15. The track still shows on Mechanical 13: its layer byte names Mechanical 15 (71), but the rest of its record still holds 13 | fail |
+| J23 set_rule | `set_rule` | `Clearance` gap 9.8425 mil | Altium shows the gap as 0.2 mm (7.874 mil). The file's `GAP` is 9.8425 mil and its `GENERICCLEARANCE` is 7.874 mil; the saved file writes `GAP=7.874mil` back | fail |
+| J24 | `sch-move`, `sch-parameter`, `sch-delete` | R1 moved; R1 comment `2k2`; R2 deleted with its wires kept | R1 at (2800, 6300) mil against 2400 in phase A; R1 `2k2`; R2 absent with 6 wires, as in phase A. No message. The project's net compile was not run, because the documents were opened on their own | pass, nets not compared |
+| J25 | — | `edit-library.PcbLib` | not written (no library session) | dropped |
+| J26 | `subpoly-gap` | report the opening, the messages, the save and the saved pieces | opens and saves with no message. Fenolite still reports `altium.integrity.subpoly-gap` on the saved file (pieces 0, 1, 3 of polygon `GND`), and reads 5 shape regions against 3 | observed |
+| J27 | `pour-index-twice` | as J26, plus the Pour Index of each polygon | opens with no message. Altium shows Pour Index 2 for `GND` and 1 for `VIN`, against 0 and 0 in the file. The saved file gives no finding | observed |
+| J28 | `unique-id-twice` | as J26 | opens and saves with no message. The saved file still has pads D1.1 and D1.2 sharing one unique id (`altium.integrity.unique-id-twice`) | observed |
+| J29–J31 | — | parameter and model faults | not written (no parameter group in phase A; no embedded model) | dropped |
+| J32 | `layer-fields` | as J26, plus the layer the region shows on | opens with no message. The region shows on Mechanical 15, the layer named by `V7_LAYER`, not by the layer byte (Mechanical 13). The saved file gives no finding | observed |
+| J33 | — | path scan before reading | the saved files stay outside the repository in `c0241-JB-native/`; not zipped | not run |
+
+The first Save As of `set_rule` lost the first letter of its typed name (`et_rule-saved.PcbDoc`). It was
+saved again under the right name. No level is raised, because this was an agent run. `H-A-EDIT-KIT` and
+the `H-A-INTEG-*` rows keep their levels, and every operation's gate stays off. Task 4.2 stays open.
+
 ## Approved pending-native scope — 2026-11-03
 
 The maintainer explicitly authorized the pending Altium validations on the
