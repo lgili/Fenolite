@@ -52,6 +52,11 @@
     they wait for AD 26; R5 keeps its failure.
 - [ ] 2.6 (from c0166 3.4) Execute remaining OutJob, template/custom-border, hierarchy-mode and rule-export requests. Proof: the report and focused documentation/provenance tests.
   - Blocker on 2026-11-05: The OutJob, template/custom-border, hierarchy-mode and rule-export requests were not run in any agent round (S-1570 to S-1589).
+  - 2026-11-05 (S-1611, AD 24.5.2.23 Trial, agent run): OutJob steps O1, O3, O5, O6 and O7, hierarchy modes (R1)
+    and the rule export (R2) were run; reports under Part O of `docs/evidence/altium-schematic.md` and "Reports" of
+    `docs/evidence/altium-project-read.md`; levels unchanged. Still open: the template appearance request (a native
+    template's logo, fonts and colours, and an imported custom border), which has no step list in the repository and
+    needs a judgement of drawn appearance; O8 and O-S1 (O-S1 needs the AD 26 minor version).
 
 ## 3. Board kits: slots, panels, repour (c0168, c0173, c0215)
 
@@ -85,13 +90,17 @@
 
 ## 4. Edit sessions (c0241)
 
-- [ ] 4.1 (from c0241 1.2) **Maintainer, in Altium Designer.** Build phase A with `FENOLITE_ALTIUM_PART_J=~/fenolite-altium-checks/session-7/J-edit uv run pytest tests/unit/backends/altium/test_part_j.py -k phase_a`, run J1 to J22 and send back the folder, the version, the date and the SHA-256 of each saved file. Record the report under "Reports" of `docs/evidence/altium-edit.md` in the form of the native acceptance inventory, register its source, and write what each case measured into the result of its rows. OPEN until Altium was run; nothing is marked `ALTIUM-VERIFIED` by it. Proof: `uv run pytest tests/unit/test_altium_verification_docs.py -k part_j tests/unit/test_hypotheses_register.py -q`.
+- [x] 4.1 (from c0241 1.2) **Maintainer, in Altium Designer.** Build phase A with `FENOLITE_ALTIUM_PART_J=~/fenolite-altium-checks/session-7/J-edit uv run pytest tests/unit/backends/altium/test_part_j.py -k phase_a`, run J1 to J22 and send back the folder, the version, the date and the SHA-256 of each saved file. Record the report under "Reports" of `docs/evidence/altium-edit.md` in the form of the native acceptance inventory, register its source, and write what each case measured into the result of its rows. OPEN until Altium was run; nothing is marked `ALTIUM-VERIFIED` by it. Proof: `uv run pytest tests/unit/test_altium_verification_docs.py -k part_j tests/unit/test_hypotheses_register.py -q`.
   - Blocker on 2026-11-05: J4 did not read whether the free tracks stayed. Six cases (J7, J9, J14, J18, J19, J21) used a scripted edit in place of the Properties panel, and the S-1582 redo through the panel was not possible.
   - 2026-11-05 (S-1609, AD 24.5.2.23 Trial, agent run on the S-1574/S-1577 phase A bytes, not rebuilt): J7, J9, J14,
     J18, J19 and J21 were redone through the Properties panel and give the outcomes of their scripted edits; J9's
     designator and comment are on Bottom Overlay. J4's free tracks stay, but that J4 file holds `R1` at (26, 20)
     and `R2` at (26, 12) mm, not `R1` alone at X 14 mm, so J4 does not show the move it asks for. Report under
     "Reports" of `docs/evidence/altium-edit.md`; levels unchanged. Still open: the coordinator's decision on J4.
+  - 2026-11-05 (S-1610, agent run on the same phase A bytes, after an Altium restart): on the coordinator's decision,
+    J4 was redone through the Properties panel. The saved file holds `R1` at (14, 20) and `R2` at (12, 12) mm, and only
+    the ten tracks of `R1`'s footprint moved, so J4 passes. The J04 file of S-1577 did not contain that move. Closed on
+    the coordinator's word; no level moves.
 - [ ] 4.2 (from c0241 4.2) **Maintainer, in Altium Designer.** Run J23 to J33 and give the report; record it as task 1.2 does and set the rows `H-A-EDIT-KIT` and `H-A-INTEG-*`. Set an operation's gate only when its case passes. OPEN until Altium was run. Proof: `uv run pytest tests/unit/test_altium_verification_docs.py -k part_j tests/unit/test_hypotheses_register.py -q`.
   - Blocker on 2026-11-05: `remap_layer` and `set_rule` failed, J33 was not run, and J25 and J29–J31 were dropped.
   - 2026-11-05, needs J23–J33 rerun: both writer failures of J23 (S-1588) are fixed.

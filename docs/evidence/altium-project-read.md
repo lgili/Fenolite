@@ -125,3 +125,48 @@ with `net_scope = None` and the warning `altium.project.hierarchy-mode-unknown`.
    (key names only).
 
 Until the report, the export form is known from one public file of an older Altium.
+
+## Reports
+
+### 2026-11-05, actual `AD 24.5.2.23`, R1 and R2 (source S-1611)
+
+A Claude agent ran both requests at the maintainer's delegation of 2026-11-04, relayed by the coordinator. It
+worked in the Altium Designer installed in the maintainer's Parallels Windows VM (24.5.2.23, Trial). This is
+not the maintainer's own review and not AD 26.5, so no level moves.
+
+**R1.** The agent did not create a new project. It used a copy of the Fenolite-written `blink_routed.PrjPcb`
+with its one schematic sheet. That file has no `HierarchyMode` line. The option "Net Identifier Scope" is the
+combo of Project » Project Options » Options. For each scope, the agent set it, chose OK, and saved the
+project with File » Save Project As under a new name in the same folder. This File menu has no plain "Save
+Project". Each saved file starts with a UTF-8 byte-order mark, and `HierarchyMode` is the second key of
+`[Design]`:
+
+| scope (as Altium names it) | `HierarchyMode` |
+|---|---|
+| Automatic (Based on project contents) | `0` |
+| Flat (Only ports global) | `1` |
+| Hierarchical (Sheet entry <-> port connections, power ports global) | `2` |
+| Strict Hierarchical (Sheet entry <-> port connections, power ports local) | `4` |
+| Global (Netlabels and ports global) | `3` |
+
+The first OK raised "System Error. Code: 5. Access is denied" in `WorkspaceManager.DLL`. The agent closed the
+form with its Close item, and nothing was sent. The run then went on without the error.
+
+**R2.** In the copy of `blink_routed.PcbDoc` of the O-outjob pack, the agent opened Design » Rules,
+right-clicked the rule tree, chose Export Rules, selected Clearance, Width, Routing Via Style and Hole Size,
+and saved `export4.RUL` (2390 bytes, `a35736bf…`). The rules editor was then closed with Cancel. The file
+holds six lines, one rule each: two clearance rules, two width rules, one via style and one hole size.
+
+- Each line ends with the single byte `B6` (not `C2 B6`), then CR LF. The file ends with CR LF.
+- There is no byte-order mark. The first line starts `SELECTION=FALSE|`.
+- Every record starts with the same 18 keys: `SELECTION`, `LAYER`, `LOCKED`, `POLYGONOUTLINE`,
+  `USERROUTED`, `KEEPOUT`, `UNIONINDEX`, `RULEKIND`, `NETSCOPE`, `LAYERKIND`, `SCOPE1EXPRESSION`,
+  `SCOPE2EXPRESSION`, `NAME`, `ENABLED`, `PRIORITY`, `COMMENT`, `UNIQUEID` and `DEFINEDBYLOGICALDOCUMENT`.
+- Then each kind adds its own keys:
+  - clearance: `GAP`, `GENERICCLEARANCE`, `IGNOREPADTOPADCLEARANCEINFOOTPRINT` and `OBJECTCLEARANCES`;
+  - width: `MAXLIMIT`, `MINLIMIT` and `PREFEREDWIDTH`;
+  - via style: `HOLEWIDTH`, `WIDTH`, `VIASTYLE`, `MINHOLEWIDTH`, `MINWIDTH`, `MAXHOLEWIDTH` and `MAXWIDTH`;
+  - hole size: `ABSOLUTEVALUES`, `MAXLIMIT`, `MINLIMIT`, `MAXPERCENT` and `MINPERCENT`.
+
+The supporting corpus row of S-0297 ends its lines with `B6` and LF. This export ends them with `B6` and
+CR LF.

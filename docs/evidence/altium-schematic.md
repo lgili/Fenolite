@@ -572,6 +572,45 @@ same job, as expected. Per step:
 Part W of the same report is under "Reports" below. No file that Altium wrote is committed, and the job and
 the template stay experimental.
 
+**2026-11-05, actual `AD 24.5.2.23`, steps O3, O5, O6 and O7 (source S-1611).** At the maintainer's
+delegation of 2026-11-04, relayed by the coordinator, a Claude agent ran these steps in the Altium Designer
+installed in the maintainer's Parallels Windows VM (24.5.2.23, Trial). It used a VM copy of the session pack
+`O-outjob/`. The three jobs match the table of "Session 2" (`595be494…`, `bb3e5505…`, `cffaa5da…`). Containers
+were generated with their "Generate content" link, and the setup was read in the Gerber Setup dialog through
+UI Automation. Captures were deleted after viewing. This is not the maintainer's own review, and no level
+moves. Per step:
+
+- **O1.** `blink_routed.PrjPcb` and its job open with no message (Messages 0).
+- **O3.** `fab` and then `doc` generate without a dialog. The Gerber folder holds 12 layer files: `.GTO`,
+  `.GTP`, `.GTS`, `.GTL`, `.GBL`, `.GBS`, `.GBP`, `.GBO`, `.GM13`, `.GM14`, `.GM15` and `.GM16`. Beside them are
+  `.apr`, `.EXTREP`, `.REP`, `.RUL` and `-macro.APR_LIB`. The count equals the twelve entries of the table. The
+  Gerber report now names each layer ("Generating : Mechanical 16 … Adding Layer : Mechanical 16"), and
+  `.EXTREP` lists the twelve extensions with their layer names. The drill output writes `.TXT`, `.LDP` and
+  `.DRR`; pick and place writes one `.txt`; `doc` writes one PDF. The bill of materials stops on "Microsoft
+  Excel is not found on your computer", because Excel is not installed in the VM.
+- **O5.** The setup shows Millimeters, Decimal 0.0001 mm (4 decimals) and file names `filename.*`. Plot is on
+  for the twelve layers of the table and off for every other layer (Keep-Out, the pad masters).
+- **O6.** The first entry of "Layers to plot" is a category **Board Outline**. Its one row is file
+  `blink_routed.GM`, layer name **Gerber Board Profile**, with Plot off. The agent turned it on, chose Apply
+  (this dialog has Apply and Cancel, no OK) and saved the job as `blink_routed_outline.OutJob` (`1462d5cd…`).
+  The first `fab` attempt showed a "Confirm" dialog that closed before its text was read, and no file was
+  written. The second attempt, without a dialog, adds `blink_routed.GM` (361 bytes), which `.EXTREP` lists as
+  "Profile". The file is a closed board outline in millimetres with 4 decimals. The saved job's Gerber record
+  gains `PlotBoardProfile=True` and `PlotBoardProfileFileName`. Its `Plot.Set` keeps the same twelve entries,
+  and the class name changes from `TLayerToBoolean` to `TPlotLayerStateArray`. So the outline is a key of its
+  own, not a `Plot.Set` entry. The Altium save also adds 17 other fields, among them `DocumentPath`,
+  `BoardID`, `GenerateReports`, `OutputFormat` and two drill-layer-pair groups.
+- **O7.** `board6` generates `fab` in 12 seconds without a dialog. The Gerber folder holds 16 layer files:
+  `.GTO`, `.GTP`, `.GTS`, `.GTL`, `.G1`, `.GP1`, `.G2`, `.G3`, `.GBL`, `.GBS`, `.GBP`, `.GBO` and `.GM13` to
+  `.GM16`. `.EXTREP` names `.GP1` Internal Plane 1. The mid-layers are numbered by their order, not their
+  layer number: `.G1` is Mid-Layer 1, `.G2` Mid-Layer 3 and `.G3` Mid-Layer 4. The drill output writes `.TXT`,
+  `.TX1`, `.TX2`, `.LDP` and `.DRR`.
+
+O8 and O-S1 were not run. O-S1 needs the AD 26 minor version of the session of 2026-10-07. The template
+appearance request of the native acceptance inventory ("Templates": a native template's logo, fonts and
+colours, and an imported custom border) has no step list in the repository and needs a judgement of drawn
+appearance, so it was not run either. No file that Altium wrote is committed.
+
 ## Part W: the sheet template and the drawing sheet in Altium Designer
 
 Change c0087 writes a sheet template (`.SchDot`) from a `*.sheet.toml` specification, and draws the same

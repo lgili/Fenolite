@@ -225,10 +225,10 @@ Only their unreported supplementary measurements remain below.
 | Repeat R5 | c0151 bus split follow-up | remote 4958647d artefacts tested: three errors/six warnings, bus and OUT links still fail; implementation not integrated here |
 | Bodies X8.6 | counts from the native saved file | measured: 3 plain/3 shape-based, 0 original MODELID retained, 3 nonzero checksums, 35 keys each; X8.1-X8.5/X8.7 prior reports retained |
 | Via supplementary measurement | nine further bytes of the long via record before/after removing shapes and changing end-layer options | pending; Part V's layer-id mask already reported as expected |
-| OutJob | Gerber counts/extensions, O6 border observation and exact-version confirmation of the historic empty-Gerber case | pending; current output generation/settings already reported |
+| OutJob | Gerber counts/extensions, O6 border observation and exact-version confirmation of the historic empty-Gerber case | agent run on AD 24.5.2.23, 2026-11-05 (S-1611): 12 and 16 layer files with their extensions, a Board Outline entry `Gerber Board Profile` that writes `.GM` through `PlotBoardProfile`; the historic empty-Gerber case still needs the AD 26 minor version |
 | Rules | optional planted DRC, c0125 per-layer matrix and c0130 object-type matrix | c0125/c0130 ran on 2026-10-14 (AD 26.5, S-0744); planted DRC observed by an agent on AD 24.5.2.23 on 2026-11-04 (S-1584, below) |
-| Project reader | five Net Identifier Scope values and exported RUL fields/encoding | pending |
-| Templates | native-template logo/font/color appearance and imported custom border | pending; prior W report remains valid for its original case |
+| Project reader | five Net Identifier Scope values and exported RUL fields/encoding | agent run on AD 24.5.2.23, 2026-11-05 (S-1611): `HierarchyMode` 0, 1, 2, 4, 3; RUL lines end `B6` CR LF, no byte-order mark; not the AD 26.5 author report |
+| Templates | native-template logo/font/color appearance and imported custom border | pending (not run 2026-11-05: no step list in the repository, and the criterion is a judgement of drawn appearance); prior W report remains valid for its original case |
 | Part T PADSTACK | connector masks and broader stack coverage | Full Stack four-layer case and PcbLib placement passed; masks pending |
 | Part T SCHEMATIC | T1-T6, hierarchy and connectivity | T2 passed with 18 warnings; T5 retry matches all 68 components, four valid proposed removals, no ECO execution; remaining T1/T3-T6 acceptance pending |
 | Part T DIFAT | T1-T6 on the large converted document | pending |

@@ -210,7 +210,7 @@ changed. The cases from J3 also change `Classes6` 14, `PrimitiveGuids` 1 and, af
 | J1 | `J01-resave.PcbDoc` `8e025db3…` | M | opens with no repair message, saves without a message | as expected. Against the kit's document, the save adds 14 `Classes6`, 32 `Rules6` and one record each in `BoardRegions`, `EmbeddedFonts6`, `FileVersionInfo`, `PrimitiveGuids`, `Texts` and `UnionNames`, and changes 33 `Tracks6`, 6 `Pads6`, 3 `Vias6`, 3 `Arcs6` and 3 `Components6` records |
 | J2 | `J02-resave.PcbDoc` `fa2c9147…` | M | opens and saves without a message | opens and saves without a message. The second save still changes the records listed above |
 | J3 | `J03-move-track.PcbDoc` `b012fac6…` | P | only the track moves; the via stays at (20, 5) | as expected: the track runs (10, 6)–(20, 6), and the via stays at (20, 5). `Tracks6` changes 1 record |
-| J4 | `J04-move-component.PcbDoc` `8eb8732e…` | P | `R1` moves with its pads and texts; tracks stay | `R1` is at (14, 20). `Components6` changes 2, `Tracks6` 20 and `Texts6` 4 records. Violation streams are added for clearance, component clearance, short circuit and silk-to-silk. Whether the free tracks stayed was not read |
+| J4 | `J04-move-component.PcbDoc` `8eb8732e…` | P | `R1` moves with its pads and texts; tracks stay | `R1` is at (14, 20). `Components6` changes 2, `Tracks6` 20 and `Texts6` 4 records. Violation streams are added for clearance, component clearance, short circuit and silk-to-silk. Whether the free tracks stayed was not read. **This file does not hold the move described here**: read on 2026-11-05 (S-1609), it has `R1` at (26, 20) and `R2` at (26, 12) mm. J4's result is the panel redo of S-1610 below |
 | J5 | `J05-width.PcbDoc` `6d41066d…` | P | only the width changes | `Tracks6` changes 1 record, and a `TMaxWidthTrackViolation` record is added |
 | J6 | `J06-comment.PcbDoc` `fb814f35…` | P | the comment reads `2k2` | the Comment field reads `2k2`. `WideStrings6` changes 1 record |
 | J7 | `J07-text.PcbDoc` `d4234eec…` | S | the new text shows | the text reads `FENOLITE EDIT 2`. `Texts6` changes 1 record and `WideStrings6` 1 |
@@ -284,6 +284,20 @@ repository.
 
 Every `H-A-EDIT-*` row keeps its level: the run is an agent run on 24.5 under the approved scope. The J4
 finding is the coordinator's to judge: the S-1574/S-1577 file does not show the move that J4 asks for.
+
+**J4 redone through the panel (source S-1610).** On the coordinator's decision of 2026-11-05, the agent redid
+J4 on the same phase A bytes (`edit.PcbDoc` `0f6301a5…` before and after). The J04 file of S-1577 did not
+contain the move that J4 describes, so this redo is J4's result. Altium had closed at 16:11 with a .NET
+runtime fault, after a "System Error. Code: 1158" (window-manager handles used up) while it opened
+`edit.PcbDoc`. No crash report was sent. Altium was started again with the same build, and J4 ran in the new
+session.
+
+| case | file (SHA-256) | way | expected | observed |
+|---|---|---|---|---|
+| J4 (S-1610) | `J04-move-component.PcbDoc` `7c002de7…` | P (X of `R1`, 12 mm to 14 mm) | `R1` moves with its pads and texts; tracks stay | the field reads 551.181 mil (14 mm). A read-only script gives `R1` at (14, 20) and `R2` at (12, 12) mm, and Fenolite's reader gives the same. Against the kit's document, only the ten tracks of `R1`'s footprint differ, each moved by +2 mm in X. Every other track keeps its ends and width, including the free track that ends at `R1`'s old pad 1 at (11.2, 20). The save showed only the Save As dialog |
+
+J4 passes. Every `H-A-EDIT-*` row keeps its level, because this is an agent run on 24.5 under the approved
+scope.
 
 ### 2026-11-04 night, actual `AD 24.5.2.23`, phase B J23 to J33 (source S-1588)
 
