@@ -2307,13 +2307,13 @@ CREATED_ROOT_HEADS: tuple[str, ...] = (
 )  # fmt: skip
 """The root head set of a created board: c0007's skeleton (``net`` for target 9 only)."""
 FLOOR_HEADS: tuple[str, ...] = (
-    "arc", "arrow_length", "attr", "center", "color", "comment", "company", "copper_finish", "copperpour",
+    "arc", "arrow_length", "attr", "color", "comment", "company", "copper_finish", "copperpour",
     "date", "dielectric_constraints", "dimension", "epsilon_r", "extension_height", "extension_offset",
     "filled_polygon", "footprints", "format", "gr_arc", "gr_circle", "gr_line", "gr_poly", "gr_text",
     "hatch_border_algorithm", "hatch_gap", "hatch_min_hole_area", "hatch_orientation",
     "hatch_smoothing_level", "hatch_smoothing_value", "hatch_thickness", "height", "hide", "island",
     "island_area_min", "island_removal_mode", "justify", "keepout", "locked", "loss_tangent", "material",
-    "mid", "mode", "name", "orientation", "pads", "path", "precision", "prefix", "priority", "radius", "rev",
+    "mode", "name", "orientation", "pads", "path", "precision", "prefix", "priority", "radius", "rev",
     "smoothing", "solder_mask_margin", "solder_paste_margin", "stackup", "style", "suffix",
     "text_position_mode", "title", "title_block", "tracks", "units", "units_format", "vias", "zone_connect",
     "teardrops", "best_length_ratio", "max_length", "best_width_ratio", "max_width", "filter_ratio",
