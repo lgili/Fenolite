@@ -127,6 +127,18 @@
   decision). (2) `gallery.yml` runs after `Library checks`/`Library release assets` on a published GitHub
   Release and deploys Pages (`LIBRARY_PAGES_ENABLED`). Publishing the release waits for the maintainer's OK
   with Fenolite v0.7.0.
+  Update 2026-11-05: the library's `main` was fast-forwarded to `754ed737` (the `v1.0.0` tag, coordinator's
+  word), so `bench.yml` can be dispatched. Its first run, 41954400114 (from `main`), failed ecc83 (FEN-2001: two
+  project files) and the Coldfire kit: it passed the upstream folder with default options to `verify-source`,
+  the bug fixed earlier in the `proof` job. Library commit `2dbbab3` on `cac/library-completion` makes bench run
+  the recorded step read-only. Bench run 41955646625 (`workflow_dispatch`, ref `cac/library-completion`, head
+  `2dbbab30`) is green: all six boards pass with 0 differences. Library checks run 41955640988 on `2dbbab30` is
+  green (20 jobs). `replay`, `proof`, `bench.yml` and Fenolite's `library-bench` are done. The only part left is
+  `gallery.yml`. It runs on `workflow_run` of `Library release assets`, or by dispatch with an existing
+  published release tag; it downloads that GitHub Release's assets (`gh release download`) and deploys Pages,
+  behind `LIBRARY_PAGES_ENABLED` and the `github-pages` environment. Creating the GitHub Release for `v1.0.0`
+  and enabling Pages wait for the maintainer's publish OK with Fenolite v0.7.0. The library's `main` still
+  holds the pre-fix `bench.yml` until it is fast-forwarded to `2dbbab3`.
 - [x] 4.5 First boards (research section 4.6): the KiCad demos with a usable licence (not the non-commercial one), each converted, replayed and proved, with accepted differences recorded and reviewed. Proof: the library's `check.yml` green on the pull request that adds them.
   Local 2026-11-04 with core `e7673c81` (the library pin): the twelve boards were converted on 2026-11-03 with
   cores `18351e40`/`5b0853b7` (the `codex/cac-next` line, before c0355 and later import changes). Replay (run
