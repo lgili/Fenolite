@@ -119,8 +119,8 @@ Every document holds 29 document parameters and no parameter text. The F0 half o
 these files by Fenolite's reader (all decode). `test_f0_files_decode` first could not run: the kit privacy
 scan refuses the folder for its VM paths (S-1314). On the maintainer's decision of 2026-11-04 it ran with
 the VM's absolute work folder as the reviewed prefix (see "Observation intake") and passed on the twelve
-`PCBDwf` documents and `F0-13.DwfDot`; the round's PDF output was left out, since its PDF name objects
-still refuse. Gate G1 is GO for decoding (task 1.5).
+`PCBDwf` documents and `F0-13.DwfDot`, and again on the whole folder with its PDF output once the scan
+stopped reading PDF name objects as paths. Gate G1 is GO for decoding (task 1.5).
 Fact rows: `docs/formats/altium/draftsman.md`, "Round F0 as saved by Altium Designer 24.5.2.23".
 
 ### Phase 1 budget

@@ -188,6 +188,54 @@ def absolute_paths(text: str) -> list[tuple[int, str]]:
     return found
 
 
+_PDF_WHITESPACE = frozenset(b"\x00\t\n\x0c\r ")
+_PDF_DELIMITERS = frozenset(b"()<>[]{}/%")
+
+
+def _token_start(data: bytes, index: int) -> bool:
+    return index == 0 or data[index - 1] in _PDF_WHITESPACE or data[index - 1] in _PDF_DELIMITERS
+
+
+def pdf_names_masked(data: bytes) -> bytes:
+    """``data`` with every PDF name object outside a literal string, a stream and a comment replaced by
+    spaces of the same length, when ``data`` starts with ``%PDF-``; any other bytes as they are.
+
+    In the syntax of a PDF file (ISO 32000-1, 7.2 and 7.3), ``/`` starts a name object, so ``/Type/Font`` is
+    two names and never a path. A path that a PDF holds as text lies in a literal string ``( … )``, in a
+    stream or in a comment, and those bytes are left as they are and still scanned; the offsets do not
+    move. A literal string follows its nesting of balanced parentheses and its backslash escapes; a stream
+    runs from its keyword ``stream`` to ``endstream``."""
+    if not data.startswith(b"%PDF-"):
+        return data
+    out = bytearray(data)
+    index, size, depth = 0, len(data), 0
+    while index < size:
+        byte = data[index]
+        if depth:
+            if byte == 0x5C:  # backslash: the next byte is escaped
+                index += 2
+                continue
+            depth += 1 if byte == 0x28 else -1 if byte == 0x29 else 0
+            index += 1
+        elif byte == 0x28:
+            depth, index = 1, index + 1
+        elif byte == 0x25:  # a comment runs to the end of its line
+            while index < size and data[index] not in (0x0A, 0x0D):
+                index += 1
+        elif byte == 0x73 and data.startswith(b"stream", index) and _token_start(data, index):
+            end = data.find(b"endstream", index + 6)
+            index = size if end < 0 else end + 9
+        elif byte == 0x2F:
+            end = index + 1
+            while end < size and data[end] not in _PDF_WHITESPACE and data[end] not in _PDF_DELIMITERS:
+                end += 1
+            out[index:end] = b" " * (end - index)
+            index = end
+        else:
+            index += 1
+    return bytes(out)
+
+
 def privacy_scan(files: Mapping[str, bytes]) -> tuple[PrivacyFinding, ...]:
     """What a published archive of ``files`` (path → bytes) would give away about the machine of the run:
     the strings that look like a home folder (``home-folder``), like any other absolute path of that
@@ -196,10 +244,11 @@ def privacy_scan(files: Mapping[str, bytes]) -> tuple[PrivacyFinding, ...]:
 
     A file is read three times: as 8-bit text, which finds a string in ASCII, in the code page of an
     Altium record and in UTF-8, and as UTF-16 from its first and from its second byte, which finds a wide
-    string at any alignment. A relative path, a stream name and a web address are not reported."""
+    string at any alignment. A relative path, a stream name and a web address are not reported, nor are the
+    name objects of a PDF file (``pdf_names_masked``): its strings, streams and comments are still read."""
     found: list[PrivacyFinding] = []
     for path in sorted(files):
-        data = files[path]
+        data = pdf_names_masked(files[path])
         seen: dict[tuple[int, str], PrivacyFinding] = {}
         views = (
             (data.decode("latin-1"), 1, 0),
@@ -568,6 +617,7 @@ __all__ = [
     "ResultFile",
     "StepVerdict",
     "form_problems",
+    "pdf_names_masked",
     "privacy_scan",
     "project_documents",
     "sample_documents",

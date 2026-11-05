@@ -586,3 +586,50 @@ def test_pending_native_scope_preserves_exact_major_minor_form_dialect(version):
         "values": {},
     }
     assert form_problems(form, ()) == ["altium_version is not of the form 'AD <major>.<minor>'"]
+
+
+# PDF name objects (c0172 follow-up): ``/Type/Font`` is two names of the PDF syntax, never a path; a path
+# that a PDF holds as text, in a literal string, a stream or a comment, is still reported.
+_PDF_PATH = "/".join(("", "srv", "kitwork", "round", "board.PcbDoc"))
+_PDF_DRIVE = "\\".join(("E:", "KitWork", "round", "board.PcbDoc"))
+
+
+def _pdf(body: str) -> bytes:
+    return ("%PDF-1.4\n" + body + "\n%%EOF\n").encode("latin-1")
+
+
+def test_pdf_name_objects_are_not_paths() -> None:
+    data = _pdf(
+        "1 0 obj <</Type/Catalog/Pages 2 0 R>> endobj\n"
+        "2 0 obj <</Type/Pages/Kids[3 0 R]/Count 1>> endobj\n"
+        "3 0 obj <</Type/Page/Resources<</ProcSet[/PDF/Text/ImageB/ImageC/ImageI]"
+        "/ColorSpace<</CS/DeviceRGB>>/Font<</F1 4 0 R>>/ExtGState<</G 5 0 R>>>> >> endobj\n"
+        "4 0 obj <</Type/Font/BaseFont/XKABEJ+Arial/Subtype/TrueType>> endobj\n"
+        "5 0 obj <</Type/ExtGState>> endobj\n"
+        "6 0 obj <</Length 11/Filter/FlateDecode>>\nstream\nxx\nendstream endobj"
+    )
+    assert results.privacy_scan({"F0-14.pdf": data}) == ()
+    # the same bytes without the PDF header are no PDF: their names read as paths, as before
+    assert results.privacy_scan({"x.txt": data.removeprefix(b"%PDF-1.4\n")})
+
+
+def test_paths_in_pdf_strings_streams_and_comments_are_still_found() -> None:
+    cases = [
+        f"1 0 obj <</Title (saved from {_PDF_PATH})/Type/Catalog>> endobj",
+        f"1 0 obj <</Title (a (nested \\) paren) then {_PDF_DRIVE})>> endobj",
+        f"1 0 obj <</Length 40>>\nstream\nBT ({_PDF_PATH}) Tj ET\nendstream endobj",
+        f"% written in {_PDF_PATH}\n1 0 obj <</Type/Catalog>> endobj",
+    ]
+    for body in cases:
+        data = _pdf(body)
+        found = results.privacy_scan({"out.pdf": data})
+        assert [finding.kind for finding in found] == ["absolute-path"], body
+        expected = _PDF_DRIVE if "E:" in body else _PDF_PATH
+        assert found[0].text.startswith(expected) and found[0].offset == data.index(expected.encode()), body
+
+
+def test_pdf_names_masked_keeps_length_and_strings() -> None:
+    data = _pdf(f"<</Type/Font/Title ({_PDF_PATH})>>")
+    masked = results.pdf_names_masked(data)
+    assert len(masked) == len(data) and b"/Type" not in masked and _PDF_PATH.encode() in masked
+    assert results.pdf_names_masked(b"/Type/Font") == b"/Type/Font"

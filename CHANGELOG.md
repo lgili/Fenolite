@@ -46,8 +46,10 @@ All notable changes to Fenolite are documented here. The format follows
   names exactly one absolute folder that a person reviewed; privacy findings under it count as `reviewed`
   and do not refuse, every other finding still refuses, and reports hold only the count, never the
   prefix. Unset, the intake behaves as before. With the VM's absolute work folder as the prefix the F0
-  intake proof passed (`test_f0_files_decode`; the round's PDF output left out, its PDF name objects still
-  refuse).
+  intake proof passed (`test_f0_files_decode`).
+- **The kit privacy scan reads PDF files by their syntax** (c0172): the name objects of a PDF file
+  (`/Type/Font`, `/Filter/FlateDecode`) are no longer reported as absolute paths; a path in a PDF's
+  literal string, stream or comment still is.
 
 - **Altium edit sessions** (c0241, tasks 2.1, 3.1 to 3.4, 4.1 and 5.1): the opt-in check stage
   `altium.integrity` (`fenolite check DOC --stages altium.integrity`) warns about the index-table faults of
