@@ -981,7 +981,95 @@ def body_record(
     return bytes((BODY,)) + subrecord(body)
 
 
+# --- the Embedded Board Array (change c0173, task 7.2) -----------------------------------------------------
+
+ARRAY_VISIBLE_LAYERS = (
+    "Signal.All~0_Signal.Include~SerializeLayerHash.Version=2,ClassName=TLayerHash,"
+    + ",".join(f"{16777217 + n}=1" for n in range(31))
+    + ",16842751=1_Mechanical.All~0_Mechanical.Include~SerializeLayerHash.Version=2,ClassName=TLayerHash,"
+    + ",".join(f"{16908289 + n}=1" for n in range(16))
+    + "_Internal.All~0_Internal.Include~SerializeLayerHash.Version=2,ClassName=TLayerHash,"
+    + ",".join(f"{16842753 + n}=1" for n in range(16))
+    + "_Standard.All~0_Standard.Include~SerializeLayerHash.Version=2,ClassName=TLayerHash,16973850=1,"
+    + ",".join(f"{16973830 + n}=1" for n in range(18))
+    + "_Dielectric.All~0"
+)
+"""``VISIBLELAYERS`` of an array: the same text in every array that Altium Designer 24.5.2.23 saved in Part Q
+phase A (``pcb-document.md``, "Embedded board arrays", S-1422): every signal, mechanical, internal and
+standard layer shown."""
+
+
+def embedded_board_array(
+    document: str,
+    at: tuple[int, int],
+    board: tuple[int, int],
+    *,
+    rows: int,
+    cols: int,
+    row_spacing: int,
+    col_spacing: int,
+    rotation: int = 0,
+    mirrored: bool = False,
+    linked: bool = False,
+) -> bytes:
+    """The property record of one Embedded Board Array in ``EmbeddedBoards6`` (``H-A-PANEL-RECORD``), in the
+    key order of the arrays that Altium saved in Part Q phase A (S-1422). ``document`` is the referenced
+    PCB document's path relative to the panel document; ``at`` the array's location and ``board`` the
+    referenced board's width and height, in units (1/10 000 mil); the spacings are the pitch from one copy
+    to the next (board size plus gap, the margin being folded into it); ``rotation`` in microdegrees;
+    ``linked`` is Link Location (``ORIGINMODE`` 0). The bounds ``X1`` to ``Y2`` are those of the unturned
+    array, mirrored to the left of ``at`` when ``mirrored``, as the saved files hold them."""
+    from fenolite.backends.altium.docboard import angle_text
+
+    if rows < 1 or cols < 1:
+        raise ValueError(f"an array of {rows} × {cols} copies")
+    if "\\" in document or document.startswith("/") or (len(document) > 1 and document[1] == ":"):
+        raise ValueError(f"the document path {document!r} is not a relative path with forward slashes")
+    x, y = at
+    width = (cols - 1) * col_spacing + board[0]
+    height = (rows - 1) * row_spacing + board[1]
+    x1, x2 = (x - width, x) if mirrored else (x, x + width)
+    fields: list[Field] = [
+        ("SELECTION", "FALSE"),
+        ("LAYER", "TOP"),
+        ("LOCKED", "FALSE"),
+        ("POLYGONOUTLINE", "FALSE"),
+        ("USERROUTED", "TRUE"),
+        ("KEEPOUT", "FALSE"),
+        ("UNIONINDEX", "0"),
+        ("X1", mil_text(x1)),
+        ("Y1", mil_text(y)),
+        ("X2", mil_text(x2)),
+        ("Y2", mil_text(y + height)),
+        ("ROTATION", angle_text(rotation)),
+        ("ISVIEWPORT", "FALSE"),
+        ("VIEWPORTX1", "0mil"),
+        ("VIEWPORTY1", "0mil"),
+        ("VIEWPORTX2", "1000mil"),
+        ("VIEWPORTY2", "1000mil"),
+        ("VIEWPORTSCALE", "1.000"),
+        ("VIEWPORTVISIBLE", "TRUE"),
+        ("VIEWPORTTITLE", "Title"),
+        ("FONTNAME", "Arial"),
+        ("FONTSIZE", "500000"),
+        ("FONTCOLOR", "16777215"),
+        ("VISIBLELAYERS", ARRAY_VISIBLE_LAYERS),
+        ("DOCUMENTPATH", document),
+        ("X", mil_text(x)),
+        ("Y", mil_text(y)),
+        ("ROWSPACING", mil_text(row_spacing)),
+        ("COLSPACING", mil_text(col_spacing)),
+        ("ROWCOUNT", str(rows)),
+        ("COLCOUNT", str(cols)),
+        ("MIRROR", "TRUE" if mirrored else "FALSE"),
+        ("ORIGINMODE", "0" if linked else "1"),
+    ]
+    return property_block(fields)
+
+
 __all__ = [
+    "ARRAY_VISIBLE_LAYERS",
+    "embedded_board_array",
     "VIA_TENTED_BOTTOM",
     "VIA_TENTED_TOP",
     "VIA_TENTING_EVIDENCE",

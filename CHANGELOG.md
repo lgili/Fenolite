@@ -30,6 +30,13 @@ All notable changes to Fenolite are documented here. The format follows
 - Record current Altium 24.5.2.23 Part T steps T1–T6 (c0160, c0166, S-1571). A Claude agent ran them at the maintainer's request. At `d155b258` the SCHEMATIC case is refused (`FEN-3005`) and the DIFAT case fails (`FEN-1001`), so both were observed on the 2026-10-12 bundle; PADSTACK used current bytes. All three open and compile, T5 shows no footprint change, and T6 reads equal Full Stack pads in the PCB, the PcbLib and a placed copy. The four `H-A-CONV-*` rows stay `INFERRED`.
 
 - Record current Altium 24.5.2.23 Part S cases S1, S2 and S8 (c0168, S-1570). A Claude agent ran them at the maintainer's request on the S-1297 input digests. S2 and S8 are as expected. In S1 the pad and NC Drill are as expected, and Drill Drawings show the slot only by its tool symbol. `H-A-SLOT-KIT` stays `INFERRED` and task 5.2 stays open.
+- **Embedded Board Array record** (c0173, tasks 7.1 to 7.3): the array record of `EmbeddedBoards6`, measured
+  field by field from ten panels an agent saved in Altium Designer 24.5.2.23 (S-1422, rows `INFERRED`), is
+  written by `pcbrecords.embedded_board_array` and `panel.altium.embedded_files` behind
+  `pcbdoc.EMBEDDED_ARRAYS = False`: no command writes it until the maintainer's Part Q cases Q7 to Q9
+  pass. Part Q phase B (`written/`, `flat/`, `expected.md`) is built by `test_part_q.py -k phase_b`.
+  Mechanical layer types stay unwritten (case Q3 not measured).
+
 - **Draftsman round F0 census** (c0172, task 2.2): the thirteen documents of round F0 that an agent saved
   in Altium Designer 24.5.2.23 on 2026-11-04 (S-1421) read with Fenolite's reader; their element counts,
   sheets, items and filled board data members are recorded `INFERRED` (counts and member names only).

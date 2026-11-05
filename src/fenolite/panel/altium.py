@@ -396,11 +396,66 @@ def flat_files(
     return files, [*issues, *found]
 
 
+def array_record(laid: PanelLayout, document: str) -> bytes:
+    """The ``EmbeddedBoards6`` record of the copies of ``laid`` as one array of ``document`` (a path relative
+    to the panel document), in the frame that ``pcbdoc.write_pcbdoc`` gives the panel (change c0173, task
+    7.2): its location the lower-left corner of the bottom-left copy, in absolute document units as every
+    primitive's; its spacings the pitch from one copy to the next. ``ValueError`` for a turned copy (whose
+    placement in an array no file of phase A shows)."""
+    from fenolite.backends.altium import pcbrecords as rec
+
+    if not laid.copies or any(copy.rotation % FULL_TURN for copy in laid.copies):
+        raise ValueError("an Embedded Board Array is written for unturned copies only")
+    left = min(copy.rect.x0 for copy in laid.copies)
+    low = max(copy.rect.y1 for copy in laid.copies)
+    xs = sorted({copy.rect.x0 for copy in laid.copies})
+    ys = sorted({copy.rect.y0 for copy in laid.copies})
+    offset = pcbdoc.BOARD_OFFSET_MIL * 25_400
+    at = (rec.to_units(left + offset), rec.to_units(laid.size.h - low + offset))
+    pitch_x = xs[1] - xs[0] if len(xs) > 1 else laid.board.width
+    pitch_y = ys[1] - ys[0] if len(ys) > 1 else laid.board.height
+    return rec.embedded_board_array(
+        document,
+        at,
+        (rec.to_units(laid.board.width), rec.to_units(laid.board.height)),
+        rows=laid.rows,
+        cols=laid.cols,
+        row_spacing=rec.to_units(pitch_y),
+        col_spacing=rec.to_units(pitch_x),
+    )
+
+
+def embedded_files(
+    panel: Panel, laid: PanelLayout, board_design: Design, document: str
+) -> tuple[dict[str, bytes], list[Issue]]:
+    """``<name>.PcbDoc`` and ``<name>.PrjPcb`` of the panel as an Embedded Board Array of ``document`` (a
+    path relative to the panel document): the panel's own items of ``flat_files`` (the rectangle, the
+    routed gaps, the score lines, the holes and the fiducials) and one array record, no copy of the board
+    (``H-A-PANEL-RECORD``). The caller holds the gate: ``pcbdoc.EMBEDDED_ARRAYS``, or the kit of Part Q
+    phase B with the gate forced on for the kit only. Pours are written as outlines. ``ValueError`` for a
+    mirrored or turned array (no file of phase A shows how its copies lie)."""
+    if panel.array.mirrored:
+        raise ValueError("a mirrored array is not written as an Embedded Board Array")
+    design, issues = panel_design(panel, dataclasses.replace(laid, copies=()), board_design)
+    if any(i.severity == "error" for i in issues):
+        return {}, issues
+    found: list[Issue] = []
+    inputs = lower.from_design(design, issues=found)
+    assert inputs.pcb is not None
+    spec = dataclasses.replace(_named_layers(inputs.pcb), embedded_arrays=(array_record(laid, document),))
+    name = panel.name
+    written = pcbdoc.write_pcbdoc_result(spec, filename=f"{name}.PcbDoc", pour="outline")
+    files = {f"{name}.PcbDoc": written.data, f"{name}.PrjPcb": project_file(f"{name}.PcbDoc")}
+    return files, [*issues, *found, *written.issues]
+
+
 __all__ = [
     "FLATTENED",
     "ROUTE_LAYER",
     "VCUT_LAYER",
+    "array_record",
     "copy_board",
+    "embedded_files",
     "flat_files",
     "panel_design",
     "project_file",

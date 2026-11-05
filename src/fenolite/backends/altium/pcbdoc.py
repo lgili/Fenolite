@@ -283,8 +283,10 @@ for KiCad's importer and for the author. ``H-A-SLOT-PAD`` and ``H-A-CUTOUT-REGIO
 the board cut-out region of change c0168, measured with KiCad's importer; ``H-A-SLOT-KIT`` is the
 maintainer's Part S, which decides ``CUTOUT_REGIONS``. ``H-A-PANEL-FLAT`` is the flattened panel document of
 change c0173, measured with KiCad's importer; ``H-A-PANEL-KIT`` is the maintainer's Part Q, which decides
-``EMBEDDED_ARRAYS``. ``H-A-PANEL-RECORD`` and ``H-A-PANEL-LAYERKIND`` are ``UNKNOWN`` until Part Q measures
-the array's records, and nothing of them is written, so they are not named here."""
+``EMBEDDED_ARRAYS``. ``H-A-PANEL-RECORD`` and ``H-A-PANEL-LAYERKIND`` keep their register levels until the
+maintainer's report of Part Q: the array's record is written by ``pcbrecords.embedded_board_array`` from an
+agent's phase A files (S-1422, ``INFERRED`` rows) behind the gate, and no build writes it, so they are not
+named here."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -575,6 +577,11 @@ class PcbDocSpec:
     """The form of the body records: ``saved``, the 35 keys of a saved body with the two stand-ins, or
     ``short``, the first 21 keys. ``short`` exists for the second file set of step X8 of the author report
     (``H-A-PCBX-BODY-SHORT``); no command and no option of a build selects it."""
+    embedded_arrays: tuple[bytes, ...] = ()
+    """The Embedded Board Array records of ``EmbeddedBoards6`` (``pcbrecords.embedded_board_array``, change
+    c0173, task 7.2), each in the document's own units. Empty for every build and for every panel while
+    ``EMBEDDED_ARRAYS`` is false: the storage then has ``Header`` 0 and an empty ``Data``; the kit of Part Q
+    phase B fills it with the gate forced on."""
     connect_styles: tuple[tuple[Field, ...], ...] = ()
     """The Polygon Connect Style records of a document that was read (the board's ``polygon_connect``
     pairs, change c0215), each its keys from ``RULEKIND`` on. A computed pour writes them back when every
@@ -1872,6 +1879,7 @@ def _write(
     if computed and spec.zones and spec.rules:
         filled["Rules6"] += connect_records(spec, filename)[0]
     filled[BODY_STORAGES[0]], filled[BODY_STORAGES[1]] = body_records(spec, frame)
+    filled["EmbeddedBoards6"] = list(spec.embedded_arrays)
     poured = {copper.layers[layer] for zone in spec.zones for layer in zone.layers}
     used = sorted(
         {
