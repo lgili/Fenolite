@@ -27,7 +27,7 @@ from fenolite.cli.api import Command, Context, Result
 from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
 from fenolite.core.evidence import Evidence, Level
-from fenolite.model.board import Stackup
+from fenolite.model.board import Stackup, rule_areas
 from fenolite.model.design import Design
 from fenolite.model.library import Library
 
@@ -160,7 +160,7 @@ def _counts(content: Design | Library) -> dict[str, int]:
             "vias": len(board.vias),
             "zones": len(board.zones),
             "fills": sum(len(z.fills) for z in board.zones),
-            "keepouts": len(board.keepouts),
+            "keepouts": len(rule_areas(board)),
             "graphics": len(board.graphics),
             "texts": len(board.texts),
         }

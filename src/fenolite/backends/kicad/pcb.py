@@ -26,7 +26,7 @@ from typing import Literal, TypeVar, get_args
 
 from fenolite import __version__
 from fenolite.backends.base import WriteResult
-from fenolite.backends.kicad import _pcbwrite, netnames, resolver
+from fenolite.backends.kicad import _pcbwrite, fpzones, netnames, resolver
 from fenolite.backends.kicad import slots as slotlib
 from fenolite.backends.kicad import stackup as stacklib
 from fenolite.backends.kicad import teardrops as tdlib
@@ -1528,6 +1528,7 @@ class _Reader:
             pads=tuple(pad for pad, _, _ in pads),
             fields=tuple(fields),
             net_ties=net_ties,
+            keepouts=fpzones.footprint_keepouts(item.children, key, fpzones.board_to_pad(position, rotation)),
         )
         self.check(item, loc, slots, _emit_footprint(instance, path), FP_ROOT, nested=("pads", "fields"))
         instance = dataclasses.replace(instance, ext={"kicad": slotlib.to_ext(slots)})
@@ -2346,7 +2347,7 @@ CANONICAL_ORDER: Mapping[str, tuple[str, ...]] = MappingProxyType(
         "title_block": ("title", "date", "rev", "company", "comment"),
         "footprint": (
             *FOOTPRINT_POSITIONAL, "locked", "layer", "uuid", "at", "property", "path", "attr",
-            *FP_GRAPHIC_HEADS, "pad",
+            *FP_GRAPHIC_HEADS, "pad", "zone",
         ),
         "property": ("name", "value", "at", "layer", "hide", "uuid", "effects"),
         "effects": ("font", "justify"),
@@ -2445,7 +2446,7 @@ _WRITE_FIELDS: Mapping[str, Mapping[str, str | tuple[str, ...]]] = MappingProxyT
         },
         "footprint": {
             **FOOTPRINT_FIELDS, "locked": "locked", "property": ("fields", "properties"),
-            **dict.fromkeys(FP_GRAPHIC_HEADS, "graphics"),
+            **dict.fromkeys(FP_GRAPHIC_HEADS, "graphics"), "zone": "keepouts",
         },
         "property": {**FIELD_FIELDS},
         "pad": {**BOARD_PAD_FIELDS, **MARGIN_HEADS, tdlib.HEAD: "teardrop", **SHAPE_HEADS},
@@ -3139,6 +3140,12 @@ class _Writer:
         # frame, as an imported footprint holds them (change c0409); a read one keeps them in its slots
         graphics = _write_order(fp.graphics) if created else []
         items["graphics"] = [self.entity(_netless(g), _FP_HEADS[g.kind]) for g in graphics]
+        # a created footprint writes its rule areas as zone children in the board's frame, where KiCad reads
+        # a footprint's zone (change c0411); a read one keeps them in its slots (``reconcile_zones``)
+        placed = fpzones.pad_to_board(fp.position, fp.rotation)
+        items["keepouts"] = (
+            [fpzones.zone_node(k, kicad_uuid(k), placed) for k in fp.keepouts] if created else []
+        )
         return items
 
     def properties(self, fp: FootprintInstance, component: Component | None) -> list[Node | Atom]:
@@ -3482,7 +3489,39 @@ class _Writer:
             self.check_removed_fields(entity, slots, where)
             if entity.net_ties and "net_ties" not in covered:
                 self.read_only("net_ties", where, f"the footprint has no {NET_TIES} child to hold the groups")
+            self.reconcile_zones(entity, slots, where)
         return covered
+
+    def reconcile_zones(self, fp: FootprintInstance, slots: list[Slot], where: str) -> None:
+        """The keep-out zones of a read footprint (change c0411): kept as written while they project to
+        ``fp.keepouts`` at the footprint's placement; when only the placement changed, each zone's points
+        are written from its area, placed; any other change gives ``projection-read-only``."""
+        zones = [
+            (i, child)
+            for i, slot in enumerate(slots)
+            if isinstance(slot, Opaque)
+            and isinstance(child := slotlib.opaque_child(slot), Node)
+            and child.name == "zone"
+            and child.find("keepout") is not None
+        ]
+        key = fp.native_ids.get("kicad", fp.id)
+        here = fpzones.board_to_pad(fp.position, fp.rotation)
+        projected = fpzones.footprint_keepouts((child for _, child in zones), key, here)
+        if [fpzones.shape(a) for a in projected] == [fpzones.shape(a) for a in fp.keepouts]:
+            return
+        same_areas = len(projected) == len(fp.keepouts) == len(zones) and all(
+            fpzones.shape(a)[1:] == fpzones.shape(b)[1:] and len(a.outline) == len(b.outline)
+            for a, b in zip(projected, fp.keepouts, strict=True)
+        )
+        if not same_areas:
+            self.read_only("keepouts", where, "the rule areas of a read footprint are written as read")
+            return
+        placed = fpzones.pad_to_board(fp.position, fp.rotation)
+        for (i, child), area in zip(zones, fp.keepouts, strict=True):
+            slot = slots[i]
+            assert isinstance(slot, Opaque)
+            moved = fpzones.placed_zone(child, area, placed)
+            slots[i] = Opaque(dumps(moved, style="compact"), slot.min_version)
 
     def reconcile_field(self, field: FootprintField, slots: list[Slot], items: Items) -> set[str]:
         """The projections of a read field (``board.md``, "The writer", "Fields").

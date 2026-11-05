@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Any, Literal
 
+from fenolite.model.board import rule_areas
 from fenolite.model.design import Design
 
 Group = Literal["circuit", "footprint", "copper", "board", "presentation", "project", "downgrade"]
@@ -357,8 +358,8 @@ def census(design: Design) -> dict[str, int]:
                 "via": len(board.vias),
                 "zone": len(board.zones),
                 "zone-fill": sum(1 for zone in board.zones if zone.fills),
-                "keep-out": len(board.keepouts),
-                "keepout-footprints": sum(1 for keepout in board.keepouts if keepout.no_footprints),
+                "keep-out": len(rule_areas(board)),
+                "keepout-footprints": sum(1 for keepout in rule_areas(board) if keepout.no_footprints),
                 "hole": len(board.holes),
                 "stackup": int(board.stackup is not None),
                 "text": len(board.texts),

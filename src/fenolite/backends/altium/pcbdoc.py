@@ -33,7 +33,6 @@ import dataclasses
 import struct
 from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, field
-from types import MappingProxyType
 from typing import Final, Literal
 
 import fenolite.backends.altium.pcbrecords as rec
@@ -52,11 +51,14 @@ from fenolite.backends.altium.libboard import guid
 from fenolite.backends.altium.pcblib import (
     BODY_IS_MODEL,
     BODY_NO_OUTLINE,
+    KEEPOUT_BITS,
     LibFootprint,
     PadExtras,
     body_problem,
     check_footprint,
     graphic_records,
+    keepout_records,
+    keepout_restrictions,
     pad_bytes,
 )
 from fenolite.backends.altium.pour import EVIDENCE as POUR_EVIDENCE
@@ -848,10 +850,13 @@ def place_component(
     frame: Frame,
     nets: Mapping[str, int],
     copper_layers: Sequence[str] = (),
+    layer_ids: Mapping[str, int] | None = None,
 ) -> _Placed:
     """The pads, tracks and arcs of one component at absolute Altium coordinates, and the box of its pads
     and graphics (nanometres, Altium frame). ``copper_layers`` (change c0160) is the board's copper layers
-    in stack order, which a pad's per-layer stack needs."""
+    in stack order, which a pad's per-layer stack needs; ``layer_ids`` the Altium id of each (the
+    document's stack). The rule areas of the definition are keep-out regions of the component (change
+    c0411), placed and flipped as its graphics."""
     footprint = component.footprint
     check = check_footprint(
         footprint.defn, footprint.extras, texts=footprint.texts, copper_layers=copper_layers
@@ -908,6 +913,19 @@ def place_component(
         at = frame(component.at)
         box = [at.x, at.y, at.x, at.y]
     placed = _Placed(pads, tracks, arcs, (box[0], box[1], box[2], box[3]))
+    for area in footprint.defn.keepouts:
+        for shape_based, into in ((False, placed.regions), (True, placed.shapes)):
+            into.extend(
+                keepout_records(
+                    area,
+                    to_frame,
+                    flip=bottom,
+                    component=index,
+                    shape_based=shape_based,
+                    copper_layers=copper_layers,
+                    layer_ids=layer_ids,
+                )
+            )
     plain = Transform.placement(component.at, component.rotation)
     for item in component.items:  # as the instance holds them: no mirror, no layer flip (change c0126)
         graphic = item.graphic
@@ -1142,18 +1160,6 @@ def unwritten_features(via: Via, default: ViaProtection | None) -> tuple[str, ..
 
 
 # --- free items of the board (change c0085) ---------------------------------------------------------------
-
-KEEPOUT_BITS: Mapping[str, int] = MappingProxyType(
-    {"no_vias": 0x01, "no_tracks": 0x02, "no_copper_pour": 0x04, "no_pads": 0x18}
-)
-"""Restriction of a model keep-out → its bits of the keep-out restrictions value (``pcb-records.md``,
-"Regions and keep-outs"): vias, tracks, copper, and pads as surface-mount and through-hole pads. The
-restriction ``no_footprints`` has no bit."""
-
-
-def keepout_restrictions(keepout: Keepout) -> int:
-    """The restrictions value of ``keepout``: the bits of ``KEEPOUT_BITS`` of the restrictions it sets."""
-    return sum(bits for name, bits in KEEPOUT_BITS.items() if getattr(keepout, name))
 
 
 def _ring(points: Sequence[Point]) -> list[Point]:
@@ -1809,7 +1815,7 @@ def _write(
     offsets = channel_offsets(spec.components)
     for index, component in enumerate(spec.components):
         components.append(_component_record(component, offsets[index], frame, filename))
-        placed = place_component(component, index, frame, nets, spec.copper_layers)
+        placed = place_component(component, index, frame, nets, spec.copper_layers, copper.layers)
         pads += placed.pads
         tracks += placed.tracks
         arcs += placed.arcs

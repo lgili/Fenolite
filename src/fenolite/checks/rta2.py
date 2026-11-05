@@ -22,6 +22,7 @@ from fenolite.checks.diff import Change, diff_designs
 from fenolite.checks.stages import StageResult, ran
 from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence
+from fenolite.model.board import rule_areas
 from fenolite.model.circuit import with_normal_pin_maps
 from fenolite.model.design import Design
 
@@ -51,7 +52,7 @@ def held(design: Design) -> dict[str, int]:
         "arc": len(board.arcs),
         "via": len(board.vias),
         "zone": len(board.zones),
-        "keepout": len(board.keepouts),
+        "keepout": len(rule_areas(board)),
         "text": len(board.texts),
         "graphic": len(board.graphics),
         "hole": len(board.holes),

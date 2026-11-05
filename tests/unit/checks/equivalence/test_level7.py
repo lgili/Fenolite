@@ -125,3 +125,28 @@ def test_board_text_and_graphic() -> None:
     gone = with_board(source, texts=(), graphics=board(source).graphics[:-1])
     kinds = sorted(d.kind for d in level7(source, gone).differences)
     assert kinds == ["graphic-missing", "text-missing"]
+
+
+def test_footprint_rule_areas_compare_per_footprint() -> None:
+    """Change c0411: level 7 compares a footprint's rule areas under its reference, in its pad frame, as
+    KiCad stores them inside the footprint; the same area held by the board is another item."""
+    from fenolite.model.board import Keepout, placed_keepout
+
+    source = two_layer()
+    area = Keepout(
+        id="kpo_r1",
+        outline=(Point(0, 0), Point(1_000_000, 0), Point(1_000_000, 1_000_000), Point(0, 1_000_000)),
+        layers=("F.Cu",),
+        no_vias=True,
+    )
+    held = with_footprint(source, "R1", lambda fp: dataclasses.replace(fp, keepouts=(area,)))
+    assert level7(held, held).differences == ()
+    found = [(d.kind, d.where.split(":")[0]) for d in level7(source, held).differences]
+    assert found == [("keepout-missing", "R1")]
+    flagged = with_footprint(
+        source, "R1", lambda fp: dataclasses.replace(fp, keepouts=(dataclasses.replace(area, no_pads=True),))
+    )
+    assert [(d.kind, d.field) for d in level7(held, flagged).differences] == [("keepout-field", "no_pads")]
+    placed = placed_keepout(footprint(held, "R1"), area)
+    on_board = with_board(source, keepouts=(*board(source).keepouts, placed))
+    assert sorted(d.where.split(":")[0] for d in level7(held, on_board).differences) == ["R1", "board"]

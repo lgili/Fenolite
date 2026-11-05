@@ -53,7 +53,7 @@ from fenolite.geometry import (
     thick_touch,
 )
 from fenolite.geometry import Arc as GeometryArc
-from fenolite.model.board import Track, Via
+from fenolite.model.board import Track, Via, rule_areas
 from fenolite.model.design import Design
 from fenolite.model.rules import RuleSubject
 
@@ -215,7 +215,7 @@ class _Search:
         self.edges = tuple(Thick((*ring, ring[0]), 0) for ring in self.rings)
         self.no_vias = tuple(
             Thick(tuple(area.outline), 0, filled=True)
-            for area in board.keepouts
+            for area in rule_areas(board)
             if area.no_vias
             and len(area.outline) >= 3
             and (not area.layers or set(expand_layers(area.layers, self.copper)) & set(self.copper))
@@ -225,7 +225,7 @@ class _Search:
                 frozenset(expand_layers(area.layers, self.copper)) if area.layers else frozenset(self.copper),
                 Thick(tuple(area.outline), 0, filled=True),
             )
-            for area in board.keepouts
+            for area in rule_areas(board)
             if area.no_tracks and len(area.outline) >= 3
         )
         planes = set(plane_layers)

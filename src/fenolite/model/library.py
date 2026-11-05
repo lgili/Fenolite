@@ -17,7 +17,7 @@ from typing import Literal
 from fenolite.core.coords import Point
 from fenolite.core.units import Nm, Udeg
 from fenolite.model.base import Entity
-from fenolite.model.board import ORDERED, ComponentBody, Graphic, Pad
+from fenolite.model.board import ORDERED, ComponentBody, Graphic, Keepout, Pad
 from fenolite.model.circuit import PinType, PortDirection, ValueRange
 
 FootprintKind = Literal["smd", "through_hole", "unspecified"]
@@ -69,6 +69,10 @@ class FootprintDef(Entity):
     placements: tuple[ModelPlacement, ...] = field(default=(), metadata=ORDERED)
     """The 3D models of a footprint read from another format, each with its placement (change c0223); a
     footprint read from KiCad keeps its ``model`` children as read in ``models`` and holds none here."""
+    keepouts: tuple[Keepout, ...] = field(default=(), metadata=ORDERED)
+    """The rule areas of the footprint (change c0411), in its frame, in the order of their source: a
+    footprint's keep-outs, which every board that places it gets. Left out of the canonical JSON when
+    empty."""
 
     @property
     def lib_id(self) -> str:

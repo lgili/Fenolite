@@ -43,7 +43,7 @@ from fenolite.geometry import (
     round_point,
 )
 from fenolite.geometry import Arc as GeoArc
-from fenolite.model.board import Arc, Keepout, Teardrop, Track, Via, ViaProtection, ViaType
+from fenolite.model.board import Arc, Keepout, Teardrop, Track, Via, ViaProtection, ViaType, rule_areas
 from fenolite.model.circuit import Net, NetClass
 from fenolite.model.design import Design
 
@@ -1305,7 +1305,7 @@ def stitch_vias(
         raise KeyError(net)
     barriers = _barriers(
         board,
-        (*design.board.keepouts, *keepouts),
+        (*rule_areas(design.board), *keepouts),
         outline if outline is not None else board_outline(design),
         edge_clearance_in_force(design, edge_floor),
     )
@@ -1477,7 +1477,7 @@ def resolve_copper(
     board = _board(design, unplaced)
     barriers = _barriers(
         board,
-        (*design.board.keepouts, *keepouts),
+        (*rule_areas(design.board), *keepouts),
         outline if outline is not None else board_outline(design),
         edge_clearance_in_force(design, edge_floor),
     )

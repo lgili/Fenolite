@@ -17,7 +17,7 @@ from fenolite.backends.altium.read.pcb import read_pcbdoc
 from fenolite.backends.altium.read.pcbprims import Prefix
 from fenolite.core.coords import Point
 from fenolite.geometry import area2
-from fenolite.model.board import Board, Keepout
+from fenolite.model.board import Board, Keepout, rule_areas
 
 MM = 1_000_000
 MIL = rec.MIL
@@ -126,18 +126,22 @@ def test_keep_out_arc_fill_and_region_on_copper() -> None:
     assert area.layers == ("B.Cu",) and _restrictions(area) == (True, True, False, False)
 
 
-def test_a_keep_out_of_a_component_is_a_board_keep_out() -> None:
+def test_a_keep_out_of_a_component_is_a_rule_area_of_its_footprint() -> None:
     """A keep-out track of a component on copper is no copper of its footprint: it is a rule area of the
-    board, in the board's frame."""
+    footprint, in its pad frame (change c0411; change c0407 made it a rule area of the board)."""
     component = rec.component("U1", x="500mil", y="500mil")
     track = _flag(rec.track((400 * MIL, 500 * MIL), (600 * MIL, 500 * MIL), component=0))
     board = _board(components=[component], tracks=[track])
     (footprint,) = board.footprints
     assert not [g for g in footprint.graphics if g.layer.endswith(".Cu")]
-    (band,) = board.keepouts
+    assert not board.keepouts
+    (band,) = footprint.keepouts
     assert band.layers == ("F.Cu",)
+    # 100 mil left of the footprint's origin, less half of the 10 mil width
     xs = [p.x for p in band.outline]
-    assert abs(min(xs) - (400 * 25_400 - 5 * 25_400)) <= 2
+    assert abs(min(xs) - (-100 * 25_400 - 5 * 25_400)) <= 2
+    (placed,) = rule_areas(board)
+    assert abs(min(p.x for p in placed.outline) - (400 * 25_400 - 5 * 25_400)) <= 2
 
 
 def test_copper_without_the_flag_stays_copper() -> None:
@@ -146,10 +150,11 @@ def test_copper_without_the_flag_stays_copper() -> None:
     assert Point(0, 0) == board.tracks[0].start
 
 
-def test_keep_outs_of_a_library_footprint_give_no_copper() -> None:
-    """Change c0410: a keep-out track or region on copper and a polygon cut-out of a library footprint give
-    no graphic, so no copper; they are counted as ``footprint-keepouts`` and the unmapped issue's hint names
-    change c0411. The two tracks of the Keep-Out layer stay drawings of ``Altium.KeepOut``."""
+def test_keep_outs_of_a_library_footprint_are_its_rule_areas() -> None:
+    """Change c0411: a keep-out track or region on copper and a polygon cut-out of a library footprint give
+    no graphic, so no copper, but a rule area of the footprint each (change c0410 counted them as the loss
+    ``footprint-keepouts``). The two tracks of the Keep-Out layer stay drawings of ``Altium.KeepOut``, as on
+    a board: ``convert`` makes their rule areas."""
     from fenolite.backends.altium.adapter.library import import_footprints
     from fenolite.backends.altium.read.pcblib import read_pcblib
     from fenolite.core.errors import Issue
@@ -163,5 +168,9 @@ def test_keep_outs_of_a_library_footprint_give_no_copper() -> None:
     (footprint,) = library.footprints
     assert not [g for g in footprint.graphics if g.layer.endswith(".Cu")]
     assert [g.layer for g in footprint.graphics] == ["Altium.KeepOut"] * 2
-    (unmapped,) = [i for i in issues if i.code == "altium.import.unmapped"]
-    assert "footprint-keepouts 3" in unmapped.message and "c0411" in unmapped.hint
+    assert not [i for i in issues if i.code == "altium.import.unmapped"]
+    band, cutout, area = footprint.keepouts
+    assert band.layers == ("F.Cu",) and _restrictions(band) == (True, True, True, True)
+    assert cutout.layers == ("F.Cu",) and _restrictions(cutout) == (False, False, False, True)
+    assert area.layers == ("B.Cu",) and _restrictions(area) == (True, True, False, False)
+    assert len({k.id for k in footprint.keepouts}) == 3

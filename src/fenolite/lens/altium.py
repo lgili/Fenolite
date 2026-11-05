@@ -87,6 +87,7 @@ from fenolite.model.board import (
     FootprintInstance,
     Graphic,
     Hole,
+    Keepout,
     Pad,
 )
 from fenolite.model.circuit import Component, Net, Pin, PinRef
@@ -982,6 +983,20 @@ def _instance_graphic(graphic: Graphic, *, bottom: bool) -> Graphic:
     )
 
 
+def _instance_keepout(area: Keepout, *, bottom: bool, copper: Sequence[str]) -> Keepout:
+    """A library rule area in the pad frame of an instance on its side (change c0411; the inverse of
+    ``lower._library_keepout``): ``*.Cu`` is every copper layer of the board, and on the bottom side the
+    points are mirrored about the footprint's X axis and the layers are those of the other side."""
+    layers = tuple(dict.fromkeys(n for name in area.layers for n in (copper if name == "*.Cu" else (name,))))
+    if bottom:
+        return dataclasses.replace(
+            area,
+            outline=tuple(Point(p.x, -p.y) for p in area.outline),
+            layers=tuple(_other_side(n) for n in layers),
+        )
+    return dataclasses.replace(area, layers=layers)
+
+
 def place_footprints(
     design: Design,
     footprints: Mapping[str, pcblib.LibFootprint],
@@ -996,8 +1011,9 @@ def place_footprints(
 
     An instance is placed where ``placements`` says, or staged right of the outline with one
     ``altium.pcb-staged`` info, as the KiCad build stages it. It holds the pads and graphics that
-    ``pcblib.check_footprint`` keeps of the library definition, in the pad frame (``_instance_pad``,
-    ``_instance_graphic``), with ids derived from the component's id; a rounded pad holds the corner ratio
+    ``pcblib.check_footprint`` keeps of the library definition, and its rule areas, in the pad frame
+    (``_instance_pad``, ``_instance_graphic``, ``_instance_keepout``), with ids derived from the component's
+    id; a rounded pad holds the corner ratio
     that is written, ``PPM_PER_PERCENT`` times ``pcbrecords.corner_percent(ratio)``, and every pad the id of
     the net of its pin through the pin-to-pad map (``altium_copper.pad_net_names``). The component bodies
     of the model's footprints of the component are kept. A comment outside 7-bit ASCII gives one
@@ -1013,6 +1029,7 @@ def place_footprints(
     if after is not None:
         cursor = max(cursor, after)  # the strategy groups staged as one box come first (change c0255)
     top = min(p.y for p in outline)
+    copper = tuple(layer.name for layer in board.layers if layer.kind == "copper")
     staged: list[str] = []
     wide: list[str] = []
     placed: list[FootprintInstance] = []
@@ -1063,6 +1080,15 @@ def place_footprints(
             )
             for index, graphic in enumerate(check.graphics)
         )
+        keepouts = tuple(
+            dataclasses.replace(
+                _instance_keepout(area, bottom=bottom, copper=copper),
+                id=derived_id("kpo", TARGET, f"placed:{component.id}:kpo:{index}"),
+                native_ids={},
+                provenance=None,
+            )
+            for index, area in enumerate(footprint.defn.keepouts)
+        )
         bodies = tuple(
             body for fp in board.footprints if fp.component_id == component.id for body in fp.bodies
         )
@@ -1078,6 +1104,7 @@ def place_footprints(
                 pads=tuple(pads),
                 bodies=bodies,
                 graphics=graphics,
+                keepouts=keepouts,
             )
         )
     if wide:

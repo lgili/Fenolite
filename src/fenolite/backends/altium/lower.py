@@ -875,6 +875,18 @@ def _library_graphic(graphic: Graphic, *, bottom: bool) -> Graphic:
     )
 
 
+def _library_keepout(area: Keepout, *, bottom: bool) -> Keepout:
+    """An instance's rule area as ``pcbdoc.place_component`` takes it (change c0411): as on the top side,
+    as ``_library_graphic`` gives a graphic; the writer mirrors it back and swaps its layers."""
+    if not bottom:
+        return area
+    return dataclasses.replace(
+        area,
+        outline=tuple(Point(p.x, -p.y) for p in area.outline),
+        layers=tuple(_other_side(n) for n in area.layers),
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class _Items:
     """What ``_footprint_items`` gives the placed component of one instance."""
@@ -1121,7 +1133,13 @@ def _footprints(
         if frame is not None and (fp.graphics or fp.texts or fp.fields):
             ids = {**rec.BOARD_LAYER_MAP, **(layer_ids or {})}
             own = _footprint_items(fp, ids, copper, frame, account)
-        defn = FootprintDef(id=fp.id, name=pattern or "FOOTPRINT", pads=tuple(pads), graphics=own.graphics)
+        defn = FootprintDef(
+            id=fp.id,
+            name=pattern or "FOOTPRINT",
+            pads=tuple(pads),
+            graphics=own.graphics,
+            keepouts=tuple(_library_keepout(k, bottom=bottom) for k in fp.keepouts),
+        )
         native = _FP_NATIVE.fullmatch(fp.native_ids.get(BACKEND, ""))
         placed.append(
             pcbdoc.PlacedComponent(
@@ -1909,6 +1927,7 @@ def derived_library(
             (
                 tuple(_library_pad(p, bottom=bottom) for p in fp.pads),
                 tuple(_library_graphic(g, bottom=bottom) for g in fp.graphics),
+                tuple(_library_keepout(k, bottom=bottom) for k in fp.keepouts),
             )
         )
         if pattern in library:

@@ -59,7 +59,8 @@ from fenolite.geometry import (
 )
 from fenolite.geometry.rings import zone_ring
 from fenolite.model.base import Entity
-from fenolite.model.board import Board, Graphic, Keepout, Zone
+from fenolite.model.board import Board, Graphic, Keepout, Zone, placed_keepout
+from fenolite.model.board import rule_areas as all_rule_areas
 from fenolite.model.design import Design
 from fenolite.model.findings import Waiver
 from fenolite.model.rules import RuleSubject
@@ -455,6 +456,10 @@ class _Area:
     shape: Thick
     label: str
     """The area's name, else its locator."""
+    footprint_id: str = ""
+    """The footprint whose rule area it is (change c0411), in the board's frame; empty for the board's. A
+    footprint's area judges its own pads as any other item: KiCad 10.0.6's DRC reports them
+    (``docs/formats/kicad/board.md``, "Rule areas of a footprint")."""
 
 
 def _area_on(keepout: Keepout, layer: str) -> bool:
@@ -477,14 +482,16 @@ class _Areas:
     def __init__(self, board: Board, items: _Items) -> None:
         self.items = items
         self.areas: list[_Area] = []
-        for keepout in board.keepouts:
+        owned = [(keepout, "") for keepout in board.keepouts]
+        owned += [(placed_keepout(fp, area), fp.id) for fp in board.footprints for area in fp.keepouts]
+        for keepout, owner in owned:
             try:
                 ring = Polygon(_clean_ring(keepout.outline)).outer
                 shape = Thick(ring, 0, filled=True)
             except (GeometryError, ValueError):
                 items.unsupported["rule-area"] += 1
                 continue
-            self.areas.append(_Area(keepout, shape, keepout.name or _where(keepout)))
+            self.areas.append(_Area(keepout, shape, keepout.name or _where(keepout), owner))
         self.named = sum(1 for area in self.areas if area.keepout.name)
         self._index = SpatialIndex[int].build((thick_bbox(a.shape), i) for i, a in enumerate(self.areas))
         self._memo: dict[tuple[int, str], tuple[int, ...]] = {}
@@ -1261,7 +1268,7 @@ def _run(
         **counts,
     )
     issues = (*(f.to_issue() for f in findings), *sorted(others, key=_sort_key))
-    with_areas = board is not None and bool(board.keepouts)
+    with_areas = board is not None and bool(all_rule_areas(board))
     evidence = Evidence.combine(EVIDENCE, *((AREA_EVIDENCE,) if with_areas else ()), *inputs)
     if any(i.code in LOWERING_CODES for i in issues):
         evidence = Evidence(Level.UNVERIFIED, hypotheses=evidence.hypotheses)

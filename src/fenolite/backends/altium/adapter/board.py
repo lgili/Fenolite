@@ -335,6 +335,7 @@ def read_board(doc: PcbDocument, *, file: str, sha256: str, ids: Ids) -> BoardIm
                 bodies=tuple(made_bodies),
                 graphics=items.graphics,
                 texts=items.texts,
+                keepouts=items.keepouts,
             )
         )
         links[fp_id] = record

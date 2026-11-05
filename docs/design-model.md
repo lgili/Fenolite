@@ -424,6 +424,27 @@ written before them still load.
   body keys.
 - The KiCad backend reads and writes no body: a KiCad build keeps the bodies of a design in `.fenolite/`.
 
+## Rule areas of a footprint
+
+Normative text: requirement "Footprints hold rule areas" of the `design-model` capability (change c0411).
+
+| Field | Meaning |
+|---|---|
+| `FootprintDef.keepouts` | the rule areas of the footprint: `Keepout` entities (the entity of `Board.keepouts`) in the footprint's frame, in the order of their source; `()` by default |
+| `FootprintInstance.keepouts` | the rule areas of this placed footprint, in its pad frame, as its graphics (`instance.position + R(instance.rotation)·p`, a bottom footprint holding mirrored points and the other side's layers); `()` by default |
+
+- **Layers.** A definition's area on every copper layer is on `*.Cu`, as a Multi-Layer pad; placing it
+  names the board's copper layers. An instance read from KiCad keeps the layers its zone names (a library
+  zone on every copper layer names KiCad's 32).
+- **Checks.** `model.board.rule_areas(board)` gives the board's areas and every instance's, placed in the
+  board's frame; the copper, placement, pour, crossing, router and export consumers read it, while the
+  tools that edit the board's own areas keep `Board.keepouts`. Level 7 of `equivalent` compares an
+  instance's areas per footprint, in its pad frame, as the native file holds them. `model.board.area_owners(board)` names the
+  footprint of each instance area: an area that forbids footprints does not judge its own footprint, as
+  KiCad's DRC does not (`docs/formats/kicad/board.md`, "Rule areas of a footprint").
+- **Old model documents.** The fields are additive: an empty tuple is left out of the canonical JSON, so
+  a footprint without rule areas keeps its bytes.
+
 ## Footprint items and corner ratio
 
 Normative text: requirements "Graphics and texts of a footprint instance", "Corner ratio of a

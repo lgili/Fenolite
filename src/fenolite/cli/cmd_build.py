@@ -192,6 +192,7 @@ from fenolite.lens.preserve import (
 from fenolite.lens.rolecopper import RoleCopperPlanner
 from fenolite.lens.schplacements import FILE_NAME as SYMBOL_PLACEMENTS_FILE
 from fenolite.lens.schplacements import read_placements as read_symbol_placements
+from fenolite.model.board import area_owners, rule_areas
 from fenolite.model.circuit import PinRef
 from fenolite.model.design import Design as ModelDesign
 from fenolite.model.drawn import DrawnSchematic
@@ -956,13 +957,15 @@ def placement_guard(
         if path in staged:
             left_out.add(footprint.id)
     extents = [e for e in KicadBackend().placed_extents(design) if e.footprint_id not in left_out]
-    keepouts = design.board.keepouts if design.board is not None else ()
+    keepouts = rule_areas(design.board) if design.board is not None else ()
+    owners = area_owners(design.board) if design.board is not None else {}
     found = legality.check(
         extents,
         board_outline(design).rings,
         edge_clearance=edge_clearance,
         names=names,
         keepouts=keepouts,
+        owners=owners,
     )
     report = placement_rules.RuleReport()
     if rules:

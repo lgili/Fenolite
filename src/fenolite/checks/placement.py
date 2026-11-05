@@ -34,7 +34,7 @@ from fenolite.core.units import Nm, format_length
 from fenolite.geometry import Arc as GeoArc
 from fenolite.geometry import BBox, Circle, GeometryError, ceil_sqrt, floor_sqrt
 from fenolite.geometry.rings import interiors_intersect
-from fenolite.model.board import FootprintInstance, outward_height
+from fenolite.model.board import FootprintInstance, outward_height, rule_areas
 from fenolite.model.design import Design
 from fenolite.model.rules import HeightLimit, PadSelection, ProximityRule
 
@@ -390,7 +390,7 @@ def judge_heights(
         return RuleReport((), {})
     board = design.board
     footprints = board.footprints if board is not None else ()
-    keepouts = board.keepouts if board is not None else ()
+    keepouts = rule_areas(board) if board is not None else ()
     components = {c.id: c for c in design.circuit.components}
     by_id = {extent.footprint_id: extent for extent in extents}
     box = board_box(design)

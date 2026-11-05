@@ -67,7 +67,7 @@ from fenolite.core.ids import derived_id
 from fenolite.core.units import Nm, Udeg, parse_angle, parse_length
 from fenolite.geometry import BBox
 from fenolite.model import canonical
-from fenolite.model.board import FootprintInstance, Keepout, Outline, Side
+from fenolite.model.board import FootprintInstance, Keepout, Outline, Side, area_owners, rule_areas
 from fenolite.model.design import Design
 from fenolite.model.library import FootprintDef
 from fenolite.placement import EVIDENCE, KEEPOUT_EVIDENCE, Box, check
@@ -486,7 +486,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     major = info.major if info is not None and info.major in versions.TARGET_MAJORS else ctx.kicad_target
     backend = KicadBackend()
     outline = board_outline(design)
-    forbidding = forbids_footprints(design.board.keepouts)
+    forbidding = forbids_footprints(rule_areas(design.board))
     region = BBox.of_points(outline.rings[0]) if outline.rings else None
     origin = Point(region.x0, region.y0) if region is not None else Point(0, 0)
     before = _by_ref(design)
@@ -675,7 +675,13 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         for extent in backend.placed_extents(design)
         if extent.footprint_id in moved or not off_board(after[names[extent.footprint_id]])
     ]
-    legality = check(extents, outline.rings, names=names, keepouts=design.board.keepouts)
+    legality = check(
+        extents,
+        outline.rings,
+        names=names,
+        keepouts=rule_areas(design.board),
+        owners=area_owners(design.board),
+    )
     issues += legality
     cached = _cache(board_path.parent)
     pads_after = backend.board_pads(design)

@@ -51,7 +51,7 @@ from fenolite.geometry.polygon import area2, convex_hull
 from fenolite.geometry.predicates import floor_sqrt
 from fenolite.geometry.shapes import BBox
 from fenolite.geometry.transform import rotate_point
-from fenolite.model.board import Board, Zone
+from fenolite.model.board import Board, Zone, rule_areas
 from fenolite.model.design import Design
 from fenolite.model.rules import LEAF_OPS, Rule, RuleSubject, Selector
 
@@ -473,7 +473,7 @@ class LayerObjects:
             )
             for layer in self.copper:
                 self._add(layer, self._object("hole", None, (core, hole.drill, False), hole.id))
-        for keepout in board.keepouts:
+        for keepout in rule_areas(board):
             if not keepout.no_copper_pour or len(keepout.outline) < 3:
                 continue
             for layer in keepout.layers or self.copper:

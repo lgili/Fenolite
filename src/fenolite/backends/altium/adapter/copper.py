@@ -36,6 +36,7 @@ from fenolite.backends.altium.adapter.codes import issue
 from fenolite.backends.altium.adapter.context import Context
 from fenolite.backends.altium.adapter.ids import Exact, bag
 from fenolite.backends.altium.adapter.layers import EDGE, MULTI
+from fenolite.backends.altium.adapter.pads import WILDCARD_ALL
 from fenolite.backends.altium.read.pcb import SPLIT_PLANE_POLYGON, PcbDocument, PolygonRecord
 from fenolite.backends.altium.read.pcbprims import (
     ArcRecord,
@@ -158,10 +159,15 @@ def _keepout(
     restrictions: int,
     locator: str,
     section: str,
+    into: list[Keepout] | None = None,
+    frame: Transform | None = None,
 ) -> None:
-    """One rule area in ``ctx.keepouts``; the bits of ``restrictions`` as the writer's ``KEEPOUT_BITS``: 1
-    vias, 2 tracks, 4 poured copper, 8 and 16 together pads."""
-    ctx.keepouts.append(
+    """One rule area in ``into`` (``ctx.keepouts`` by default); the bits of ``restrictions`` as the
+    writer's ``KEEPOUT_BITS``: 1 vias, 2 tracks, 4 poured copper, 8 and 16 together pads. ``frame`` maps
+    each point into a footprint's pad frame (change c0411)."""
+    if frame is not None:
+        outline = tuple(frame.apply(p) for p in outline)
+    (ctx.keepouts if into is None else into).append(
         Keepout(
             id=ctx.ids.content("kpo", section, list(layers), [_xy(p) for p in outline], restrictions),
             provenance=ctx.provenance(locator),
@@ -202,10 +208,12 @@ def _stroke_keepout(
     width: int,
     locator: str,
     section: str = "kpo",
+    into: list[Keepout] | None = None,
+    frame: Transform | None = None,
 ) -> None:
     """A keep-out track (``line``), arc or circle on copper as the rule areas of the band its ``width``
     covers, one per stroke (two for a circle), with every restriction: a track holds no value. A stroke
-    that covers no area is bad geometry."""
+    that covers no area is bad geometry. ``into`` and ``frame`` as ``_keepout``."""
     try:
         if kind == "line":
             rings = [segment_band(points[0], points[1], width)]
@@ -217,22 +225,40 @@ def _stroke_keepout(
         _bad(ctx, census, f"a keep-out {kind} covers no area ({error})", locator)
         return
     for ring in rings:
-        _keepout(ctx, (layer,), ring, EVERY_RESTRICTION, locator, section)
+        _keepout(ctx, (layer,), ring, EVERY_RESTRICTION, locator, section, into, frame)
     ctx.census.map(census)
 
 
 def _region_keepout(
-    ctx: Context, item: RegionRecord, points: Sequence[Point], locator: str, section: str = "kpo"
+    ctx: Context,
+    item: RegionRecord,
+    points: Sequence[Point],
+    locator: str,
+    section: str = "kpo",
+    into: list[Keepout] | None = None,
+    frame: Transform | None = None,
+    *,
+    definition: bool = False,
+    owned: bool = False,
 ) -> bool:
     """A polygon cut-out (anywhere ``KiCad`` takes one) or a keep-out region on copper as its rule area in
-    ``ctx.keepouts``; whether it was one. ``points`` are in the board's frame."""
+    ``into`` (``ctx.keepouts`` by default); whether it was one. ``points`` are in the frame of the
+    document, and ``frame`` maps them as ``_keepout`` does. A cut-out on every copper layer is on the
+    board's copper layers, or on ``*.Cu`` in a ``definition``, as a Multi-Layer pad (change c0411). A
+    keep-out region of the Keep-Out layer ``owned`` by a footprint is its rule area on every copper layer,
+    with its restrictions: the writers write such an area so (change c0411)."""
     layer_id = item.prefix.layer
     copper = ctx.layers.is_copper(layer_id)
     if is_polygon_cutout(item) and (copper or layer_id in ALL_COPPER_LAYERS):
-        layers = (ctx.layers.name(layer_id),) if copper else ctx.layers.copper_names
-        _keepout(ctx, layers, points, 0x04, locator, section)
+        everywhere = (WILDCARD_ALL,) if definition else ctx.layers.copper_names
+        layers = (ctx.layers.name(layer_id),) if copper else everywhere
+        _keepout(ctx, layers, points, 0x04, locator, section, into, frame)
     elif is_keepout(item) and copper:
-        _keepout(ctx, (ctx.layers.name(layer_id),), points, _restrictions(item), locator, section)
+        name = ctx.layers.name(layer_id)
+        _keepout(ctx, (name,), points, _restrictions(item), locator, section, into, frame)
+    elif owned and is_keepout(item) and layer_id == KEEPOUT_LAYER_ID:
+        everywhere = (WILDCARD_ALL,) if definition else ctx.layers.copper_names
+        _keepout(ctx, everywhere, points, _restrictions(item), locator, section, into, frame)
     else:
         return False
     ctx.census.map("regions")
@@ -530,8 +556,6 @@ def vias(doc: PcbDocument, ctx: Context) -> list[Via]:
     return found
 
 
-FOOTPRINT_KEEPOUTS = "footprint-keepouts"
-"""The census category of a keep-out of a library footprint (change c0410): no model entity until c0411."""
 _CENSUS_KINDS: dict[type, str] = {
     TrackRecord: "tracks",
     ArcRecord: "arcs",
@@ -540,11 +564,16 @@ _CENSUS_KINDS: dict[type, str] = {
 }
 
 
+KEEPOUT_LAYER_ID = 56
+"""The Keep-Out layer (``LayerMap``: ``Altium.KeepOut``)."""
+
+
 def library_keepout(item: Primitive, ctx: Context) -> bool:
-    """Whether a primitive of a library footprint is a keep-out that the model cannot hold (change c0410): a
-    keep-out track, arc, fill or region on copper, or a polygon cut-out on copper, the Keep-Out or the
-    Multi-Layer layer. A footprint definition has no rule areas until change c0411, so such a primitive gives
-    no copper graphic: it is counted under ``FOOTPRINT_KEEPOUTS`` and named by ``altium.import.unmapped``."""
+    """Whether a primitive of a library footprint is a rule area of the footprint (changes c0410, c0411): a
+    keep-out track, arc, fill or region on copper, a keep-out region of the Keep-Out layer, or a polygon
+    cut-out on copper, the Keep-Out or the Multi-Layer layer. Such a primitive gives no graphic. Any other
+    drawing of the Keep-Out layer stays a graphic of ``Altium.KeepOut``, as on a board: ``convert`` makes
+    its rule area."""
     if isinstance(item, RawPrimitive) or type(item) not in _CENSUS_KINDS:
         return False
     layer_id = item.prefix.layer
@@ -554,18 +583,61 @@ def library_keepout(item: Primitive, ctx: Context) -> bool:
         and is_polygon_cutout(item)
         and (copper or layer_id in ALL_COPPER_LAYERS)
     )
-    return cutout or (copper and is_keepout(item))
+    region = isinstance(item, RegionRecord) and layer_id == KEEPOUT_LAYER_ID
+    return cutout or ((copper or region) and is_keepout(item))
 
 
-def definition_graphics(primitives: Sequence[Primitive], ctx: Context, storage: str) -> list[Graphic]:
+def _library_keepout(item: Primitive, ctx: Context, locator: str, section: str, into: list[Keepout]) -> None:
+    """The rule areas of a keep-out or a polygon cut-out of a library footprint (``library_keepout``), in
+    the footprint's frame, in ``into`` (change c0411); each record as on a board (change c0407)."""
+    if not isinstance(item, (TrackRecord, ArcRecord, FillRecord, RegionRecord)):
+        return  # ``library_keepout`` holds no other kind
+    exact = Exact(ctx.census)
+    layer = ctx.layers.name(item.prefix.layer)
+    if isinstance(item, TrackRecord):
+        start = exact.point("start", item.x1, item.y1)
+        end = exact.point("end", item.x2, item.y2)
+        width = max(exact.length("width", item.width), 0)
+        _stroke_keepout(ctx, "tracks", "line", layer, (start, end), width, locator, section, into)
+    elif isinstance(item, ArcRecord):
+        if item.radius <= 0:
+            _bad(ctx, "arcs", "an arc needs a radius above 0", locator)
+            return
+        width = max(exact.length("width", item.width), 0)
+        start_angle = exact.angle("start_angle", item.start_angle)
+        end_angle = exact.angle("end_angle", item.end_angle)
+        full = units.sweep(start_angle, end_angle) == FULL_TURN
+        if full:
+            stroke: tuple[Point, ...] = units.circle_points(item.cx, item.cy, item.radius)
+        else:
+            stroke = units.arc_points(item.cx, item.cy, item.radius, start_angle, end_angle)
+        kind: GraphicKind = "circle" if full else "arc"
+        _stroke_keepout(ctx, "arcs", kind, layer, stroke, width, locator, section, into)
+    elif isinstance(item, FillRecord):
+        fill_kind, points = _fill_points(item, exact)
+        _keepout(ctx, (layer,), _corners(fill_kind, points), EVERY_RESTRICTION, locator, section, into)
+        ctx.census.map("fills")
+    else:
+        points = region_points(item.outline)
+        if len(points) < 3:
+            _bad(ctx, "regions", "a region needs at least three vertices", locator)
+            return
+        _region_keepout(ctx, item, points, locator, section, into, definition=True, owned=True)
+
+
+def definition_graphics(
+    primitives: Sequence[Primitive], ctx: Context, storage: str, keepouts: list[Keepout] | None = None
+) -> list[Graphic]:
     """The tracks, arcs, fills and regions of a library footprint as graphics on the neutral layers, in
     primitive order; pads, bodies and texts are left to the caller. ``storage`` names the footprint's
-    storage in the locators. A keep-out on copper or a polygon cut-out gives nothing (``library_keepout``)."""
+    storage in the locators. A keep-out on copper or a polygon cut-out (``library_keepout``) gives no
+    graphic but a rule area of the footprint in ``keepouts`` (change c0411)."""
     found: list[Graphic] = []
+    areas: list[Keepout] = [] if keepouts is None else keepouts
     for index, item in enumerate(primitives):
         locator = f"{storage}/Data#{index}"
         if library_keepout(item, ctx):
-            ctx.census.skip(_CENSUS_KINDS[type(item)], FOOTPRINT_KEEPOUTS)
+            _library_keepout(item, ctx, locator, f"lib:{storage}", areas)
             continue
         exact = Exact(ctx.census)
         if isinstance(item, TrackRecord):
@@ -678,6 +750,8 @@ class FootprintItems:
     graphics: tuple[Graphic, ...] = ()
     fields: tuple[FootprintField, ...] = ()
     texts: tuple[Text, ...] = ()
+    keepouts: tuple[Keepout, ...] = ()
+    """The component's keep-outs on copper and polygon cut-outs, as rule areas in the pad frame (c0411)."""
 
 
 def _is_rect(corners: Sequence[Point]) -> bool:
@@ -709,6 +783,7 @@ def footprint_items(
     plane gives no item and stays counted as ``footprint-graphics``."""
     section = f"fp:{native}"
     graphics: list[Graphic] = []
+    keepouts: list[Keepout] = []
 
     def on_plane(kind: str, layer_id: int) -> bool:
         """A primitive of a component on an internal plane is no item of its footprint: a line there is a
@@ -753,10 +828,11 @@ def footprint_items(
         end = exact.point("end", item.x2, item.y2)
         width = max(exact.length("width", item.width), 0)
         if ctx.layers.is_copper(item.prefix.layer) and is_keepout(item):
-            # a keep-out of a component on copper is a rule area of the board (change c0407)
+            # a keep-out of a component on copper is a rule area of its footprint (changes c0407, c0411)
             layer = ctx.layers.name(item.prefix.layer)
+            locator = f"Tracks6/Data#{index}"
             _stroke_keepout(
-                ctx, "tracks", "line", layer, (start, end), width, f"Tracks6/Data#{index}", section
+                ctx, "tracks", "line", layer, (start, end), width, locator, section, keepouts, frame
             )
             continue
         add(
@@ -787,13 +863,14 @@ def footprint_items(
         pairs = exact.pairs()
         full = units.sweep(start_angle, end_angle) == FULL_TURN
         if ctx.layers.is_copper(item.prefix.layer) and is_keepout(item):
-            # a keep-out of a component on copper is a rule area of the board (change c0407)
+            # a keep-out of a component on copper is a rule area of its footprint (changes c0407, c0411)
             if full:
                 stroke: tuple[Point, ...] = units.circle_points(item.cx, item.cy, item.radius)
             else:
                 stroke = units.arc_points(item.cx, item.cy, item.radius, start_angle, end_angle)
             layer = ctx.layers.name(item.prefix.layer)
-            _stroke_keepout(ctx, "arcs", "circle" if full else "arc", layer, stroke, width, locator, section)
+            kind: GraphicKind = "circle" if full else "arc"
+            _stroke_keepout(ctx, "arcs", kind, layer, stroke, width, locator, section, keepouts, frame)
             continue
         if full:
             points: tuple[Point, ...] = units.circle_points(item.cx, item.cy, item.radius)
@@ -810,9 +887,10 @@ def footprint_items(
         kind, points = _fill_points(item, exact)
         points = _corners(kind, points)
         if ctx.layers.is_copper(item.prefix.layer) and is_keepout(item):
-            # a keep-out of a component on copper is a rule area of the board (change c0407)
+            # a keep-out of a component on copper is a rule area of its footprint (changes c0407, c0411)
             layer = ctx.layers.name(item.prefix.layer)
-            _keepout(ctx, (layer,), points, EVERY_RESTRICTION, f"Fills6/Data#{index}", section)
+            locator = f"Fills6/Data#{index}"
+            _keepout(ctx, (layer,), points, EVERY_RESTRICTION, locator, section, keepouts, frame)
             ctx.census.map("fills")
             continue
         corners = tuple(frame.apply(point) for point in points)
@@ -845,8 +923,8 @@ def footprint_items(
         if len(points) < 3:
             _bad(ctx, "regions", "a region needs at least three vertices", locator)
             continue
-        if _region_keepout(ctx, item, points, locator, section):
-            continue  # a polygon cut-out or a keep-out region of a component on copper (change c0407)
+        if _region_keepout(ctx, item, points, locator, section, keepouts, frame, owned=True):
+            continue  # a polygon cut-out or a keep-out region of a component on copper (c0407, c0411)
         local = tuple(frame.apply(point) for point in points)
         # A region of four vertices that is a rectangle square to the footprint is the filled ``rect`` that
         # a fill of the same corners gives: the writer writes a filled rectangle as a region, and the two
@@ -914,7 +992,7 @@ def footprint_items(
             )
         ctx.census.map("texts")
     ordered = tuple(fields[name] for name in (REFERENCE_FIELD, VALUE_FIELD) if name in fields)
-    return FootprintItems(tuple(graphics), ordered, tuple(texts))
+    return FootprintItems(tuple(graphics), ordered, tuple(texts), tuple(keepouts))
 
 
 # --- zones ----------------------------------------------------------------------------------------------

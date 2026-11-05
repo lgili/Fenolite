@@ -56,7 +56,7 @@ from fenolite.geometry import (
     thick_bbox,
     thick_closer_than,
 )
-from fenolite.model.board import Board, Side, Track
+from fenolite.model.board import Board, Side, Track, rule_areas
 from fenolite.model.circuit import Component, PinRef
 from fenolite.model.design import Design
 from fenolite.model.library import FootprintDef
@@ -278,7 +278,7 @@ def _scene(
         for fill in zone.fills:
             if fill.layer == layer and (shape := _filled(fill.polygon)) is not None:
                 add(shape, f"the fill of zone {zone.name or zone.id}", "copper", net, gap)
-    for keepout in board.keepouts:
+    for keepout in rule_areas(board):
         if layer not in keepout.layers and not any(name in ("*.Cu", "F&B.Cu") for name in keepout.layers):
             continue
         shape = _filled(keepout.outline)

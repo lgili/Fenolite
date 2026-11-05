@@ -46,6 +46,7 @@ from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
 from fenolite.core.errors import FormatError
 from fenolite.core.evidence import Evidence, Level
+from fenolite.model.board import area_owners, rule_areas
 from fenolite.model.design import Design
 from fenolite.placement import legality
 from fenolite.view import export, meshes, models, project_review, review, server, themes
@@ -266,7 +267,8 @@ def _placement(
         return None, []
     refs = {c.id: c.ref for c in design.circuit.components}
     names = {fp.id: refs.get(fp.component_id) or f"({fp.lib_ref})" for fp in design.board.footprints}
-    found = legality.check(extents, (), names=names, keepouts=design.board.keepouts)
+    board = design.board
+    found = legality.check(extents, (), names=names, keepouts=rule_areas(board), owners=area_owners(board))
     marks: list[tuple[str, tuple[str, ...]]] = []
     approximate = 0
     for issue in found:

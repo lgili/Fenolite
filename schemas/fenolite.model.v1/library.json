@@ -607,6 +607,12 @@
           "items": {
             "$ref": "#/$defs/ModelPlacement"
           }
+        },
+        "keepouts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Keepout"
+          }
         }
       },
       "additionalProperties": false,
@@ -686,6 +692,127 @@
         "kind",
         "layer",
         "points"
+      ]
+    },
+    "Keepout": {
+      "description": "A rule area: an area where some kinds of objects are not allowed, or, with every setting false,",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z]{2,3}_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "native_ids": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ext": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ExtBag"
+          }
+        },
+        "outline": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Point"
+          }
+        },
+        "layers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "no_tracks": {
+          "type": "boolean"
+        },
+        "no_vias": {
+          "type": "boolean"
+        },
+        "no_pads": {
+          "type": "boolean"
+        },
+        "no_copper_pour": {
+          "type": "boolean"
+        },
+        "no_footprints": {
+          "type": "boolean"
+        },
+        "name": {
+          "type": "string"
+        },
+        "intent": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MechanicalIntent"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "placement": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "outline"
+      ]
+    },
+    "MechanicalIntent": {
+      "description": "Declared mechanical provenance; a measured coordinate is still not a qualified fit.",
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "frame": {
+          "enum": [
+            "board"
+          ]
+        },
+        "tolerance": {
+          "type": "integer"
+        },
+        "source": {
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "measured",
+            "estimated",
+            "proposed"
+          ]
+        },
+        "evidence": {
+          "$ref": "#/$defs/Evidence"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "key"
       ]
     },
     "ModelPlacement": {

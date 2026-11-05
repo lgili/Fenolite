@@ -25,7 +25,7 @@ from fenolite.checks.equivalence import norm
 from fenolite.checks.equivalence.model import EXACT, Difference, LevelResult, Tolerances
 from fenolite.checks.equivalence.rules import Leaf, field_differences, fields
 from fenolite.core.coords import Point
-from fenolite.model.board import Board, FootprintInstance, Graphic, Outline, Text
+from fenolite.model.board import Board, FootprintInstance, Graphic, Keepout, Outline, Text
 from fenolite.model.design import Design
 
 LEVEL = 7
@@ -258,13 +258,15 @@ def _zones(design: Design, board: Board) -> list[Shape]:
     return shapes
 
 
-def _keepouts(board: Board) -> list[Shape]:
+def _keepouts(keepouts: Sequence[Keepout], prefix: str) -> list[Shape]:
+    """Rule areas keyed by layers and outline: the board's in its frame (``prefix`` ``board``), a footprint's
+    in its pad frame and under its reference (change c0411), as KiCad stores them inside the footprint."""
     shapes: list[Shape] = []
-    for keepout in board.keepouts:
+    for keepout in keepouts:
         edges = ring(keepout.outline)
         layers = ",".join(sorted(keepout.layers))
         value = fields(keepout, skip=("outline", "layers", "intent"))
-        shapes.append(Shape((layers, tuple(edges)), f"board:{layers}:{ring_text(edges)}", value))
+        shapes.append(Shape((layers, tuple(edges)), f"{prefix}:{layers}:{ring_text(edges)}", value))
     return shapes
 
 
@@ -390,8 +392,8 @@ def level_geometry(
                                  _outline(board_b.outline), tolerances)),
         ("zones", _compare_set("zone-missing", "zone", _zones(a, board_a), _zones(b, board_b), tolerances,
                                zone_field)),
-        ("keepouts", _compare_set("keepout-missing", "keepout", _keepouts(board_a), _keepouts(board_b),
-                                  tolerances, keepout_field)),
+        ("keepouts", _compare_set("keepout-missing", "keepout", _keepouts(board_a.keepouts, "board"),
+                                  _keepouts(board_b.keepouts, "board"), tolerances, keepout_field)),
         ("graphics", _compare_set("graphic-missing", "graphic", _graphics(board_a.graphics, "board"),
                                   _graphics(board_b.graphics, "board"), tolerances, graphic_field)),
         ("texts", _text_pairs("text-field", _texts(board_a.texts, "board"), _texts(board_b.texts, "board"),
@@ -412,6 +414,16 @@ def level_geometry(
             _graphics(other.graphics, ref),
             tolerances,
             graphic_field,
+        )
+        found += differences
+        footprint_items += compared
+        differences, compared = _compare_set(
+            "keepout-missing",
+            "keepout",
+            _keepouts(one.keepouts, ref),
+            _keepouts(other.keepouts, ref),
+            tolerances,
+            keepout_field,
         )
         found += differences
         footprint_items += compared

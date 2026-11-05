@@ -472,6 +472,7 @@ a claim), `see` (its code runs only inside the operations of the named modules o
 | `fields` | `EVIDENCE` INFERRED: `H-K-FIELD-FRAME`, `H-K-FIELD-JUSTIFY`, `H-K-FIELD-OUTSIDE` |
 | `fill` | `EVIDENCE` KICAD-VERIFIED: `H-K-FILL-SAVE`, `H-K-FILL-LIFT`, `H-K-FILL-REPEAT` |
 | `fpitems` | `EVIDENCE` INFERRED: `H-K-PCB-FPGFX` |
+| `fpzones` | `EVIDENCE` INFERRED: `H-K-FP-AREA` |
 | `frame` | `EVIDENCE` INFERRED: `H-G-ROT-DIR`, `H-G-BOTTOM-PLACE`, `H-G-PAD-ANGLE-ABS`, `H-G-FRAME-SHAPE`, `H-G-FRAME-CRTYD-2` |
 | `generate` | `EVIDENCE` INFERRED: `H-K-GEN-DRC` |
 | `helpmatrix` | `EVIDENCE` KICAD-VERIFIED: `H-K-CLI-HELP` |

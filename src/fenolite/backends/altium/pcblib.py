@@ -17,6 +17,7 @@ import struct
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from decimal import Decimal
+from types import MappingProxyType
 
 import fenolite.backends.altium.pcbrecords as rec
 from fenolite.backends.altium.ascii import text_problem
@@ -26,7 +27,7 @@ from fenolite.backends.altium.schlib import storage_name
 from fenolite.core.coords import Point
 from fenolite.core.evidence import Evidence, Level
 from fenolite.geometry.transform import FULL_TURN, rotate_point
-from fenolite.model.board import ComponentBody, Graphic, Pad, PadstackLayer
+from fenolite.model.board import ComponentBody, Graphic, Keepout, Pad, PadstackLayer
 from fenolite.model.library import FootprintDef
 
 MAX_TEXT = 255
@@ -348,6 +349,10 @@ def check_footprint(
             graphics.append(graphic)
         else:
             dropped.append(drop)
+    for area in defn.keepouts:
+        problem = footprint_keepout_problem(area, copper_layers)
+        if problem is not None:
+            return FootprintCheck(problem)
     notes: list[str] = []
     if texts:
         notes.append(f"{texts} text(s)")
@@ -367,6 +372,90 @@ def check_footprint(
 
 Frame = Callable[[Point], Point]
 """A footprint point (nanometres, KiCad's Y-down frame) → its point in nanometres in the Y-up frame."""
+
+
+KEEPOUT_BITS: Mapping[str, int] = MappingProxyType(
+    {"no_vias": 0x01, "no_tracks": 0x02, "no_copper_pour": 0x04, "no_pads": 0x18}
+)
+"""Restriction of a model keep-out → its bits of the keep-out restrictions value (``pcb-records.md``,
+"Regions and keep-outs"): vias, tracks, copper, and pads as surface-mount and through-hole pads. The
+restriction ``no_footprints`` has no bit."""
+ALL_COPPER = "*.Cu"
+"""The layer of a footprint's rule area on every copper layer, as of a Multi-Layer pad (change c0411)."""
+
+
+def keepout_restrictions(keepout: Keepout) -> int:
+    """The restrictions value of ``keepout``: the bits of ``KEEPOUT_BITS`` of the restrictions it sets."""
+    return sum(bits for name, bits in KEEPOUT_BITS.items() if getattr(keepout, name))
+
+
+def footprint_keepout_problem(area: Keepout, copper_layers: Sequence[str] = ()) -> str | None:
+    """Why a rule area of a footprint cannot be written as keep-out regions (change c0411), or ``None``:
+    fewer than three outline points, no layer, a layer that is neither ``*.Cu`` nor a copper layer (of the
+    board when ``copper_layers`` names them, unless the area lies on each of them), or no restriction that
+    the record carries."""
+    ring = list(area.outline)
+    if len(ring) > 1 and ring[0] == ring[-1]:
+        ring.pop()
+    if len(ring) < 3:
+        return "the rule area has an outline of fewer than three points"
+    if not area.layers:
+        return "the rule area names no layer"
+    known = set(copper_layers) if copper_layers else {n for n in rec.LAYER_MAP if n.endswith(".Cu")}
+    # an area on every copper layer of the board is one region of the Keep-Out layer, whatever else it
+    # names (a KiCad footprint's zone names the 32 copper layers KiCad has)
+    everywhere = bool(copper_layers) and set(area.layers) >= set(copper_layers)
+    outside = [n for n in area.layers if n != ALL_COPPER and n not in known and not everywhere]
+    if outside:
+        return f"the rule area lies on {outside[0]}, which is no copper layer"
+    if not keepout_restrictions(area):
+        return "the rule area sets no restriction that the record carries (tracks, vias, pads, copper)"
+    return None
+
+
+def keepout_layer_ids(
+    area: Keepout, copper_layers: Sequence[str] = (), layer_ids: Mapping[str, int] | None = None
+) -> list[int]:
+    """The layers of the keep-out regions of a rule area of a footprint (change c0411): the Keep-Out layer
+    alone when it lies on every copper layer (``*.Cu``, or each of ``copper_layers`` in a document), as a
+    board's keep-out (``pcbdoc.free_records``); else one per copper layer it names, in stack order, each
+    by ``layer_ids`` (a document's stack) or ``pcbrecords.LAYER_MAP``."""
+    names = set(area.layers)
+    if ALL_COPPER in names or (copper_layers and names >= set(copper_layers)):
+        return [rec.KEEPOUT_LAYER]
+    ids = layer_ids if layer_ids is not None else rec.LAYER_MAP
+    order = list(copper_layers) or list(rec.LAYER_MAP)
+    return [ids[n] for n in sorted(names, key=lambda n: order.index(n) if n in order else len(order))]
+
+
+def keepout_records(
+    area: Keepout,
+    frame: Frame | None = None,
+    *,
+    flip: bool = False,
+    component: int = rec.NO_INDEX,
+    shape_based: bool = False,
+    copper_layers: Sequence[str] = (),
+    layer_ids: Mapping[str, int] | None = None,
+) -> list[bytes]:
+    """The keep-out regions of one rule area of a footprint (change c0411): one region per layer of
+    ``keepout_layer_ids``, flag byte 2 and ``KEEPOUTRESTRICTIONS`` holding ``keepout_restrictions``
+    (``pcb-records.md``, "Regions and keep-outs"), each point through ``frame`` (``library_frame`` by
+    default). ``flip`` swaps a copper layer for the other side's."""
+    move = frame if frame is not None else library_frame
+    ring = list(area.outline)
+    if len(ring) > 1 and ring[0] == ring[-1]:
+        ring.pop()
+    vertices = [_units(move(p)) for p in ring]
+    value = keepout_restrictions(area)
+    out: list[bytes] = []
+    for layer in keepout_layer_ids(area, copper_layers, layer_ids):
+        if flip:
+            layer = rec.FLIP_PAIRS.get(layer, layer)
+        out.append(
+            rec.region_record(layer, vertices, keepout=value, component=component, shape_based=shape_based)
+        )
+    return out
 
 
 def library_frame(point: Point) -> Point:
@@ -577,7 +666,8 @@ def _library_storage(filename: str, footprints: Sequence[LibFootprint]) -> Stora
 
 def footprint_primitives(footprint: LibFootprint) -> list[tuple[str, bytes]]:
     """``(object id, record)`` of each written primitive: the pads in definition order, then the tracks and
-    arcs in graphic order, then the component bodies of ``footprint.bodies`` that are written (change
+    arcs in graphic order, then the keep-out regions of the rule areas (change c0411), then the component
+    bodies of ``footprint.bodies`` that are written (change
     c0121; ``pcb-bodies.md``, "Library": the document's form with no component, in the library's frame);
     ``ValueError`` for a refused footprint."""
     check = check_footprint(footprint.defn, footprint.extras, texts=footprint.texts, bodies=footprint.bodies)
@@ -592,6 +682,8 @@ def footprint_primitives(footprint: LibFootprint) -> list[tuple[str, bytes]]:
     for graphic in check.graphics:
         for record in graphic_records(graphic):
             out.append(("Track" if record[0] == rec.TRACK else "Arc", record))
+    for area in footprint.defn.keepouts:  # the rule areas of the footprint (change c0411)
+        out.extend(("Region", record) for record in keepout_records(area))
     out.extend(footprint.extra_primitives)
     for body in check.bodies:
         record = rec.body_record(

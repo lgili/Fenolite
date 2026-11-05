@@ -37,6 +37,7 @@ from fenolite.core.coords import Point
 from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence, Level
 from fenolite.geometry import Location, SegmentRelation, Thick, classify_segments, point_in_ring, thick_touch
+from fenolite.model.board import rule_areas
 from fenolite.model.design import Design
 
 EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-G-CROSSINGS",))
@@ -369,7 +370,7 @@ def _obstacles(
         add(layers, outside + line.grown(edges, edge), "edge", "outline")
         for index, ring in enumerate(boundary.cutouts):
             add(layers, line.grown(Thick(ring, 0, filled=True), edge), "cutout", f"cutout {index}")
-    for keepout in board.keepouts:
+    for keepout in rule_areas(board):
         if not keepout.no_tracks or len(keepout.outline) < 3:
             continue
         held = [layer for layer in layers if _layer_matches(keepout.layers, layer)]

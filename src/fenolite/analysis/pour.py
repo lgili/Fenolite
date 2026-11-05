@@ -48,7 +48,7 @@ from fenolite.analysis.copper import (
 from fenolite.backends.base import BoardPad
 from fenolite.core.coords import Point
 from fenolite.geometry import GeometryError, Thick
-from fenolite.model.board import Zone
+from fenolite.model.board import Zone, rule_areas
 from fenolite.model.design import Design
 
 DEFAULT_GRID_NM = 100_000
@@ -318,7 +318,7 @@ def _forbidden(
     for ring in boundary.cutouts if boundary is not None else ():
         cut |= ring_cells(ring, grid)
     keepouts: list[tuple[str, set[Cell]]] = []
-    for keepout in board.keepouts:
+    for keepout in rule_areas(board):
         if keepout.no_copper_pour and len(keepout.outline) >= 3 and layer_matches(keepout.layers, layer):
             keepouts.append((keepout.name or keepout.id, ring_cells(keepout.outline, grid)))
     return inside, cut, keepouts

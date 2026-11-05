@@ -11,6 +11,7 @@ only. A pass says what KiCad's importer reads; it settles nothing for Altium Des
 
 from __future__ import annotations
 
+import dataclasses
 import hashlib
 
 import _altium_keepouts as keepouts
@@ -26,6 +27,7 @@ from fenolite.core.coords import Point
 from fenolite.geometry import area2
 from fenolite.model.board import Keepout
 from fenolite.model.design import Design
+from fenolite.model.library import FootprintDef
 
 pytestmark = pytest.mark.needs_kicad
 SHAPE_TOLERANCE = 10_000
@@ -118,3 +120,120 @@ def test_library_keepouts_as_kicad_upgrades_them() -> None:
     ]
     everywhere = sorted(kinds for layers, kinds in zones if len(layers) > 1)
     assert everywhere == [(), every]  # the plain track of the Keep-Out layer forbids nothing in KiCad
+
+
+def _box(area: Keepout) -> tuple[int, int, int, int]:
+    xs, ys = [p.x for p in area.outline], [p.y for p in area.outline]
+    return min(xs), min(ys), max(xs), max(ys)
+
+
+def _flags(area: Keepout) -> tuple[bool, bool, bool, bool]:
+    return area.no_tracks, area.no_vias, area.no_pads, area.no_copper_pour
+
+
+def _library_through_both() -> tuple[FootprintDef, FootprintDef, FootprintDef]:
+    """The authored library imported by Fenolite, that definition written as a ``.kicad_mod`` by Fenolite
+    and read back, and the library upgraded by ``fp upgrade`` and read by Fenolite."""
+    from fenolite.backends.altium.adapter.library import import_footprints
+    from fenolite.backends.altium.read.pcblib import read_pcblib
+    from fenolite.backends.kicad.mod import read_footprint, write_footprint
+
+    data = keepouts.keepout_library()
+    library = import_footprints(
+        read_pcblib(data), name="keepouts", file="keepouts.PcbLib", sha256=hashlib.sha256(data).hexdigest()
+    )
+    (imported,) = library.footprints
+    # the drawings of the Keep-Out layer and the Altium height are out of this proof (``convert`` makes
+    # the rule areas of the former, as on a board)
+    authored = dataclasses.replace(
+        imported, properties={}, graphics=tuple(g for g in imported.graphics if g.layer != "Altium.KeepOut")
+    )
+    written = read_footprint(write_footprint(authored, target=10), library="keepouts")
+    run = cases.runner().run(
+        ["fp", "upgrade", "-o", "out.pretty", "keepouts.PcbLib"], files={"keepouts.PcbLib": data}
+    )
+    assert run.ok, run.stdout + run.stderr
+    (name,) = [n for n in run.outputs if n.endswith(".kicad_mod")]
+    upgraded = read_footprint(run.outputs[name].decode("utf-8"), library="keepouts")
+    return imported, written, upgraded
+
+
+def test_library_rule_areas_match_fp_upgrade() -> None:
+    """Change c0411: the three rule areas on copper that Fenolite imports from the authored library, and
+    writes into a ``.kicad_mod``, are those ``fp upgrade`` 10.0.6 makes: layers, restrictions, boxes within
+    10 µm and areas within 1 %. KiCad's two areas on every copper layer stand for the drawings of the Keep-Out
+    layer, which Fenolite keeps as drawings for ``convert``."""
+    if kicad_cli_major() == 9:
+        pytest.skip("Altium libraries are read by `fp upgrade` from 10.0 on only")
+    imported, written, upgraded = _library_through_both()
+    assert [g.layer for g in imported.graphics] == ["Altium.KeepOut"] * 2
+    assert [k.layers for k in upgraded.keepouts].count(("*.Cu",)) == 2  # its 32 copper layers
+    theirs = sorted((k for k in upgraded.keepouts if k.layers != ("*.Cu",)), key=_box)
+    for ours in (imported.keepouts, written.keepouts):
+        mine = sorted(ours, key=_box)
+        assert len(mine) == len(theirs) == 3
+        for a, b in zip(mine, theirs, strict=True):
+            assert a.layers == b.layers and _flags(a) == _flags(b), (a, b)
+            assert all(abs(x - y) <= SHAPE_TOLERANCE for x, y in zip(_box(a), _box(b), strict=True))
+            area_a, area_b = abs(area2(a.outline)) // 2, abs(area2(b.outline)) // 2
+            assert abs(area_a - area_b) <= area_b // 100, (area_a, area_b)
+
+
+def test_a_placed_library_rule_area_keeps_a_track_out_in_kicad_drc() -> None:
+    """Change c0411: the written footprint placed at (50, 50) mm turned 90 degrees on a board that KiCad
+    10.0.6 loads in ``pcb drc``: a track at the placed band of the keep-out track is reported, and a track
+    where the band would lie without the turn is not."""
+    if kicad_cli_major() == 9:
+        pytest.skip("Altium libraries are read by `fp upgrade` from 10.0 on only")
+    import json
+
+    from fenolite.backends.kicad.embed import place_footprint
+    from fenolite.backends.kicad.layers import created_layers
+    from fenolite.backends.kicad.pcb import write_board
+    from fenolite.model.board import Track, placed_keepout
+    from fenolite.model.circuit import Circuit, Component
+
+    _, written, _ = _library_through_both()
+    part = Component(id="cmp_00000000-0000-4000-8000-000000000001", ref="U1", value="KO")
+    at = Point(50_000_000, 50_000_000)
+    instance = place_footprint(written, component=part, at=at, rotation=90_000_000, key="U1")
+    (band,) = [k for k in instance.keepouts if k.layers == ("F.Cu",) and k.no_tracks]
+
+    def centre(area: Keepout) -> Point:
+        x0, y0, x1, y1 = _box(area)
+        return Point((x0 + x1) // 2, (y0 + y1) // 2)
+
+    def short(ident: str, middle: Point) -> Track:
+        return Track(
+            id=ident,
+            start=Point(middle.x - 100_000, middle.y),
+            end=Point(middle.x + 100_000, middle.y),
+            width=100_000,
+            layer="F.Cu",
+        )
+
+    inside = centre(placed_keepout(instance, band))
+    unturned = centre(
+        dataclasses.replace(band, outline=tuple(Point(at.x + p.x, at.y + p.y) for p in band.outline))
+    )
+    assert abs(inside.x - unturned.x) > 1_000_000  # the turn moves the band
+    design = Design.new("placed", seed=1)
+    assert design.board is not None
+    board = dataclasses.replace(
+        design.board,
+        layers=created_layers(2),
+        footprints=(instance,),
+        tracks=(short("trk_inside", inside), short("trk_unturned", unturned)),
+    )
+    design = dataclasses.replace(design, circuit=Circuit(components=(part,)), board=board)
+    text = write_board(design, target=10).text
+    run = cases.runner().run(
+        ["pcb", "drc", "--format", "json", "--severity-all", "-o", "drc.json", "b.kicad_pcb"],
+        files={"b.kicad_pcb": text.encode("utf-8")},
+    )
+    report = json.loads(run.outputs["drc.json"])
+    banned = [v for v in report.get("violations", []) if v["type"] == "items_not_allowed"]
+    tracks = [item for v in banned for item in v["items"] if item["description"].startswith("Track")]
+    assert len(tracks) == 1, banned
+    x = round(float(tracks[0]["pos"]["x"]) * 1_000_000)
+    assert abs(x - inside.x) <= 200_000, (tracks, inside)

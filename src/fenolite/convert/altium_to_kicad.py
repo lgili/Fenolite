@@ -109,6 +109,7 @@ def map_layers(design: Design, target: int, ledger: Ledger) -> Design:
                 graphics=mapped(fp.graphics, "footprint-graphic"),
                 texts=mapped(fp.texts, "footprint-text"),
                 fields=mapped(fp.fields, "footprint-text"),
+                keepouts=mapped(fp.keepouts, "keep-out"),
             )
         )
     board = dataclasses.replace(
@@ -177,50 +178,57 @@ def keepouts(design: Design, ledger: Ledger) -> Design:
     area, or of a kind without an outline, is an explicit loss. Each area forbids tracks, vias, pads and
     poured copper (change c0410): a Keep-Out layer keep-out applies on every copper layer (S-1710), and KiCad
     10.0.6 imports a keep-out track or region there with all four (``pcb-records.md``, "Regions and
-    keep-outs")."""
+    keep-outs"). A drawing of a footprint gives a rule area of that footprint, in its pad frame (change
+    c0411); a free drawing one of the board."""
     from fenolite.geometry.errors import GeometryError
-    from fenolite.geometry.transform import Transform
     from fenolite.model.board import Keepout
 
     board = design.board
     assert board is not None
-    collected: list[tuple[Any, str]] = [(g, "graphic") for g in board.graphics if g.layer == "Altium.KeepOut"]
-    footprints: list[FootprintInstance] = []
-    for fp in board.footprints:
-        frame = Transform.placement(fp.position, fp.rotation)
-        collected.extend(
-            (dataclasses.replace(g, points=tuple(frame.apply(p) for p in g.points)), "footprint-graphic")
-            for g in fp.graphics
-            if g.layer == "Altium.KeepOut"
-        )
-        footprints.append(
-            dataclasses.replace(fp, graphics=tuple(g for g in fp.graphics if g.layer != "Altium.KeepOut"))
-        )
-    areas = list(board.keepouts)
     copper = tuple(layer.name for layer in board.layers if layer.kind == "copper")
-    for graphic, kind in collected:
+
+    def areas_of(graphic: Any, kind: str) -> list[Keepout]:
         try:
             rings = _keepout_rings(graphic)
         except (GeometryError, ValueError, IndexError, TypeError):
             ledger.drop(kind, graphic.id, KEEPOUT_NO_AREA)
-            continue
+            return []
         if rings is None:
             ledger.drop(kind, graphic.id, KEEPOUT_NO_OUTLINE)
-            continue
-        for index, ring in enumerate(rings):
-            areas.append(
-                Keepout(
-                    id=derived_id("kpo", "conversion", graphic.id if index == 0 else f"{graphic.id}:{index}"),
-                    outline=ring,
-                    layers=copper,
-                    no_tracks=True,
-                    no_vias=True,
-                    no_pads=True,
-                    no_copper_pour=True,
-                )
-            )
+            return []
         filled = graphic.kind in ("polygon", "rect") and (graphic.filled or graphic.width <= 0)
         ledger.change(kind, graphic.id, KEEPOUT_AREA if filled else KEEPOUT_BAND)
+        return [
+            Keepout(
+                id=derived_id("kpo", "conversion", graphic.id if index == 0 else f"{graphic.id}:{index}"),
+                outline=ring,
+                layers=copper,
+                no_tracks=True,
+                no_vias=True,
+                no_pads=True,
+                no_copper_pour=True,
+            )
+            for index, ring in enumerate(rings)
+        ]
+
+    areas = list(board.keepouts)
+    for graphic in board.graphics:
+        if graphic.layer == "Altium.KeepOut":
+            areas.extend(areas_of(graphic, "graphic"))
+    footprints: list[FootprintInstance] = []
+    for fp in board.footprints:
+        drawn = [g for g in fp.graphics if g.layer == "Altium.KeepOut"]
+        if not drawn:
+            footprints.append(fp)
+            continue
+        own = [area for g in drawn for area in areas_of(g, "footprint-graphic")]
+        footprints.append(
+            dataclasses.replace(
+                fp,
+                graphics=tuple(g for g in fp.graphics if g.layer != "Altium.KeepOut"),
+                keepouts=(*fp.keepouts, *own),
+            )
+        )
     return dataclasses.replace(
         design,
         board=dataclasses.replace(

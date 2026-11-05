@@ -50,6 +50,7 @@ from fenolite.core.evidence import Evidence, Level
 from fenolite.core.units import Nm, round_half_even_div
 from fenolite.geometry import DEFAULT_TOL, Circle, GeometryError, Polygon, convex_hull
 from fenolite.geometry import Arc as GeometryArc
+from fenolite.model.board import rule_areas
 from fenolite.model.circuit import NetClass
 from fenolite.model.design import Design
 from fenolite.model.rules import Rule, Selector
@@ -982,7 +983,7 @@ class _Writer:
             structure.append(SNode("plane", (net_out[plane_net], shape)))
         for cutout in self.outline[1:]:
             structure.append(SNode("keepout", (SNode("polygon", (SIGNAL_LAYER, "0", *self.flat(cutout))),)))
-        for keepout in board.keepouts:
+        for keepout in rule_areas(board):
             if len(keepout.outline) < 3 or not (keepout.no_tracks or keepout.no_vias):
                 continue
             kind = (

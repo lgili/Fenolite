@@ -852,6 +852,22 @@ passed in the `kicad-9` and `kicad-10` jobs of CI run 37772583226 (2026-10-08).
 | A footprint without a courtyard is never reported, whether the area covers the whole part, one pad or the space between the pads | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-PLACE-KEEPOUT |
 | An area that covers only the Reference text of a footprint, outside its courtyard, reports nothing | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-PLACE-KEEPOUT |
 
+### Rule areas of a footprint (c0411)
+
+A footprint's `zone` with `keepout` is a rule area of the footprint (S-1720, S-1721). The reader projects it
+into `FootprintDef.keepouts` or `FootprintInstance.keepouts` (`backends/kicad/fpzones.py`) and keeps the zone
+an opaque slot; every other footprint zone stays opaque. The model holds an instance's areas in its pad
+frame: a board point is `position + R(rotation)·p`, as for a pad. The rows were measured on 2026-11-05 with
+local `kicad-cli` 10.0.6 (macOS) on boards and footprints authored for Fenolite; their tests are
+`tests/unit/backends/kicad/test_footprint_zones.py` and `tests/kicad/altium/test_keepout_import.py`.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| A board holds a footprint's zone points in the board's frame: KiCad neither offsets nor turns them by the footprint's `at`, a DRC finds a track in the zone at those board points, and a re-save keeps them. A `.kicad_mod` holds them relative to the footprint's origin | S-0020, S-0022 | INFERRED | H-K-FP-AREA |
+| `fp upgrade` writes a footprint's rule area with `hatch edge 0.5`, `connect_pads (clearance 0)`, `min_thickness 0.25`, the five `keepout` settings, `placement (enabled no)`, `fill (thermal_gap 0.5) (thermal_bridge_width 0.5)` and one polygon; an area on every copper layer names the 32 copper layers (`F.Cu`, `B.Cu`, `In1.Cu` … `In30.Cu`), which a definition holds as `*.Cu` | S-0020, S-0022 | INFERRED | H-K-FP-AREA |
+| A footprint's area that forbids pads makes `pcb drc` report `items_not_allowed` for the footprint's own pad in it, as for another footprint's pad | S-0020 | INFERRED | H-K-FP-AREA |
+| A footprint's area that forbids footprints reports another footprint whose courtyard meets it and never its own footprint | S-0020 | INFERRED | H-K-FP-AREA |
+
 ### Writer issue codes
 
 | code | severity | when |

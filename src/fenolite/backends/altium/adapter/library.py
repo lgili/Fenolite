@@ -39,7 +39,7 @@ from fenolite.backends.altium.read.schlib import SchLibComponent, SchLibrary
 from fenolite.core.coords import Point
 from fenolite.core.errors import Issue
 from fenolite.core.ids import derived_id
-from fenolite.model.board import ComponentBody, Pad
+from fenolite.model.board import ComponentBody, Keepout, Pad
 from fenolite.model.library import FootprintDef, FootprintKind, Library, SymbolDef, SymbolPin, SymbolUnit
 
 FOOTPRINT_KIND = "altium_pcblib"
@@ -94,7 +94,8 @@ def _footprint(
                 else:
                     bodies.append(body)
                     census.map("bodies")
-    graphics = definition_graphics(footprint.primitives, ctx, storage)
+    keepouts: list[Keepout] = []
+    graphics = definition_graphics(footprint.primitives, ctx, storage, keepouts)
     kind: FootprintKind = "unspecified"
     if any(p.drill is not None for p in pads):
         kind = "through_hole"
@@ -120,6 +121,7 @@ def _footprint(
         pads=tuple(pads),
         graphics=tuple(graphics),
         bodies=tuple(bodies),
+        keepouts=tuple(keepouts),
     )
 
 

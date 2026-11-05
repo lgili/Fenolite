@@ -122,13 +122,16 @@ def check(
     names: Mapping[str, str],
     keepouts: Sequence[Keepout] = (),
     touching_overlaps: bool = TOUCHING_OVERLAPS,
+    owners: Mapping[str, str] | None = None,
 ) -> tuple[Issue, ...]:
     """The placement issues of a layout, sorted by code and then ``where``.
 
     ``extents`` are the footprints to judge (the caller leaves staged parts out), ``outline_rings`` the
     board ring followed by its cut-outs (empty when the board has no closed outline), ``names`` maps a
-    footprint id to its reference, and ``keepouts`` are the board's rule areas, of which those that forbid
-    footprints are judged. Front rings are judged against front rings and back against back.
+    footprint id to its reference, and ``keepouts`` are the board's rule areas (``model.board.rule_areas``),
+    of which those that forbid footprints are judged. ``owners`` maps the id of a footprint's rule area to
+    that footprint (``model.board.area_owners``), which its own area does not judge (change c0411). Front
+    rings are judged against front rings and back against back.
     """
     issues: list[Issue] = []
 
@@ -178,7 +181,10 @@ def check(
         if not keepout.no_footprints or len(keepout.outline) < 3:
             continue
         area = _keepout_name(keepout)
+        owner = (owners or {}).get(keepout.id)
         for extent in judged:
+            if extent.footprint_id == owner:
+                continue
             faces = [
                 face
                 for face, layer in KEEPOUT_FACES

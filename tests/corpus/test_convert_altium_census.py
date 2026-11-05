@@ -36,8 +36,9 @@ BASELINE = {
     # change c0168: the regions with ISBOARDCUTOUT=TRUE on the Keep-Out layer (one in -03, four in -06) are
     # board cut-outs of the import, Edge.Cuts rings, no longer graphics of that layer
     "altium-third-party-pcbdoc-03": {"Mech.1": 12, "Mech.13": 216, "Mech.15": 225},
+    # change c0411: the region of -04's component on the Keep-Out layer with KEEPOUTRESTRICTIONS is a rule
+    # area of its footprint on every copper layer, no longer a graphic of that layer
     "altium-third-party-pcbdoc-04": {
-        "Altium.KeepOut": 1,
         "Mech.1": 12,
         "Mech.15": 92,
         "Mech.16": 56,

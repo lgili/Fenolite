@@ -65,14 +65,9 @@ def issue(code: str, message: str, where: str = "", hint: str = "") -> Issue:
     return Issue(code, IMPORT_ISSUE_CODES[code], message, where, hint)
 
 
-CATEGORY_HINTS: dict[str, str] = {
-    "footprint-keepouts": (
-        "footprint-keepouts are keep-outs and polygon cut-outs of a library footprint: they give no "
-        "copper, and a footprint holds no rule area until change c0411; draw them as rule areas of the "
-        "board if needed."
-    ),
-}
-"""The hint of ``altium.import.unmapped`` for a category that needs one (change c0410)."""
+CATEGORY_HINTS: dict[str, str] = {}
+"""The hint of ``altium.import.unmapped`` for a category that needs one (change c0410); none since the
+footprint keep-outs of c0410 became rule areas of the footprint (change c0411)."""
 
 
 class Census:

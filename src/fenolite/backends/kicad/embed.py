@@ -22,7 +22,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import get_args
 
-from fenolite.backends.kicad import pcb, versions
+from fenolite.backends.kicad import fpzones, pcb, versions
 from fenolite.backends.kicad import slots as slotlib
 from fenolite.backends.kicad._fpmap import angle_atom, emit_footprint, node
 from fenolite.backends.kicad.layers import flip_layer
@@ -431,6 +431,8 @@ def placed_tree(
         if issues:
             raise versions.LossyWriteError(issues, droppable=False)
     tree = _angles(tree, rotation % pcb.FULL_TURN, bottom=side == "bottom")
+    # a board holds a footprint's zones in its own frame (change c0411): the points are placed here
+    tree = fpzones.moved_zones(tree, fpzones.pad_to_board(at, rotation % pcb.FULL_TURN))
     return _header(tree, defn, component, at, rotation % pcb.FULL_TURN, side, locked, key)
 
 
@@ -616,6 +618,11 @@ def local_footprint(root: Node, rotation: Udeg, side: Side, issues: list[Issue])
     flipped (c0161 derived libraries; ``fenolite library``, c0223)."""
     from fenolite.core.units import parse_angle
 
+    placed = root.find("at")
+    if placed is not None and len(placed.atoms()) >= 2:
+        # the zones of a board footprint are in the board's frame (change c0411): back to the pad frame
+        x, y = (a.to_nm() for a in placed.atoms()[:2])
+        root = fpzones.moved_zones(root, fpzones.board_to_pad(Point(x, y), rotation))
     children: list[Node | Atom] = []
     for child in root.children[1:]:
         if isinstance(child, Node) and child.name in PLACEMENT_HEADS:

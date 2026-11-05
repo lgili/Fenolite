@@ -10,6 +10,7 @@ from typing import Literal
 from fenolite.core.coords import Point, Size
 from fenolite.core.evidence import Evidence, Level
 from fenolite.core.units import Nm, Udeg
+from fenolite.geometry.transform import Transform
 from fenolite.model.base import Entity
 from fenolite.model.presentation import SheetFrameRef, TitleBlock
 
@@ -430,6 +431,10 @@ class FootprintInstance(Entity):
     overrides: FootprintOverrides | None = None
     """The footprint-level settings a script gives this instance (change c0277); ``None`` keeps the
     footprint's. A KiCad reader does not project them: the children stay in their slots."""
+    keepouts: tuple[Keepout, ...] = field(default=(), metadata=ORDERED)
+    """The rule areas of this footprint (change c0411), in the order of their source. Their points are in
+    the pad frame, as those of ``graphics``, and ``layers`` are the board layers the area covers; a check
+    takes them in the board's frame through ``rule_areas``. Left out of the canonical JSON when empty."""
 
 
 def outward_height(footprint: FootprintInstance) -> Nm | None:
@@ -632,6 +637,29 @@ class Keepout(Entity):
     """The sheet whose parts KiCad's multichannel tool places in the area (a placement rule area, KiCad 9 and
     10), as KiCad names the sheet (``/CH1/``); change c0277. Left out of the canonical JSON when ``None``; a
     KiCad reader keeps a read area's ``placement`` in its slots."""
+
+
+def placed_keepout(footprint: FootprintInstance, area: Keepout) -> Keepout:
+    """A rule area of ``footprint`` in the board's frame: each point ``p`` at ``position + R(rotation)·p``,
+    placed as a pad's position is (``Transform.placement``, change c0411)."""
+
+    place = Transform.placement(footprint.position, footprint.rotation).apply
+    return replace(area, outline=tuple(place(p) for p in area.outline))
+
+
+def area_owners(board: Board) -> dict[str, str]:
+    """Rule-area id → the id of the footprint that holds it, for the rule areas of footprints (change
+    c0411). A footprint's area does not forbid that footprint itself: KiCad 10.0.6's DRC reports another
+    footprint in an area that forbids footprints, never the area's own (``docs/formats/kicad/board.md``,
+    "Rule areas of a footprint"); it does report the footprint's own pads in an area that forbids pads."""
+    return {area.id: fp.id for fp in board.footprints for area in fp.keepouts}
+
+
+def rule_areas(board: Board) -> tuple[Keepout, ...]:
+    """Every rule area of ``board`` in its frame (change c0411): its own, then those of each footprint in
+    the order of ``Board.footprints``, placed by ``placed_keepout``."""
+    placed = tuple(placed_keepout(fp, area) for fp in board.footprints for area in fp.keepouts)
+    return (*board.keepouts, *placed) if placed else board.keepouts
 
 
 @dataclass(frozen=True, slots=True)

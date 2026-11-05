@@ -821,6 +821,12 @@
               "type": "null"
             }
           ]
+        },
+        "keepouts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Keepout"
+          }
         }
       },
       "additionalProperties": false,
