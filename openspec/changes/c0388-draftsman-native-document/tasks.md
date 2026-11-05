@@ -12,6 +12,14 @@
     format version 24; D01 to D32 drop one root member each from the control. Kit folder:
     `~/fenolite-altium-checks/claude-2026-11-05/c0388-FPC` (outside the repository; it holds the VM's
     absolute work folder, so it stays in the VM). Left open for the Altium run and the G2 decision.
+  - 2026-11-05, kit rebuilt with the writer's probes (coordinator's request): FPC7 is FPC1 with the writer's
+    fabrication sheet of tasks 4.1 and 4.2; FPC8, FPC9 and FPC11 change one finding of it (a named
+    `BoardSourceName`, decimal note entry ids, only the view and its dimensions); FPC10 is the bottom
+    assembly sheet with a bottom BOM. `expected.md` asks the five findings' questions. FPC1 to FPC6 and the
+    drop series are byte for byte those of the first kit. New folder:
+    `~/fenolite-altium-checks/claude-2026-11-05/c0388-FPC-2026-11-05b` (SHA256SUMS 22b1f53c…); the first kit
+    is kept, and round FPC runs from the new one only. Proof: `uv run pytest
+    tests/unit/backends/altium/test_part_f.py -k "writer_probes or fpc_correction_kit" -q`.
 
 ## 2. Carried from c0172 (unchanged)
 

@@ -199,7 +199,7 @@ def test_part_f_fp_and_acceptance_cases_are_ready_and_gate_is_closed() -> None:
     assert "status.json" in part and "unjudged" in part and "SHA256SUMS" in part
     assert "FENOLITE_ALTIUM_F8" in part and "kit privacy scan" in part
     correction = part[part.index("### Round FPC") : part.index("### Round F1")]
-    assert [int(n) for n in re.findall(r"\*\*FPC(\d)\*\*", correction)] == list(range(1, 7))
+    assert [int(n) for n in re.findall(r"\*\*FPC(\d+)\*\*", correction)] == list(range(1, 12))
     assert "**D01 to D32**" in correction and "route P" in correction and "unjudged" in correction
     reports = _section(_page("evidence/altium-draftsman.md"), "## Reports")
     if draftsman.NATIVE_WRITE:

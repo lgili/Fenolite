@@ -253,6 +253,21 @@ native verdict `unjudged`. Work on a copy.
 7. **D01 to D32** Open each probe of `drop/`: the empty F0.1 control without one root member, named in
    the file name. Expected: an empty A4 sheet. A probe that is refused names a member that the writer
    needs.
+8. **FPC7** (added 2026-11-05, c0388 tasks 4.1 and 4.2) Open FPC1 with the writer's fabrication sheet in
+   place of its Text: the drill drawing view, the Drill Table, the Layer Stack Legend, the Note of two
+   entries, the board's two Linear Dimensions and the title Texts. Import Changes from
+   `blink_routed.PcbDoc`. Expected: no message; the table lists the drill sizes, the legend the two copper
+   layers, the note `1.` and `2.`, the dimensions 50 mm and 30 mm.
+9. **FPC8** FPC7 with `BoardSourceName` holding `blink_routed.PcbDoc` instead of nothing (finding 1).
+10. **FPC9** FPC7 with each note entry's `Id` a decimal number instead of 32 hexadecimal digits
+    (finding 2).
+11. **FPC10** FPC1 with the writer's bottom assembly sheet: a bottom view and a Bill Of Materials whose
+    `ViewSide` is `Bottom` and `ViewSideV2` 0 (finding 4). Expected: the table lists `D1` only.
+12. **FPC11** FPC1 with only the drill drawing view and the two Linear Dimensions (finding 5). Expected:
+    both dimensions on the outline's edges, no broken snap.
+
+`expected.md` lists the five findings of c0388's writer, the question each asks and the probes that answer
+it; finding 3 (style ids whose tables the candidate root lacks) is asked on FPC1 and FPC4.
 
 Report the date, the exact version, the file hashes and, per probe, whether it opens without a message and
 what it shows. G2 is decided again from this report only (c0388, task 1.1): it passes for the writer when

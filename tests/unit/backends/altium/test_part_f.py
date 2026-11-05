@@ -38,6 +38,7 @@ from fenolite.backends.altium.read.pcb import read_pcbdoc
 from fenolite.cli.altium_observations import checked_files
 from fenolite.exports.drawing_tables import drill_rows, stackup_block
 from fenolite.model.canonical import load_dir
+from fenolite.model.design import Design
 
 ROOT = Path(__file__).resolve().parents[4]
 HANDOVER_F0 = os.environ.get("FENOLITE_ALTIUM_PART_F0")
@@ -367,6 +368,7 @@ def part_fpc(folder: Path, monkeypatch: pytest.MonkeyPatch, scratch: Path, f0: P
     }
     for index, member in enumerate(lacking, start=1):
         probes[f"drop/D{index:02d}-{member}.PCBDwf"] = dropped(empty, member)
+    probes.update(writer_probes(load_dir(scratch / "fp-scratch/build/.fenolite"), empty))
     for name, xml in probes.items():
         files[name] = draftsman.encode(xml)
     page = (ROOT / "docs/evidence/altium-draftsman.md").read_text()
@@ -382,8 +384,87 @@ def part_fpc(folder: Path, monkeypatch: pytest.MonkeyPatch, scratch: Path, f0: P
     files["status.json"] = (
         json.dumps({"drop": lacking, "native_verdict": "unjudged"}, sort_keys=True) + "\n"
     ).encode()
+    files["expected.md"] = FPC_EXPECTED.encode()
     _write_bundle(folder, files)
     return files
+
+
+FPC_EXPECTED = """\
+# Part F correction round: the writer's findings (c0388 tasks 4.1 and 4.2)
+
+Native acceptance is unjudged. Per finding, report what Altium shows and, after a Save As of the probe
+into a copy, the member values named. FPC7 to FPC11 hold the writer's items with every member of their
+round F0 rows (`docs/formats/altium/draftsman.md`, "Round F0 member values").
+
+1. **`BoardSourceName`** (FPC7, FPC8). The writer leaves it empty, in its own default namespace
+   (`...Serialization.V1.Document.Page.Item.Board`). After Import Changes, does FPC7's drill table fill?
+   Does FPC8, which names `blink_routed.PcbDoc`, behave differently? In the saved copy, does the member
+   keep its namespace, and what value does Altium write?
+2. **Note entry ids** (FPC7, FPC9). FPC7 writes 32 hexadecimal digits, as F0 does; FPC9 writes decimal
+   numbers. Do both open and show `1.` and `2.`? Which ids does the saved copy hold?
+3. **Style tables** (FPC1, FPC4, FPC7). The writer points every font id at its one font style and keeps
+   F0's line style ids (1 to 3) and arrow style id (1). FPC1 and FPC7 carry the control's `LineStyles` and
+   `ArrowStyles`, FPC4 only empty ones. Do FPC7's table lines and dimension arrows draw? In saved copies
+   of FPC1 and FPC4, which ids do `LineStyles` and `ArrowStyles` hold?
+4. **`ViewSideV2` of a bottom BOM** (FPC10). The writer writes `ViewSide` `Bottom` with `ViewSideV2` 0,
+   the only value F0 shows (for a top view and for `All`). Does the table list `D1` only? Which
+   `ViewSide` and `ViewSideV2` does the saved copy hold?
+5. **Dimension snaps** (FPC7, FPC11). The snap points are the outline's corners in the PcbDoc's frame,
+   with the outline's lower-left corner at (1000 mil, 1000 mil) as the build writes it, in 1/96 inch.
+   Do both dimensions lie on the outline's top and left edges and read 50 mm and 30 mm? In the saved
+   copy, is `HasBrokenSnaps` false, do the `SnapId` points stay, and does the vertical dimension keep
+   `ExtensionsDirection` (1, 0)?
+"""
+"""The kit's ``expected.md``: the five findings of c0388's writer and the probes that answer them."""
+
+
+def writer_probes(model: Design, control: bytes) -> dict[str, bytes]:
+    """FPC7 to FPC11: the writer's sheets grafted into the empty F0.1 control as FPC1 is. FPC7 is the
+    fabrication sheet; FPC8, FPC9 and FPC11 change one finding of it; FPC10 is the bottom assembly sheet.
+    The routed blink has no stack-up, so one is set on the model here, only for the legend to be placed."""
+    from dataclasses import replace
+
+    from fenolite.exports.drawing_spec import DEFAULT
+    from fenolite.lens.altium_draftsman import draftsman_spec
+    from fenolite.model.board import StackLayer, Stackup
+
+    assert model.board is not None
+    layers = (
+        StackLayer(id="sly_top", name="F.Cu", kind="copper", thickness=35_000),
+        StackLayer(id="sly_core", name="core", kind="dielectric", thickness=1_530_000, material="FR4"),
+        StackLayer(id="sly_bottom", name="B.Cu", kind="copper", thickness=35_000),
+    )
+    model = replace(model, board=replace(model.board, stackup=Stackup(id="stk_fpc", layers=layers)))
+    spec = replace(
+        DEFAULT, fab=replace(DEFAULT.fab, notes=("FENOLITE FPC NOTE ONE", "FENOLITE FPC NOTE TWO"))
+    )
+    document, _ = draftsman_spec(model, spec)
+    sheets = {sheet.name: sheet for sheet in document.sheets}
+    fab, bottom = sheets["fab"], sheets["assembly-bottom"]
+
+    def graft(sheet: draftsman.DraftsmanSheet) -> bytes:
+        own = draftsman.DraftsmanSpec(PROJECT, (sheet,), document.parameters, document.text_size)
+        return grafted(decode(draftsman.write_draftsman(own))[1], control)
+
+    fpc7 = graft(fab)
+    empty_source = f'<BoardSourceName xmlns="{draftsman.BOARD}"></BoardSourceName>'.encode()
+    named_source = empty_source.replace(b"></", f">{PROJECT}.PcbDoc</".encode())
+    numbers = iter(range(1, 1000))
+    decimal = re.sub(
+        rb"(<NoteElement>(?:(?!</NoteElement>).)*?<Id>)[0-9a-f]{32}(</Id>)",
+        lambda m: m.group(1) + str(next(numbers)).encode() + m.group(2),
+        fpc7,
+    )
+    snaps = [i for i in fab.items if i.kind in ("DrillViewView", "LinearDimension")]
+    probes = {
+        "FPC7.PCBDwf": fpc7,
+        "FPC8.PCBDwf": fpc7.replace(empty_source, named_source),
+        "FPC9.PCBDwf": decimal,
+        "FPC10.PCBDwf": graft(bottom),
+        "FPC11.PCBDwf": graft(replace(fab, items=tuple(snaps))),
+    }
+    assert probes["FPC8.PCBDwf"] != fpc7 and decimal != fpc7 and next(numbers) == 3
+    return probes
 
 
 def _authored_control() -> bytes:
@@ -455,6 +536,33 @@ def test_correction_probes_from_an_authored_control() -> None:
     assert order == sorted(order, key=member_order) and set(STYLE_LISTS) <= set(order)
     assert dict(root_members(styled)[1])["LineStyles"] == b"<LineStyles/>"
     assert read_draftsman(draftsman.encode(styled)).root is not None
+
+
+def test_writer_probes_from_an_authored_control() -> None:
+    """FPC7 to FPC11 on an authored control: each probe keeps the control's members, FPC8, FPC9 and FPC11
+    change one finding of FPC7, FPC10 holds a bottom BOM, and the kit's questions name every probe."""
+    from _altium_job import blink_output
+
+    model = blink_output().layout
+    assert model is not None
+    control = _authored_control()
+    probes = writer_probes(model, control)
+    names = [name for name, _ in root_members(control)[1]]
+    for name, xml in probes.items():
+        assert [n for n, _ in root_members(xml)[1]] == names, name
+        assert read_draftsman(draftsman.encode(xml)).root is not None, name
+    fpc7 = probes["FPC7.PCBDwf"]
+    for kind in (b"DrillTableBoardView", b"LayerStackLegendView", b"Note", b"LinearDimension"):
+        assert b'i:type="' + kind + b'"' in fpc7, kind
+    assert fpc7.count(b'i:type="LinearDimension"') == 2
+    assert b">blink_routed.PcbDoc</BoardSourceName>" in probes["FPC8.PCBDwf"]
+    assert re.findall(rb"<NoteElement>.*?<Id>(\w+)</Id>", probes["FPC9.PCBDwf"]) == [b"1", b"2"]
+    fpc10 = probes["FPC10.PCBDwf"]
+    assert b"<ViewSide>Bottom</ViewSide><ViewSideV2>0</ViewSideV2>" in fpc10
+    fpc11 = probes["FPC11.PCBDwf"]
+    assert fpc11.count(b"<Item ") == 3 and b"DrillTableBoardView" not in fpc11
+    for name in probes:
+        assert name.removesuffix(".PCBDwf") in FPC_EXPECTED, name
 
 
 @pytest.mark.skipif(

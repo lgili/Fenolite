@@ -14,6 +14,7 @@ from collections.abc import Sequence
 from typing import Literal
 
 from fenolite.backends.altium.draftsman import Dimension, DraftsmanItem, DraftsmanSheet, DraftsmanSpec
+from fenolite.backends.altium.pcbdoc import BOARD_OFFSET_MIL
 from fenolite.core.errors import Issue
 from fenolite.exports.drawing_layout import Obstacles, choose_paper
 from fenolite.exports.drawing_spec import DEFAULT, DrawingSpec
@@ -139,10 +140,13 @@ def _sheet(
 def _dimensions(view: DraftsmanItem, outline: tuple[int, int, int, int], offset: int) -> list[DraftsmanItem]:
     """The board's width along its top edge and its height along its left edge, snapped to the outline.
 
-    Snap points are the outline's corners in Altium's board frame, the model's with Y negated
-    (``adapter/units.py``); the view's ``at`` is the outline's lower-left corner on the sheet.
+    Snap points are in the PcbDoc's frame, where the build puts the outline's lower-left corner at
+    (1000 mil, 1000 mil) (``pcbdoc.BOARD_OFFSET_MIL``), Y up; round F0's left-edge snap lies at that X. The
+    view's ``at`` is the outline's lower-left corner on the sheet.
     """
-    left, top, right, bottom = outline[0], -outline[1], outline[2], -outline[3]
+    corner = BOARD_OFFSET_MIL * 25_400
+    left, bottom = corner, corner
+    right, top = corner + outline[2] - outline[0], corner + outline[3] - outline[1]
     origin = (view.at[0] - left, view.at[1] - bottom)
     width, height = view.size
     reach = offset + 2 * _MM
