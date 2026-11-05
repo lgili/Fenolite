@@ -67,6 +67,47 @@
     "status": "equal",
     "why": "By c0275's design a build gives copper its own identities and order; this level 7 measures geometry once identity and order are aligned on the private proof copy, and does not claim that Fenolite keeps the source's identities or order."
   },
+  "rerun_41cf1ed8": {
+    "carrier": true,
+    "head": "41cf1ed8",
+    "level7": {
+      "label": "L7 after identity and order preparation",
+      "moved": 1125,
+      "preparation": "applied",
+      "receipt_canonical_rows": {
+        "slash": 0,
+        "unconnected_single_pad": 0
+      },
+      "rewritten": 1522,
+      "sides": {
+        "a": {
+          "exact_geometry_sha256_prefix": "a562fa79",
+          "raw_caches": 263,
+          "regenerated_caches": 289
+        },
+        "b": {
+          "exact_geometry_sha256_prefix": "a562fa79",
+          "raw_caches": 0,
+          "regenerated_caches": 289
+        }
+      },
+      "source_aliases": 32
+    },
+    "levels": {
+      "1": "equal",
+      "2": "equal",
+      "3": "equal",
+      "4": "equal",
+      "5": "equal",
+      "6": "equal",
+      "7": "equal",
+      "8": "equal",
+      "S": "equal"
+    },
+    "note": "one verify-source run through fenolite-heavy after the closure checks and the shared-name exemption",
+    "tool": "kicad-cli 10.0.6",
+    "verify_exit": 0
+  },
   "schema": "fenolite.c0384.royal-prepared-proof.v0",
   "source_files": 50,
   "source_tree_sha256": "03ae090766fc5559939670b655a51326909acd20d41a05c83f2873d2e69599be",

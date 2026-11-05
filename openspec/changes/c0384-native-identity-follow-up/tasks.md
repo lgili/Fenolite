@@ -127,6 +127,9 @@
     writer writes every `/` of a created net as `{slash}`, also in a sheet-path name (`/pic_programmer/VPP_ON`)
     that KiCad's netlist of the generated hierarchical sheet keeps with `/` (4 nets, 11 pads). Writer fixes
     (a) and (b) wait for the coordinator's decision; nothing in the writer changed.
+  - 2026-11-05 coordinator: both fixes approved as a build bug of their own, change c0408
+    (`openspec/changes/c0408-built-net-spelling/`); this task records the finding and stays open here until
+    c0408 lands. The canonical net rules of 1.3 stay: they serve boards built before c0408.
 
 ## 2. One focused approved implementation
 
@@ -200,6 +203,12 @@
     `unconnected_single_pad` per side, 56 of them spelled differently. Authored neighbours: the import fill
     round-trip project and the native derived-teardrop, duplicate-identity, pad-field-order and identity
     controls pass on this code (focused runs above). No normal cache removed, no acceptance.
+  - 2026-11-05 rerun on 41cf1ed8 (closure checks and the shared-name exemption), one `verify-source` run per
+    board through the heavy-run lock, kicad-cli 10.0.6 (`rerun_41cf1ed8` in both proof files): RoyalBlue all
+    nine levels equal, "L7 after identity and order preparation", 1522 rewritten, 1125 moved, 32 source
+    aliases, no canonical net, 289/a562fa79 on both sides; flat_hierarchy all nine levels equal on the same
+    label, 625 rewritten, 378 moved, receipt rows 4 `slash` and 112 `unconnected_single_pad` (the 56
+    differing single-pad nets of each side), 178/6c67e319 on both sides.
 
 ## 3. Closure
 
