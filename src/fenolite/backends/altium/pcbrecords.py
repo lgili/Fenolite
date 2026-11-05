@@ -734,16 +734,19 @@ def region_record(
     keepout: int | None = None,
     component: int = NO_INDEX,
     board_cutout: bool = False,
+    net: int = NO_INDEX,
 ) -> bytes:
-    """A region (type 11) without a net or a polygon (``pcb-records.md``, "Regions and keep-outs"): the
-    prefix, five zero bytes, the property text and the outline. ``component`` (change c0126) is the index
-    of the component the region belongs to, in the prefix as for a track; none by default. ``vertices`` are
-    in binary units, without a closing vertex, at least three. The plain form (``Regions6``) holds each
-    vertex as two doubles; the shape-based form (``ShapeBasedRegions6``) holds each as 37 bytes, none
-    round, and repeats the first vertex after the last. ``keepout`` makes the region a keep-out with that
-    restriction value (0 … 31): the second flag byte is 2 and the text ends with ``KEEPOUTRESTRICTIONS``
-    and, for KiCad's importer, ``KEEPOUTRESTRIC``, both holding the value. ``board_cutout`` (change c0168)
-    ends the text with ``ISBOARDCUTOUT=TRUE`` (``cutout_region``)."""
+    """A region (type 11) without a polygon (``pcb-records.md``, "Regions and keep-outs"): the prefix, five
+    zero bytes, the property text and the outline. ``component`` (change c0126) is the index of the component
+    the region belongs to, in the prefix as for a track; none by default. ``net`` (change c0412) is the index
+    of its net in the prefix, the net field of the common prefix that every geometry subrecord starts with
+    (``pcb-read.md``, "Fields"); none by default: a copper shape of a board. ``vertices`` are in binary
+    units, without a closing vertex, at least three. The plain form (``Regions6``) holds each vertex as two
+    doubles; the shape-based form (``ShapeBasedRegions6``) holds each as 37 bytes, none round, and repeats the
+    first vertex after the last. ``keepout`` makes the region a keep-out with that restriction value (0 … 31):
+    the second flag byte is 2 and the text ends with ``KEEPOUTRESTRICTIONS`` and, for KiCad's importer,
+    ``KEEPOUTRESTRIC``, both holding the value. ``board_cutout`` (change c0168) ends the text with
+    ``ISBOARDCUTOUT=TRUE`` (``cutout_region``)."""
     if len(vertices) < 3:
         raise ValueError("a region needs at least three vertices")
     if keepout is not None and not 0 <= keepout <= 0x1F:
@@ -763,7 +766,7 @@ def region_record(
     if board_cutout:
         fields.append((BOARD_CUTOUT_KEY, "TRUE"))
     text = "|".join(f"{key}={value}" for key, value in fields).encode("ascii") + b"\0"
-    head = bytearray(prefix(layer, component=component))
+    head = bytearray(prefix(layer, net=net, component=component))
     if keepout is not None:
         head[2] = KEEPOUT_FLAG
     body = bytes(head) + bytes(5) + struct.pack("<I", len(text)) + text + struct.pack("<I", len(vertices))

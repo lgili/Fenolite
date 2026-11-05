@@ -95,7 +95,7 @@ def test_disabled_rule_is_counted_not_mapped() -> None:
 def test_scope_outside_the_grammar_and_kinds_without_a_counterpart() -> None:
     issues: list[Issue] = []
     records = [
-        rec.rule("Clearance", "A", GAP="10mil", SCOPE1EXPRESSION="InPolygon"),
+        rec.rule("Clearance", "A", GAP="10mil", SCOPE1EXPRESSION="InNamedPolygon('GND')"),
         rec.rule("Clearance", "B", GAP="10mil", ENABLED="FALSE"),
         rec.rule("PlaneClearance", "C"),
         rec.rule("Width", "D", MINLIMIT="6mil", PREFEREDWIDTH="10mil", MAXLIMIT="20mil"),

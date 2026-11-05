@@ -155,7 +155,11 @@ def test_keepout_on_some_copper_layers_is_one_region_per_layer() -> None:
 @pytest.mark.parametrize(
     ("item", "message"),
     [
-        (graphic("a", "line", "F.Cu", (at(1, 1), at(2, 2))), "the layer F.Cu has no layer in the document"),
+        # a copper layer outside the written stack (change c0412 writes the copper of the stack)
+        (
+            graphic("a", "line", "In5.Cu", (at(1, 1), at(2, 2))),
+            "the layer In5.Cu has no layer in the document",
+        ),
         (graphic("b", "line", "F.Fab", (at(1, 1), at(2, 2)), width=0), "needs a positive width"),
         (graphic("c", "line", "F.Fab", (at(1, 1), at(1, 1))), "the line has no extent"),
         (graphic("d", "arc", "F.Fab", (at(1, 1), at(2, 2), at(3, 3))), "lie on one line"),

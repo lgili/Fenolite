@@ -131,9 +131,9 @@ A drawn unit's optional `symbol` selects a compatible native body; sync retains 
 For local metadata snapshots, read `guide equivalent-s`.
 
 Imported physical variants keep the native `footprint` name and select local geometry with
-`footprint_definition`. This keyword needs an explicit symbol and footprint; device/query parts and
-Altium builds refuse it. The original name is written into the PCB and schematic; pads come from the
-selected definition, with the usual pin-map and electrical checks.
+`footprint_definition`. It needs explicit symbol and footprint; device/query parts refuse it.
+The original name is written into the KiCad PCB and schematic (Altium: the definition's); pads come
+from the selected definition, with the usual pin-map and electrical checks.
 
 ```fenolite-design
 from fenolite.dsl import Design, Part, mm

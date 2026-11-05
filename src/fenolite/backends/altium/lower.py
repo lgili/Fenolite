@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import dataclasses
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from types import MappingProxyType
@@ -117,7 +117,8 @@ MORE_KINDS: tuple[str, ...] = (
     "project-curve-error",
 )
 """What a write of a model accounts for besides ``KINDS``: a net or a net class whose name no record
-holds, a filled shape on a copper layer (the model holds it as a graphic), the poured copper of a zone (a
+holds, a shape on a copper layer without a copper record (on a plane, a filled circle, or refused;
+change c0412), the poured copper of a zone (a
 polygon is written unpoured), the layers on which a via has no pad shape (the via is written with a pad on
 every layer; change c0132), an internal plane, the stack-up values, a part of the outline, and the
 schematic. Of the circuit (change c0083): a module (the generated schematic is one sheet), and the channel
@@ -213,6 +214,29 @@ KICAD_MECHANICAL: Mapping[str, int] = MappingProxyType(
     }
 )
 """Closed KiCad drawing-layer map of conversion c0160; unsupported layers remain losses."""
+_MECH_NAME = re.compile(r"(?:Mech\.|Mechanical )([1-9][0-9]?)")
+
+
+def kicad_mechanical(board: Board) -> dict[str, int]:
+    """The drawing-layer map of a KiCad board (change c0412): ``KICAD_MECHANICAL``, except that a user
+    layer whose KiCad user name is ``Mech.<n>`` or ``Mechanical <n>`` (n from 1 to 16) is on Mechanical n.
+    The first spelling is the name Fenolite's Altium import gives a mechanical layer
+    (``MECHANICAL_LAYERS``); the second is the name an Altium board record gives it. Named layers come
+    last, so the document names their mechanical layer after them; a layer the fixed map puts on the
+    same mechanical layer stays there."""
+    named: dict[str, int] = {}
+    for layer in board.layers:
+        if not layer.name.startswith("User."):
+            continue
+        bag = layer.ext.get("kicad")
+        user_name = dict(bag.payload).get("user_name") if bag is not None else None
+        found = _MECH_NAME.fullmatch(user_name or "")
+        if found is not None and 1 <= int(found.group(1)) <= 16:
+            named[layer.name] = 56 + int(found.group(1))
+    fixed = {name: ident for name, ident in KICAD_MECHANICAL.items() if name not in named}
+    return {**fixed, **named}
+
+
 DEFINITION_LAYERS: frozenset[str] = frozenset(
     name for name, ident in rec.LAYER_MAP.items() if ident in rec.FLIP_PAIRS and not name.endswith(".Cu")
 )
@@ -1266,7 +1290,15 @@ def _items(
     records: dict[str, rec.ArcGeometry],
     account: _Account,
     layer_ids: Mapping[str, int] | None = None,
+    planes: frozenset[str] = frozenset(),
+    net_names: Mapping[str, str] | None = None,
 ) -> tuple[list[Text], list[Graphic], list[Keepout], list[Hole]]:
+    """The free texts, graphics, keep-outs and holes of ``board`` that the document writes. A graphic on a
+    signal layer of ``layers`` is copper (change c0412): it is kept with the name of its net from
+    ``net_names`` in ``net_id``, as the tracks are; one on a plane, on a copper layer outside the stack,
+    on a net that no record names, or that ``pcbdoc.graphic_problem`` refuses is a ``copper-shape`` loss."""
+    signal = tuple(name for name in layers if name not in planes)
+    names = net_names or {}
     texts: list[Text] = []
     for text in board.texts:
         problem = pcbdoc.text_problem_of(text)
@@ -1284,10 +1316,18 @@ def _items(
         if graphic.layer == EDGE_LAYER:
             outline += 1
             continue
-        if graphic.layer.endswith(".Cu"):
-            account.skip("copper-shape", graphic.id, "a shape on a copper layer has no record written")
-            continue
         kept = kept_arc(graphic, graphic.points, frame) if graphic.kind == "arc" else None
+        if graphic.layer.endswith(".Cu") or graphic.layer in layers:
+            problem = copper_shape_problem(graphic, layers, planes, names)
+            if problem is None:
+                problem = pcbdoc.graphic_problem(graphic, arc_known=kept is not None, copper=signal)
+            if problem is not None:
+                account.skip("copper-shape", graphic.id, problem)
+                continue
+            graphics.append(dataclasses.replace(graphic, net_id=names.get(graphic.net_id or "")))
+            if kept is not None:
+                records[graphic.id] = kept
+            continue
         problem = pcbdoc.graphic_problem(graphic, arc_known=kept is not None, layers=layer_ids)
         if problem is None:
             graphics.append(graphic)
@@ -1315,6 +1355,21 @@ def _items(
     account.wrote("keep-out", len(keepouts))
     account.wrote("hole", len(holes))
     return texts, graphics, keepouts, holes
+
+
+def copper_shape_problem(
+    graphic: Graphic, layers: Sequence[str], planes: Collection[str], net_names: Mapping[str, str]
+) -> str | None:
+    """Why a graphic on a copper layer has no copper record (change c0412), or ``None``: its layer is an
+    internal plane, which holds no primitive, or no copper layer of the written stack, or its net is one
+    that no net record names."""
+    if graphic.layer in planes:
+        return f"{graphic.layer} is an internal plane, which holds no primitive"
+    if graphic.layer not in layers:
+        return f"{graphic.layer} is not a copper layer of the written stack"
+    if graphic.net_id is not None and graphic.net_id not in net_names:
+        return f"its net {graphic.net_id} has no net record in the document"
+    return None
 
 
 def _classes(design: Design, nets: frozenset[str], account: _Account) -> tuple[pcbdoc.NetClassSpec, ...]:
@@ -1642,7 +1697,7 @@ def _document(
     # a board that was read names its mechanical layers Mech.<n>: the document holds them (change c0126)
     layer_ids: Mapping[str, int] = MappingProxyType(
         {
-            **(MECHANICAL_LAYERS if read else KICAD_MECHANICAL if options is None else {}),
+            **(MECHANICAL_LAYERS if read else kicad_mechanical(board) if options is None else {}),
             **(
                 dict(zip(layers, rec.copper_stack(layers, tuple(planes)), strict=True))
                 if options is None
@@ -1666,7 +1721,9 @@ def _document(
     tracks, arcs, vias, zones, arc_records = _copper(
         board, layers, planes, net_names, frame, account, full_drill=rewrite
     )
-    texts_, graphics, keepouts, holes = _items(board, layers, frame, arc_records, account, layer_ids)
+    texts_, graphics, keepouts, holes = _items(
+        board, layers, frame, arc_records, account, layer_ids, planes=planes, net_names=net_names
+    )
     cutouts = _cutouts(board.outline if board.outline is not None else edges, account)
     lowered = rulemap.lower(design.rules.rules if design.rules is not None else ())
     for footprint in board.footprints:
@@ -2255,6 +2312,7 @@ __all__ = [
     "LOSS_KINDS",
     "MECHANICAL_LAYERS",
     "KICAD_MECHANICAL",
+    "kicad_mechanical",
     "MORE_KINDS",
     "DNP_KIND",
     "DNP_REASON",
@@ -2264,6 +2322,7 @@ __all__ = [
     "NOT_LOWERED",
     "PLACEMENT_RULE_KIND",
     "AltiumInputs",
+    "copper_shape_problem",
     "LossyWriteError",
     "LowerOptions",
     "ProjectWrite",

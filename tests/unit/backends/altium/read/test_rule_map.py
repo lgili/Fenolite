@@ -587,7 +587,7 @@ def test_cells_of_a_scoped_record() -> None:
 def test_cells_of_records_that_stay_unmapped_are_counted() -> None:
     one = "ClearanceObj_Via-ClearanceObj_Via:35000"
     records = [
-        clearance("4mil", ("OBJECTCLEARANCES", POURS), SCOPE1EXPRESSION="InPolygon"),
+        clearance("4mil", ("OBJECTCLEARANCES", POURS), SCOPE1EXPRESSION="InNamedPolygon('GND')"),
         clearance("4mil", ("OBJECTCLEARANCES", one), ENABLED="FALSE"),
         clearance("4mil", ("OBJECTCLEARANCES", " ")),
         clearance("4mil", ("OBJECTCLEARANCES", one)),

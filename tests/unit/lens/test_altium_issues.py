@@ -658,6 +658,8 @@ def test_closed_set() -> None:
         produced.setdefault(found.code, set()).add(found.severity)
     for found in run_request_case():
         produced.setdefault(found.code, set()).add(found.severity)
+    for found in run_definition_case():
+        produced.setdefault(found.code, set()).add(found.severity)
     for code, severities in produced.items():
         if code.startswith(PASS_THROUGH):
             continue
@@ -665,6 +667,16 @@ def test_closed_set() -> None:
         assert severities == {ALTIUM_ISSUE_CODES[code]}, (code, severities)
     expected = set(ALTIUM_ISSUE_CODES) - (set() if GEO else POUR_CODES_WITH_GEO)
     assert expected <= set(produced), expected - set(produced)
+
+
+def run_definition_case() -> list[Issue]:
+    """Change c0412: a part whose ``footprint_definition`` names another footprint than its native one
+    (``altium.footprint-definition``)."""
+    design = Design("definition")
+    design.board(mm(20), mm(20))
+    part = Part("R1", "Fenolite:Resistor", footprint="Original:R", footprint_definition="Fenolite:Chip_0603")
+    design.add(part)
+    return lens_altium.with_footprint_definitions(to_model(design))[1]
 
 
 GEO = importlib.util.find_spec("pyclipper") is not None
@@ -803,6 +815,7 @@ def test_the_table() -> None:
         "altium.image-skipped": "warning",
         "altium.project-kept": "info",
         "altium.footprint-extras-dropped": "info",
+        "altium.footprint-definition": "info",
         "altium.pcbdoc-not-written": "info",
         "altium.pcb-staged": "info",
         "altium.pcb-not-in-project": "info",

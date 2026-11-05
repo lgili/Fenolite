@@ -44,13 +44,28 @@ NOT_LOWERED_REASONS: tuple[Reason, ...] = get_args(Reason)
 """Why a rule is not written. ``unit-loss`` is kept for a field whose unit would move a value by more than
 2 nm; no field of the table has such a unit today."""
 EXACT = "exact"
-ScopeForm = Literal["all", "net", "netclass", "and", "pair"]
+ScopeForm = Literal["all", "net", "netclass", "ref", "item", "and", "or", "not", "pair"]
 ALL_SCOPE = "All"
 TOLERANCE_NM = 2
 """The largest difference between a neutral value and the value read back: the PCB unit is 2.54 nm."""
 
-_UNARY: tuple[ScopeForm, ...] = ("all", "net", "netclass", "and")
-"""The scope forms of a rule with one scope."""
+_UNARY: tuple[ScopeForm, ...] = ("all", "net", "netclass", "ref", "item", "and", "or", "not")
+"""The scope forms of a rule with one scope: the leaves ``net``, ``netclass``, ``ref`` and ``item_kind``
+and their combinations (``ref``, ``item``, ``or`` and ``not`` since change c0412)."""
+ITEM_QUERIES: dict[str, str] = {"track": "IsTrack", "via": "IsVia", "pad": "IsPad", "zone": "InPolygon"}
+"""The written query of each item kind (change c0412): the object type checks of the closed scope grammar,
+and ``InPolygon`` for the copper of a pour, which a Clearance rule names so (``pcb-pour.md`` I3, S-1702)."""
+_ITEM_NAMES: dict[str, str] = {"track": "track", "via": "via", "pad": "pad", "zone": "polygon"}
+_FORMS: dict[str, ScopeForm] = {
+    "net": "net",
+    "netclass": "netclass",
+    "ref": "ref",
+    "item_kind": "item",
+    "and": "and",
+    "or": "or",
+    "not": "not",
+}
+"""Selector op → the scope form it needs."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -300,14 +315,15 @@ def rule_selector(rule: Rule) -> str:
 
 
 def _leaf(selector: Selector, row: RuleRow) -> tuple[str, str]:
-    """The scope text and the name part of a ``net`` or ``netclass`` leaf."""
-    if selector.op not in ("net", "netclass") or selector.op not in row.scopes:
-        raise _Refused(
-            "scope-unsupported",
-            f"the selector {selector_text(selector)} is outside the scopes written for {row.altium} "
-            "(all, a net, a net class, and the conjunction of those)",
-        )
+    """The scope text and the name part of a ``net``, ``netclass``, ``ref`` or ``item_kind`` leaf."""
     value = selector.value
+    if selector.op == "item_kind":
+        if value not in ITEM_QUERIES:
+            raise _Refused(
+                "scope-unsupported",
+                f"the item kind {value!r} has no query of the closed grammar ({', '.join(ITEM_QUERIES)})",
+            )
+        return ITEM_QUERIES[value], _ITEM_NAMES[value]
     problem = text_problem(value)
     if problem is None and "'" in value:
         problem = "holds an apostrophe, which the scope quotes"
@@ -317,7 +333,33 @@ def _leaf(selector: Selector, row: RuleRow) -> tuple[str, str]:
         raise _Refused("scope-unsupported", f"the value {value!r} of {selector.op} {problem}")
     if selector.op == "net":
         return f"InNet('{value}')", f"net_{value}"
+    if selector.op == "ref":
+        return f"InComponent('{value}')", f"ref_{value}"
     return f"InNetClass('{value}')", value
+
+
+def _query(selector: Selector, row: RuleRow, *, nested: bool = False) -> tuple[str, str]:
+    """The query of ``selector`` and its name part. An operand that is itself a conjunction, a disjunction
+    or a negation is put in parentheses: the grammar holds one kind of operator per level."""
+    form = _FORMS.get(selector.op)
+    if form is None or form not in row.scopes:
+        raise _Refused(
+            "scope-unsupported",
+            f"the selector {selector_text(selector)} is outside the scopes written for {row.altium} "
+            "(all, a net, a net class, a component, a track, via, pad or pour, and their combinations "
+            "with And, Or and Not)",
+        )
+    if selector.op in ("net", "netclass", "ref", "item_kind"):
+        return _leaf(selector, row)
+    if selector.op == "not":
+        inner, inner_name = _query(selector.items[0], row, nested=True)
+        text, name = f"Not {inner}", f"not_{inner_name}"
+    else:
+        parts = [_query(item, row, nested=True) for item in selector.items]
+        word = " And " if selector.op == "and" else " Or "
+        text = word.join(part for part, _name in parts)
+        name = f"_{selector.op}_".join(name for _part, name in parts)
+    return (f"({text})" if nested else text), name
 
 
 def scope_of(selector: Selector | None, row: RuleRow) -> tuple[str, str]:
@@ -326,14 +368,7 @@ def scope_of(selector: Selector | None, row: RuleRow) -> tuple[str, str]:
     is one that ``read.scope.parse_scope`` turns back into ``selector``."""
     if selector is None or selector.op == "all":
         return ALL_SCOPE, ""
-    if selector.op == "and":
-        if "and" not in row.scopes:
-            raise _Refused("scope-unsupported", f"{row.altium} takes no conjunction")
-        parts = [_leaf(item, row) for item in selector.items]
-        text = " And ".join(part for part, _name in parts)
-        name = "_and_".join(name for _part, name in parts)
-    else:
-        text, name = _leaf(selector, row)
+    text, name = _query(selector, row)
     if parse_scope(text) != selector:  # the reader's grammar is the judge of what is written
         raise _Refused("scope-unsupported", f"the scope {text} does not read back as the selector")
     return text, name
@@ -355,7 +390,8 @@ def _lengths(rule: Rule, row: RuleRow) -> dict[str, str]:
     if missing:
         raise _Refused(
             "value-unsupported",
-            f"{row.altium} holds {', '.join(row.limits)} and the rule gives no {', '.join(missing)}",
+            f"{row.altium} holds {', '.join(row.limits)} and the rule gives no {', '.join(missing)}; "
+            "no record read leaves a limit out, so writing one would add a bound the rule does not hold",
         )
     found: dict[str, str] = {}
     for name in row.limits:

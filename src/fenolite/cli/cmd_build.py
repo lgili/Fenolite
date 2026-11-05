@@ -159,6 +159,7 @@ from fenolite.lens.altium import (
     kicad_lib_ids,
     refused_altium,
     sheet_parameters,
+    with_footprint_definitions,
 )
 from fenolite.lens.altium import issue as altium_issue
 from fenolite.lens.build import (
@@ -1414,13 +1415,10 @@ def _built(
         pad_zone_requests = pad_zones(design)
     except DslError as error:
         raise DesignScriptError(str(error), file=str(args.design)) from error
-    if args.target == ALTIUM_TARGET and any(c.footprint_definition_ref for c in model.circuit.components):
-        raise CliError(
-            "FEN-3004",
-            "footprint_definition selects a KiCad definition; Altium builds do not support this override",
-            where=str(args.design),
-            hint="build this imported design with --target kicad",
-        )
+    definition_issues: list[Issue] = []
+    if args.target == ALTIUM_TARGET:
+        # the Altium build writes the definition an import pins (change c0412)
+        model, definition_issues = with_footprint_definitions(model)
     model, defaulted = apply_default_pad_maps(
         model, authored_symbols=design.symbols, authored_footprints=design.footprints
     )
@@ -1440,6 +1438,7 @@ def _built(
         *pad_map_issues(defaulted),
         *device_issues(design),
         *run.block_issues,
+        *definition_issues,
     ]
     # the images of the script: the build reads their files, which are inputs of the plan (change c0277)
     image_sources = [

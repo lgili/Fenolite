@@ -36,6 +36,15 @@ def test_class_and_item_kind() -> None:
         ("IsTrack", TRACK),
         ("IsVia", VIA),
         ("IsPad", Selector("item_kind", "pad")),
+        ("InPolygon", Selector("item_kind", "zone")),
+        ("InPoly", Selector("item_kind", "zone")),
+        (
+            "InPolygon And (Not InNetClass('HV'))",
+            Selector(
+                "and",
+                items=(Selector("item_kind", "zone"), Selector("not", items=(Selector("netclass", "HV"),))),
+            ),
+        ),
         ("InNet('A') And InNet('B')", Selector("and", items=(NET_A, NET_B))),
         ("InNet('A') && InNet('B') And IsTrack", Selector("and", items=(NET_A, NET_B, TRACK))),
         ("InNet('A') Or InNet('B')", Selector("or", items=(NET_A, NET_B))),
@@ -154,3 +163,9 @@ def test_layer_conditions(text: str, found: LayerScope) -> None:
 )
 def test_no_layer_condition(text: str) -> None:
     assert parse_layer_scope(text) is None
+
+
+def test_named_polygon_stays_outside() -> None:
+    """Scenario "Pour copper" (change c0412): ``InPolygon`` reads without an argument only."""
+    assert isinstance(parse_scope("InPolygon('GND')"), str)
+    assert isinstance(parse_scope("InNamedPolygon('GND')"), str)

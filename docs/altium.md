@@ -526,7 +526,7 @@ in one of the two; an item that is not written has an issue whose `where` is `<k
 | copper layers | any even count from 2 to 32 with at most 16 signal layers and 16 internal planes; the k-th inner layer is Mid-Layer k, a plane declared with `planes` is the next Internal Plane; dielectrics with thickness, material and constant from the stack-up | an odd count or a larger stack: the stack of the two outer layers and `altium.not-lowered` (`where` = `stackup`) |
 | vias | through, blind and buried, with the two layers of their span; one drill pair per distinct span | a micro via: `altium.via-unsupported` (warning), the build goes on |
 | board texts | stroke texts with string (any character, through the wide string), layer, position, height, stroke width and rotation; mirrored on a bottom-side layer | no justification and no TrueType or barcode text (the model holds none); a text on a copper or user layer, an empty or multi-line text |
-| graphics | lines, arcs, circles and drawn rectangles and polygons as tracks and arcs without a net; filled rectangles and polygons as regions; on the silkscreen, paste, solder-mask, fabrication and courtyard layers | a graphic on copper or on a user layer, a filled circle, a drawn shape of width 0 (a graphic on `Edge.Cuts` is the outline) |
+| graphics | lines, arcs, circles and drawn rectangles and polygons as tracks and arcs without a net; filled rectangles and polygons as regions; on the silkscreen, paste, solder-mask, fabrication and courtyard layers. On a signal layer (change c0412) the same records with the graphic's net: copper of that net | a graphic on an internal plane or on an unmapped user layer (`User.1` to `User.8` are Mechanical 1 to 8; another user layer whose KiCad user name is `Mech.<n>` or `Mechanical <n>` is Mechanical n, change c0412), a filled circle, a drawn shape of width 0 (a graphic on `Edge.Cuts` is the outline) |
 | keep-outs | one keep-out region with its restrictions for vias, tracks, pads and copper (in the key Altium saves and, for KiCad's importer, in `KEEPOUTRESTRIC` too), on the Keep-Out layer when it names every copper layer, else one per layer | `no_footprints` (reported, the keep-out is written with the others); a keep-out with no other restriction |
 | holes | a free pad without copper, plated or not | a slot (the model's board hole is round) |
 | component bodies | with `--altium-bodies extruded`, the default since change c0155 (change c0121): an extruded body with an outline and a height above its standoff, as one record in `ComponentBodies6` and its twin in `ShapeBasedComponentBodies6`, owned by its component, with its two heights, its side, a mechanical layer (its own when it is Mechanical 1 to 16, else Mechanical 13 on the top side and 14 on the bottom side) and its name. **Experimental; opened in Altium Designer 26.5 by the maintainer (step X8, an author report)** | with `--altium-bodies off`, every body; with `extruded`: a body that names a 3D model (the model holds a name and no data), a body without an outline, a height that is not above the standoff or a standoff below the board surface, a body whose footprint is no component of the document; each `altium.not-lowered` (`where` = `body/<id>`) with its height and its reason. No body is made for a footprint that has none |
@@ -721,10 +721,13 @@ a board that the script forbids.
   give them all: `design.rules.minimum(track_width=…)`, which gives a minimum only, is reported
   (`value-unsupported`); write `design.rules.rule("w", "track_width", min=…, opt=…, max=…)` to get a
   Width rule. A severity other than `error` is `value-unsupported` too: a rule record is enabled or not.
-- **Scopes.** All objects, a net (`InNet('<net>')`), a net class (`InNetClass('<class>')`) and the
-  conjunction of those (`… And …`); a `clearance` rule takes a second scope from `between`. A glob, a
-  `ref`, `item_kind`, `or` or `not` selector and a rule with `layers` are `scope-unsupported`: that
-  rule is reported and the others of its kind are written.
+- **Scopes.** All objects, a net (`InNet('<net>')`), a net class (`InNetClass('<class>')`), a component
+  (`InComponent('<ref>')`), an item kind (`IsTrack`, `IsVia`, `IsPad`, and `InPolygon` for `zone`, the
+  copper of a pour), and their combinations with `And`, `Or` and `Not`, nested operators in parentheses
+  (change c0412); a `clearance` rule takes a second scope from `between`. A glob, an `area`, `layer` or
+  `diff_pair` leaf, another item kind and a rule with `layers` are `scope-unsupported`: that rule is
+  reported and the others of its kind are written. The import reads `InPolygon` and `InPoly` back as
+  `item_kind zone`.
 - **What is read and not written (change c0125).** The import of a PCB document also maps a Clearance
   record whose object matrix is blank or holds one value, a record of a clearance matrix between net
   classes (the entry for all classes and its cells), and two layer conditions: `ExistsOnLayer` of
@@ -1516,7 +1519,7 @@ Fields of these kinds that the scope leaves out, and why:
 | `component` | `value_range` | the writer does not write it (it stays in `.fenolite/circuit.json`, change c0246) |
 | `component` | `board_only` | the writer does not write it: a board-only part (change c0277) is written as any other component, and the KiCad attribute has no Altium record |
 | `component` | `bom_only` | the writer does not write it: Altium has no supported typed off-board purchasing representation; writing such a component refuses before staging, including with allow-lossy (c0334) |
-| `component` | `footprint_definition_ref` | the writer does not write it: this selects a KiCad geometry definition (c0318); an Altium build refuses a nonempty override before writing |
+| `component` | `footprint_definition_ref` | the writer does not write it as a field of its own: an Altium build takes a nonempty override as the part's footprint link and writes that definition under its name, with one `altium.footprint-definition` info when the name differs from the native one (c0318, c0412) |
 | `net` | `netclass_id` | the reader maps it elsewhere: a class is a record of the PCB document, and a schematic reading holds none |
 | `netclass` | `clearance`, `track_width`, `via_diameter`, `via_drill` | the reader maps it elsewhere: the values are written as design rules and read as rules |
 | `netclass` | `description` | the writer does not write it |

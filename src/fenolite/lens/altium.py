@@ -150,6 +150,7 @@ ALTIUM_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "altium.image-skipped": "warning",
         "altium.project-kept": "info",
         "altium.footprint-extras-dropped": "info",
+        "altium.footprint-definition": "info",
         "altium.pcbdoc-not-written": "info",
         "altium.pcb-staged": "info",
         "altium.pcb-not-in-project": "info",
@@ -245,6 +246,38 @@ def kept_documents(paths: Sequence[str]) -> frozenset[str]:
 
 def issue(code: str, message: str, where: str = "", hint: str = "") -> Issue:
     return Issue(code, ALTIUM_ISSUE_CODES[code], message, where=where, hint=hint)
+
+
+def with_footprint_definitions(design: Design) -> tuple[Design, list[Issue]]:
+    """``design`` with each part's ``footprint_definition_ref`` taken as its footprint link (change c0412):
+    the Altium build resolves and writes the definition the import pinned, geometry and name, as the KiCad
+    build resolves it. One PcbLib holds one footprint per name, so the native name cannot stay where it
+    names another geometry; each part whose written footprint name differs from its native one gets one
+    ``altium.footprint-definition`` info. A part without the override is unchanged."""
+    issues: list[Issue] = []
+    components: list[Component] = []
+    for component in design.circuit.components:
+        definition = component.footprint_definition_ref
+        if not definition:
+            components.append(component)
+            continue
+        native = component.lib_footprint_ref
+        if definition.split(":")[-1] != native.split(":")[-1]:
+            issues.append(
+                issue(
+                    "altium.footprint-definition",
+                    f"{component.ref} is written with the footprint {definition!r} that its "
+                    f"footprint_definition pins, not under its native name {native!r}",
+                    where=component.ref,
+                )
+            )
+        components.append(
+            dataclasses.replace(component, lib_footprint_ref=definition, footprint_definition_ref="")
+        )
+    if all(a is b for a, b in zip(components, design.circuit.components, strict=True)):
+        return design, issues
+    circuit = dataclasses.replace(design.circuit, components=tuple(components))
+    return dataclasses.replace(design, circuit=circuit), issues
 
 
 def generic_pins(design: Design) -> Design:
@@ -2721,17 +2754,20 @@ def write_model(
     read, so the design is projected first (``backends.kicad.fpitems.with_footprint_items``, change c0126):
     the written footprints then hold their silkscreen and their rounded pads. ``AltiumBackend.write`` is
     the same write without the projection, for a design that carries its items (one read from an Altium
-    document) or holds none. ``pour`` passes the backend's mode through: ``None`` retains its default,
-    ``outline`` reproduces an unpoured write, and explicit ``computed`` requires the geo extra."""
+    document) or holds none. The copper graphics take the net their KiCad slot names
+    (``fpitems.with_graphic_nets``, change c0412). ``pour`` passes the backend's mode through: ``None``
+    retains its default, ``outline`` reproduces an unpoured write, and explicit ``computed`` requires the
+    geo extra."""
     from fenolite.backends.kicad import fpitems
 
-    projected = fpitems.with_footprint_items(design).design
+    projected = fpitems.with_graphic_nets(fpitems.with_footprint_items(design).design)
     return lower.write_design(projected, allow_lossy=allow_lossy, bodies=bodies, pour=pour)
 
 
 __all__ = [
     "ALTIUM_BUILD_EVIDENCE",
     "ALTIUM_ISSUE_CODES",
+    "with_footprint_definitions",
     "resolve_requests",
     "EXPERIMENTAL",
     "CopperSource",

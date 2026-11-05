@@ -28,8 +28,16 @@ LEAF_FUNCTIONS: dict[str, SelectorOp] = {"InNet": "net", "InNetClass": "netclass
 NO_NET = "No Net"
 """The net name ``InNet`` takes for the objects without a net (``rule-file.md``, "Closed scope grammar";
 ``H-A-RD-PRJ-SCOPE-NONET``, change c0409): ``InNet('No Net')`` is ``model.rules.NO_NET``."""
-ITEM_KINDS: dict[str, str] = {"IsTrack": "track", "IsVia": "via", "IsPad": "pad"}
-"""Object-type checks without arguments, and the neutral item kind each selects."""
+ITEM_KINDS: dict[str, str] = {
+    "IsTrack": "track",
+    "IsVia": "via",
+    "IsPad": "pad",
+    "InPolygon": "zone",
+    "InPoly": "zone",
+}
+"""Object-type checks without arguments, and the neutral item kind each selects. ``InPolygon`` (alias
+``InPoly``) is the attribute check that a Clearance rule names for the copper of a pour (``pcb-pour.md``
+I3; S-1702, change c0412); with an argument it stays outside the grammar."""
 AND_OPERATORS = ("And", "&&")
 OR_OPERATORS = ("Or", "||")
 NOT_OPERATOR = "Not"

@@ -270,12 +270,18 @@ def test_ordinary_import_and_rebuild_keep_every_byte(
     assert _digest(out / "built") == expected
 
 
-def test_altium_does_not_silently_use_native_identity_as_geometry(tmp_path: Path) -> None:
+def test_altium_build_writes_the_pinned_definition(tmp_path: Path) -> None:
+    """Scenario "Imported design built for Altium" (change c0412): the override is honoured, never the
+    native identity's geometry."""
     assert imported(tmp_path, edited(tmp_path), "--confirm").exit_code == 0
     reply = build(tmp_path / "out", "--target", "altium")
-    assert reply.exit_code == 3 and reply.error is not None
-    assert reply.error["code"] == "FEN-3004" and "footprint_definition" in reply.error["message"]
-    assert not (tmp_path / "out" / "built").exists()
+    assert reply.exit_code == 0, reply.error
+    assert reply.envelope is not None
+    found = [i for i in reply.envelope["issues"] if i["code"] == "altium.footprint-definition"]
+    assert found and all(LOCAL in i["message"] and NATIVE in i["message"] for i in found)
+    built = tmp_path / "out" / "built"
+    libraries = [p.read_bytes() for p in built.iterdir() if p.suffix == ".PcbLib"]
+    assert libraries and any(LOCAL.split(":")[1].encode() in data for data in libraries)
 
 
 def test_missing_local_definition_never_falls_back_to_native_geometry(tmp_path: Path) -> None:

@@ -290,8 +290,9 @@ r1.place(mm(32), mm(9), rot=90, side="bottom")
   its explicit `in_bom yes`/`on_board no` flags; Altium output currently refuses before writing.
 - `Part(..., footprint_definition="Local:Variant")` selects a KiCad geometry definition while preserving
   the explicit `footprint="Original:Name"` as native PCB/schematic identity (change c0318). It requires
-  an explicit symbol and footprint, so device/query parts refuse it; Altium builds refuse it before
-  writing. The default empty string keeps ordinary resolution. An override may preserve a native empty
+  an explicit symbol and footprint, so device/query parts refuse it. An Altium build writes the selected
+  definition under its own name, with one `altium.footprint-definition` info when that name differs from
+  the native one (change c0412). The default empty string keeps ordinary resolution. An override may preserve a native empty
   string; without an override, `footprint=""` remains invalid. The usual pad-map/electrical checks apply.
 - `Design.part(...)` and `Module.part(...)` take the arguments of `Part`, create the part and attach it.
 - `part[designator]` returns a pin handle; `connect(net, *pins)` joins pins to a net.

@@ -158,6 +158,8 @@ other text is refused with a reason and the rule is reported with the reason `sc
 | `IsTrack` | `item_kind track` |
 | `IsVia` | `item_kind via` |
 | `IsPad` | `item_kind pad` |
+| `InPolygon` | `item_kind zone` |
+| `InPoly` | `item_kind zone` |
 | `x And y`, `x && y` | `and(x, y, …)` |
 | `x Or y`, `x \|\| y` | `or(x, y, …)` |
 | `Not x` | `not(x)` |
@@ -176,18 +178,24 @@ name that way. It is read as `model.rules.NO_NET`, `not(net *)` (a net glob neve
 without a net), which `select.no_net()` names and the KiCad target writes as `A.NetName == ''`
 (`docs/formats/kicad/rules.md`, `H-K-DRU-NONET`); the Altium writer does not write it back as `InNet('No Net')`.
 
+`InPolygon` (alias `InPoly`; change c0412) without an argument is the clearance query for the copper of a polygon pour: Altium's Object
+Type Checks page says a clearance rule for a pour names `InPolygon` rather than `IsPolygon`, because the
+clearance applies to the primitives of the pour (S-1702; change c0412, `H-A-RULE-SCOPE`, INFERRED).
+KiCad's `A.Type == 'Zone'` (`item_kind zone`) names the same copper in a clearance. `InNamedPolygon('n')`,
+which names one pour, stays outside the grammar.
+
 **Unmapped forms on the public boards** (change c0377, task 1.1; S-0580 documents, read 2026-11-04 with
 Fenolite's own reader, counts only). Kinds with no neutral counterpart, per rule record: FanoutControl 40,
 PolygonConnect 18, MatchedLengths 15, SolderMaskExpansion 11, ComponentClearance 10, PlaneConnect 9,
 DiffPairsRouting 9, PasteMaskExpansion 8 (and 8 each of the other kinds of the default rule set). Refused
 records of mapped kinds, among them: HoleToHoleClearance with `ALLOWSTACKEDMICROVIAS=TRUE` 6, RoutingVias
 with via template keys 4, BoardOutlineClearance object matrices 3, Clearance scopes 5 (`HasFootprint`,
-`InPolygon`, `InDifferentialPairClass`, a left-over token), Width keys and scopes 4, HoleSize scopes with
+`InPolygon` (read since change c0412), `InDifferentialPairClass`, a left-over token), Width keys and scopes 4, HoleSize scopes with
 `HoleDiameter` 2, and one record each refused for `NETSCOPE` on HoleSize, RoutingVias and Width. What stays open, and why:
 
 | form | reason it does not map (a declared loss: the rule is reported unmapped with this reason) |
 |---|---|
-| `HasFootprint`, `InPolygon`, `InNamedPolygon`, `InComponentClass`, `WithinRoom`, `IsDifferentialPair`, `InDifferentialPairClass`, `HoleDiameter` | the neutral selector has no footprint name, pour, component class, room, pair object or hole size leaf |
+| `HasFootprint`, `InNamedPolygon`, `InComponentClass`, `WithinRoom`, `IsDifferentialPair`, `InDifferentialPairClass`, `HoleDiameter` | the neutral selector has no footprint name, pour, component class, room, pair object or hole size leaf |
 | `OnLayer`, `OnTopLayer`, `OnBottomLayer` joined with other terms | a layer condition maps only as the whole scope (change c0125) |
 | Clearance with `NETSCOPE=AnyNet` | a neutral clearance holds between different nets; a clearance between objects of one net has no counterpart, so mapping the record would drop half of it |
 | HoleToHoleClearance with `ALLOWSTACKEDMICROVIAS=TRUE` | the neutral rule has no exception for stacked micro-vias |

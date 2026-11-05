@@ -559,6 +559,11 @@ meaning = "The emitted Altium formats still lack some graduation proofs."
 fix = "Read capabilities --json --no-tools: experimental.missing lists the remaining conditions for each format. Validate generated documents in Altium."
 see = "Discovery"
 
+["altium.footprint-definition"]
+meaning = "The part's footprint_definition pins a definition whose name differs from its native footprint name; the Altium build writes the pinned definition under its own name, because one Altium library holds one footprint per name."
+fix = "Nothing is needed; rename the definition in the script if the Altium footprint must keep the native name."
+see = "Build target"
+
 ["altium.pcbdoc-not-written"]
 meaning = "The conditions for writing the PCB document do not hold, so only the other files are written; the message says which condition."
 fix = "Meet the condition the message names, for example a board with an outline and resolved footprints."

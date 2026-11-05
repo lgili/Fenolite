@@ -29,7 +29,7 @@ from types import MappingProxyType
 import fenolite.backends.kicad.slots as slotlib
 from fenolite.backends.kicad._fpmap import FP_GRAPHIC_HEADS, Ids, read_graphic, unrepresentable
 from fenolite.backends.kicad._libread import Context, Loaded, leading_atoms
-from fenolite.backends.kicad.sexpr import Node, dumps, parse_fragment
+from fenolite.backends.kicad.sexpr import AtomKind, Node, dumps, parse_fragment
 from fenolite.backends.kicad.slots import Opaque
 from fenolite.backends.kicad.versions import FileKind
 from fenolite.core.coords import Size
@@ -295,6 +295,57 @@ def with_footprint_items(design: Design) -> Projection:
     )
 
 
+def graphic_net_name(graphic: Graphic, numbers: Mapping[int, str]) -> str | None:
+    """The name of the net of a board graphic read from a KiCad board, from its ``(net …)`` slot (change
+    c0412): ``(net "GND")`` of a 10.0 board, or ``(net 1)`` of a 9.0 one named through ``numbers`` (the
+    numbers the reader keeps in the nets' bags). ``None`` for a graphic without such a slot, ``(net 0)``,
+    or a number that names no net. The reader keeps the slot and does not set ``net_id`` (c0277)."""
+    bag = graphic.ext.get(BACKEND)
+    for slot in slotlib.from_ext(bag) if bag is not None else ():
+        if not isinstance(slot, Opaque):
+            continue
+        child = slotlib.opaque_child(slot)
+        if not isinstance(child, Node) or child.name != "net" or child.nodes() or len(child.atoms()) != 1:
+            continue
+        atom = child.atoms()[0]
+        if atom.value.isdigit() and atom.kind != AtomKind.STRING:
+            return numbers.get(int(atom.value)) or None
+        return atom.value or None
+    return None
+
+
+def with_graphic_nets(design: Design) -> Design:
+    """``design`` whose board graphics on a copper layer without a ``net_id`` take the id of the net their
+    KiCad slot names (``graphic_net_name``; change c0412), so that a writer of copper sees the net. A graphic
+    whose slot names no net of the circuit is left as it is."""
+    board = design.board
+    if board is None:
+        return design
+    numbers: dict[int, str] = {}
+    for net in design.circuit.nets:
+        net_bag = net.ext.get(BACKEND)
+        number = dict(net_bag.payload).get("number", "") if net_bag is not None else ""
+        if number.isdigit():
+            numbers[int(number)] = net.name
+    ids = {net.name: net.id for net in design.circuit.nets}
+    changed = False
+    graphics: list[Graphic] = []
+    for graphic in board.graphics:
+        name = (
+            graphic_net_name(graphic, numbers)
+            if graphic.net_id is None and graphic.layer.endswith(".Cu")
+            else None
+        )
+        if name is not None and name in ids:
+            graphics.append(dataclasses.replace(graphic, net_id=ids[name]))
+            changed = True
+        else:
+            graphics.append(graphic)
+    if not changed:
+        return design
+    return dataclasses.replace(design, board=dataclasses.replace(board, graphics=tuple(graphics)))
+
+
 def projection_problems(footprint: FootprintInstance) -> list[tuple[str, str]]:
     """``(field, detail)`` for each of ``graphics``, ``texts`` and ``corner_ratio`` of a footprint that
     carries ``PROJECTED_PAIR`` and differs from a fresh projection of its opaque children: the fields are
@@ -321,10 +372,12 @@ __all__ = [
     "FootprintItems",
     "Projection",
     "footprint_items",
+    "graphic_net_name",
     "drawn_children",
     "is_projected",
     "projection_problems",
     "ratio_ppm",
     "replace_children",
     "with_footprint_items",
+    "with_graphic_nets",
 ]

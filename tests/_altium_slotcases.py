@@ -123,7 +123,9 @@ def candidate_document(name: str, *, arc: bool = False) -> bytes:
         ring: Sequence[Point],
         frame: pcbdoc.Frame,
         _keepout: int | None = None,
+        net: int = rec.NO_INDEX,  # change c0412: the net index of a copper region
     ) -> None:
+        del net
         points = [(rec.to_units(frame(p).x), rec.to_units(frame(p).y)) for p in ring]
         self.regions.append(candidate_record(layer, fields, points, shape_based=False))
         self.shapes.append(

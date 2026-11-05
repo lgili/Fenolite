@@ -332,7 +332,10 @@ def _unwritable() -> Design:
         ),
         graphics=(
             *board.graphics,
-            Graphic(id=_uid("gfx", 3), kind="line", layer="F.Cu", points=(at(1, 1), at(2, 2)), width=100_000),
+            # a filled circle has no record (change c0412 writes copper lines)
+            Graphic(
+                id=_uid("gfx", 3), kind="circle", layer="F.Fab", points=(at(1, 1), at(2, 1)), filled=True
+            ),
             Graphic(id=_uid("gfx", 4), kind="line", layer="Edge.Cuts", points=(at(0, 0), at(50, 0))),
         ),
         keepouts=(

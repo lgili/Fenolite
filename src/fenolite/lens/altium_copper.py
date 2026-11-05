@@ -26,7 +26,7 @@ from __future__ import annotations
 
 import dataclasses
 from collections import Counter
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 from decimal import Decimal
 from types import MappingProxyType
@@ -37,6 +37,7 @@ from fenolite.backends.altium.ascii import text_problem
 from fenolite.backends.altium.cutouts import cutout_items
 from fenolite.backends.altium.docboard import Dielectric, StackSpec
 from fenolite.backends.altium.lower import (
+    copper_shape_problem,
     keepout_footprints_info,
     stack_unfit_reason,
     stack_unheld,
@@ -630,16 +631,28 @@ class LoweredItems:
     counts: Mapping[str, tuple[int, int]] = dataclasses.field(default_factory=lambda: MappingProxyType({}))
 
 
-def lower_items(board: Board | None, layers: Sequence[str], issues: list[Issue]) -> LoweredItems:
+def lower_items(
+    board: Board | None,
+    layers: Sequence[str],
+    issues: list[Issue],
+    *,
+    net_names: Mapping[str, str] | None = None,
+    planes: Collection[str] = (),
+) -> LoweredItems:
     """The texts, graphics, keep-outs and holes of ``board`` that ``pcbdoc`` writes (change c0085,
     "Complete board in an Altium build"); ``layers`` are the copper layers of the document. An item that
     has no record gives one ``altium.not-lowered`` with ``where`` ``<kind>/<id>`` and its reason, and is
     left out. A graphic on ``Edge.Cuts`` is the outline, which the document writes from ``Board.outline``:
     it counts as written and is not passed on. A keep-out's ``no_footprints`` has no bit in the record: the
     keep-out is written with its other restrictions and one issue names the one that is lost. Component
-    bodies are not decided here: ``lower_bodies`` places them on the components of the document."""
+    bodies are not decided here: ``lower_bodies`` places them on the components of the document. A graphic
+    on a signal layer of ``layers`` (not one of ``planes``) is copper of its net (change c0412): it is
+    passed on with the net's name from ``net_names`` in ``net_id``; one that has no copper record is named
+    with ``where`` ``copper-shape/<id>``."""
     if board is None:
         return LoweredItems()
+    names = net_names or {}
+    signal = tuple(name for name in layers if name not in planes)
     counts: dict[str, tuple[int, int]] = {}
     texts: list[Text] = []
     for text in board.texts:
@@ -697,6 +710,16 @@ def lower_items(board: Board | None, layers: Sequence[str], issues: list[Issue])
     for graphic in board.graphics:
         if graphic.layer == EDGE_LAYER:
             outline += 1
+            continue
+        if graphic.layer.endswith(".Cu") or graphic.layer in layers:
+            problem = copper_shape_problem(graphic, layers, planes, names)
+            if problem is None:
+                problem = pcbdoc.graphic_problem(graphic, copper=signal)
+            if problem is None:
+                graphics.append(dataclasses.replace(graphic, net_id=names.get(graphic.net_id or "")))
+            else:
+                message = f"the copper {graphic.kind} on {graphic.layer} is not written: {problem}"
+                issues.append(_kept("copper-shape", graphic.id, message))
             continue
         problem = pcbdoc.graphic_problem(graphic)
         if problem is None:
@@ -1001,7 +1024,13 @@ def lower_copper(
     stack, stack_issues = stack_values(design, layers, on_planes)
     issues += stack_issues
     classes = net_classes(design, issues)
-    items = lower_items(design.board, layers, issues)
+    items = lower_items(
+        design.board,
+        layers,
+        issues,
+        net_names={net.id: net.name for net in design.circuit.nets},
+        planes=tuple(on_planes),
+    )
     counts = {
         "track": (len(tracks), len(board.tracks) - len(tracks)),
         "arc": (len(arcs), len(board.arcs) - len(arcs)),

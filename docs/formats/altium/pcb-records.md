@@ -125,6 +125,7 @@ Change c0085 writes regions for filled graphics and for keep-outs. The framing o
 | A free track or arc on the Keep-Out layer without the keep-out flag (the older form) imports into KiCad as a rule area of its band on every copper layer where nothing is forbidden; a free region there without the flag and without keep-out keys imports as a copper polygon on `F.Cu` and one on `B.Cu`; a keep-out region there that holds `KEEPOUTRESTRICTIONS=24` and no `KEEPOUTRESTRIC` forbids tracks, vias, pads and pours | S-0161, S-0020 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-11-05) | H-A-PCBX-KICAD |
 | `kicad-cli fp upgrade` of a PCB library makes keep-outs of a footprint rule areas of the footprint: a track with the keep-out flag on Top a band of its width on `F.Cu`, on the Keep-Out layer the band on every copper layer, both forbidding tracks, vias, pads and pours; a region of `KIND=1` on Top a rule area on `F.Cu` forbidding pours alone; a keep-out region on Bottom with `KEEPOUTRESTRIC=3` a rule area on `B.Cu` forbidding tracks and vias; a track on the Keep-Out layer without the flag a band on every copper layer forbidding nothing | S-0161, S-0020 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-11-05) | H-A-PCBX-KICAD |
 | KiCad imports a free 36-byte track and a free 47-byte arc on an overlay or a mechanical layer as a line, an arc or a circle of its width on `F.SilkS`, `B.SilkS` or `User.<n>`, and a free region there as a filled polygon | S-0161, S-0020 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-06) | H-A-PCBX-KICAD |
+| KiCad imports a free region with `KIND=0` on the top or the bottom copper layer as a filled `gr_poly` on `F.Cu` or `B.Cu` with the net of the prefix's net index (none for `0xFFFF`), and a free 36-byte track there with a net as a `segment` of that net (change c0412, `tests/kicad/altium/test_copper_shapes_oracle.py`) | S-0161, S-0020 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-11-05) | H-A-PCBX-KICAD |
 
 ## Free pads as holes
 
@@ -216,7 +217,17 @@ These are choices of the writer, not format facts:
   written.
 - **Board layer map (change c0085)**, `pcbrecords.BOARD_LAYER_MAP`, for free texts and graphics: the six
   non-copper rows of the table above and `F.Paste` 35, `B.Paste` 36, `F.Mask` 37, `B.Mask` 38. An item on
-  another layer (copper, `Edge.Cuts`, a user layer) is not written.
+  another layer (`Edge.Cuts`, a user layer outside "Mechanical layers of KiCad drawings") is not written;
+  a graphic on a signal layer is copper (below).
+- **Copper shapes (change c0412).** A graphic on a signal layer of the written stack is copper of its net: the
+  records of a graphic above, on the copper layer's id, with the net's index in the common prefix
+  (`pcb-read.md`, "Fields": the net field of the common prefix of the geometry subrecord, a region's included)
+  and `0xFFFF` for a shape without a net. A filled rectangle or polygon is one region with `KIND=0`; a drawn
+  one is tracks and arcs of its width. No fill record is written, for a rectangle either: a saved fill is 46
+  or 50 bytes long (`pcb-read.md`, "Record lengths"), and no row records what its bytes after 37 hold. A shape
+  on an internal plane holds no primitive and is not written; neither is a filled circle. The net of a graphic
+  read from a KiCad board is in its `(net …)` slot, which the KiCad reader keeps without setting `net_id`;
+  `fpitems.with_graphic_nets` projects it for the write.
 - **Graphics (change c0085).** A line is one 36-byte track without a net, an arc one 47-byte arc, a circle
   one arc from 0 to 360 degrees; a drawn rectangle is four tracks and a drawn polygon one track per edge,
   closed. A filled rectangle or polygon is one region with `KIND=0`, `SUBPOLYINDEX=-1`, `UNIONINDEX=0`,

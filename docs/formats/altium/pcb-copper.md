@@ -342,14 +342,19 @@ track and via flags above). Altium Designer's own view of a written lock is step
   via limits span the preferred value and the written copper of the rule's scope.
 - **Rules of the design (c0084).** `rulemap.lower` writes a neutral rule only when its row is `exact`,
   its severity is `error`, it gives exactly the limits of its row, and its selectors are all objects, a
-  net, a net class or a conjunction of those (a second selector for `clearance` only). Nothing is
+  net, a net class, a reference, an item kind (track, via, pad, zone) or `and`, `or` and `not` of those
+  (a second selector for `clearance` only; change c0412 added the reference, the item kind, `or` and
+  `not`). A scope is written only when `read.scope.parse_scope` reads the query back as the same selector:
+  `InComponent('<ref>')`, `IsTrack`, `IsVia`, `IsPad`, `InPolygon` (the copper of a pour, S-1702),
+  `x And y`, `x Or y` and `Not x`, with an operand that is itself an operator in parentheses. Nothing is
   approximated: a `track_width` rule without `opt` and `max`, a `hole_size` rule without `max`, a glob, a
-  layer and a `ref` or `item_kind` selector are reported, not written. A `via_diameter` and a `via_drill`
+  layer, an `area` and a `diff_pair` selector are reported, not written. A `via_diameter` and a `via_drill`
   rule of one selector share one Routing Via Style record; one of them alone is not written. Fixed
   values: `ALLOWSTACKEDMICROVIAS=FALSE` (the neutral rule exempts no hole; the reader maps only that
   value), `ABSOLUTEVALUES=TRUE` with the percentages every record read holds, `OBJECTCLEARANCES` empty.
-  Names are `<Kind>`, `<Kind>_<class>`, `<Kind>_net_<net>`, with `_and_` for a conjunction and `_to_`
-  before a second scope; a repeated name gets `_2`. Within a kind the rules of the design come first, from
+  Names are `<Kind>`, `<Kind>_<class>`, `<Kind>_net_<net>`, `<Kind>_ref_<ref>`, `<Kind>_pad`, with
+  `_and_` for a conjunction, `_or_` for a disjunction, `not_` before a negation and `_to_` before a second
+  scope; a repeated name gets `_2`. Within a kind the rules of the design come first, from
   the most governing to the least (priority 1, 2, … then 0; ties by falling name), then the rules of the
   net classes and the `All` default; a class or default rule whose scopes a rule of the design holds is
   left out. So a board-wide rule of the script governs the classes, as it does in a KiCad build.

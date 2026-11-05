@@ -31,7 +31,7 @@ from __future__ import annotations
 
 import dataclasses
 import struct
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import Final, Literal
@@ -1171,13 +1171,18 @@ def board_layer(name: str, extra: Mapping[str, int] | None = None) -> int | None
 
 
 def graphic_problem(
-    graphic: Graphic, *, arc_known: bool = False, layers: Mapping[str, int] | None = None
+    graphic: Graphic,
+    *,
+    arc_known: bool = False,
+    layers: Mapping[str, int] | None = None,
+    copper: Collection[str] = (),
 ) -> str | None:
-    """Why a board graphic cannot be written, or ``None``: a layer outside ``BOARD_LAYER_MAP``, a point
-    count that does not fit its kind, collinear arc points, or a drawn outline without a positive width.
-    ``arc_known`` says that the arc is written from a record of its own (``PcbDocSpec.arc_records``, change
-    c0127), so its three points need not give a circle."""
-    if board_layer(graphic.layer, layers) is None:
+    """Why a board graphic cannot be written, or ``None``: a layer outside ``BOARD_LAYER_MAP`` and
+    ``copper``, a point count that does not fit its kind, collinear arc points, or a drawn outline without
+    a positive width. ``arc_known`` says that the arc is written from a record of its own
+    (``PcbDocSpec.arc_records``, change c0127), so its three points need not give a circle. ``copper``
+    (change c0412) are the signal layers of the written stack: a graphic there is copper of its net."""
+    if graphic.layer not in copper and board_layer(graphic.layer, layers) is None:
         return f"the layer {graphic.layer} has no layer in the document for a graphic"
     wanted = {"line": 2, "rect": 2, "circle": 2, "arc": 3}.get(graphic.kind)
     count = len(_ring(graphic.points)) if graphic.kind == "polygon" else len(graphic.points)
@@ -1232,10 +1237,17 @@ class _Free:
         self.regions.append(rec.cutout_region(vertices))
         self.shapes.append(rec.cutout_region(vertices, shape_based=True))
 
-    def region(self, layer: int, ring: Sequence[Point], frame: Frame, keepout: int | None = None) -> None:
+    def region(
+        self,
+        layer: int,
+        ring: Sequence[Point],
+        frame: Frame,
+        keepout: int | None = None,
+        net: int = rec.NO_INDEX,
+    ) -> None:
         vertices = [_units(frame(point)) for point in ring]
-        self.regions.append(rec.region_record(layer, vertices, keepout=keepout))
-        self.shapes.append(rec.region_record(layer, vertices, keepout=keepout, shape_based=True))
+        self.regions.append(rec.region_record(layer, vertices, keepout=keepout, net=net))
+        self.shapes.append(rec.region_record(layer, vertices, keepout=keepout, shape_based=True, net=net))
 
 
 def free_records(spec: PcbDocSpec, copper: _Copper) -> _Free:
@@ -1244,27 +1256,36 @@ def free_records(spec: PcbDocSpec, copper: _Copper) -> _Free:
     graphic is tracks and arcs without a net; a filled rectangle or polygon is one region, written in
     ``Regions6`` and in ``ShapeBasedRegions6``. A keep-out that names every copper layer of the board is one
     keep-out region on the Keep-Out layer; otherwise it is one keep-out region per layer it names. A hole
-    is a free pad. ``ValueError`` names the id of an item that ``graphic_problem`` or ``keepout_problem``
-    refuses, or of a hole without a positive drill."""
+    is a free pad. A graphic on a copper layer of ``copper`` (change c0412) is copper of its net (its
+    ``net_id`` holds the net's name, as a track's does): the same records on that layer with the net's
+    index; a plane holds none. ``ValueError`` names the id of an item that ``graphic_problem`` or
+    ``keepout_problem`` refuses, of a graphic on a plane or on an unknown net, or of a hole without a
+    positive drill."""
     out = _Free()
     frame = copper.frame
-    for graphic in sorted(
-        spec.graphics,
-        key=lambda g: (board_layer(g.layer, spec.layer_ids) or 0, [_xy(p) for p in g.points], g.id),
-    ):
+
+    def layer_of(graphic: Graphic) -> int | None:
+        if graphic.layer in copper.layers:
+            return copper.signal_layer(graphic.id, graphic.layer)
+        return board_layer(graphic.layer, spec.layer_ids)
+
+    for graphic in sorted(spec.graphics, key=lambda g: (layer_of(g) or 0, [_xy(p) for p in g.points], g.id)):
         kept = spec.arc_records.get(graphic.id) if graphic.kind == "arc" else None
-        problem = graphic_problem(graphic, arc_known=kept is not None, layers=spec.layer_ids)
+        problem = graphic_problem(
+            graphic, arc_known=kept is not None, layers=spec.layer_ids, copper=tuple(copper.layers)
+        )
         if problem is not None:
             raise ValueError(f"{graphic.id}: {problem}")
-        layer = board_layer(graphic.layer, spec.layer_ids)
+        layer = layer_of(graphic)
         assert layer is not None
+        net = copper.net(graphic.id, graphic.net_id) if graphic.layer in copper.layers else rec.NO_INDEX
         if graphic.filled and graphic.kind in ("rect", "polygon"):
             if graphic.kind == "rect":
                 s, e = graphic.points
                 ring = [s, Point(e.x, s.y), e, Point(s.x, e.y)]
             else:
                 ring = _ring(graphic.points)
-            out.region(layer, ring, frame)
+            out.region(layer, ring, frame, net=net)
             continue
         width = rec.to_units(graphic.width)
         if graphic.kind in ("polygon", "rect"):
@@ -1275,16 +1296,17 @@ def free_records(spec: PcbDocSpec, copper: _Copper) -> _Free:
                 ring = _ring(graphic.points)
             for index, point in enumerate(ring):
                 a, b = _units(frame(point)), _units(frame(ring[(index + 1) % len(ring)]))
-                out.tracks.append(rec.track_record(layer, a, b, width))
+                out.tracks.append(rec.track_record(layer, a, b, width, net=net))
         elif graphic.kind == "line":
             a, b = (_units(frame(point)) for point in graphic.points)
-            out.tracks.append(rec.track_record(layer, a, b, width))
+            out.tracks.append(rec.track_record(layer, a, b, width, net=net))
         elif graphic.kind == "circle":
             centre, edge = (frame(point) for point in graphic.points)
-            out.arcs.append(rec.arc_record(layer, rec.circle_geometry(centre, edge), width))
+            out.arcs.append(rec.arc_record(layer, rec.circle_geometry(centre, edge), width, net=net))
         else:
             start, mid, end = (frame(point) for point in graphic.points)
-            out.arcs.append(rec.arc_record(layer, kept or rec.arc_from_points(start, mid, end), width))
+            geometry = kept or rec.arc_from_points(start, mid, end)
+            out.arcs.append(rec.arc_record(layer, geometry, width, net=net))
     names = list(copper.layers)
     for keepout in sorted(spec.keepouts, key=lambda k: ([_xy(p) for p in k.outline], k.layers, k.id)):
         problem = keepout_problem(keepout, names)
