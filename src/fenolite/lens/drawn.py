@@ -55,7 +55,16 @@ SHEET_KEYS: tuple[str, ...] = (
     "key", "paper", "title_block", "generated", "symbol", "power", "wire", "bus", "bus_entry", "junction",
     "no_connect", "label", "bus_alias", "sheet_ref", "opaque",
 )  # fmt: skip
-SYMBOL_KEYS: tuple[str, ...] = ("part", "unit", "at", "rotation", "mirror", "symbol", "fields")
+SYMBOL_KEYS: tuple[str, ...] = (
+    "part",
+    "unit",
+    "at",
+    "rotation",
+    "mirror",
+    "symbol",
+    "empty_footprint",
+    "fields",
+)
 FIELD_KEYS: tuple[str, ...] = ("at", "rotation", "justify", "hide", "font")
 SHEET_PROPERTY_KEYS: tuple[str, ...] = ("text", *FIELD_KEYS)
 FONT_KEYS: tuple[str, ...] = ("size", "thickness", "bold", "italic", "face")
@@ -376,6 +385,7 @@ class _Reader:
             mirror,
             self.fields(data, where),
             self.text(data, "symbol", where, ""),
+            self.boolean(data, "empty_footprint", where),
         )
 
     def power(self, raw: object, where: str) -> DrawnPower:

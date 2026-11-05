@@ -535,8 +535,10 @@ def lower_drawn(
                     first_part.symbol, first_part.parents, mapping, first_part.symbol_origin, key
                 )
             used[definition.lib_id] = definition
+            # An empty source Footprint field stays empty; the part keeps its footprint (c0414).
+            footprint = "" if symbol.empty_footprint else first.lib_footprint_ref
             properties = {k: "" for k in MANDATORY} | dict(first.properties)
-            properties |= {"Reference": first.ref, "Value": first.value, "Footprint": first.lib_footprint_ref}
+            properties |= {"Reference": first.ref, "Value": first.value, "Footprint": footprint}
             instance = SymbolInstance(
                 id=derived_id("sci", ID_BACKEND, f"{name}:{first_part.path}#{symbol.unit}"),
                 lib_ref=definition.lib_id,
@@ -546,7 +548,7 @@ def lower_drawn(
                 unit=symbol.unit,
                 ref=first.ref,
                 value=first.value,
-                footprint=first.lib_footprint_ref,
+                footprint=footprint,
                 properties=properties,
                 dnp=first.dnp,
                 in_bom=first.bom_only
@@ -1245,13 +1247,21 @@ def extract(
     components: Mapping[str, str],
     root_file: str = "",
     symbol_defaults: Mapping[str, SymbolBinding] = MappingProxyType({}),
+    footprints: Mapping[str, str] = MappingProxyType({}),
 ) -> tuple[DrawnSchematic, tuple[Issue, ...]]:
     """The drawn schematic of read sheets: ``root`` and ``children`` (file, from the root file's folder, to
     sheet, as ``sch.sheet_files`` lists them), with ``components`` mapping a reference to its component
     path. Returns the value and the issues (``drawn.part-unknown`` for a symbol of no component, kept as an
-    opaque item, and ``kicad.sch.inexact-length`` for a slot kept verbatim)."""
+    opaque item, and ``kicad.sch.inexact-length`` for a slot kept verbatim). ``footprints`` maps a reference
+    to the footprint its part builds with; a unit whose source ``Footprint`` field is empty while one of
+    its references builds with a footprint is marked ``empty_footprint`` (c0414)."""
     found = extract_with_pins(
-        root, children, components=components, root_file=root_file, symbol_defaults=symbol_defaults
+        root,
+        children,
+        components=components,
+        root_file=root_file,
+        symbol_defaults=symbol_defaults,
+        footprints=footprints,
     )
     return found.drawn, found.issues
 
@@ -1263,6 +1273,7 @@ def extract_with_pins(
     components: Mapping[str, str],
     root_file: str = "",
     symbol_defaults: Mapping[str, SymbolBinding] = MappingProxyType({}),
+    footprints: Mapping[str, str] = MappingProxyType({}),
 ) -> Extracted:
     """``extract`` with the pin points of every drawn symbol and power symbol (``drawn_connect.resolve``)."""
     issues: list[Issue] = []
@@ -1427,6 +1438,9 @@ def extract_with_pins(
                             file,
                         )
                     )
+            empty = not symbol.footprint and any(
+                footprints.get(walk[index].refs.get(k, symbol.ref), "") for index in indices
+            )
             symbols.append(
                 DrawnSymbol(
                     parts[0],
@@ -1436,6 +1450,7 @@ def extract_with_pins(
                     symbol.mirror,
                     _fields(symbol),
                     overrides[0] if overrides else "",
+                    empty,
                 )
             )
         labels: list[DrawnLabel] = []

@@ -174,10 +174,15 @@ class DrawnSymbol:
     fields: tuple[DrawnField, ...] = ()
     symbol: str = ""
     """Optional native library binding for this unit; its logical pins must match the code symbol."""
+    empty_footprint: bool = False
+    """The source sheet's ``Footprint`` field of this unit is empty while its part has a footprint: the KiCad
+    writer keeps the field empty, and the part keeps its footprint (c0414)."""
 
     def __post_init__(self) -> None:
         if not self.part:
             raise ValueError("a drawn symbol names its part")
+        if type(self.empty_footprint) is not bool:
+            raise TypeError(f"symbol {self.part}: empty_footprint is true or false")
         if isinstance(self.unit, bool) or not isinstance(self.unit, int) or self.unit < 1:  # pyright: ignore[reportUnnecessaryIsInstance]
             raise ValueError(f"symbol {self.part}: unit {self.unit!r} is not a whole number from 1")
         _check_point(self.at, f"symbol {self.part} position")

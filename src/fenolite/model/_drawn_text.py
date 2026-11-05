@@ -120,6 +120,8 @@ def _sheet_blocks(sheet: DrawnSheet) -> list[str]:
             lines.append(f"mirror = {_string(symbol.mirror)}")
         if symbol.symbol:
             lines.append(f"symbol = {_string(symbol.symbol)}")
+        if symbol.empty_footprint:
+            lines.append("empty_footprint = true")
         blocks.append(_block("[[sheet.symbol]]", [*lines, *_fields(symbol.fields)]))
     for power in sheet.powers:
         lines = [

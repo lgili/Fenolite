@@ -1558,6 +1558,7 @@ def emit(source: Source, options: Options) -> Emission:
             issue("import.sheet-renamed", f"the sheet {sheet!r} is the module {module!r}", where=sheet)
         )
     original_aliases = source_footprints(source)
+    built_footprints: dict[str, str] = {}  # reference → the footprint text its part builds with (c0414)
     taken_paths: set[tuple[str, ...]] = set()
     for footprint in sorted(
         footprints, key=lambda fp: tuple(natural(s) for s in paths[refs[fp.component_id]])
@@ -1577,6 +1578,7 @@ def emit(source: Source, options: Options) -> Emission:
             original_aliases.get(ref, footprint.lib_ref) if ref in vendored.native_refs else footprint.lib_ref
         )
         kwargs = [("footprint", text(native_footprint))]
+        built_footprints[ref] = native_footprint
         if lib_id != native_footprint:
             kwargs.append(("footprint_definition", text(lib_id)))
         # an empty source value is written as ``value=""``: without it the build takes the symbol's Value
@@ -1627,6 +1629,7 @@ def emit(source: Source, options: Options) -> Emission:
         kwargs = [("bom_only", Raw("True")), ("value", text(component.value))]  # empty included (c0364)
         if component.lib_footprint_ref:
             kwargs.append(("footprint", text(component.lib_footprint_ref)))
+        built_footprints[ref] = component.lib_footprint_ref
         if path[-1] != ref:
             kwargs.append(("name", text(path[-1])))
         if component.dnp:
@@ -1776,7 +1779,9 @@ def emit(source: Source, options: Options) -> Emission:
     for body in writer.sections:
         lines += ["", *body]
     files["design.py"] = "\n".join(lines) + "\n"
-    drawing, drawing_issues = source_drawing(source, {ref: path for path, ref in lock_refs.items()})
+    drawing, drawing_issues = source_drawing(
+        source, {ref: path for path, ref in lock_refs.items()}, built_footprints
+    )
     issues.extend(drawing_issues)
     if drawing is not None:
         files["schematic.toml"] = write_drawn(drawing)

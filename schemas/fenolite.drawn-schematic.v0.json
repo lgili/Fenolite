@@ -553,6 +553,9 @@
         "symbol": {
           "type": "string"
         },
+        "empty_footprint": {
+          "type": "boolean"
+        },
         "fields": {
           "$ref": "#/$defs/fields"
         }

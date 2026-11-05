@@ -45,7 +45,7 @@ The `fidelity-demos` census records only row ids, counts by level/kind, statuses
 | kicad-demo-10-0-6-pcb-16 | CC-BY-SA-4.0 | 1, 2, 3, 4, 5, 6, 7, S, 8 | none | fenolite | 0.7.0.dev0 | 2026-11-05 | 84.501 |
 | kicad-demo-10-0-6-pcb-17 | CC-BY-SA-4.0 | not baselined | not baselined | undecided | — | — | — |
 | kicad-demo-10-0-6-pcb-18 | CC-BY-SA-4.0 | not baselined | not baselined | undecided | — | — | — |
-| kicad-demo-9-0-9-1-pcb-01 | CC-BY-SA-4.0 | not baselined | not baselined | undecided | — | — | — |
+| kicad-demo-9-0-9-1-pcb-01 | CC-BY-SA-4.0 | 1, 2, 3, 4, 5, 6, 7, S, 8 | none | fenolite | 0.7.0.dev0 | 2026-11-05 | 5.003 |
 | kicad-demo-9-0-9-1-pcb-02 | CC-BY-SA-4.0 | not baselined | not baselined | undecided | — | — | — |
 | kicad-demo-9-0-9-1-pcb-03 | CC-BY-SA-4.0 | 1, 2, 3, 4, 5, 6, 7, S, 8 | none | fenolite | 0.7.0.dev0 | 2026-11-05 | 13.545 |
 | kicad-demo-9-0-9-1-pcb-04 | CC-BY-SA-4.0 | not baselined | not baselined | undecided | — | — | — |
@@ -53,7 +53,7 @@ The `fidelity-demos` census records only row ids, counts by level/kind, statuses
 | kicad-demo-9-0-9-1-pcb-06 | CC-BY-SA-4.0 | 1, 2, 3, 4, 5, 6, 7, S, 8 | none | fenolite | 0.7.0.dev0 | 2026-11-05 | 16.239 |
 <!-- fidelity-corpus:end -->
 
-Twelve rows above have a measured zero-count baseline, re-run on 2026-11-05 (c0401, "Attribution — 2026-11-05" below); pcb-14 (10.0.6) and pcb-05 (9.0.9.1) joined after their Fenolite causes were fixed. The other 12 have no reviewed all-level baseline. A complete run must provide actual counts, timing, version/date and a scoped attribution before moving a row out of pending.
+Thirteen rows above have a measured zero-count baseline, re-run on 2026-11-05 (c0401, "Attribution — 2026-11-05" below); pcb-14 (10.0.6) and pcb-05 (9.0.9.1) joined after their Fenolite causes were fixed, and pcb-01 (9.0.9.1) after c0413 and c0414. The other 11 have no reviewed all-level baseline. A complete run must provide actual counts, timing, version/date and a scoped attribution before moving a row out of pending.
 The GUI-save and native application requirements remain open; an authored writer/readback test cannot establish them.
 
 ## Actual strict probe — 2026-11-01
@@ -227,3 +227,11 @@ only by a custom pad's line primitive). Status `equal`: 6 raw caches against 0, 
 one exact-geometry SHA-256. The teardrop `7:opaque-count` is gone; `8:render-pixels=1` remains, owned by
 c0414. Native contact controls for the widened parents: `docs/formats/kicad/frame.md`, "Turned and custom
 parent contact controls (c0413)".
+
+## Empty schematic Footprint field — 2026-11-05 (c0414)
+
+`kicad-demo-9-0-9-1-pcb-01`, strict round trip with KiCad 10.0.6 after c0413 and c0414: no differences at
+any level. The remaining `8:render-pixels=1` came from a visible schematic `Footprint` field that is empty
+in the source while the board footprint is set; the import now marks that unit `empty_footprint = true`
+in `schematic.toml`, the part keeps its board footprint and the build writes the field empty. The row is
+a measured zero-count `[[row]]` of `tests/kicad/fidelity/accepted.toml`.

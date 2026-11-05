@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
+from types import MappingProxyType
 
 from fenolite.backends.kicad import drawn, sch, symembed
 from fenolite.backends.kicad.sexpr import dumps
@@ -138,20 +139,26 @@ def symbols(source: Source, *, target: int) -> SourceSymbols:
     return SourceSymbols(definitions, references, tuple(issues), contexts)
 
 
-def drawing(source: Source, refs: Mapping[str, str]) -> tuple[str | None, tuple[Issue, ...]]:
+def drawing(
+    source: Source, refs: Mapping[str, str], footprints: Mapping[str, str] = MappingProxyType({})
+) -> tuple[str | None, tuple[Issue, ...]]:
     """Canonical source drawing using the emitter's final reference-to-component-path map."""
-    value, issues = drawing_value(source, refs)
+    value, issues = drawing_value(source, refs, footprints)
     return (write_drawn(value) if value is not None else None), issues
 
 
-def drawing_value(source: Source, refs: Mapping[str, str]) -> tuple[DrawnSchematic | None, tuple[Issue, ...]]:
-    """The extracted drawing before serialization, including its unchanged existing sheet keys."""
+def drawing_value(
+    source: Source, refs: Mapping[str, str], footprints: Mapping[str, str] = MappingProxyType({})
+) -> tuple[DrawnSchematic | None, tuple[Issue, ...]]:
+    """The extracted drawing before serialization, including its unchanged existing sheet keys.
+
+    ``footprints`` maps a reference to the footprint its emitted part builds with (c0414)."""
     if source.backend != "kicad" or not source.hierarchy:
         return None, ()
     root_file = next(iter(source.hierarchy))
     root = source.hierarchy[root_file]
     children = {name: sheet for name, sheet in source.hierarchy.items() if name != root_file}
-    value, issues = drawn.extract(root, children, components=refs, root_file=root_file)
+    value, issues = drawn.extract(root, children, components=refs, root_file=root_file, footprints=footprints)
     errors = [issue for issue in issues if issue.severity == "error"]
     if errors:
         raise FormatError("source drawing cannot be imported: " + errors[0].message, file=root_file)
