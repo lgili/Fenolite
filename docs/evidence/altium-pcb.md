@@ -731,6 +731,72 @@ expected and observed outcome). Q1 to Q4 settle the measurement of `H-A-PANEL-RE
 `EMBEDDED_ARRAYS`. Saved native files stay outside the repository; only measured facts, digests and sizes
 are committed.
 
+## Part H: a slot shorter than its hole (change c0416)
+
+Pending: no Altium verification is claimed. Altium's pad dialog says a slot's Length cannot be smaller than
+its Hole Size (S-0770), but a record may hold a smaller one. KiCad 10.0.6 reads such a hole by its extents:
+an oval whose long side lies across the record's slot rotation. Level 3 of `equivalent` compares slots that
+way (change c0416, `pcb-records.md`). This part asks what Altium Designer makes of the record
+(`H-A-SLOT-SHORT`).
+
+**Files.** Built outside the repository by `FENOLITE_ALTIUM_PART_H=~/fenolite-altium-checks/H-short-slots
+uv run pytest tests/unit/backends/altium/test_part_h.py`:
+
+- `holes.PcbDoc`, a free PCB document;
+- `slots.PcbLib`, a free PCB library;
+- `expected.md`, the fields of every pad read back from the files, and the axis KiCad gives each slot;
+- this text as `README.md`;
+- `SHA256SUMS`.
+
+The board is 60 × 40 mm. Its six free plated pads `P1` to `P6` lie at X 10, 18, 26, 34, 42 and 50 mm, Y
+20 mm from its lower-left corner. They are 4 mm round on Multi-Layer, and each has a slotted hole whose two
+numbers are 1 mm and 2.15 mm. The footprint `SL` of the library holds the same six pads, numbered `1` to
+`6`.
+
+| pad | Hole Size | Length | hole Rotation | pad Rotation | KiCad 10.0.6 axis |
+|---|---|---|---|---|---|
+| `P1` | 1 | 2.15 | 0° | 0° | 0° |
+| `P2` | 2.15 | 1 | 0° | 0° | 90° |
+| `P3` | 1 | 2.15 | 30° | 0° | lost |
+| `P4` | 2.15 | 1 | 30° | 0° | lost |
+| `P5` | 1 | 2.15 | 90° | 45° | 135° |
+| `P6` | 2.15 | 1 | 0° | 30° | 120° |
+
+`P1`, `P3` and `P5` are controls that Altium's dialog allows. `P2`, `P4` and `P6` hold the Length below the
+Hole Size. The axis is the direction of the hole's long side, counter-clockwise from the board's X axis.
+
+Work on a copy of the folder. For each case report `as expected` or what differed, in one sentence.
+
+1. **H1** Open `holes.PcbDoc` and double-click each pad `P1` to `P6`. Expected: the document opens with no
+   repair message, and the Properties panel shows each pad's Hole Shape Slot, Hole Size, Length and both
+   rotations as in the table. Report the four values Altium shows for `P2`, `P4` and `P6`, and any message.
+2. **H2** In 2D and in 3D Layout Mode (`3`, then `2`), look at each hole. Expected: each hole's long side
+   lies along the KiCad axis of the table, and `P3` along 30° and `P4` along 120°. Report the direction of
+   each long side (horizontal, vertical or the angle) and its length. For one short slot, measure it with
+   Reports » Measure Distance between the two ends of its hole.
+3. **H3** Run **File » Fabrication Outputs » NC Drill Files** (defaults) and **Drill Drawings**. Expected:
+   six slots in the plated drill file, each 2.15 mm long and 1 mm wide along its H2 axis. Send the drill
+   file or files and note any message.
+4. **H4** Save `holes.PcbDoc` with **File » Save As** to `holes-saved.PcbDoc`, then run
+   `FENOLITE_ALTIUM_H4=<that file> uv run pytest tests/unit/backends/altium/test_part_h.py -k h4` in the
+   repository. Expected: the test passes, so Altium kept each pad's four numbers. Otherwise the failure
+   names each changed field.
+5. **H5** Open `slots.PcbLib`, footprint `SL`, and double-click pads `1` to `6`. Expected: no repair
+   message, and the values of H1. Then on a copy, set pad `1`'s Length to 0.9 mm. Report whether Altium
+   accepts a Length below the Hole Size, and close without saving.
+6. **H6** Save the unchanged `slots.PcbLib` with **File » Save As** to `slots-saved.PcbLib`, then run
+   `FENOLITE_ALTIUM_H6=<that file> uv run pytest tests/unit/backends/altium/test_part_h.py -k h6`.
+   Expected: the test passes.
+
+Send the Altium Designer version (`AD <major>.<minor>`), the date, the SHA-256 of `holes.PcbDoc` and of
+`slots.PcbLib` from `SHA256SUMS`, and one outcome per case, in the form of the native acceptance inventory
+(date, version, case, file hash, step, expected and observed outcome).
+
+- H2 and H3 settle `H-A-SLOT-SHORT`.
+- H1, H4, H5 and H6 say whether Altium keeps, rewrites or refuses such a record.
+- If Altium reads the short slots differently, the slot form of change c0416 and the Altium adapter are
+  revisited.
+
 ## Part Z: component bodies (changes c0387 and c0175)
 
 The cases measure the component-body records that the Altium import keeps with unknown heights

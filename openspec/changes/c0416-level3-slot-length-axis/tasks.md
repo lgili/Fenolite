@@ -16,8 +16,17 @@
   `slot_form` for every encoded slot; the fact goes to `pcb-records.md`. Proof:
   `uv run pytest tests/kicad/altium/test_slots_import.py -q -k upgrade`.
 
-## 3. Close
+## 3. Altium kit case
 
-- [x] 3.1 ruff check, ruff format --check, `pyright src`, the focused tests; a CHANGELOG line;
+- [x] 3.1 Part H of `docs/evidence/altium-pcb.md` defines the kit case for a slot shorter than its hole,
+  cases H1 to H6, with `H-A-SLOT-SHORT` registered as `INFERRED`. `test_part_h.py` builds the files outside
+  the repository, and checks the saved files of H4 and H6. Proof:
+  `uv run pytest tests/unit/backends/altium/test_part_h.py tests/unit/test_hypotheses_register.py -q`.
+- [ ] 3.2 Run Part H in Altium Designer (altium-rounds-2, on the VM) and record the outcomes; revisit
+  `norm.slot_form` and the Altium adapter if H2 or H3 differ.
+
+## 4. Close
+
+- [x] 4.1 ruff check, ruff format --check, `pyright src`, the focused tests; a CHANGELOG line;
   `openspec validate c0416-level3-slot-length-axis --strict`.
-- [ ] 3.2 `make check-fast` on the integrated batch and the full CI (coordinator).
+- [ ] 4.2 `make check-fast` on the integrated batch and the full CI (coordinator).

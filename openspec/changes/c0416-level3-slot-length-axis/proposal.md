@@ -47,5 +47,5 @@ the axis must be compared in one form for both sides.
 
 | item | owner |
 |---|---|
-| What Altium Designer makes of a slot length below the hole size (the Altium kit case) | a later kit run |
+| Running the Altium kit case for a slot length below the hole size (Part H, defined in task 3.1) | altium-rounds-2 (task 3.2) |
 | Whether the Altium adapter should swap the two numbers on import | after that kit case |

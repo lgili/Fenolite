@@ -458,3 +458,35 @@ def slot_library() -> bytes:
         for index, (number, drill, length, axis, turn) in enumerate(SLOT_PADS)
     )  # fmt: skip
     return write_pcblib([LibFootprint(FootprintDef(id="fp", name="SL", pads=pads))], filename="slots.PcbLib")
+
+
+def short_slot_document() -> bytes:
+    """The board of a candidate document with the six slots of ``SLOT_PADS`` as free plated pads ``P1`` to
+    ``P6`` on Multi-Layer, 4 mm round, at X 10, 18 … 50 mm and Y 20 mm (KiCad frame), each record holding
+    the hole size ``Pad.drill``, the slot length ``hole_length``, the slot rotation and the pad rotation
+    as given, so a slot length may be below the hole size (kit Part H, change c0416)."""
+    from fenolite.backends.altium import pcbdoc
+
+    original = pcbdoc.free_records
+
+    def free_records(spec: PcbDocSpec, copper: pcbdoc._Copper) -> pcbdoc._Free:  # pyright: ignore[reportPrivateUsage]
+        out = original(spec, copper)
+        for index, (number, drill, length, axis, turn) in enumerate(SLOT_PADS):
+            at = copper.frame(Point((10 + 8 * index) * MM, 20 * MM))
+            x, y = rec.to_units(at.x), rec.to_units(at.y)
+            size = rec.to_units(4 * MM)
+            out.pads.append(
+                rec.pad_record(
+                    name=f"P{number}", layer=rec.MULTI_LAYER, x=x, y=y, size=(size, size), shape=1,
+                    rotation=rec.degrees_of(turn), hole=rec.to_units(drill), plated=True,
+                    hole_shape=rec.HOLE_SHAPE_SLOT, slot_length=rec.to_units(length),
+                    slot_rotation=rec.degrees_of(axis),
+                )
+            )  # fmt: skip
+        return out
+
+    pcbdoc.free_records = free_records  # type: ignore[assignment]
+    try:
+        return write_pcbdoc(PcbDocSpec(outline=BOARD), filename="holes.PcbDoc")
+    finally:
+        pcbdoc.free_records = original  # type: ignore[assignment]
