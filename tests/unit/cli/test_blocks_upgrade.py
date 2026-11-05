@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 from _blockitems import VENDORED, get, project, release
 from _checkcli import run
-from _libdemo import files_of, no_network
+from _libdemo import files_of, no_network, unpublished_releases
 
 from fenolite.cli import cmd_build
 from fenolite.cli._blocks_upgrade import _circuit_diff
@@ -21,6 +21,7 @@ from fenolite.model.circuit import Circuit, Component
 @pytest.fixture(autouse=True)
 def isolated(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     no_network(monkeypatch)
+    unpublished_releases(monkeypatch)  # the demo releases call themselves 1.0.0
     monkeypatch.setenv("KICAD_CONFIG_HOME", str(tmp_path / "kicad-config"))
 
 

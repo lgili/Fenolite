@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 from _blockitems import ITEM_PATH, VENDORED, get, project, release
 from _checkcli import run
-from _libdemo import no_network, write_release
+from _libdemo import no_network, unpublished_releases, write_release
 
 from fenolite.cli._contracts import devices_of
 from fenolite.cli._script import run_design_script
@@ -23,6 +23,11 @@ from fenolite.model import canonical
 ROOT = Path(__file__).resolve().parents[3]
 DEVICE_RELEASE = ROOT / "examples/library-devices/release"
 DEVICE = Path("fenolite_library/devices/FenoliteDevices/Demo900/record.toml")
+
+
+@pytest.fixture(autouse=True)
+def _unpublished(monkeypatch: pytest.MonkeyPatch) -> None:
+    unpublished_releases(monkeypatch)  # the demo releases call themselves 1.0.0
 
 
 def block_release(folder: Path, work: Path, *, version: str = "1.0.0") -> Path:

@@ -13,7 +13,7 @@ from types import ModuleType
 import pytest
 from _blockitems import VENDORED, get, project, release
 from _checkcli import run
-from _libdemo import no_network
+from _libdemo import no_network, unpublished_releases
 
 from fenolite.cli._script import run_design_script
 from fenolite.dsl.lock import read_lock
@@ -22,6 +22,7 @@ from fenolite.dsl.lock import read_lock
 @pytest.fixture(autouse=True)
 def isolated(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     no_network(monkeypatch)
+    unpublished_releases(monkeypatch)  # the demo releases call themselves 1.0.0
     monkeypatch.setenv("KICAD_CONFIG_HOME", str(tmp_path / "kicad-config"))
 
 
