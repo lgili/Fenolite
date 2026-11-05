@@ -16,7 +16,8 @@
 - [ ] 2.2 (from c0166 2.1) Finish Part T for PADSTACK, DIFAT and SCHEMATIC; inspect connector masks and record T1-T6 per case. Proof: the native report and `uv run pytest tests/unit/test_altium_verification_docs.py tests/unit/test_hypotheses_register.py tests/unit/test_provenance.py -q`.
   - Blocker on 2026-11-05: Connector masks are not inspected (no source has a `connect` pad). DIFAT is refused with `FEN-7001` at the current source, and T6 exists only for PADSTACK.
 - [ ] 2.3 (from c0166 3.1) Execute schematic A/B/L/N/H requests not settled by equivalent kit cases. Proof: dated per-step report and the hypothesis/provenance tests.
-  - Blocker on 2026-11-05: The schematic A/B/L/N/H requests were not run in any agent round (S-1570 to S-1589).
+  - 2026-11-05 (S-1600, AD 24.5.2.23, agent run): A2, A4, B1 to B3, L1 to L5, L7 and N1 to N3 run and recorded under "Reports" of `docs/evidence/altium-schematic.md`; hypothesis notes added, levels unchanged.
+  - Still open: the A4 PCB Model dialog and the L2 Pin Editor dialog were not opened (their fields were read through the API and the Properties panel), Part H and N4 (the Viewer) were not run in this round.
 - [ ] 2.4 (from c0166 3.2) Execute PCB D/C requests, X8.6 counts and the supplementary long-via measurement. Proof: dated per-step report and the hypothesis/provenance tests.
   - Blocker on 2026-11-05: The remaining D/C requests, the X8.6 counts and the long-via measurement were not run in any agent round (S-1570 to S-1589).
 - [ ] 2.5 (from c0166 3.3) Execute Repeat R1-R4 and R5 when its implementation is available; preserve any branch blocker. Proof: the report and focused Repeat tests.

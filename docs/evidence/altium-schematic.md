@@ -1385,6 +1385,40 @@ Outcome per step:
 No step named a fault, so no fact and no golden file changed and no row is refuted. An author report moves
 no write kind out of `experimental`.
 
+### 2026-11-05, actual `AD24.5.2.23`, Parts A, B, L and N (source S-1600)
+
+Run by a Claude agent at the maintainer's request (delegation of 2026-11-04) in the maintainer's Windows VM,
+Altium Designer 24.5.2.23 (Trial). It is not the maintainer's own review (c0389 task 2.3). Inputs:
+- the committed files of Parts A, L and N, copied unchanged (each SHA-256 checked first, 0 mismatches);
+- for B1 and B2, fresh builds at `24b699d4` of `examples/altium_sample/design.py` (bytes equal to the
+  committed binary sample) and `examples/kit/flat/design.py`;
+- for L7, `Example.SchLib` written by `fenolite library symbol` (`658b4989…`).
+
+Fenolite's authored files only. Work was done on copies, nothing was saved except where the step asks for it,
+and every saved file stays outside the repository. The agent read the documents through public menus, the
+Properties panel and read-only DelphiScript. Captures covered the document area only and were deleted after
+viewing.
+
+| step | observed |
+|---|---|
+| A2 | `altium_sample.SchDoc` (CR LF) opens with no message. Sheet style A4 (no custom sheet). 8 components with bodies, pin numbers, designators and comments in the three rows of the table; 13 power ports (bars for `VIN` and `+5V`, ground symbols for `GND`) and 6 net labels, as written |
+| A4 | Properties panel of `U2`: Designator `U2`, Comment `DRV4`, Design Item ID `DRV4`, footprint `SOT143`. The panel shows no Source value. The script reads `SourceLibraryName` `FenoliteSample.SchLib` and one current PCB model `SOT143` linked to `FenoliteSample.PcbLib` by name, with no path and without "use component library", which is the "Library name" mode. The PCB Model dialog itself was not opened: a click on the footprint row opens a chooser that lists `SOT143` |
+| B1 | Built `altium_sample` (no PcbLib is written): a new PCB added and saved, then "Update PCB Document" lists 8 components, 6 nets, 1 component class and 3 Supply Nets rules. "Validate Changes" marks the 8 components `Footprint Not Found <name>` (`FenoliteSample.PcbLib` does not exist), and the board receives no component. Built kit `flat`: 4 components, 4 nets, 1 component class, 1 net class (`PWR`) and 2 rules, none invalid; executed, the new board holds the 4 parts. Saving the project adds about 386 key names in Altium's standard sections (`[Design]` options, `[Configuration1]`, `[OutputGroup1]` to `[OutputGroup10]`, `[Modification Levels]`, `[Difference Levels]`, `[Electrical Rules Check]`, `[ERC Connection Matrix]`, `[Annotate]`, `[LibraryUpdateOptions]`, `[DatabaseUpdateOptions]`, `[Comparison Options]`, `[SmartPDF]`); the source documents are unchanged |
+| B2 | `R1` 330 → 470 in the script, rebuilt into the saved folder: the build keeps the project file byte for byte (`altium.project-kept`). The project lists the schematic and both PCB documents and compiles with no error. The change order lists exactly one change, "Change Component Comments: Modify 330 -> 470 [R1]", and nothing added or removed |
+| B3 | Binary sample with `FenoliteSample.SchLib`: all 6 library references found, none `<Not Found>`. Full replacement modifies all 8 parts, keeps their comments and every net, and compiles with no error. "Replace selected attributes" with graphical attributes off (models and parameters on) changes 6 comments to the library's (`10uF -> CAP`, `330 -> RES`, ...) and updates 8 model values; every net is kept |
+| L1 | `FenoliteSample.SchLib` (6 components) and `altium_kicad.SchLib` (4 components with their descriptions) open with no message |
+| L2 | Read through the API and the Properties panel's Pins tab; the Pin Editor dialog was not opened. `MCU8`: pins 1–8 with their names, types (power, input, output, passive) and 200-mil length; pin 2 `R\S\T\` and pin 5 `O\E\` with an outer-edge dot, pin 3 `CLK` with a clock edge; pin 8 hidden. `DUAL_OPAMP`: 2 parts, pins 1–3 on part A, 5–7 on part B, pins 4 and 8 on part zero; the placed `U1A` and `U1B` both draw `VCC` and `VEE` |
+| L3 | Footprint models by name, no path: `DUAL_OPAMP` `SOIC8` and `R_V` `R0603` in `altium_kicad.PcbLib`, `RES` `R0603` in `FenoliteSample.PcbLib`. The written library is `altium_kicad.PcbLib`, not the `FenoliteDemo` the step expected |
+| L4 | `altium_kicad.PrjPcb` lists its library and compiles: 5 components (`U1` once, of two parts), 10 nets as written. Messages: a floating-input error on `U2-2`; "Duplicate pins in component" warnings for `U1-4` and `U1-8` (the part-zero pins); "no driving source" warnings for `NetU2_2`, `OE_N` and `SIG`. The binary sample with `FenoliteSample.SchLib` compiles with no error, 6 nets as written |
+| L5 | Full replacement on a copy of each project: `altium_kicad` gets 6 "Modify" changes (`U1A` and `U1B` apart), the sample 8. Nets and messages are identical before and after, so no pin left its stub |
+| L7 | `Example.SchLib` opens with no message. `EXM120` and `EXM120-T`: 3 parts of 48, 48 and 24 pins, each part with one rectangle of its own and no other; part 1 pins on the right, part 2 on both sides, part 3 at top and bottom. `EXB6202` (and `-DR`): one part, the hidden pin `7` at pin `2`'s place |
+| N1 | Binary `altium_no_connect.SchDoc` opens with no message. 3 No ERC directives, at the ends of `U1` pins 2 and 4 (red crosses) and of hidden pin 8; each is active with "suppress all" set (script; Properties panel not read) |
+| N2 | Compile: no message names `U1` pins 2, 4 or 8. `U1` pin 3 gives "Net NetU1_3 contains floating input pins" (error) and "no driving source" (warning). The unmarked net `OE_N` keeps its "no driving source" warning. The directive of hidden pin 8 is reported "Floating No ERC at 4600mil,5100mil" (warning) |
+| N3 | ASCII copy: the same open, directives and compile messages as N1 and N2 |
+
+Not run: the A4 PCB Model dialog and the L2 Pin Editor dialog (their fields read through the API), A1,
+A3, A5 to A7, L6 and Part H (earlier reports), and N4 (the Viewer). No level changes.
+
 ## Author report of 2026-10-07 (opening only)
 
 On 2026-10-07 the author reported, for the files he was given: every project opened in Altium Designer 26
