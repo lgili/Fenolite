@@ -66,6 +66,7 @@ def test_closed_set() -> None:
         "build.sheet-file-collision": "error",  # c0070: module sheets
         "build.sheet-stale": "warning",
         "build.block-port-merged": "info",
+        "build.schematic-wired-fallback": "info",  # c0406
         "build.pad-map-default": "warning",  # c0147: the catalog's default pin-to-pad map
         "build.port-unused": "warning", "build.block-net-escape": "warning",  # c0251: blocks
         "build.area-unknown": "error",  # c0103: a rule names no rule area

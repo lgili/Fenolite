@@ -307,6 +307,13 @@ def _power_definition(
     state: _Lowering, power: DrawnPower, symbols: Mapping[str, PowerSymbol], where: str
 ) -> EmbeddedSymbol | None:
     library, _, symbol_name = power.symbol.partition(":")
+    if symembed.is_power_symbol(power.symbol):
+        # Fenolite's own GND and RAIL, drawn by a generated wired sheet (change c0406)
+        kind = next(k for k, name in symembed.POWER_NAMES.items() if name == symbol_name)
+        own = symembed.power_symbol(kind, state.target, library)
+        state.embedded.setdefault((own.lib_id, (), ""), own)
+        state.origins[own.lib_id] = "authored"
+        return state.embedded[(own.lib_id, (), "")]
     if state.contexts is not None:
         full = state.contexts.symbol(where, power.symbol)
         found = symbols.get(power.symbol)
@@ -383,13 +390,15 @@ def lower_drawn(
     symbol_overrides: Mapping[str, PowerSymbol] = MappingProxyType({}),
     context_symbols: Contexts | None = None,
     groups: Mapping[str, Sequence[SheetGroup]] | None = None,
+    layout: str = "readable",
 ) -> GeneratedSchematic:
     """The created sheets of ``drawn`` for ``design``, whose components ``parts`` resolve to symbols, in the
     form ``schgen.generate_schematic`` returns. ``power_symbols`` holds the resolved power symbols the
     drawing names. Coverage errors (``drawn_connect.coverage``) and unknown sheets are in ``issues``; the
     build refuses on them. A ``generated`` sheet is drawn by the generator for each module instance that
     references it, with the block rules of change c0269 (``groups`` as ``schgen.generate_schematic`` takes
-    them), and written at ``schgen.sheet_file(<module path>)`` with the sheets of its sub-modules."""
+    them) and ``layout`` (the build's ``schematic_layout``, change c0406), and written at
+    ``schgen.sheet_file(<module path>)`` with the sheets of its sub-modules."""
     issues: list[Issue] = []
     found, walk_issues = instances(drawn)
     issues += walk_issues
@@ -459,7 +468,7 @@ def lower_drawn(
         use_paths.append(f"{use_paths[instance.parent]}/{ref_uuid}")
         board_paths.append(f"{board_paths[instance.parent]}/{ref_uuid}")
     blocks = _generated_sheets(
-        drawn, found, use_paths, design, parts, name, target, vendor, allow_lossy, groups
+        drawn, found, use_paths, design, parts, name, target, vendor, allow_lossy, groups, layout
     )
     issues += blocks.issues
     pad_nets: dict[tuple[str, str], str] = dict(blocks.pad_nets)
@@ -656,6 +665,7 @@ def _generated_sheets(
     vendor: str,
     allow_lossy: bool,
     groups: Mapping[str, Sequence[SheetGroup]] | None,
+    layout: str = "readable",
 ) -> _Blocks:
     """The generator's sheets for each instance of a ``generated`` drawn sheet (capability drawn-schematic,
     "Generated sheets inside a drawing"). The generator runs once on the whole design; an instance takes
@@ -671,7 +681,14 @@ def _generated_sheets(
         return _Blocks()
     issues: list[Issue] = []
     generated = generate_schematic(
-        design, parts, name=name, target=target, vendor=vendor, allow_lossy=allow_lossy, groups=groups
+        design,
+        parts,
+        name=name,
+        target=target,
+        vendor=vendor,
+        allow_lossy=allow_lossy,
+        groups=groups,
+        layout=layout,
     )
     issues += [i for i in generated.issues if i.severity == "error"]
     sheets = {"": generated.sheet, **{module_file: s for module_file, s in generated.children.items()}}

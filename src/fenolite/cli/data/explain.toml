@@ -1303,6 +1303,11 @@ meaning = "The symbols of one sheet of the design do not fit an A0 page. The mes
 fix = "Put parts of that sheet into modules, so each gets its own sheet, or build with --schematic skip."
 see = "build"
 
+["build.schematic-wired-fallback"]
+meaning = "One sheet is drawn with the readable layout (a label at every pin) instead of the default wired layout: either a unit of that sheet is placed by schematic-placements.toml, or its wired drawing fits no paper up to A0. The message names the sheet and the reason. The written files are complete and their nets are those of the script."
+fix = "Nothing is wrong. To draw the sheet with wires, remove the placements of that sheet, or split a large module into sub-modules so that each sheet holds fewer parts."
+see = "build"
+
 ["build.block-port-merged"]
 meaning = "Two port members or more of one block instance are bound to one net, for example by connect(x.A, x.B) outside the block. On the block's KiCad sheet that net keeps global labels with its circuit name, and those members get no sheet pin, so the net name stays the circuit's."
 fix = "Nothing to fix when the ports are meant to be joined; otherwise connect them to different nets."

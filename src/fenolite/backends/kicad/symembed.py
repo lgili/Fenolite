@@ -18,6 +18,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from fractions import Fraction
+from types import MappingProxyType
 
 from fenolite.backends.kicad import sch
 from fenolite.backends.kicad import slots as slotlib
@@ -71,6 +72,56 @@ _FLAG_TEXT = f"""(symbol "PWR_FLAG"
 	)
 )"""
 """A staff with a small rectangular flag and one power-output pin at the origin: drawn for Fenolite."""
+POWER_NAMES: Mapping[str, str] = MappingProxyType({"ground": "GND", "rail": "RAIL"})
+"""The kind of a supply → the name of Fenolite's power symbol that draws it (change c0406)."""
+POWER_REFERENCE = "#PWR"
+_POWER_DESCRIPTION = "Power symbol authored for Fenolite: it joins the global net named by its Value"
+_LINE = "\t\t(polyline (pts (xy {} {}) (xy {} {})) (stroke (width 0) (type default)) (fill (type none)))"
+_POWER_GRAPHICS: Mapping[str, str] = MappingProxyType(
+    {
+        # Fenolite's ground: a stem and three bars of decreasing width below the pin
+        "ground": "\n".join(
+            _LINE.format(*points)
+            for points in (
+                ("0", "0", "0", "-1.27"),
+                ("-1.27", "-1.27", "1.27", "-1.27"),
+                ("-0.762", "-1.905", "0.762", "-1.905"),
+                ("-0.254", "-2.54", "0.254", "-2.54"),
+            )
+        ),
+        # a supply rail: a stem and one bar above the pin
+        "rail": "\n".join(
+            _LINE.format(*points) for points in (("0", "0", "0", "1.27"), ("-1.27", "1.27", "1.27", "1.27"))
+        ),
+    }
+)
+
+
+def _power_text(kind: str) -> str:
+    name = POWER_NAMES[kind]
+    down = kind == "ground"
+    return f"""(symbol "{name}"
+	(power)
+	(pin_numbers (hide yes))
+	(pin_names (offset 0) (hide yes))
+	(exclude_from_sim no)
+	(in_bom no)
+	(on_board no)
+	(property "Reference" "{POWER_REFERENCE}" {_HIDDEN})
+	(property "Value" "{name}" (at 0 {"-3.81" if down else "2.54"} 0) (effects (font (size 1.27 1.27))))
+	(property "Footprint" "" {_HIDDEN})
+	(property "Datasheet" "" {_HIDDEN})
+	(property "Description" "{_POWER_DESCRIPTION}" {_HIDDEN})
+	(symbol "{name}_0_1"
+{_POWER_GRAPHICS[kind]}
+	)
+	(symbol "{name}_1_1"
+		(pin power_in line (at 0 0 {270 if down else 90}) (length 0) (hide yes)
+			(name "~" (effects (font (size 1.27 1.27))))
+			(number "1" (effects (font (size 1.27 1.27))))
+		)
+	)
+)"""
 
 
 @dataclass(frozen=True, slots=True)
@@ -441,6 +492,31 @@ def power_flag(target: int, library: str = FLAG_LIBRARY) -> EmbeddedSymbol:
     return _finish(item, library, FLAG_NAME, target, False, None)
 
 
+def is_power_symbol(lib_id: str) -> bool:
+    """Whether ``lib_id`` names one of Fenolite's own power symbols (``GND`` or ``RAIL``) of a library named
+    ``fenolite`` in any letter case (change c0406)."""
+    library, _, name = lib_id.partition(":")
+    return name in POWER_NAMES.values() and library.casefold() == FLAG_LIBRARY.casefold()
+
+
+def power_symbol(kind: str, target: int, library: str = FLAG_LIBRARY) -> EmbeddedSymbol:
+    """Fenolite's power symbol of a supply of ``kind`` (``"ground"`` gives ``GND``, ``"rail"`` gives
+    ``RAIL``): flagged ``power``, with one hidden ``power_in`` pin of length 0 at the origin. KiCad joins
+    such a pin to the global net named by the instance's Value, whatever the pin's name (measured on 9.0.9
+    and 10.0.6, change c0406). Authored for Fenolite; nothing of any KiCad library is in it."""
+    if target not in TARGET_MAJORS:
+        raise ValueError(f"unsupported target KiCad {target}; supported targets: {TARGET_MAJORS}")
+    if kind not in POWER_NAMES:
+        raise ValueError(f"unknown power symbol kind {kind!r}; use one of: {', '.join(POWER_NAMES)}")
+    item = parse(_power_text(kind))
+    if target >= 10:
+        item = item.with_children(
+            node("power", Atom.symbol("global")) if isinstance(c, Node) and c.name == "power" else c
+            for c in item.children
+        )
+    return _finish(item, library, POWER_NAMES[kind], target, False, None)
+
+
 def write_symbol_library(symbols: Sequence[EmbeddedSymbol], *, target: int) -> str:
     """The text of a ``.kicad_sym`` file holding ``symbols`` under their bare names, sorted by name.
 
@@ -467,12 +543,16 @@ __all__ = [
     "FLAG_LIBRARY",
     "FLAG_NAME",
     "FLAG_REFERENCE",
+    "POWER_NAMES",
+    "POWER_REFERENCE",
     "SHOWN_CODE",
     "EmbeddedSymbol",
     "embed_symbol",
     "flag_library",
     "is_power_flag",
+    "is_power_symbol",
     "power_flag",
+    "power_symbol",
     "variant_name",
     "write_symbol_library",
 ]

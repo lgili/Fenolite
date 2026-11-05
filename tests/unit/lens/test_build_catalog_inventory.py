@@ -87,6 +87,7 @@ def test_all_100_footprints_build_and_read_back_without_network_or_cad(
         target=target,
         authored_symbols=symbols,
         authored_footprints={entry.lib_id: get_footprint(entry.lib_id) for entry in entries},
+        schematic_layout="readable",  # 100 parts on one sheet: the wired drawing fits no paper
     )
     assert output.files and not output.issues
     assert all(output.summary["libraries"][e.lib_id] == "authored" for e in entries)

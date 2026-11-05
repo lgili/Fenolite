@@ -2168,8 +2168,14 @@
             "type": "string"
           }
         },
+        "junctions": {
+          "type": "integer"
+        },
         "labels": {
           "type": "integer"
+        },
+        "layout": {
+          "type": "string"
         },
         "libraries": {
           "type": "array",
@@ -2187,6 +2193,9 @@
           "type": "integer"
         },
         "power_flags": {
+          "type": "integer"
+        },
+        "power_symbols": {
           "type": "integer"
         },
         "satellites": {

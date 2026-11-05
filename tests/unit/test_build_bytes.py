@@ -45,6 +45,10 @@ arithmetic is integer and rational only, so board_40parts.PcbDoc has one digest 
 9e3cabd7, the digest of the reviewed c0332 exact pilot. The floating final cut wrote 7f49a78f on Linux,
 01fdc848 on macOS and 94c3fb4b on Windows (c0323; CI run 41829443943); those per-platform digests are gone.
 Every other file of that row and every other row keep their digests.
+
+c0406 makes ``wired`` the default schematic layout: the 37 KiCad rows (targets 9 and 10) change their
+``.kicad_sch`` files and the flag library ``fenolite.kicad_sym`` (which now also holds ``GND`` and
+``RAIL``) and nothing else; every board, record, Altium row and exit code keeps its digest.
 """
 
 from __future__ import annotations

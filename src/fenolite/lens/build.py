@@ -1490,7 +1490,7 @@ def build_design(
     drawing_sheet: DrawingSheet | None = None,
     schematic: Literal["write", "skip"] = "write",
     symbol_placements: Mapping[str, SymbolPlacement] | None = None,
-    schematic_layout: Literal["readable", "grid"] = "readable",
+    schematic_layout: Literal["readable", "grid", "wired"] = "wired",
     lock_stackup: bool = False,
     lock_via_protection: bool = False,
     planes: Mapping[str, str] | None = None,
@@ -1575,8 +1575,9 @@ def build_design(
     ``schematic`` is ``"write"`` (the project gets ``<name>.kicad_sch``, its symbol libraries and
     ``sym-lib-table``, and the board follows the sheet: ``docs/schematic.md``) or ``"skip"``;
     ``symbol_placements`` fixes symbol origins on the sheet (``lens.schplacements``).
-    ``schematic_layout`` is ``"readable"`` (a sheet per module under ``sheets/``, and 2-pin parts beside
-    the IC pins they connect to) or ``"grid"`` (the one flat sheet of v0.2a).
+    ``schematic_layout`` is ``"wired"`` (the default: a sheet per module, wires, power symbols and one label
+    per drawn group, change c0406), ``"readable"`` (a sheet per module under ``sheets/``, and 2-pin parts
+    beside the IC pins they connect to) or ``"grid"`` (the one flat sheet of v0.2a).
     ``heights`` maps a component path to the height its script states (``Part(height=…)``, change c0140):
     the footprint of that path gets one extruded body of that height (``height_body``), after the bodies
     of its definition. No KiCad file holds a body; ``.fenolite/board.json`` keeps it, also through a
@@ -1598,7 +1599,8 @@ def build_design(
     ``drawn`` is the drawn schematic of ``design.load_schematic()``, read from ``drawn_file`` by the caller
     (change c0276): the sheets come from it (``backends.kicad.drawn.lower_drawn``) instead of the generator,
     and the guard reads back the sheet texts it plans and compares their nets with the circuit
-    (``drawn_netlist_issues``); ``symbol_placements`` and ``schematic_layout`` are then not used.
+    (``drawn_netlist_issues``); ``symbol_placements`` is then not used, and ``schematic_layout`` draws only
+    the ``generated`` sheets of the drawing (change c0406).
     """
     if vendor not in VENDOR_MODES:  # pyright: ignore[reportUnnecessaryContains]
         raise ValueError(f"unknown vendoring policy {vendor!r}; use one of: {', '.join(VENDOR_MODES)}")
@@ -2096,6 +2098,7 @@ def build_design(
             symbol_overrides=drawing_symbols,
             context_symbols=context_symbols,
             groups=schematic_groups,
+            layout=schematic_layout,
         )
         issues += generated.issues
         symbol_files = _symbol_libraries(generated, authored_symbols, target, allow_lossy, issues)
@@ -2394,8 +2397,11 @@ def build_design(
             "labels": sum(len(sheet.labels) for sheet in _sheets(generated)),
             "no_connects": sum(len(sheet.no_connects) for sheet in _sheets(generated)),
             "wires": sum(len(sheet.wires) for sheet in _sheets(generated)),
+            "junctions": sum(len(sheet.junctions) for sheet in _sheets(generated)),
             "satellites": generated.satellites,
             "power_flags": generated.power_flags,
+            "power_symbols": generated.power_symbols,
+            "layout": schematic_layout if drawn is None else "drawn",
             "libraries": [f"lib/{nick}.kicad_sym" for nick in sorted(symbol_files)],
             "unconnected_pads": len(generated.pad_nets),
             "source": "generated" if drawn is None else "drawn",

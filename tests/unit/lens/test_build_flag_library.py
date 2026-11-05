@@ -36,7 +36,7 @@ def _build(design: Design, target: int = 10, project_dir: Path = BLINK_DIR, **kw
         copper=2,
         resolver=resolver(target, project_dir),
         target=target,
-        **kwargs,  # type: ignore[arg-type]
+        **{"schematic_layout": "readable", **kwargs},  # type: ignore[arg-type]
     )
 
 
@@ -128,15 +128,18 @@ def test_an_authored_symbol_of_the_flags_name_is_refused() -> None:
     assert output.files == {} and _errors(output) == [("build.reserved-library", "Fenolite:PWR_FLAG")]
 
 
-def _project_design(tmp_path: Path, first: str, *, power: bool) -> BuildOutput:
-    """Two two-pin parts on symbols ``first`` and ``Two`` of a project library ``FENOLITE``."""
+def _project_design(
+    tmp_path: Path, first: str, *, power: bool, layout: str = "readable", held: str = "PWR_FLAG"
+) -> BuildOutput:
+    """Two two-pin parts on symbols ``first`` and ``Two`` of a project library ``FENOLITE``, which also
+    holds the symbol ``held``."""
     (tmp_path / "T.pretty").mkdir()
     (tmp_path / "T.pretty" / "F2.kicad_mod").write_text(
         footprint_file("F2", ["1", "2"]), encoding="utf-8", newline="\n"
     )
     pins = [("1", "A"), ("2", "B")]
     (tmp_path / "FENOLITE.kicad_sym").write_text(
-        symbol_lib({"PWR_FLAG": pins, "Two": pins}), encoding="utf-8", newline="\n"
+        symbol_lib({held: pins, "Two": pins}), encoding="utf-8", newline="\n"
     )
     folder = project(tmp_path, {"T": "${KIPRJMOD}/T.pretty"}, {"FENOLITE": "${KIPRJMOD}/FENOLITE.kicad_sym"})
     design = Design("taken")
@@ -151,7 +154,7 @@ def _project_design(tmp_path: Path, first: str, *, power: bool) -> BuildOutput:
         design.add(Power(vin, gnd))
     j1.place(mm(8), mm(10))
     j2.place(mm(20), mm(10))
-    return _build(design, project_dir=folder)
+    return _build(design, project_dir=folder, schematic_layout=layout)
 
 
 def test_a_project_library_of_that_name_holds_the_flag(tmp_path: Path) -> None:
@@ -170,3 +173,18 @@ def test_a_symbol_of_the_flags_name_builds_where_no_flag_is_needed(tmp_path: Pat
     """Without a flag no name is kept: the design builds as it did."""
     output = _project_design(tmp_path, "PWR_FLAG", power=False)
     assert _errors(output) == [] and _names(output, "lib/FENOLITE.kicad_sym") == ["PWR_FLAG", "Two"]
+
+
+def test_a_wired_sheet_puts_its_power_symbols_beside_the_flag(tmp_path: Path) -> None:
+    """A wired sheet (change c0406) embeds Fenolite's ``GND`` and ``RAIL`` in the library of the flag."""
+    output = _project_design(tmp_path, "Two", power=True, layout="wired")
+    assert _errors(output) == []
+    assert _names(output, "lib/FENOLITE.kicad_sym") == ["GND", "PWR_FLAG", "RAIL", "Two"]
+    text = output.files["taken.kicad_sch"].decode("utf-8")
+    assert '(lib_id "FENOLITE:GND")' in text and '(lib_id "FENOLITE:RAIL")' in text
+
+
+def test_a_placed_symbol_of_a_power_symbols_name_is_refused(tmp_path: Path) -> None:
+    """A part drawn with a symbol ``GND`` of the flag's library takes the name of a power symbol."""
+    output = _project_design(tmp_path, "GND", power=True, layout="wired", held="GND")
+    assert output.files == {} and ("build.reserved-library", "FENOLITE:GND") in _errors(output)

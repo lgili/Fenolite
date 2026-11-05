@@ -410,3 +410,19 @@ export against `sch_netlist.own_netlist` of the sheet tree, and the footprint pa
   misses the parts of that sheet. With one snap wire removed, ERC reports `pin_not_connected`.
 - **Not measured.** What "Update PCB from Schematic" writes for a part of a module (no headless
   update; `H-K-SCH-HIER-PATH`, the update half).
+
+## Wired sheets (change c0406)
+
+`tests/kicad/schematic/test_wired_oracle.py` builds the five designs authored in `tests/_wireddesigns.py`
+(an op-amp stage, a controller, a linear supply, a transistor switch and a design of two modules) with the
+`wired` layout and runs `sch erc` and `sch export netlist` on the written project. On 2026-11-05:
+
+| version | ERC violations | netlist |
+|---|---|---|
+| 10.0.6 (local `kicad-cli`) | 0 on each design | equal to Fenolite's own netlist on each design, also read back from the files; every net keeps its script name (no `Net-(…)`, no `/sheet/` prefix) |
+| 9.0.9 (pinned image, run locally) | 0 on each design | equal to Fenolite's own netlist on each design |
+
+The sheets hold Fenolite's power symbols `GND` and `RAIL` (Value = net name), junctions at T joints,
+crossings without a junction, labels on the inside of wires, and one power flag per undriven supply wired
+to a power symbol of its net (`H-K-SCH-POWER`, `H-K-SCH-WIRE-END`). The readable build of each design is
+the ERC baseline; the wired one adds no violation.

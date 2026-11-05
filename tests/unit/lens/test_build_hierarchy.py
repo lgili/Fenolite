@@ -75,7 +75,9 @@ def test_module_sheets_written(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) 
     assert set(SHEETS) <= set(written(env, p.out))
     summary = env["result"]["schematic"]  # type: ignore[index]
     assert (summary["sheets"], summary["files"]) == (3, [IO, POWER])
-    assert summary["symbols"] == 8 + summary["power_flags"], "counted over every sheet"
+    assert summary["symbols"] == 8 + summary["power_flags"] + summary["power_symbols"], (
+        "counted over every sheet"
+    )
     record = json.loads((p.out / RECORD_FILE).read_text(encoding="utf-8"))["files"]
     for name in SHEETS:
         assert record[name] == hashlib.sha256((p.out / name).read_bytes()).hexdigest()

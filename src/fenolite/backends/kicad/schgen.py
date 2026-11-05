@@ -24,7 +24,8 @@ from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import Protocol
 
-from fenolite.backends.kicad import netnames, schlayout, symembed
+from fenolite.backends.kicad import netnames, schlayout, schwired, symembed
+from fenolite.backends.kicad import sch as sch_format
 from fenolite.backends.kicad.libs import LibRow
 from fenolite.backends.kicad.pcb import kicad_uuid
 from fenolite.backends.kicad.schlayout import (
@@ -46,6 +47,7 @@ from fenolite.model.design import Design
 from fenolite.model.library import FootprintDef, SymbolDef, SymbolPin
 from fenolite.model.presentation import SheetFrameRef
 from fenolite.model.schematic import (
+    Junction,
     NetLabel,
     NoConnectFlag,
     SchematicSheet,
@@ -89,11 +91,13 @@ ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "build.sheet-file-collision": "error",
         "build.sheet-stale": "warning",
         "build.block-port-merged": "info",
+        "build.schematic-wired-fallback": "info",
     }
 )
 """Every code of the generator, the layout, the embedding and the placements file, with its severity."""
-LAYOUTS: tuple[str, ...] = ("readable", "grid")
-"""``"readable"`` gives each module a sheet of its own; ``"grid"`` is the one flat sheet of c0061."""
+LAYOUTS: tuple[str, ...] = ("readable", "grid", "wired")
+"""``"readable"`` gives each module a sheet of its own; ``"grid"`` is the one flat sheet of c0061;
+``"wired"`` draws each module sheet with wires, power symbols and one label per drawn group (change c0406)."""
 SHEETS_DIR = "sheets"
 """The folder of the child sheets, beside the root file."""
 ID_BACKEND = "fenolite"
@@ -146,6 +150,8 @@ class GeneratedSchematic:
     power_flags: int = 0
     children: Mapping[str, SchematicSheet] = field(default_factory=lambda: MappingProxyType({}))
     satellites: int = 0
+    power_symbols: int = 0
+    fallbacks: int = 0
 
 
 def issue(code: str, message: str, where: str = "", hint: str = "") -> Issue:
@@ -390,7 +396,7 @@ def generate_schematic(
             box = unit_box(part.path, symbol, unit, texts, max(len(component.ref), len(component.value)))
             placed.append(_Unit(part, component, embedded[key], unit, box))
 
-    modules = _modules(item.part.path for item in placed) if layout == "readable" else []
+    modules = _modules(item.part.path for item in placed) if layout != "grid" else []
     collisions = _collisions(modules)
     if collisions:
         issues += collisions
@@ -401,8 +407,14 @@ def generate_schematic(
     for item in placed:
         by_sheet["" if flat else module_of(item.part.path)].append(item)
 
-    flag_nets = _needs_flag(design, components)
+    wired = _WiredDesign.of(design, components) if layout == "wired" else None
+    flag_nets = _needs_flag(design, components) if wired is None else wired.flag_nets
     flag = _flag(flag_nets, embedded, other_libraries, target, issues)
+    powers = _Powers(
+        symembed.flag_library([*(f.nickname for f in embedded.values()), *other_libraries]), target
+    )
+    if wired is not None:
+        _reserve_power_names(embedded, powers.library, issues)
     fixed = dict(placements or {})
     known = {item.box.key for item in placed}
     state = _State(design, name, net_of, {(m.component_id, m.pin) for m in design.circuit.no_connects})
@@ -431,7 +443,56 @@ def generate_schematic(
         boxes = [item.box for item in items]
         clusters: tuple[Cluster, ...] = ()
         local = block_groups.get(module, ())
-        if layout == "readable":
+        if wired is not None:
+            drawn = _wired_sheet(
+                state,
+                wired,
+                powers,
+                items,
+                module,
+                blocks,
+                refs,
+                flag_nets if not module and flag is not None else [],
+                [group.members for group in local],
+                [k for k in here if k in keys],
+                tree.use_paths[module],
+                tree.board_paths[module],
+                issues,
+            )
+            if drawn is not None:
+                content, paper, origins_here, junctions, values = drawn
+                definitions = sorted(
+                    {id(i.definition): i.definition for i in items}.values(), key=lambda e: e.lib_id
+                )
+                embedded_here = [d.definition for d in definitions] + [
+                    p.definition for p in powers.used_on(module)
+                ]
+                embedded_here.sort(key=lambda e: e.lib_id)
+                if not module and flag is not None:
+                    _wired_flags(
+                        state, content, flag, flag_nets, origins_here, tree.use_paths[""], values=values
+                    )
+                    embedded_here.append(flag.definition)
+                placed_refs = tuple(
+                    _placed_ref(state, content, blocks, tree.refs[m], box, origins_here, module)
+                    for m, box in zip(children, refs, strict=True)
+                )
+                sheets[module] = SchematicSheet(
+                    id=tree.ids[module],
+                    name=module.rpartition("/")[2] if module else name,
+                    paper=SheetFrameRef(paper),  # type: ignore[arg-type]
+                    title_block=board.title_block if board is not None else None,
+                    lib_symbols=tuple(embedded_here),
+                    symbols=tuple(content.symbols),
+                    labels=tuple(content.labels),
+                    no_connects=tuple(content.flags),
+                    wires=tuple(content.wires),
+                    junctions=junctions,
+                    sheets=placed_refs,
+                    pages=(SheetPage("/", "1"),) if not module else (),
+                )
+                continue
+        if layout != "grid":
             texts = {
                 (item.box.key, number): _padded(text, widths.get((item.box.key, number), 0))
                 for item in items
@@ -471,7 +532,7 @@ def generate_schematic(
             _flags(state, content, flag, flag_nets, found, tree.use_paths[""])
             embedded_here.append(flag.definition)
         placed_refs = tuple(
-            _placed_ref(state, content, blocks, tree.refs[m], box, found, module)
+            _placed_ref(state, content, blocks, tree.refs[m], box, found.origins, module)
             for m, box in zip(children, refs, strict=True)
         )
         sheets[module] = SchematicSheet(
@@ -499,6 +560,8 @@ def generate_schematic(
         libraries.setdefault(definition.nickname, []).append(definition)
     if flag is not None:
         libraries.setdefault(flag.nickname, []).append(flag)
+    for definition in powers.definitions():
+        libraries.setdefault(definition.nickname, []).append(definition)
     return GeneratedSchematic(
         sheets[""],
         MappingProxyType({nick: tuple(found) for nick, found in sorted(libraries.items())}),
@@ -510,6 +573,8 @@ def generate_schematic(
         len(flag_nets),
         MappingProxyType({sheet_file(module): sheets[module] for module in modules}),
         state.satellites,
+        powers.count,
+        state.fallbacks,
     )
 
 
@@ -700,12 +765,12 @@ def _placed_ref(
     blocks: _Blocks,
     ref: SheetRef,
     box: RefBox,
-    layout: SheetLayout,
+    origins: Mapping[str, SymbolPlacement],
     parent: str,
 ) -> SheetRef:
-    """The reference ``ref`` at its place in ``layout``, with its sheet pins; the label the sheet of
+    """The reference ``ref`` at its place in ``origins``, with its sheet pins; the label the sheet of
     ``parent`` writes at each pin is added to ``content``, turned away from the box."""
-    origin = layout.origins[schlayout.ref_key(box.path)]
+    origin = origins[schlayout.ref_key(box.path)]
     at = Point(origin.x, origin.y)
     if not box.pins:
         return dataclasses.replace(ref, position=at)
@@ -792,6 +857,7 @@ class _State:
     labelled: set[tuple[str, str]] = field(default_factory=lambda: set())
     issues: list[Issue] = field(default_factory=lambda: [])
     satellites: int = 0
+    fallbacks: int = 0
 
 
 @dataclass
@@ -942,9 +1008,39 @@ def _flags(
     use_path: str,
 ) -> None:
     """One power flag and its label per net of ``flag_nets``, added to the root sheet's ``content``."""
+    _wired_flags(state, content, flag, flag_nets, layout.origins, use_path, labelled=True)
+
+
+def _wired_flags(
+    state: _State,
+    content: _Content,
+    flag: EmbeddedSymbol,
+    flag_nets: Sequence[Net],
+    origins: Mapping[str, SymbolPlacement],
+    use_path: str,
+    *,
+    labelled: bool = False,
+    values: Mapping[str, Point] | None = None,
+) -> None:
+    """One power flag per net of ``flag_nets`` at its place in ``origins``, with a label of its net when
+    ``labelled`` (a wired sheet joins the flag to a power symbol by a wire instead, and ``values`` gives
+    where it writes each flag's Value, by net name)."""
     name = state.name
     for index, net in enumerate(flag_nets, start=1):
-        place = layout.origins[f"{FLAG_KEY}{net.name}"]
+        place = origins[f"{FLAG_KEY}{net.name}"]
+        value_at = (values or {}).get(net.name)
+        ext = (
+            {
+                sch_format.DRAWN_EXT: sch_format.field_pose_ext(
+                    (
+                        sch_format.FieldPose("Reference", Point(place.x, place.y), 0, "", True),
+                        sch_format.FieldPose("Value", value_at, 0, ""),
+                    )
+                )
+            }
+            if value_at is not None
+            else {}
+        )
         origin = Point(place.x, place.y)
         ref = f"{symembed.FLAG_REFERENCE}{index:02d}"
         content.symbols.append(
@@ -958,8 +1054,11 @@ def _flags(
                 in_bom=False,
                 on_board=False,
                 uses=(SymbolUse(name, use_path, ref, 1),),
+                ext=ext,
             )
         )
+        if not labelled:
+            continue
         content.labels.append(
             NetLabel(
                 id=derived_id("lbl", ID_BACKEND, f"{name}:label:flag:{net.name}"),
@@ -970,6 +1069,266 @@ def _flags(
                 shape="passive",
             )
         )
+
+
+# --- wired sheets (change c0406) --------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class _WiredDesign:
+    """What every wired sheet of a design shares: the role of each net (design D2 of change c0406), the
+    nets of bus interfaces, the nets by id, and the supply nets that need a power flag."""
+
+    roles: Mapping[str, str]
+    buses: frozenset[str]
+    nets: Mapping[str, Net]
+    flag_nets: list[Net]
+
+    @staticmethod
+    def of(design: Design, components: Mapping[str, Component]) -> _WiredDesign:
+        circuit = design.circuit
+        declared: dict[str, str] = {}
+        buses: set[str] = set()
+        for interface in circuit.interfaces:
+            for role, net_id in interface.members.items():
+                if interface.kind == "ground" or (
+                    interface.kind == "power" and schwired.name_role(role.upper()) == "ground"
+                ):
+                    declared[net_id] = "ground"
+                elif interface.kind == "power":
+                    declared.setdefault(net_id, "power")
+                elif interface.kind in schwired.BUS_KINDS:
+                    buses.add(net_id)
+        roles: dict[str, str] = {}
+        flag_nets: list[Net] = []
+        for net in circuit.nets:
+            power_pin = False
+            driven = False
+            fitted = False
+            for member in net.members:
+                component = components.get(member.component_id)
+                if component is None or component.dnp:
+                    continue
+                fitted = True
+                for pin in component.pins:
+                    if pin.number == member.pin:
+                        power_pin = power_pin or pin.etype in ("power_in", "power_out")
+                        driven = driven or pin.etype == "power_out"
+            role = schwired.net_role(
+                netnames.stored_name(net.name), power_pin=power_pin, declared=declared.get(net.id, "")
+            )
+            roles[net.id] = role
+            if schwired.is_supply(role) and fitted and not driven:
+                flag_nets.append(net)
+        return _WiredDesign(
+            MappingProxyType(roles),
+            frozenset(buses),
+            MappingProxyType({net.id: net for net in circuit.nets}),
+            sorted(flag_nets, key=lambda n: n.name),
+        )
+
+
+@dataclass
+class _Powers:
+    """The power symbols of a design: their library, target, the definitions used and on which sheets, and
+    the number of instances so far (their references count over the whole design)."""
+
+    library: str
+    target: int
+    count: int = 0
+    made: dict[str, EmbeddedSymbol] = field(default_factory=lambda: {})
+    sheets: dict[str, set[str]] = field(default_factory=lambda: {})
+
+    def symbol(self, kind: str, module: str) -> EmbeddedSymbol:
+        if kind not in self.made:
+            self.made[kind] = symembed.power_symbol(kind, self.target, self.library)
+        self.sheets.setdefault(module, set()).add(kind)
+        return self.made[kind]
+
+    def used_on(self, module: str) -> list[EmbeddedSymbol]:
+        return sorted((self.made[k] for k in self.sheets.get(module, ())), key=lambda e: e.lib_id)
+
+    def definitions(self) -> list[EmbeddedSymbol]:
+        return sorted(self.made.values(), key=lambda e: e.lib_id)
+
+    def instance(
+        self, name: str, module: str, use_path: str, power: schwired.WPower, value: str
+    ) -> SymbolInstance:
+        definition = self.symbol(power.kind, module)
+        self.count += 1
+        ref = f"{symembed.POWER_REFERENCE}{self.count:03d}"
+        angle = 90_000_000 if power.rotation % 180 else 0
+        poses = (
+            sch_format.FieldPose("Reference", power.at, 0, "", True),
+            sch_format.FieldPose("Value", power.value_at, angle, ""),
+        )
+        return SymbolInstance(
+            id=derived_id("sci", ID_BACKEND, f"{name}:power:{module}:{power.at.x},{power.at.y}"),
+            lib_ref=definition.lib_id,
+            position=power.at,
+            rotation=power.rotation * 1_000_000,
+            ref=ref,
+            value=value,
+            properties={key: "" for key in MANDATORY} | {"Reference": ref, "Value": value},
+            in_bom=False,
+            on_board=False,
+            uses=(SymbolUse(name, use_path, ref, 1),),
+            ext={sch_format.DRAWN_EXT: sch_format.field_pose_ext(poses)},
+        )
+
+
+def _reserve_power_names(
+    embedded: Mapping[tuple[str, tuple[tuple[str, str], ...]], EmbeddedSymbol],
+    library: str,
+    issues: list[Issue],
+) -> None:
+    """``build.reserved-library`` for a part whose symbol has the name of a power symbol in its library."""
+    for name in symembed.POWER_NAMES.values():
+        lib_id = f"{library}:{name}"
+        if any(found == lib_id for found, _ in embedded):
+            issues.append(
+                issue(
+                    "build.reserved-library",
+                    f"{lib_id}: the symbol name {name!r} of the library {library!r} is kept for Fenolite's "
+                    "power symbols, which a wired sheet draws",
+                    lib_id,
+                    "give the symbol another name, or its library another nickname",
+                )
+            )
+
+
+def _wired_sheet(
+    state: _State,
+    wired: _WiredDesign,
+    powers: _Powers,
+    items: Sequence[_Unit],
+    module: str,
+    blocks: _Blocks,
+    refs: Sequence[RefBox],
+    flag_nets: Sequence[Net],
+    groups: Sequence[Sequence[str]],
+    placed_keys: Sequence[str],
+    use_path: str,
+    board_path: str,
+    issues: list[Issue],
+) -> tuple[_Content, str, dict[str, SymbolPlacement], tuple[Junction, ...], dict[str, Point]] | None:
+    """The content of the wired sheet of ``module`` ("Wired sheet layout"), its paper, its placements
+    (units, sheet references and flags) and its junctions; ``None`` after a fallback to ``"readable"``
+    ("Wired layout fallbacks")."""
+    where = module or state.name
+    if placed_keys:
+        issues.append(
+            issue(
+                "build.schematic-wired-fallback",
+                f"sheet {where}: {len(placed_keys)} unit(s) are placed by the placements file, so the sheet "
+                "is drawn with the readable layout",
+                where,
+                "remove the placements of this sheet to draw it with wires",
+            )
+        )
+        return None
+    units: list[schwired.WUnit] = []
+    nets: dict[tuple[str, str], schwired.WNet] = {}
+    marks: set[tuple[str, str]] = set()
+    for item in items:
+        symbol = item.part.symbol
+        pins = symbol.pins_of(item.unit, 1)
+        units.append(
+            schwired.WUnit(
+                item.box.key,
+                tuple(
+                    schwired.WPin(p.number, p.name, p.position, (p.rotation // 1_000_000) % 360, p.etype)
+                    for p in pins
+                ),
+                _body(symbol, pins),
+                max(len(item.component.ref) + (1 if symbol.unit_count > 1 else 0), len(item.component.value)),
+                symbol.unit_count == 1,
+            )
+        )
+        for pin in pins:
+            key = (item.component.id, pin.number)
+            net = state.net_of.get(key)
+            if net is not None:
+                kind, text, _ = blocks.label(module, net)
+                role = wired.roles[net.id] if kind == "global" else "signal"
+                nets[(item.box.key, pin.number)] = schwired.WNet(
+                    net.id, text, role, net.id in wired.buses, netnames.stored_name(net.name)
+                )
+            elif key in state.marks:
+                marks.add((item.box.key, pin.number))
+    flags = [
+        schwired.WNet(
+            net.id, netnames.stored_name(net.name), wired.roles[net.id], False, netnames.stored_name(net.name)
+        )
+        for net in flag_nets
+    ]
+    found = schwired.layout_sheet(units, nets, marks=marks, refs=refs, flags=flags, groups=groups)
+    if not found.fits:
+        issues.append(
+            issue(
+                "build.schematic-wired-fallback",
+                f"sheet {where}: the wired drawing fits no paper up to A0, so the sheet is drawn with the "
+                "readable layout",
+                where,
+                "split the module into sub-modules so that each sheet holds fewer parts",
+            )
+        )
+        return None
+    state.fallbacks += found.fallbacks
+    name = state.name
+    origins = dict(found.origins)
+    values: dict[str, Point] = {}
+    for flag_at in found.flags:
+        origins[f"{FLAG_KEY}{wired.nets[flag_at.net].name}"] = SymbolPlacement(flag_at.at.x, flag_at.at.y)
+        values[wired.nets[flag_at.net].name] = flag_at.value_at
+    content = _content(
+        state, items, SheetLayout(found.paper, MappingProxyType(origins), {}), use_path, board_path
+    )
+    content.labels.clear()  # a wired sheet names each drawn group once (below)
+    posed: list[SymbolInstance] = []
+    for item, symbol in zip(items, content.symbols, strict=True):
+        pose = found.fields.get(item.box.key)
+        if pose is None:
+            posed.append(symbol)
+            continue
+        angle = pose.angle * 1_000_000
+        poses = (
+            sch_format.FieldPose("Reference", pose.reference, angle, ""),
+            sch_format.FieldPose("Value", pose.value, angle, ""),
+        )
+        posed.append(
+            dataclasses.replace(symbol, ext={sch_format.DRAWN_EXT: sch_format.field_pose_ext(poses)})
+        )
+    for power in found.powers:
+        posed.append(
+            powers.instance(name, module, use_path, power, netnames.stored_name(wired.nets[power.net].name))
+        )
+    content.symbols = posed
+    for label in found.labels:
+        kind, text, shape = blocks.label(module, wired.nets[label.net])
+        head = "hlabel" if kind == "hierarchical" else "label"
+        net_name = wired.nets[label.net].name
+        content.labels.append(
+            NetLabel(
+                id=derived_id("lbl", ID_BACKEND, f"{name}:{head}:net:{module}:{net_name}:{label.group}"),
+                kind=kind,  # type: ignore[arg-type]
+                name=text,
+                position=label.at,
+                rotation=label.angle * 1_000_000,
+                shape=shape,  # type: ignore[arg-type]
+            )
+        )
+    content.wires = [
+        Wire(
+            id=derived_id("wir", ID_BACKEND, f"{name}:wire:{module}:{a.x},{a.y}:{b.x},{b.y}"), start=a, end=b
+        )
+        for a, b in found.wires
+    ]
+    junctions = tuple(
+        Junction(id=derived_id("wir", ID_BACKEND, f"{name}:junction:{module}:{p.x},{p.y}"), position=p)
+        for p in found.junctions
+    )
+    return content, found.paper, origins, junctions, values
 
 
 __all__ = [

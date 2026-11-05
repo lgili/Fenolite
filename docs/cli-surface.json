@@ -1417,7 +1417,8 @@
           ],
           "choices": [
             "grid",
-            "readable"
+            "readable",
+            "wired"
           ],
           "default": null,
           "deprecated": null,
@@ -11746,6 +11747,12 @@
       "experimental": false,
       "severities": [
         "error"
+      ]
+    },
+    "build.schematic-wired-fallback": {
+      "experimental": false,
+      "severities": [
+        "info"
       ]
     },
     "build.sheet-file-collision": {

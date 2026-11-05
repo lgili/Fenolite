@@ -120,7 +120,11 @@ def resolver(
 
 def build(design: Design, target: int = 10, **kwargs: object) -> BuildOutput:
     """``build_design`` of ``design``; ``placements_override`` replaces ``placements(design)`` (c0019). The
-    script's unused-pin requests and two-pin parts are passed as the command passes them (c0247)."""
+    script's unused-pin requests and two-pin parts are passed as the command passes them (c0247). The
+    schematic is drawn with ``"readable"`` unless ``schematic_layout`` is given: the tests built on this
+    helper are about that sheet, while the build's default is ``"wired"`` (c0406), which the tests of
+    ``tests/_wireddesigns.py``, the command and the examples' byte table cover."""
+    kwargs.setdefault("schematic_layout", "readable")
     project_dir = kwargs.pop("project_dir", BLINK_DIR)
     config_home = kwargs.pop("config_home", None)
     cache_dir = kwargs.pop("cache_dir", None)

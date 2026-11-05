@@ -93,8 +93,11 @@ def test_libraries_of_the_blink() -> None:
         "labels": 7,
         "no_connects": 29,
         "wires": 2,
+        "junctions": 0,
         "satellites": 2,
         "power_flags": 2,
+        "power_symbols": 0,
+        "layout": "readable",
         "libraries": ["lib/Mini.kicad_sym", "lib/fenolite.kicad_sym"],
         "unconnected_pads": 29,
         "source": "generated",  # c0276: a generated schematic, not a drawn one

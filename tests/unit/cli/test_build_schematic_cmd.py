@@ -61,12 +61,15 @@ def test_the_blink_gets_a_schematic(monkeypatch: pytest.MonkeyPatch, tmp_path: P
         "paper": "A4",
         "sheets": 1,
         "files": [],
-        "symbols": 5,
-        "labels": 7,
+        "symbols": 10,  # c0406: five power symbols on the wired sheet
+        "labels": 2,
         "no_connects": 29,
-        "wires": 2,
-        "satellites": 2,
+        "wires": 7,
+        "junctions": 0,
+        "satellites": 0,
         "power_flags": 2,
+        "power_symbols": 5,
+        "layout": "wired",
         "libraries": ["lib/Mini.kicad_sym", "lib/fenolite.kicad_sym"],
         "unconnected_pads": 29,
         "source": "generated",  # c0276: a generated schematic, not a drawn one
@@ -232,7 +235,8 @@ def test_help_names_the_layout_option(capsys: pytest.CaptureFixture[str]) -> Non
     except SystemExit:
         pass
     text = " ".join(capsys.readouterr().out.split())
-    assert "--schematic-layout {readable,grid}" in text and "one sheet per module" in text
+    assert "--schematic-layout {readable,grid,wired}" in text and "one sheet per module" in text
+    assert "wired (default)" in text
 
 
 def test_altium_target_refuses_the_layout_option(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

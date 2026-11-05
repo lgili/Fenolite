@@ -440,9 +440,10 @@ def _register(parser: argparse.ArgumentParser) -> None:
         dest="schematic_layout",
         choices=SCHEMATIC_LAYOUTS,
         default=None,
-        help="readable (default): one sheet per module under DIR/sheets/, and 2-pin parts beside the IC "
-        "pins they connect to, joined by a wire; grid: one flat sheet with a label on every pin, the form "
-        f"of v0.2a; a usage error with --target {ALTIUM_TARGET}",
+        help="wired (default): one sheet per module under DIR/sheets/, local connections drawn as wires, "
+        "supplies as power symbols and one label per drawn group of a net; readable: one sheet per module, "
+        "and 2-pin parts beside the IC pins they connect to, joined by a wire; grid: one flat sheet with a "
+        f"label on every pin, the form of v0.2a; a usage error with --target {ALTIUM_TARGET}",
     )
     parser.add_argument(
         "--altium-layout",
@@ -1721,7 +1722,7 @@ def _built(
             schematic=schematic,
             symbol_placements=symbol_placements,
             schematic_groups={found.path: found.groups for found in block_schematics(design) if found.groups},
-            schematic_layout=cast(Literal["readable", "grid"], args.schematic_layout or SCHEMATIC_LAYOUTS[0]),
+            schematic_layout=cast(Literal["readable", "grid", "wired"], args.schematic_layout or "wired"),
             lock_stackup=stackup_locked(design),
             lock_via_protection=via_protection_locked(design),
             planes=plane_nets,

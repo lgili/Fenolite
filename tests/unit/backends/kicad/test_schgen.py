@@ -237,6 +237,7 @@ def test_codes_are_a_closed_set() -> None:
         "build.sheet-file-collision": "error",
         "build.sheet-stale": "warning",
         "build.block-port-merged": "info",
+        "build.schematic-wired-fallback": "info",  # c0406
     }
     assert dict(sch.WRITE_ISSUE_CODES) == {"kicad.sch.dropped-too-new": "warning"}
     known = set(schgen.ISSUE_CODES) | set(sch.WRITE_ISSUE_CODES)

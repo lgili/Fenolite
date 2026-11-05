@@ -566,7 +566,7 @@ A build for either target applies the catalog's default pin-to-pad map (change c
 ## `build`
 
 `fenolite build DESIGN.py --out DIR [--discard-layout] [--vendor all|project] [--schematic write|skip]
-[--schematic-layout readable|grid]
+[--schematic-layout wired|readable|grid]
 [--target kicad|altium]
 [--altium-format binary|ascii] [--altium-sheets flat|modules] [--altium-layout grid|blocks] [--altium-outjob on|off]
 [--altium-outjob-preset FILE] [--altium-symbols graphics|generic] [--altium-directions on|off]
@@ -884,7 +884,9 @@ follows the sheet: the pad of each unconnected pin is on a net named as KiCad na
 (`unconnected-(U1-PA1-Pad2)`), a `/` in a net name is stored as `{slash}`, and each footprint carries the
 path of its symbol; the `.fenolite/` model holds none of this. `result.schematic` holds `file`, `paper`
 (the root's), `sheets` (their number, the root included), `files` (the child sheet files), `symbols`,
-`labels`, `no_connects` and `wires` (counted over every sheet), `satellites`, `power_flags`, `libraries`
+`labels`, `no_connects`, `wires` and `junctions` (counted over every sheet), `satellites`, `power_flags`,
+`power_symbols` (the instances of Fenolite's `GND` and `RAIL`), `layout` (`wired`, `readable`, `grid`, or
+`drawn`; a sheet that fell back is reported by `build.schematic-wired-fallback`), `libraries`
 (the symbol library files), `unconnected_pads`, `source` (`generated`, or `drawn` for a design that loads a
 drawn schematic, change c0276) and `drawn` (`null`, or `file` and the counts `wires`, `junctions`, `labels`,
 `buses` and `opaque` of the drawn file), and is `null` with `skip`. A drawn schematic is read from the
@@ -894,12 +896,18 @@ coverage errors (`drawn.symbol-missing`, `drawn.part-unknown`) plan nothing, and
 `schematic-placements.toml` beside it is not read (`drawn.placements-ignored`); see
 `docs/drawn-schematic.md`.
 
-`--schematic-layout readable` (the default) gives each module that holds a part a sheet of its own,
+`--schematic-layout wired` (the default, c0406) draws each sheet as a schematic is drawn by hand: parts
+beside the IC pin they serve, local nets as orthogonal wires with junctions, supplies as Fenolite's
+`GND` and `RAIL` power symbols with one power flag per undriven supply, signals left to right, and one
+global label per net group that leaves its wires (`docs/schematic-drafting.md`). A sheet with a unit
+placed by `schematic-placements.toml`, or one whose drawing fits no paper up to A0, is drawn `readable`
+with the info `build.schematic-wired-fallback`. `--schematic-layout readable` gives each module that
+holds a part a sheet of its own,
 `DIR/sheets/<module path with "." for "/">.kicad_sch`, named by a box on the sheet above it, and puts a
 2-pin part beside the IC pin it connects to, joined by one wire. Nets cross sheets by their global
 labels, so net names stay those of the script; a footprint of a part in a module carries the path
-`/<sheet uuids>/<symbol uuid>`. `--schematic-layout grid` writes the one flat sheet of v0.2a, without
-wires. The option is a usage error with `--target altium`. An edited child sheet is replaced like the
+`/<sheet uuids>/<symbol uuid>`; `wired` keeps the same sheets, files and paths. `--schematic-layout grid`
+writes the one flat sheet of v0.2a, without wires. The option is a usage error with `--target altium`. An edited child sheet is replaced like the
 root; a child sheet of the last build that the design no longer has is left in place, with
 `build.sheet-stale`. `schematic-placements.toml` beside the script fixes symbol
 positions. The schematic is a view of the script: a schematic changed since the last build is replaced,
@@ -917,7 +925,7 @@ a difference is a defect of the generator and stops the build (`build.schematic-
 | `build.symbol-short` | error | two symbols placed by the placements file have a pin at one point |
 | `build.symbol-placement-invalid` | error | a placement is off the 1.27 mm grid, has an unknown key or a rotation or mirror that is not allowed |
 | `build.bom-only` | error | a typed off-board purchasing item has electrical or physical claims; remove those claims or use a regular component |
-| `build.reserved-library` | error | the design names or authors a symbol library `fenolite`, or needs a power flag and holds a symbol `PWR_FLAG` in the library that holds the flag |
+| `build.reserved-library` | error | the design names or authors a symbol library `fenolite`, or needs a power flag and holds a symbol `PWR_FLAG` in the library that holds the flag, or a wired sheet needs a power symbol and that library holds a part symbol `GND` or `RAIL` |
 | `build.symbol-overlap` | warning | the cell of a placed symbol overlaps another cell |
 | `build.symbol-placement-unknown` | warning | the placements file names no unit of the design |
 | `build.schematic-replaced` | warning | a schematic file, the root or a child sheet, changed since the last build is replaced |
@@ -925,6 +933,7 @@ a difference is a defect of the generator and stops the build (`build.schematic-
 | `kicad.sch.unconnected-name-unproven` | warning | the net name of an unconnected pin is not written, so its pad stays on no net |
 | `kicad.sch.dropped-too-new` | warning | `--allow-lossy` removed a token of an embedded symbol that the target does not read |
 | `kicad.sch.pin-off-grid` | info | a library pin is not on the 1.27 mm grid |
+| `build.schematic-wired-fallback` | info | a sheet is drawn `readable` instead of `wired`: a unit of it is placed by `schematic-placements.toml`, or its wired drawing fits no paper up to A0; `where` names the sheet |
 | `build.block-port-merged` | info | two port members or more of one block instance bind one net: that net keeps global labels on the block's sheet and those members get no sheet pin (change c0269); `where` is the block path |
 | `kicad.sch.power-pin-shown` | info | a hidden power-input pin is embedded visible |
 

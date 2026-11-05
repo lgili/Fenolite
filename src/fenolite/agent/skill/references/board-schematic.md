@@ -67,6 +67,21 @@ fenolite equivalent before/board.kicad_pcb after/board.kicad_pcb --json
   Swap pins on an instance only between pins that the datasheet calls equivalent, and record the swap.
   An update of the symbol from its library undoes the swap.
 
+## A generated schematic
+
+`fenolite build` draws each sheet wired: parts stand beside the IC pin they serve, local nets are wires,
+supplies are power symbols (rails up, grounds down), signals run left to right, and a net carries a
+global label only where it leaves its wired group. `--schematic-layout readable` gives a label at every
+pin, `grid` the plain grid. A sheet with placed symbols, or one too large for A0, is drawn readable and
+the build reports `build.schematic-wired-fallback` (info). Name supplies as supplies (`GND`, `+3V3`,
+`VBUS`) or declare them with `Power(...)`: a net named like a signal (`VIN_RAW`) is wired and labelled.
+`fenolite.backends.kicad.schreadability.measure_sheet` counts labels, crossings, wires over pins or bodies,
+four-way points, T joints without a dot and overlapping texts of any sheet.
+
+```fenolite-cmd
+fenolite build blink/design.py --out build/blink --schematic-layout wired --dry-run --json
+```
+
 ## A drawn schematic
 
 `design.load_schematic("schematic.toml")` draws the sheets from that file beside the script instead of
