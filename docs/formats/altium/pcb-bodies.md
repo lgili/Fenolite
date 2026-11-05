@@ -192,6 +192,18 @@ and resources remain immutable; no raw-record hex JSON is duplicated into extens
 | Projection outside inferred 0/1, or different from the component side, gives unknown geometry | S-0709, S-0708; authored import tests | INFERRED | H-A-IMP-BODY-Z |
 | MODEL.MODELTYPE outside 0/1 gives unknown geometry; an absent key preserves the legacy extruded-record convention | S-0303; authored import tests | INFERRED | H-A-IMP-BODY-Z |
 
+
+## Kit Part Z, as saved by Altium Designer 24.5.2.23 (c0387)
+
+Measured on 2026-11-05 on the documents that an agent saved in Part Z (S-1650: an agent run, not the
+maintainer's report), with Fenolite's reader after the kit privacy scan; values only, no file committed.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| The Properties panel offers Board Side `Top` and `Bottom` for a 3D body. U1's body set to `Bottom` on its top component (Z1) is saved with `BODYPROJECTION=1`, its other keys and its layer (`MECHANICAL13`) unchanged; the 3D view shows no body above U1 and a block under the board with View » Flip Board | S-1650 | INFERRED | H-A-IMP-BODY-Z |
+| The import gives a top part's body of projection 1 the interval `-(T + overall)` to `-(T + standoff)` in the mounted-face frame, `T` the board's stack-up thickness: extruded outward from the bottom face, as projection 1 is on a bottom part (above). That the extrusion starts at the bottom face rather than the top face is read from that convention and S-0708, not measured in Z1; without a stack-up thickness, in a library, and for a bottom part's body of projection 0 (not measured), the body stays `altium.import.body-unknown` | S-1650, S-0708 | INFERRED | H-A-IMP-BODY-Z |
+| The panel keeps a negative standoff (−0.5 mm with overall 1 mm), swaps the two heights when the standoff exceeds the overall height or the overall height is 0, and keeps an overall height of 100 mm; Z3 is saved with `OVERALLHEIGHT=3937.0079mil` and `STANDOFFHEIGHT=0mil`. A body whose overall height is below its standoff is therefore not one the panel writes; the import keeps it unknown | S-1650 | INFERRED | H-A-IMP-BODY-Z |
+
 A body without a component stays unmapped. Bounded MODELID and MODEL.CHECKSUM metadata are
 compatible with this contract; unbounded raw-record copies in ext are prohibited.
 

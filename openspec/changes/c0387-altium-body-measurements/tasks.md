@@ -20,12 +20,22 @@
   - Where the run differs from the steps: Place in a document leaves a body without a component, so the
     Z2 and Z4 bodies are not on `R1` or `U1`. A generic body has no height field. Z1's depth below the
     board face was not measured.
+  - 2026-11-05: Z1 and Z3 saved by an agent run (S-1650) and read with Fenolite's reader after the privacy
+    scan; the facts are in `pcb-bodies.md`, "Kit Part Z". Z2 (model types) and Z4 (c0175) are not saved yet.
 
 ## 2. Conversion
 
-- [ ] 2.1 Give known heights to the bodies a saved file proves; keep the others declared
+- [x] 2.1 Give known heights to the bodies a saved file proves; keep the others declared
   (`altium.import.body-unknown`). Proof: authored import tests and the env-gated saved files.
   - 2026-11-05: OPEN, waiting on task 1.2: no saved file proves a new case yet.
+  - 2026-11-05, done for Z1 and Z3 (S-1650): a top part's body of projection 1 now gets the interval
+    `-(T + overall)` to `-(T + standoff)` below the board (`adapter/bodies.py`); a bottom part's body of
+    projection 0, a library body of the other face, model types other than 0 and 1 (Z2 not saved) and
+    reversed heights (Z3: the panel never writes them) stay declared. The extrusion's start face is
+    inferred, not measured; altium-rounds-2 was asked how far Z1's block lies below the board. Proof: `uv run
+    pytest tests/unit/backends/altium/test_body_volume_import.py -q` and `FENOLITE_ALTIUM_PART_Z_SAVED=<saved>
+    FENOLITE_KIT_REVIEWED_PREFIX=<VM work folder> uv run pytest tests/unit/backends/altium/test_part_z.py -k
+    saved` passed.
 
 ## 3. Close
 

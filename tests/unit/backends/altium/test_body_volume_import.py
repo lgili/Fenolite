@@ -8,6 +8,7 @@ import pytest
 from fenolite.backends.altium.adapter import import_board
 from fenolite.backends.altium.read.bodies import encode, read_bodies
 from fenolite.core.errors import Issue
+from fenolite.model.board import outward_height
 
 
 @pytest.mark.parametrize("side,projection", [("TOP", 0), ("BOTTOM", 1)])
@@ -31,7 +32,6 @@ def test_signed_body_matches_mounted_face(side: str, projection: int) -> None:
     "fields",
     [
         {"BODYPROJECTION": "73"},
-        {"BODYPROJECTION": "1"},
         {"MODEL.MODELTYPE": "73", "MODEL.NAME": "authored.step"},
         {"OVERALLHEIGHT": "4mil", "STANDOFFHEIGHT": "8mil"},
         {"OVERALLHEIGHT": "tall"},
@@ -71,3 +71,50 @@ def test_only_unknown_body_is_mapped_without_unmapped_issue() -> None:
     assert design.board and len(design.board.footprints[0].bodies) == 1
     assert any(i.code == "altium.import.body-unknown" for i in issues)
     assert not any(i.code == "altium.import.unmapped" for i in issues)
+
+
+def test_top_part_body_projected_from_the_bottom_lies_under_the_board() -> None:
+    """Kit case Z1 (c0387): a top part's body with projection 1 is extruded outward from the bottom face."""
+    fields = {"BODYPROJECTION": "1", "STANDOFFHEIGHT": "0mil", "OVERALLHEIGHT": "98.4252mil"}
+    data = rec.body_bytes(fields=fields)
+    doc = rec.document(components=[rec.component("U1")], storages={"ComponentBodies6": {"Data": data}})
+    issues: list[Issue] = []
+    design = import_board(doc, file="authored.PcbDoc", sha256=rec.SHA, issues=issues)
+    assert design.board and design.board.stackup
+    thickness = design.board.stackup.thickness()
+    (body,) = design.board.footprints[0].bodies
+    assert not body.projection_unknown and thickness > 0
+    assert (body.z_min, body.z_max) == (-thickness - 2_500_000, -thickness)
+    assert (body.standoff, body.height) == (0, 2_500_000)
+    assert outward_height(design.board.footprints[0]) is None
+    assert not any(i.code == "altium.import.body-unknown" for i in issues)
+    assert not [i for i in design.validate() if i.severity == "error"]
+
+
+def test_bottom_part_body_projected_from_the_top_stays_unknown() -> None:
+    data = rec.body_bytes(fields={"BODYPROJECTION": "0"})
+    doc = rec.document(
+        components=[rec.component("U1", layer="BOTTOM")], storages={"ComponentBodies6": {"Data": data}}
+    )
+    issues: list[Issue] = []
+    design = import_board(doc, file="authored.PcbDoc", sha256=rec.SHA, issues=issues)
+    assert design.board
+    (body,) = design.board.footprints[0].bodies
+    assert body.projection_unknown and body.z_min is body.z_max is None
+    assert any(i.code == "altium.import.body-unknown" for i in issues)
+
+
+def test_other_face_without_a_board_thickness_stays_unknown() -> None:
+    from fenolite.backends.altium.adapter.bodies import component_body
+    from fenolite.backends.altium.adapter.context import Context
+    from fenolite.backends.altium.adapter.ids import Ids
+    from fenolite.backends.altium.adapter.layers import LayerMap
+    from fenolite.backends.altium.import_evidence import EVIDENCE
+
+    (record,) = read_bodies(rec.body_bytes(fields={"BODYPROJECTION": "1"}))
+    ctx = Context(
+        ids=Ids("altium_pcblib", EVIDENCE), layers=LayerMap.from_board(rec.board()), file="a", sha256=rec.SHA
+    )
+    body = component_body(record, None, ctx, locator="Data#0", section="bdy")
+    assert body.projection_unknown and body.z_min is body.z_max is None
+    assert any("without a board thickness" in i.message for i in ctx.issues)

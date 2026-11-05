@@ -25,10 +25,17 @@ def component_body(
     locator: str,
     section: str,
     mounted_side: Side = "top",
+    board_thickness: int | None = None,
 ) -> ComponentBody:
     """The model body of ``record`` with its outline in the footprint frame (``frame`` is the inverse of
     the footprint's placement; ``None`` in a library). Every input body is kept; unproved heights or
-    projection are marked unknown (c0099). Reader records retain native bytes, without an ext copy."""
+    projection are marked unknown (c0099). Reader records retain native bytes, without an ext copy.
+
+    A top part's body projected from the bottom (kit case Z1, c0387) lies under the board, extruded outward
+    from the bottom face: in the mounted-face frame it spans ``-(board_thickness + overall)`` to
+    ``-(board_thickness + standoff)``. Without ``board_thickness`` (a library, or a board without a
+    stack-up) it stays unknown; a bottom part's body projected from the top is not measured and stays
+    unknown."""
     overall, standoff = record.overall_height, record.standoff_height
     reasons: list[str] = []
     if overall is None or standoff is None:
@@ -39,8 +46,11 @@ def component_body(
     # S-0709 supports this ordinal interpretation, but does not prove file encoding.
     projection = record.body_projection
     projected_side = "top" if projection == 0 else "bottom" if projection == 1 else None
-    if projected_side != mounted_side:
+    other_face = mounted_side == "top" and projected_side == "bottom"
+    if projected_side != mounted_side and not other_face:
         reasons.append("unproved or different projection side")
+    elif other_face and board_thickness is None:
+        reasons.append("projection from the other face without a board thickness")
     if overall is not None and standoff is not None and overall < standoff:
         reasons.append("overall height below standoff")
     if record.properties.text("MODEL.MODELTYPE") not in ("", "0", "1"):
@@ -76,8 +86,8 @@ def component_body(
         layer=layer,
         model=model,
         name=name,
-        z_min=None if reasons else stand,
-        z_max=None if reasons else height,
+        z_min=None if reasons else -(board_thickness or 0) - height if other_face else stand,
+        z_max=None if reasons else -(board_thickness or 0) - stand if other_face else height,
         projection_unknown=bool(reasons),
     )
 
