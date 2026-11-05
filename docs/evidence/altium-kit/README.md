@@ -114,6 +114,40 @@ before the kit runs, with the stale run named in its result: `H-A-WRITE-PCBDOC`,
 `H-A-PCBX-TEXT` and `H-A-PCBX-KEEPOUT` to the author report of 2026-10-09. To restore them, build the current
 kit and run K2.4 and K5.1 to K5.5 on `board6`, then `fenolite kit verify` and `fenolite kit record --confirm`.
 
+## board6 rerun of 2026-11-05 (c0389, task 2.7)
+
+A Claude agent reran kit steps K2.4 and K5.1 to K5.5 on `board6` at the maintainer's request (delegation of
+2026-11-04), relayed by the coordinator. It used Altium Designer 24.5.2.23 (Trial) in the maintainer's
+Parallels Windows VM (S-1607). The run is recorded as `2026-11-05-ddbe216c.json`. The kit was built at
+`cdf2f84c`, after change c0389 task 2.7, with `fenolite kit build` (seed 0, timestamp `2026-01-01T00:00:00Z`):
+kit digest `14c30ba1…`, script `843f93f7…`, `board6.PcbDoc` `1a065a8f…`. The run started with no
+`results/script.log`.
+
+- K2.4: with `board6.PrjPcb` focused, `FenoliteKitRun` from File » Run Script. No error dialog came up.
+  `script.log` holds `K2.4 done`, and `messages.txt` reports "Compile successful, no errors found".
+- K5.1: `board6.PcbDoc` was saved with File » Save As as `results/board6/board6.PcbDoc` (`450e889e…`).
+- K5.2 = 6: the Layer Stack Manager lists Signal, Signal, Plane, Signal, Signal and Signal.
+- K5.3 true. The three vias, read by an authored read-only DelphiScript, are `VIN` Top Layer to Bottom
+  Layer at (10, 18.81), `LED_A` Top Layer to Mid Layer 1 at (38, 9), and `GND` Mid Layer 1 to Internal
+  Plane 1 at (20, 24), in mm from the outline's upper-left corner.
+- K5.4 true: the Properties panel of the selected keep-out checks Via and Track, and not Copper, SMD Pad
+  or TH Pad.
+- K5.5 true. The texts are `Tensão 5 V` on Top Overlay, `BOARD6 REV A` on Bottom Overlay (mirrored),
+  `ASSEMBLY TOP` on Mechanical 13, and `BOTTOM` on Mechanical 14 at 90°, mirrored.
+
+`kit verify` exits 0: K2.4 and K5.1 to K5.5 pass, the other 44 steps are skipped, and the privacy scan
+finds only the VM work folder in the saved board. `kit record --confirm` restores `H-A-PCBX-STACK`,
+`H-A-PCBX-VIASPAN`, `H-A-PCBX-TEXT` and `H-A-PCBX-KEEPOUT`. The archive (`ddbe216c…`, 195733 bytes) stays in
+local storage, unpublished. Every document was closed with Don't Save. Altium added a
+`board6.PrjPcbStructure` file beside the project in the VM copy. The kit folder that was verified holds
+the built files and the run's `results/` only.
+
+The other five rows of the stale list, `H-A-WRITE-PCBDOC`, `H-A-PH-NO-CACHE`, `H-A-KIT-RESAVE`,
+`H-A-KIT-COMPILE` and `H-A-KIT-SCRIPT`, stay at `INFERRED`. `kit verify` decides each of them within one
+run, and in this run they are skipped: they also name steps of the other samples. Those steps are K1.1 to
+K1.8 and K2.1 to K2.5, plus K3.1 and K3.2 for `H-A-KIT-COMPILE` and K6.1 for `H-A-KIT-RESAVE`. The earlier
+runs that passed them used other kit digests. Restoring them needs those steps on the current kit.
+
 ## Author report of 2026-10-07 (opening only)
 
 On 2026-10-07 the author reported that the projects of the kit built from `5adad054` opened in Altium

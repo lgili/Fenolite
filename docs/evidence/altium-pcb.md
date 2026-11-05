@@ -1053,6 +1053,23 @@ outside the repository.
 
 Not run: C5 (the Viewer upload). The C6 failure leaves `H-A-PCB-CU-PLANE` pending. No level changes.
 
+### 2026-11-05, actual `AD24.5.2.23`, C6 rerun after c0389 task 2.7 (source S-1607)
+
+Run by a Claude agent at the maintainer's request (delegation of 2026-11-04), relayed by the coordinator. It
+used Altium Designer 24.5.2.23 (Trial) in the maintainer's Windows VM. It is not the maintainer's own review.
+The input is the plane variant `p0`, rebuilt at `cdf2f84c` by `-k variants`, with digest `4082a630…`, the
+digest the table above names. It was opened from a VM copy, read with authored read-only DelphiScript and
+checked with Tools » Design Rule Check » Run Design Rule Check, in the same way as the run of S-1601. The
+document was closed without saving and its digest is unchanged.
+
+| step | observed |
+|---|---|
+| C6 | `p0` opens with no message. The stack is Top Layer, Internal Plane 1 (net `GND`), Mid-Layer 2 and Bottom Layer. The board holds 4 tracks (none on the plane), 3 vias, one `GND` polygon on Bottom Layer and one split plane on Internal Plane 1 with net `GND`; no connection line is listed. The rules include `PlaneConnect` ("Relief Connect", expansion 20 mil, conductor 10 mil, air gap 10 mil, 4 entries, `All`) and `PlaneClearance` (20 mil, `All`) besides the five written rules and Altium's defaults. The design rule check reports 42 violations: 1 Net Antennae (the `VIN` track on Bottom Layer), 10 Silk To Solder Mask Clearance and 31 Minimum Solder Mask Sliver. **No Starved Thermal and no Un-Routed Net**: the S-1601 violations on the `GND` via, on `D1` pad 1 and between them are gone. The rule descriptor does not show the via connect style, so "vias Direct" was not read |
+
+The 42 remaining violations concern silk, solder mask and one antenna; the S-1601 report names only the plane
+and routing violations, so they are not compared here. `H-A-PCB-CU-PLANE` keeps its level, because this
+was an agent run. The decision is left to the coordinator.
+
 ### 2026-11-04, actual `AD24.5.2.23`, Part T
 
 Source S-1571: [T1–T6 report](altium-part-t-convert-2026-11-04.md) and

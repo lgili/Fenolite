@@ -33,6 +33,13 @@
     The kit sample `board6` holds a plane, so kit steps K2.4 and K5.1 to K5.5 must run again on the
     current kit; until then nine register rows are set back (`docs/evidence/altium-kit/README.md`, "Stale
     rows after c0389 task 2.7").
+  - 2026-11-05, S-1607 (agent run, AD 24.5.2.23 Trial): C6 on the new `p0` (`4082a630…`). The board holds the split
+    plane on Internal Plane 1 (`GND`) and the rules `PlaneConnect` and `PlaneClearance`. The design rule check
+    reports no Starved Thermal and no Un-Routed Net; its 42 violations are silk, solder mask and one antenna.
+    `H-A-PCB-CU-PLANE` is left to the coordinator. The kit rerun of K2.4 and K5.1 to K5.5 on `board6` (run
+    `2026-11-05-ddbe216c`) passes and restores the four `H-A-PCBX-*` rows. The other five rows stay
+    `INFERRED`, because they also name steps of other samples (`docs/evidence/altium-kit/README.md`, "board6
+    rerun of 2026-11-05").
 - [ ] 2.5 (from c0166 3.3) Execute Repeat R1-R4 and R5 when its implementation is available; preserve any branch blocker. Proof: the report and focused Repeat tests.
   - Blocker on 2026-11-05: Repeat R1–R5 was not run in any agent round (S-1570 to S-1589); R5 keeps its recorded failure.
   - 2026-11-05 (S-1602, AD 24.5.2.23 Trial, agent run): R1 and R2 run on the committed bytes that passed in AD 26.5
