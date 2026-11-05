@@ -26,6 +26,8 @@ from _rolecopper import board, cli, findings, judged, outcome
 from fenolite.geometry.polygon import area2
 from fenolite.roles.profile import MM2
 
+pytestmark = pytest.mark.long_flow
+
 COPPER_CODES = {
     "roles.width-current",
     "roles.section-current",

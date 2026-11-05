@@ -18,6 +18,8 @@ from fenolite.core.coords import Point
 from fenolite.roles.measure import RoleBoard, power_pads
 from fenolite.roles.proposals import Attach, OpenGroup, SubjectPlan, subjects
 
+pytestmark = pytest.mark.long_flow
+
 
 def plan_of(built: Built, groups: tuple[OpenGroup, ...] = ()) -> SubjectPlan:
     design, pads = board(built)

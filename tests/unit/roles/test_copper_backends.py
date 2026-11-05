@@ -23,6 +23,8 @@ from fenolite.backends.base import BoardPad
 from fenolite.core.coords import Point
 from fenolite.model.design import Design
 
+pytestmark = pytest.mark.long_flow
+
 CASES = [(name, variant) for name in BOARDS for variant in VARIANTS]
 ROUNDING_NM = 1_000
 """The two readers round a coordinate to their units (1 nm, and 1/10 000 mil = 2.54 nm); 1 µm covers both and

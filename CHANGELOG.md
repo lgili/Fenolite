@@ -686,6 +686,23 @@ All notable changes to Fenolite are documented here. The format follows
   probe import so ordinary bytecode does not pollute the committed data tree.
   The literal L8 repair selectors pass on actual native KiCad 10.0.6, including
   heavy public independent-import controls; exact-head CI remains pending.
+- **Light push feedback** (c0381): classify measured whole-file board flows separately from light tests. Fast uses three Linux/Python 3.13 runners with a required exact-commit union audit; all PRs retain full coverage. Test changes require full validation. The 5–10 minute target remains subject to live measurement.
+
+- **Audited CI profiles** (c0380): use the complete tool-free selection on recognized working-branch
+  pushes, with full validation on every PR, integration ref (including CAC batch branches) and
+  CI-control change. Keep all native,
+  heavy-corpus and cross-platform merge coverage; split KiCad 10 into four whole-file partitions,
+  require exact-commit collection/outcome receipts, and distinguish iteration feedback from the
+  complete merge gate. Deduplicate platform-independent static checks, retain native macOS/Windows
+  types, and publish JUnit and timing artifacts. Verify container checkout identity with scoped Git
+  trust and discard stale reports before preflight; refuse malformed diffs and detect renamed-away
+  CI controls and alternate pytest configuration. Close the existing coverage gap for resource-dependent
+  unit files by running them in KiCad 10 and cross-auditing their required outcomes. Prioritize three
+  measured expensive whole files while retaining the locked loadfile scheduler and internal case order;
+  isolate Git regression fixtures from host configuration and templates. Reuse identical complete
+  owner-project census measurements within a test module only after rechecking input hashes and
+  execution identity, retaining every sheet's strict outcome, owner context and independent report.
+  Changes to census proof controls and CI policy guidance require full validation.
 
 - **Drawn font values** (c0326): add validated optional fonts to drawn fields, labels and sheet pins,
   explicit label/pin justification and sheet-property poses. Preserve exact integer size and

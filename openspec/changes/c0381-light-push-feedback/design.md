@@ -1,0 +1,7 @@
+Use module-wide markers only to preserve file-local prerequisites. The measured proposal, route, copper, lowering, kit, import and view flows execute complete board pipelines. Keep consistency, fidelity and residue guards in fast. Choose Linux 3.13 for iteration while full retains 3.11/12/13 and both other OSes. Baseline inventories must prove every excluded fast id remains in full; source test changes force full. Preserve the distinct fail-closed gates. Timing target is observed, not guaranteed.
+
+The single-runner light measurement exceeded the desired latency locally. Run two whole-file light partitions in CI, preserving file-local prerequisites and the same selected union. Audit both exact-commit receipts and require the audit in ci-fast; a missing, failed, duplicated or mismatched partition blocks feedback success. Local runner defaults remain one partition. Full profiles are unchanged.
+
+Light partitions start after planning, concurrently with static quality. The final gate still requires quality, DCO, both partitions and their audit to succeed; this removes idle dependency time without dropping a check.
+
+The live two-runner probe exceeded ten minutes before its audit. Use three partitions: the observed single-runner case costs distribute approximately 1300/1119/1151 case-seconds, versus 1815/1755 for two. This adds latency margin without removing cases. Historical two-runner receipts remain evidence of the earlier version. The current light audit requires exactly three receipts.

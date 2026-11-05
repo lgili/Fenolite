@@ -26,6 +26,8 @@ from fenolite.verify.kit.manifest import FORM_FILE, blank_form
 from fenolite.verify.kit.results import form_problems, privacy_scan, verify_results
 from fenolite.verify.kit.steps import POUR_SAMPLES, STEPS
 
+pytestmark = pytest.mark.long_flow
+
 USERS = "Users"  # the folder name is put together here, so that this file holds no path of a home folder
 
 

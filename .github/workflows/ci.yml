@@ -7,16 +7,95 @@ on:
       - "**"
       - "!backup/**"
   pull_request:
+  merge_group:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: "Full validation by default; fast is allowed only on a working branch"
+        type: choice
+        options: [full, fast]
+        default: full
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      profile: ${{ steps.profile.outputs.profile }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Select conservative profile
+        id: profile
+        run: python3 tools/ci_profiles.py plan
+
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+          enable-cache: true
+      - name: Sync (locked)
+        run: uv sync --locked --extra dev --extra geo
+      - name: Static quality gates (once per run)
+        run: make lint format types residue
+
+  fast:
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2]
+    needs: [plan]
+    if: needs.plan.outputs.profile == 'fast'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.13"
+          enable-cache: true
+      - name: Sync (locked)
+        run: uv sync --locked --extra dev --extra geo
+      - name: Light tool-free partition
+        run: uv run python tools/ci_tests.py run --suite fast --shard ${{ matrix.shard }} --shards 3 --out "${{ runner.temp }}/ci-tests/fast"
+      - name: Keep fast inventory and timings
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          overwrite: true
+          retention-days: 14
+          name: ci-fast-tests-${{ matrix.shard }}
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/ci-tests/fast/receipt.json
+            ${{ runner.temp }}/ci-tests/fast/junit.xml
+
+  fast-audit:
+    name: light test coverage
+    needs: [plan, fast]
+    if: always() && needs.plan.outputs.profile == 'fast'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: ci-fast-tests-*
+          path: ci-fast-receipts
+      - name: Require three complete disjoint light partitions
+        run: python3 tools/ci_tests.py audit ci-fast-receipts --fast --commit "$GITHUB_SHA"
+
   unit:
+    needs: [plan, quality]
+    if: needs.plan.outputs.profile == 'full'
     name: unit (${{ matrix.os }}, py${{ matrix.python }})
     strategy:
       fail-fast: false
@@ -41,14 +120,9 @@ jobs:
           enable-cache: true
       - name: Sync (locked)
         run: uv sync --locked --extra dev --extra geo
-      - name: Lint
-        run: uv run ruff check .
-      - name: Format
-        run: uv run ruff format --check .
-      - name: Types
+      - name: Native platform types
+        if: matrix.os != 'ubuntu-latest'
         run: uv run pyright src
-      - name: Residue scan
-        run: uv run python tools/residue/scan.py
       - name: Shipped block tests
         run: uv run fenolite blocks test --json
 
@@ -59,6 +133,7 @@ jobs:
         if: always() && matrix.os == 'ubuntu-latest' && matrix.python == '3.12'
         uses: actions/upload-artifact@v4
         with:
+          overwrite: true
           name: library-review
           path: |
             library-review/
@@ -74,6 +149,7 @@ jobs:
         if: always() && matrix.os == 'macos-latest' && steps.authored_byte_probe.outcome == 'failure'
         uses: actions/upload-artifact@v4
         with:
+          overwrite: true
           name: authored-mac-byte-failure-early
           if-no-files-found: warn
           path: |
@@ -82,18 +158,32 @@ jobs:
       - name: Tests
         env:
           FENOLITE_BUILD_BYTE_DIAGNOSTICS: ${{ matrix.os == 'macos-latest' && format('{0}/fenolite-byte-diagnostics', runner.temp) || '' }}
-        run: uv run pytest -q -n auto --dist loadfile
+        run: uv run python tools/ci_tests.py run --suite unit-${{ matrix.os }}-py${{ matrix.python }} --out "${{ runner.temp }}/ci-tests/unit"
       - name: Keep authored Mac byte-failure evidence
         if: failure() && matrix.os == 'macos-latest'
         uses: actions/upload-artifact@v4
         with:
+          overwrite: true
           name: authored-mac-byte-failure
           if-no-files-found: warn
           path: |
             ${{ runner.temp }}/fenolite-byte-diagnostics/board_40parts.PcbDoc
             ${{ runner.temp }}/fenolite-byte-diagnostics/receipt.json
+      - name: Keep test inventory and timings
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          overwrite: true
+          retention-days: 14
+          name: ci-tests-unit-${{ matrix.os }}-py${{ matrix.python }}
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/ci-tests/unit/receipt.json
+            ${{ runner.temp }}/ci-tests/unit/junit.xml
 
   viewer:
+    needs: [plan, quality]
+    if: needs.plan.outputs.profile == 'full'
     # change c0191: screenshot and interaction tests of the viewer page, in the Chromium of Playwright 1.63.0
     # (153.0.8010.12) with the fonts of fonts-dejavu-core 2.37-8, the versions the references were made with
     name: viewer (visual tests)
@@ -124,15 +214,29 @@ jobs:
       - name: Visual tests
         env:
           FENOLITE_REQUIRE: browser
-        run: uv run pytest tests/visual -q --basetemp "$RUNNER_TEMP/visual"
+        run: uv run python tools/ci_tests.py run --suite viewer --workers 0 --out "$RUNNER_TEMP/ci-tests/viewer"
       - name: Keep the screenshots and difference images
         if: failure()
         uses: actions/upload-artifact@v4
         with:
+          overwrite: true
           name: viewer-differences
-          path: ${{ runner.temp }}/visual/**/*.png
+          path: ${{ runner.temp }}/ci-tests/viewer/tmp/**/*.png
+      - name: Keep test inventory and timings
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          overwrite: true
+          retention-days: 14
+          name: ci-tests-viewer
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/ci-tests/viewer/receipt.json
+            ${{ runner.temp }}/ci-tests/viewer/junit.xml
 
   mcp:
+    needs: [plan, quality]
+    if: needs.plan.outputs.profile == 'full'
     # change c0195: the official MCP SDK's client (the oracles extra) against fenolite mcp, a legacy and a
     # modern session, with the server's own tests
     name: mcp (the official MCP client against fenolite mcp)
@@ -149,9 +253,22 @@ jobs:
       - name: MCP tests
         env:
           FENOLITE_REQUIRE: mcp-sdk
-        run: uv run pytest tests/unit/mcp tests/unit/cli/test_mcp_cmd.py -q
+        run: uv run python tools/ci_tests.py run --suite mcp --workers 0 --out "${{ runner.temp }}/ci-tests/mcp"
+      - name: Keep test inventory and timings
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          overwrite: true
+          retention-days: 14
+          name: ci-tests-mcp
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/ci-tests/mcp/receipt.json
+            ${{ runner.temp }}/ci-tests/mcp/junit.xml
 
   wheel:
+    needs: [plan, quality]
+    if: needs.plan.outputs.profile == 'full'
     name: wheel (the built package installs alone)
     runs-on: ubuntu-latest
     steps:
@@ -210,7 +327,13 @@ jobs:
         run: python3 tools/dco_check.py
 
   kicad-10:
-    name: kicad-10 (kicad-cli oracle and corpus)
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3]
+    needs: [plan, quality]
+    if: needs.plan.outputs.profile == 'full'
+    name: kicad-10 (oracle and corpus shard ${{ matrix.shard }}/4)
     runs-on: ubuntu-latest
     container:
       image: kicad/kicad:10.0.6@sha256:18693567392b80da435f9fa952ce3a3e534c66eb5a6033f5b9c80aa3b19dd3ec
@@ -265,33 +388,49 @@ jobs:
         run: uv run pytest tests/unit/cli/test_view_actions.py::test_export_plans_files_under_fab tests/unit/cli/test_view_actions.py::test_fill_plan tests/unit/cli/test_view_actions.py::test_tidy_with_the_drc_gate -q -rA --basetemp /tmp/fenolite-view-actions-native -n auto --dist loadfile
       - name: Oracle and corpus tests
         env:
-          FENOLITE_REQUIRE: kicad,corpus
-        run: uv run pytest tests/kicad tests/corpus -q --basetemp /tmp/fenolite-kicad-corpus -n auto --dist loadfile
+          FENOLITE_REQUIRE: kicad,corpus,libs
+        run: uv run python tools/ci_tests.py run --suite kicad-10 --shard ${{ matrix.shard }} --shards 4 --out /tmp/fenolite-kicad-corpus
       - name: Keep aggregate import census measurements
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: import-census
+          overwrite: true
+          name: import-census-${{ matrix.shard }}
           path: /tmp/fenolite-kicad-corpus/**/import-census.json
           if-no-files-found: ignore
       - name: Keep drawn schematic census measurements
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: drawn-census-kicad-10
+          overwrite: true
+          name: drawn-census-kicad-10-${{ matrix.shard }}
           path: /tmp/**/drawn-census.json
           if-no-files-found: ignore
       - name: Keep original-floor and copy-upgrade evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: drawn-floor-kicad-10
+          overwrite: true
+          name: drawn-floor-kicad-10-${{ matrix.shard }}
           path: |
             /tmp/**/drawn-floor.json
             !/tmp/**/*current/**
+          if-no-files-found: ignore  # one shard writes it; drawn-floor-bridge requires every row
+      - name: Keep test inventory and timings
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          overwrite: true
+          retention-days: 14
+          name: ci-tests-kicad-10-${{ matrix.shard }}
           if-no-files-found: error
+          path: |
+            /tmp/fenolite-kicad-corpus/receipt.json
+            /tmp/fenolite-kicad-corpus/junit.xml
 
   kicad-9:
+    needs: [plan, quality]
+    if: needs.plan.outputs.profile == 'full'
     name: kicad-9 (kicad-cli 9.0 oracle)
     runs-on: ubuntu-latest
     container:
@@ -323,11 +462,12 @@ jobs:
       - name: Oracle tests
         env:
           FENOLITE_REQUIRE: kicad
-        run: uv run pytest tests/kicad -q -rA -n auto --dist loadfile
+        run: uv run python tools/ci_tests.py run --suite kicad-9 --out /tmp/fenolite-ci-kicad9
       - name: Keep drawn schematic census measurements
         if: always()
         uses: actions/upload-artifact@v4
         with:
+          overwrite: true
           name: drawn-census-kicad-9
           path: /tmp/**/drawn-census.json
           if-no-files-found: ignore
@@ -341,10 +481,22 @@ jobs:
             !/tmp/**/*current/**
           if-no-files-found: error
 
+      - name: Keep test inventory and timings
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          overwrite: true
+          retention-days: 14
+          name: ci-tests-kicad-9
+          if-no-files-found: error
+          path: |
+            /tmp/fenolite-ci-kicad9/receipt.json
+            /tmp/fenolite-ci-kicad9/junit.xml
+
   drawn-floor-bridge:
     name: drawn-floor (same-commit native10 upgrade qualification)
-    needs: [kicad-9, kicad-10]
-    if: always()
+    needs: [plan, kicad-9, kicad-10]
+    if: always() && needs.plan.outputs.profile == 'full'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -362,6 +514,8 @@ jobs:
         run: test "$NATIVE_NINE_RESULT" = success && test "$NATIVE_TEN_RESULT" = success
 
   routing:
+    needs: [plan, quality]
+    if: needs.plan.outputs.profile == 'full'
     name: routing (KiCad ${{ matrix.target }}, pinned KiCadRoutingTools and Freerouting)
     strategy:
       fail-fast: false
@@ -407,4 +561,56 @@ jobs:
           FENOLITE_KRT: /tmp/kicadroutingtools
           FENOLITE_KRT_PYTHON: /tmp/krt-venv/bin/python
           FENOLITE_FREEROUTING_JAR: /tmp/freerouting/freerouting-2.4.1.jar
-        run: uv run pytest tests/routing -q -rA
+        run: uv run python tools/ci_tests.py run --suite routing-${{ matrix.target }} --workers 0 --out /tmp/fenolite-ci-routing
+      - name: Keep test inventory and timings
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          overwrite: true
+          retention-days: 14
+          name: ci-tests-routing-${{ matrix.target }}
+          if-no-files-found: error
+          path: |
+            /tmp/fenolite-ci-routing/receipt.json
+            /tmp/fenolite-ci-routing/junit.xml
+
+
+  audit:
+    name: complete test coverage
+    needs: [plan, unit, viewer, mcp, kicad-10, kicad-9, routing]
+    if: always() && needs.plan.outputs.profile == 'full'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: ci-tests-*
+          path: ci-receipts
+      - name: Require exhaustive disjoint coverage on this commit
+        run: python3 tools/ci_tests.py audit ci-receipts --commit "$GITHUB_SHA"
+
+  complete:
+    name: ${{ needs.plan.outputs.profile == 'fast' && 'ci-complete-not-requested' || 'ci-complete' }}
+    needs: [plan, quality, dco, unit, viewer, mcp, wheel, kicad-10, kicad-9, routing, drawn-floor-bridge, audit]
+    if: always() && needs.plan.outputs.profile != 'fast'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require every full dependency to succeed
+        env:
+          CI_PROFILE: ${{ needs.plan.outputs.profile }}
+          CI_NEEDS: ${{ toJSON(needs) }}
+        run: python3 tools/ci_profiles.py gate --kind full
+
+  fast-result:
+    name: ci-fast
+    needs: [plan, quality, dco, fast, fast-audit]
+    if: always() && needs.plan.outputs.profile == 'fast'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fast result cannot satisfy the complete gate
+        env:
+          CI_PROFILE: ${{ needs.plan.outputs.profile }}
+          CI_NEEDS: ${{ toJSON(needs) }}
+        run: python3 tools/ci_profiles.py gate --kind fast

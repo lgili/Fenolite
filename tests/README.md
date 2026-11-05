@@ -109,3 +109,17 @@ The first run with the parallel steps is https://github.com/lgili/Fenolite/actio
 - Times. `kicad-10` bounds the run: its pytest step went from 24 min 0 s to 17 min 32 s with 42 more
   tests. The design expected a drop to about a third; `--dist loadfile` is bounded by its longest
   file (see the measurements above). `kicad-9` did not get faster: 31 s more with 41 more tests.
+
+## Audited CI partitions (c0380)
+
+[CI profiles](../docs/ci.md) retain all five unit environments, both KiCad majors and required heavy
+corpus tests at the full gate. KiCad 10 runs four whole-file partitions on separate runners. Each
+partition collects the complete baseline, validates the selected execution collection and records a
+terminal outcome for every selected node id. The full audit requires all fourteen receipts on the
+same commit, with an exhaustive disjoint union per suite. Missing artifacts are failures, not skips.
+
+`tools/ci_tests.py run` retains `--dist loadfile`; it does not make within-file dependencies safe for
+another scheduler. Timing/JUnit artifacts show where collection, setup and test execution cost time.
+`tools/test_outcomes.py` still compares legacy JUnit outcomes. The authored serial/xdist and partition
+controls are `tests/unit/test_ci_execution.py`; no corpus payload is copied into those controls.
+Historical timings and the pending exact-head proof are documented in `docs/ci.md`.

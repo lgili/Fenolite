@@ -328,8 +328,12 @@ def _workflow_problems(text: str) -> list[str]:
     )
     if enable not in tests:
         problems.append("capture must be Mac-only in the original test step")
-    if "run: uv run pytest -q -n auto --dist loadfile" not in tests:
-        problems.append("original pytest invocation changed")
+    expected_run = (
+        "run: uv run python tools/ci_tests.py run --suite unit-${{ matrix.os }}-py${{ matrix.python }} "
+        '--out "${{ runner.temp }}/ci-tests/unit"'
+    )
+    if expected_run not in tests:
+        problems.append("audited whole-suite unit invocation changed")
     upload = steps.get("Keep authored Mac byte-failure evidence", "")
     if "if: failure() && matrix.os == 'macos-latest'" not in upload:
         problems.append("upload must be Mac-only after failure")

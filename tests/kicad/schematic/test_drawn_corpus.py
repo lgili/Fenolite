@@ -17,8 +17,9 @@ import _schcorpus
 import _schprojects
 import pytest
 from _corpus import MANIFEST, manifest_items, require
+from _drawn_census_reuse import OwnerMeasurements
 from _drawn_context import Contexts, SheetInput
-from _drawn_corpus import Input, measure, record
+from _drawn_corpus import Input, record
 from _drawn_floor import original_refusal
 from _resources import required_resources
 
@@ -84,7 +85,7 @@ def native():
 
 
 @pytest.mark.parametrize("row", ROWS, ids=lambda row: row.id)
-def test_demo_drawn_census(row: _schcorpus.SchRow, tmp_path: Path, native) -> None:
+def test_demo_drawn_census(row: _schcorpus.SchRow, tmp_path: Path, native, measurements) -> None:
     tool, version, running = native
     started = time.perf_counter()
     declaration = DECLARED[row.id]
@@ -175,11 +176,13 @@ def test_demo_drawn_census(row: _schcorpus.SchRow, tmp_path: Path, native) -> No
         folder.mkdir()
         try:
             root_file, inputs = materialize(BY_ID[owner.root.id], folder, running)
-            result = measure(
+            result = measurements.measure(
                 folder,
                 root_file,
                 inputs,
                 tool,
+                owner=owner.root.id,
+                manifest_sha256=str(base["manifest_sha256"]),
                 ident=row.id,
                 major=running,
                 native_version=version,
@@ -215,3 +218,8 @@ def test_demo_drawn_census(row: _schcorpus.SchRow, tmp_path: Path, native) -> No
         report["status"],
         [(case["context"], case.get("refusal"), case.get("partition")) for case in cases],
     )
+
+
+@pytest.fixture(scope="module")
+def measurements() -> OwnerMeasurements:
+    return OwnerMeasurements()

@@ -23,6 +23,8 @@ ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "tests" / "unit" / "verify" / "kit"))
 from _simulate import DATE, VERSION, simulate, simulated_judge  # noqa: E402
 
+pytestmark = pytest.mark.long_flow
+
 CONTRACT = (ROOT / "docs" / "cli-contract.md").read_text(encoding="utf-8")
 
 

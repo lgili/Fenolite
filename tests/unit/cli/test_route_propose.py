@@ -31,6 +31,8 @@ from fenolite.cli._propose import CANDIDATE_KEYS, PROPOSAL_KEYS  # noqa: E402
 from fenolite.routing.decisions import loads  # noqa: E402
 from fenolite.routing.protocol import SUBJECT_KINDS  # noqa: E402
 
+pytestmark = pytest.mark.long_flow
+
 ROUTE = ("--router", "octilinear")
 FORBIDDEN = {"score", "rank", "best", "recommended", "cost"}
 

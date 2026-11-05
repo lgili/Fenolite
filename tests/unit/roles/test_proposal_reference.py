@@ -47,6 +47,8 @@ from fenolite.roles.judge import Judged, run
 from fenolite.routing.decisions import loads
 from fenolite.routing.octilinear import fresh
 
+pytestmark = pytest.mark.long_flow
+
 ROUTE = ("--router", "octilinear")
 REJECT_REASON = "group proposals are recorded, not locked, by the reference gate"
 LEFTOVERS: dict[tuple[str, str], list[str]] = {

@@ -196,7 +196,9 @@ def test_actual_corpus_dispatch_uses_owner_root_and_requires_project(tmp_path, m
     monkeypatch.setattr(census._erc, "netlist", exported)
     case = tmp_path / "case"
     case.mkdir()
-    args = rows[child.id], case, (KicadCli(Path("authored-stub")), "authored-stub", 9)
+    native_tool = (KicadCli(Path("authored-stub")), "authored-stub", 9)
+    measurements = driver.OwnerMeasurements()
+    args = rows[child.id], case, native_tool, measurements
     if missing_project:
         with pytest.raises(AssertionError):
             driver.test_demo_drawn_census(*args)
@@ -213,3 +215,21 @@ def test_actual_corpus_dispatch_uses_owner_root_and_requires_project(tmp_path, m
         assert all(root_file == owner.root.id for root_file, _ in exports)
         assert project_name in exports[0][1]
     assert not list(case.rglob("*.kicad_sch"))
+    if not missing_project:
+        root_case = tmp_path / "root-case"
+        root_case.mkdir()
+        driver.test_demo_drawn_census(rows[owner.root.id], root_case, native_tool, measurements)
+        root_report = json.loads((root_case / "drawn-census.json").read_text(encoding="utf-8"))
+        assert root_report["id"] == owner.root.id
+        assert root_report["contexts"][0]["context"]["target_instances"] == 1
+        assert not owner_report["measurement"]["reused"]
+        assert root_report["contexts"][0]["measurement"]["reused"]
+        assert len(exports) == 2
+        assert not list(root_case.rglob("*.kicad_sch"))
+        (cache / project_name).unlink()
+        missing_case = tmp_path / "missing-case"
+        missing_case.mkdir()
+        with pytest.raises(AssertionError):
+            driver.test_demo_drawn_census(rows[child.id], missing_case, native_tool, measurements)
+        missing = json.loads((missing_case / "drawn-census.json").read_text(encoding="utf-8"))
+        assert missing["status"] == "missing-cache" and len(exports) == 2

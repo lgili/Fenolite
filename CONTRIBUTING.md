@@ -122,3 +122,11 @@ the Apache License 2.0.
 
 A release is a pushed tag `vX.Y.Z`: the release workflow checks, builds, publishes to PyPI and creates
 the GitHub Release. The steps are in [`docs/releasing.md`](docs/releasing.md).
+
+## CI profiles and complete coverage
+
+Working-branch pushes may run the tool-free profile; every PR (including a draft), integration-ref
+execution, unknown ref/event and CI-control change runs full validation. `ci-fast` is feedback only;
+it cannot replace the required `ci-complete` result. Require that check on integration branches and
+check its coverage audit on the exact tested commit before merging or closing a change. Details,
+manual runs, retained coverage, receipts and measured timing baselines are in [docs/ci.md](docs/ci.md).

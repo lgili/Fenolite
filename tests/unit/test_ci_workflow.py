@@ -24,10 +24,15 @@ STEPS = [
         "run: uv run python tools/corpus_fetch.py --uses rt0 --uses sch --uses libs "
         "--uses project --uses cfb",
     ),
-    ("pytest", "run: uv run pytest tests/kicad tests/corpus -q"),
+    ("pytest", "run: uv run python tools/ci_tests.py run --suite kicad-10"),
 ]
 KICAD10_PYTEST = (
-    "run: uv run pytest tests/kicad tests/corpus -q --basetemp /tmp/fenolite-kicad-corpus " + PARALLEL
+    "run: uv run python tools/ci_tests.py run --suite kicad-10 --shard ${{ matrix.shard }} "
+    "--shards 4 --out /tmp/fenolite-kicad-corpus"
+)
+UNIT_PYTEST = (
+    "run: uv run python tools/ci_tests.py run --suite unit-${{ matrix.os }}-py${{ matrix.python }} "
+    '--out "${{ runner.temp }}/ci-tests/unit"'
 )
 VIEW_ACTIONS_PYTEST = (
     "run: uv run pytest "
@@ -42,7 +47,6 @@ VIEW_ACTIONS_REQUIRED_STEP = (
     "          FENOLITE_REQUIRE: kicad\n"
     f"        {VIEW_ACTIONS_PYTEST}\n"
 )
-UNIT_PYTEST = f"run: uv run pytest -q {PARALLEL}"
 MAC_BYTE_PROBE = (
     "run: uv run pytest 'tests/unit/test_build_bytes.py::test_example_keeps_its_bytes[board_40parts@altium]' "
     '-q --basetemp "${{ runner.temp }}/fenolite-byte-probe"'
@@ -53,14 +57,18 @@ def test_block_test_workflow() -> None:
     text = WORKFLOW.read_text(encoding="utf-8")
     assert "run: uv run fenolite blocks test --json" in job_text(text, "unit")
     assert "/tmp/wheel-venv/bin/fenolite blocks test --json" in job_text(text, "wheel")
-    assert "uv run pytest tests/kicad" in job_text(text, "kicad-9")
-    assert "uv run pytest tests/kicad tests/corpus" in job_text(text, "kicad-10")
+    assert "--suite kicad-9" in job_text(text, "kicad-9")
+    assert "--suite kicad-10" in job_text(text, "kicad-10")
     assert (ROOT / "tests/kicad/blocks/test_usage_boards.py").is_file()
 
 
 def pytest_steps(job: str) -> list[str]:
     """The ``run:`` lines of a job that call pytest, stripped."""
-    return [line.strip() for line in job.splitlines() if line.strip().startswith("run: uv run pytest")]
+    return [
+        line.strip()
+        for line in job.splitlines()
+        if line.strip().startswith(("run: uv run pytest", "run: uv run python tools/ci_tests.py run"))
+    ]
 
 
 ALTIUM_READER_USES = (
@@ -197,9 +205,9 @@ KICAD9_STEPS = [
     ("uv sync", "run: uv sync --locked --extra dev"),
     ("corpus cache", "uses: actions/cache"),
     ("corpus fetch", KICAD9_FETCH),
-    ("pytest", "run: uv run pytest tests/kicad -q -rA"),
+    ("pytest", "run: uv run python tools/ci_tests.py run --suite kicad-9"),
 ]
-KICAD9_PYTEST = f"run: uv run pytest tests/kicad -q -rA {PARALLEL}"
+KICAD9_PYTEST = "run: uv run python tools/ci_tests.py run --suite kicad-9 --out /tmp/fenolite-ci-kicad9"
 
 
 def kicad9_problems(workflow: str) -> list[str]:
@@ -279,7 +287,7 @@ def test_native_viewer_actions_cannot_silently_skip_a_missing_cli() -> None:
 def test_both_kicad_jobs_run_tests_kicad() -> None:
     text = WORKFLOW.read_text(encoding="utf-8")
     for job in ("kicad-9", "kicad-10"):
-        assert re.search(r"run: uv run pytest tests/kicad\b", job_text(text, job)), job
+        assert f"--suite {job}" in job_text(text, job), job
 
 
 def test_every_kicad_image_is_pinned() -> None:
@@ -316,9 +324,7 @@ def test_kicad_9_cache_key_and_order() -> None:
     other_key = text.replace("corpus-rt2-9-", "corpus-")
     assert any("cache key" in p for p in kicad9_problems(other_key))
     job = job_text(text, "kicad-9")
-    assert (
-        job.find("uses: actions/cache") < job.find(KICAD9_FETCH) < job.find("run: uv run pytest tests/kicad")
-    )
+    assert job.find("uses: actions/cache") < job.find(KICAD9_FETCH) < job.find(KICAD9_PYTEST)
     assert "corpus-rt2-9-" not in job_text(text, "kicad-10")  # the two jobs never share a cache key
 
 
@@ -330,7 +336,7 @@ def test_routing_job_runs_pinned_tool_and_oracle_loop() -> None:
     assert "grid_router-linux-x86_64.so" in job
     assert "sha256sum --check" in job
     assert "FENOLITE_REQUIRE: kicad,router" in job
-    assert "run: uv run pytest tests/routing -q -rA" in job
+    assert "--suite routing-${{ matrix.target }} --workers 0" in job
 
 
 FETCH_STEP = "run: uv run fenolite fetch freerouting --dir /tmp/freerouting --confirm --json"
@@ -370,7 +376,7 @@ def freerouting_problems(workflow: str, pinned: str) -> list[str]:
         problems.append("FENOLITE_REQUIRE of the routing job does not list freerouting")
     if "actions/setup-java" not in job or 'java-version: "25"' not in job:
         problems.append("the routing job does not install Java 25")
-    if fetch is not None and fetch.start() > job.find("run: uv run pytest"):
+    if fetch is not None and fetch.start() > job.find("run: uv run python tools/ci_tests.py run"):
         problems.append("the jar is fetched after the tests run")
     if fetch is not None and fetch.start() < job.find("run: uv sync --locked"):
         problems.append("the jar is fetched before Fenolite is installed")
@@ -391,7 +397,7 @@ def test_routing_job_installs_the_pinned_freerouting() -> None:
     assert row.version == PINNED_VERSION and row.file == f"freerouting-{PINNED_VERSION}.jar"
     assert f"FENOLITE_FREEROUTING_JAR: /tmp/freerouting/{row.file}" in job
     assert JAVA_MIN == 25
-    assert "run: uv run pytest tests/routing -q -rA" in job
+    assert "--suite routing-${{ matrix.target }} --workers 0" in job
 
 
 def test_freerouting_version_drift_is_caught() -> None:
@@ -538,7 +544,7 @@ def test_viewer_job_checks_the_bundle() -> None:
     job = job_text(WORKFLOW.read_text(encoding="utf-8"), "viewer")
     check = job.find("run: uv run python tools/build_viewer.py --check")
     assert 'node-version: "22"' in job and check > job.find("uses: actions/setup-node@v4") > 0
-    assert 0 < check < job.find("run: uv run pytest tests/visual")
+    assert 0 < check < job.find("run: uv run python tools/ci_tests.py run --suite viewer")
 
 
 def test_dco_job() -> None:
@@ -583,6 +589,14 @@ PUSH_TRIGGER = """  push:
       - "**"
       - "!backup/**"
   pull_request:
+  merge_group:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: "Full validation by default; fast is allowed only on a working branch"
+        type: choice
+        options: [full, fast]
+        default: full
 """
 """The ``on`` block of ``ci.yml`` without its comment lines (capability ci-baseline, "Pushes that run CI")."""
 
@@ -1014,7 +1028,7 @@ def mcp_job_problems(workflow: str) -> list[str]:
         problems.append("mcp: must sync the oracles extra, which holds the official SDK")
     if not re.search(r"FENOLITE_REQUIRE: mcp-sdk\b", job):
         problems.append("mcp: must set FENOLITE_REQUIRE=mcp-sdk, so that a missing SDK fails")
-    if "uv run pytest tests/unit/mcp" not in job:
+    if "--suite mcp" not in job:
         problems.append("mcp: must run tests/unit/mcp")
     return problems
 

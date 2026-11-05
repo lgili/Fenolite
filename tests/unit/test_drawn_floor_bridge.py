@@ -181,7 +181,12 @@ def test_planted_cross_job_failures_refuse(defect: str, tmp_path) -> None:
 
 def test_ci_keeps_both_failed_artifacts_and_requires_the_complete_bridge() -> None:
     workflow = (ROOT / ".github/workflows/ci.yml").read_text()
-    assert "needs: [kicad-9, kicad-10]" in workflow
+    bridge_needs = (
+        "needs: [plan, kicad-9, kicad-10]\n    if: always() && needs.plan.outputs.profile == 'full'"
+    )
+    assert bridge_needs in workflow
+    assert "name: drawn-floor-kicad-10-${{ matrix.shard }}" in workflow  # one artifact per partition (c0380)
+    assert "kicad-9, routing, drawn-floor-bridge, audit]" in workflow  # the complete gate requires the bridge
     assert "--uses rt0 --uses sch --uses libs" in workflow
     for major in (9, 10):
         assert f"name: drawn-floor-kicad-{major}" in workflow

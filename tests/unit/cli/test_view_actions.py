@@ -24,6 +24,8 @@ from _view_conflict import build_conflict
 from fenolite.cli import cmd_view
 from fenolite.cli import main as cli_main
 
+pytestmark = pytest.mark.long_flow
+
 ROOT = Path(__file__).resolve().parents[3]
 BOARD = ROOT / "tests" / "data" / "kicad" / "board" / "two_layer.kicad_pcb"
 

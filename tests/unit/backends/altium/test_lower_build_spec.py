@@ -40,6 +40,8 @@ from fenolite.backends.altium.read.pcb import read_pcbdoc
 from fenolite.backends.altium.read.pcbprims import RegionRecord
 from fenolite.core.coords import Point
 
+pytestmark = pytest.mark.long_flow
+
 SCRIPTS = tuple(sorted(p for p in EXAMPLES.rglob("*.py") if not p.name.startswith("test_")))
 SHEET_MODES = ("flat", "modules")
 INTERNAL = ("id", "native_ids", "provenance", "ext", "net_id", "corner_ratio")

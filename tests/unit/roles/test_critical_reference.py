@@ -38,6 +38,8 @@ from fenolite.model.design import Design
 from fenolite.roles.judge import split_roles
 from fenolite.roles.store import dumps_document, merged
 
+pytestmark = pytest.mark.long_flow
+
 
 def entries(env: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
     return {entry["group"]: entry for entry in env["result"]["roles"]}

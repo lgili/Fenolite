@@ -96,6 +96,7 @@ def _comp(ref: str, comment: str, lib: str = "RES", **params: str) -> dict[str, 
     }
 
 
+@pytest.mark.needs_corpus
 @pytest.mark.parametrize("item", OUTJOBS, ids=[item.id for item in OUTJOBS])
 def test_public_outjob(item: Any) -> None:
     """Scenario "Public output jobs": every output of the file, with its name, type and output folder."""

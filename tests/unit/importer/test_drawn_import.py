@@ -34,6 +34,8 @@ from fenolite.lens.drawn import read_drawn, write_drawn
 from fenolite.model.library import SymbolDef, SymbolGraphic
 from fenolite.model.schematic import SchematicSheet, SymbolInstance
 
+pytestmark = pytest.mark.long_flow
+
 STAMP = "2026-11-01T00:00:00Z"
 
 
