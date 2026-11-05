@@ -19,7 +19,8 @@
   - 2026-11-05 (S-1600, AD 24.5.2.23, agent run): A2, A4, B1 to B3, L1 to L5, L7 and N1 to N3 run and recorded under "Reports" of `docs/evidence/altium-schematic.md`; hypothesis notes added, levels unchanged.
   - Still open: the A4 PCB Model dialog and the L2 Pin Editor dialog were not opened (their fields were read through the API and the Properties panel), Part H and N4 (the Viewer) were not run in this round.
 - [ ] 2.4 (from c0166 3.2) Execute PCB D/C requests, X8.6 counts and the supplementary long-via measurement. Proof: dated per-step report and the hypothesis/provenance tests.
-  - Blocker on 2026-11-05: The remaining D/C requests, the X8.6 counts and the long-via measurement were not run in any agent round (S-1570 to S-1589).
+  - 2026-11-05 (S-1601, AD 24.5.2.23, agent run): D1 to D3, C6, X8.6 and the long-via measurement run and recorded under "Reports" of `docs/evidence/altium-pcb.md`. D1 to D3 are as expected. C6 is not: a design rule check reports Starved Thermal and an Un-Routed Net between the `GND` via and `D1` pad 1, so `H-A-PCB-CU-PLANE` stays pending. X8.6 repeats the counts of 2026-10-13. The nine via bytes hold the via diameter. Hypothesis notes added, levels unchanged.
+  - Still open: C6 fails its expectation (plane connectivity; cause not studied), and C5 (Viewer upload) was not run.
 - [ ] 2.5 (from c0166 3.3) Execute Repeat R1-R4 and R5 when its implementation is available; preserve any branch blocker. Proof: the report and focused Repeat tests.
   - Blocker on 2026-11-05: Repeat R1–R5 was not run in any agent round (S-1570 to S-1589); R5 keeps its recorded failure.
 - [ ] 2.6 (from c0166 3.4) Execute remaining OutJob, template/custom-border, hierarchy-mode and rule-export requests. Proof: the report and focused documentation/provenance tests.

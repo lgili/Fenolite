@@ -891,6 +891,29 @@ the bottom-left of those objects.
 `False`: Q9 with defaults gives one drill file and no `V-Cut` Gerber, and Q8 needs a restart. The saved files
 and outputs stay in the agent's folder `claude-2026-11-05/rounds/`, outside the repository.
 
+### 2026-11-05, actual `AD24.5.2.23`, Parts D and C, step X8.6 and the long via (source S-1601)
+
+Run by a Claude agent at the maintainer's request (delegation of 2026-11-04) in the maintainer's Windows VM,
+Altium Designer 24.5.2.23 (Trial). It is not the maintainer's own review (c0389 task 2.4). Inputs:
+- copies of the committed `blink`, `routed` and `body2` files, each SHA-256 checked against the tables
+  above;
+- the plane variant `p0`, rebuilt by `-k variants` with digest `8e0978ec…`.
+
+The documents were read through public menus and dialogs and through authored read-only DelphiScript.
+Altium's saves were read with Fenolite's reader. No capture was kept, and every file Altium saved stays
+outside the repository.
+
+| step | observed |
+|---|---|
+| D1 | `blink.PrjPcb` opens and lists `blink.SchDoc`, `blink.PcbDoc`, `blink.PcbLib` and `blink.SchLib`. `blink.PcbLib` opens with no message and holds `Mini_R_0603`, `Mini_LED_THT_3mm` and `Mini_QFP-32_7x7mm_P0.8mm`. Each pad equals the pad table in shape, size and hole. Altium reports the "rounded" pads as rounded rectangles with a 50 % corner. `Mini_LED_THT_3mm` pad 1 is a rectangle and pad 2 a round pad, both 708661 with a 354331 hole on Multi-Layer. Lines and arcs lie on Top Overlay, Mechanical 13 and Mechanical 15 |
+| D2 | A new PCB document added to a copy of the project, then "Update PCB Document" from `blink.SchDoc`. The change order adds 3 components, 4 nets, the component class `blink`, the net class `PWR` and 2 Supply Nets rules. Validation finds every footprint in `blink.PcbLib` and marks nothing invalid. Executed, the board holds `D1`, `R1` and `U1` with their nets |
+| D3 | `blink.PcbDoc` opens with no message. Two copper layers. `D1` lies on Bottom Layer at rotation 0, its pads on Multi-Layer with `GND` and `LED_A`. The source unique ids match the schematic's. "Update PCB Document" adds no component and changes no net; it proposes only the two Supply Nets rules, which the document does not hold, and they validate |
+| C6 | `p0` opens with no message. The stack is Top Layer, Internal Plane 1 (`GND`), Mid-Layer 2 and Bottom Layer. The document holds 4 tracks (none on the plane), 3 vias and one `GND` polygon on Bottom Layer. A design rule check reports "Starved Thermal" on the `GND` via (13 % of the copper connected to the hole) and on `D1` pad 1 (10 %), and an "Un-Routed Net" violation between them. These come from Altium's own Plane Connect and Un-Routed Net rules: the document writes only the 5 rules of the table. **Not as expected**: Altium does not join the `GND` via and the `GND` pad of `D1` through the plane. Connection lines were not read |
+| X8.6 | `body2.PcbDoc` saved under another name. `-k saved_report` prints 3 bodies in `ComponentBodies6` and 3 in `ShapeBasedComponentBodies6`; none keeps the `MODELID` that was written, 3 hold a `MODEL.CHECKSUM` other than 0, and each body has 35 keys. These are the counts of the 2026-10-13 native run (`docs/evidence/altium-native-acceptance.md`) |
+| long via | A copy of `routed.PcbDoc` (Top, Mid-Layer 1, Mid-Layer 2 and Bottom, ids 1, 2, 3 and 32; three through vias of 0.6 mm), read after each of three saves. First Altium's save as is (`s0`). Then "Tools » Remove Unused Pad Shapes" on vias with "Preserve pads on start and end layers" on (`s1`). Then the same with that option off (`s2`). `s0` writes each via in 321 bytes with the table at 209 all zero. In `s1` each via has 330 bytes: the table marks Mid-Layer 1 and 2 for the `GND` via, Mid-Layer 1 for `LED_A` and Mid-Layer 2 for `VIN` (each keeps the inner layer that its track uses). A 32-bit 1 is at 246 and a 32-bit 9 at 250, and nine bytes are inserted at 254: `04 00 80 01`, then 236220 as a 32-bit integer at 258 (the via diameter, 0.6 mm), then `00`. Nothing else differs. `s2` differs from `s1` only at 240, set for the `GND` and `LED_A` vias, whose bottom pad nothing touches. Byte 240 is 208 + 32, the id of Bottom Layer, while Bottom Layer is fourth in the stack |
+
+Not run: C5 (the Viewer upload). The C6 failure leaves `H-A-PCB-CU-PLANE` pending. No level changes.
+
 ### 2026-11-04, actual `AD24.5.2.23`, Part T
 
 Source S-1571: [T1–T6 report](altium-part-t-convert-2026-11-04.md) and
