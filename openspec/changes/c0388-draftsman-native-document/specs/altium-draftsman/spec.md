@@ -1,12 +1,19 @@
 ## ADDED Requirements
 
 ### Requirement: Draftsman native document correction round
-Before any writer content is added, one correction round SHALL be run on the native document: FP3 and FP4 corrected from the members that every saved document of round F0 holds and the candidates lack, and FP5 tried through a document template registered in Altium's Preferences. Gate G2 SHALL be decided again from that round's report only; without a passing probe the native document stays unshipped and route P is decided.
+One correction round SHALL be run on the native document: FP3 and FP4 corrected from the members that every saved document of round F0 holds and the candidates lack, and FP5 tried through a document template registered in Altium's Preferences. Gate G2 SHALL be decided again from that round's report only; without a passing probe the native document stays unshipped and route P is decided.
 
-#### Scenario: Correction round before writer content
-- **GIVEN** gate G2 failed on 2026-11-04 (c0172, S-1575 and S-1581)
-- **WHEN** an agent would add views, tables or dimensions to the writer
-- **THEN** the correction round's report is recorded first, and the writer tasks stay open until it shows a probe that opens
+Amended on 2026-11-05 by the coordinator: the writer's views, tables and dimensions MAY be written before that report, under three conditions. While `draftsman.NATIVE_WRITE` is `False`, no output of them SHALL reach a user: no command, build or export writes a `.PCBDwf` or `.DwfDot` from them, and only unit tests and kits built for a maintainer's run read them. They SHALL be judged only by unit tests against the member rows of round F0 (`docs/formats/altium/draftsman.md`, S-1421), which judge member names and order, never Altium's acceptance. The correction round still decides the probes, and its result MAY force this code to be reworked or removed. Task 6.3, which sets `NATIVE_WRITE` to `True`, still needs FP1 to FP4 to pass.
+
+#### Scenario: Writer content behind the closed gate
+- **GIVEN** gate G2 failed on 2026-11-04 (c0172, S-1575 and S-1581) and the correction round has not reported
+- **WHEN** the writer holds views, tables and dimensions
+- **THEN** `draftsman.NATIVE_WRITE` is `False`, no command writes a Draftsman document, and each written item holds the members of its round F0 row in that row's order
+
+#### Scenario: The correction round still decides
+- **GIVEN** the correction round's report is recorded
+- **WHEN** no probe of it opens, or an opening probe needs other members or values
+- **THEN** route P is decided, or the writer's items are reworked to the probe that opened, before task 6.3 may set the gate
 
 #### Scenario: Gate stays shut without a report
 - **GIVEN** no report of the correction round is recorded in `docs/evidence/altium-draftsman.md`

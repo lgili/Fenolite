@@ -22,6 +22,15 @@ root members, and FP3 and FP4 hold 6 of them, a candidate cause of the refusal.
   "Draftsman scope round trip" that c0172 moved here.
 - If no probe opens after the round, route P of c0172's Decision 9 is decided here.
 
+## Amendment (2026-11-05)
+
+The coordinator chose to write the views, tables and dimensions (tasks 4.1 and 4.2) before the correction
+round reports, with `draftsman.NATIVE_WRITE` still `False`. Plainly: no output of that code reaches a user
+while the gate is off; it is judged only by unit tests against the member rows of round F0 (S-1421), which
+say nothing about Altium's acceptance; the FPC correction round still decides the probes, and its result can
+force this code to be reworked or removed; and task 6.3, which turns the gate on, still needs FP1 to FP4 to
+pass. The requirement "Draftsman native document correction round" says so.
+
 ## Impact
 
 No code, public name or evidence level changes with this proposal. `draftsman.NATIVE_WRITE` stays `False`
