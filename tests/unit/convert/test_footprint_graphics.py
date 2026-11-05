@@ -2,8 +2,8 @@
 # Copyright (c) 2026 Fenolite contributors
 """The footprints' own graphics of an Altium source (capability design-conversion, "Footprint graphics of
 an imported footprint"; change c0409, B8): ``convert --to kicad`` and ``import --to python`` write each
-footprint's lines, arcs, circles and regions on the layer the conversion maps them to, and a footprint text
-that no target writes is reported and warned, never dropped in silence.
+footprint's lines, arcs, circles and regions on the layer the conversion maps them to; since change c0422
+a footprint's own text is written too, as an ``fp_text user`` child (``test_footprint_content.py``).
 
 The source is the committed Fenolite blink sample (``tests/data/altium/blink``), with one region and one
 text authored here and added to a footprint in memory."""
@@ -25,6 +25,7 @@ from fenolite.model.board import Graphic, Text
 ROOT = Path(__file__).resolve().parents[3]
 BLINK = ROOT / "tests" / "data" / "altium" / "blink" / "blink.PrjPcb"
 HEADS = ("fp_line", "fp_arc", "fp_circle", "fp_rect", "fp_poly")
+TEXT_HEAD = "fp_text"
 REGION_ID = "gfx_0c409000-0000-4000-8000-000000000001"
 TEXT_ID = "txt_0c409000-0000-4000-8000-000000000002"
 
@@ -91,6 +92,7 @@ def test_convert_writes_footprint_graphics() -> None:
     for footprint in footprints:
         written += _heads(footprint)
     assert written == {"fp_line": 24, "fp_arc": 2, "fp_circle": 1, "fp_poly": 1}
+    assert sum(len(footprint.nodes(TEXT_HEAD)) for footprint in footprints) == 1
     libraries = [
         parse(data.decode()) for name, data in sorted(conversion.files.items()) if name.endswith(".kicad_mod")
     ]
@@ -106,9 +108,9 @@ def test_convert_writes_footprint_graphics() -> None:
     graphic = rows["footprint-graphic"]
     assert (graphic.source, graphic.written, graphic.lost) == (28, 28, 0)
     text = rows["footprint-text"]
-    assert (text.source, text.lost) == (1, 1)
-    warned = [i for i in conversion.issues if i.code == "convert.lossy" and i.where == "footprint-text"]
-    assert len(warned) == 1 and "not written" in warned[0].message
+    assert (text.source, text.written, text.lost) == (1, 1, 0)  # change c0422
+    lossy = [i for i in conversion.issues if i.code == "convert.lossy" and i.where.startswith("footprint-")]
+    assert not lossy
 
 
 def test_import_to_python_keeps_footprint_graphics(tmp_path: Path) -> None:

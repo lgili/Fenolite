@@ -108,6 +108,17 @@
 			(layer "F.Fab")
 			(uuid "6f1d2c3e-0000-4000-8000-0000000000c4")
 		)
+		(fp_text user "NOTE"
+			(at 0 4 0)
+			(layer "F.Fab")
+			(uuid "6f1d2c3e-0000-4000-8000-0000000000c5")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(pad "1" thru_hole circle
 			(at -1.27 0)
 			(size 1.5 1.5)

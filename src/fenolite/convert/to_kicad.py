@@ -276,9 +276,8 @@ FOOTPRINT_GRAPHIC_KIND = "footprint-graphic"
 """The report kind of a line, arc, circle, rectangle or region of an imported footprint (change c0409): the
 footprint's own graphics, written as its ``fp_*`` children on the layer ``map_layers`` gives them."""
 FOOTPRINT_TEXT_KIND = "footprint-text"
-FOOTPRINT_TEXT_REASON = "a text of the footprint itself (not a designator or comment field) is not written"
-"""Why an imported footprint's own text is lost (change c0409): a created footprint writes its fields and
-graphics, not free texts."""
+"""The report kind of a text of an imported footprint that is not its designator or comment (change c0409):
+since change c0422 written as an ``fp_text user`` of its footprint on the layer ``map_layers`` gives it."""
 MODEL_KIND = "model"
 """The report kind of an embedded 3D model of an imported footprint (change c0223, ``convert.models``)."""
 BODY_KIND = "body"
@@ -465,7 +464,7 @@ def write_altium(source: SourceProject, options: Options) -> Written:
         counts[PAD_MARGIN_KIND] = sum(len(fp.pads) for fp in source_board.footprints)
         bodies = [body for fp in source_board.footprints for body in fp.bodies]
         counts[MODEL_KIND] = sum(1 for body in bodies if body.kind == "model")
-        # change c0409: the footprints' own graphics are written; their own texts are counted and reported
+        # the footprints' own graphics (change c0409) and texts (change c0422) are counted and written
         counts[FOOTPRINT_GRAPHIC_KIND] = sum(len(fp.graphics) for fp in source_board.footprints)
         counts[FOOTPRINT_TEXT_KIND] = sum(len(fp.texts) for fp in source_board.footprints)
         # change c0371: a component that several footprints link reads back as several components
@@ -486,9 +485,6 @@ def write_altium(source: SourceProject, options: Options) -> Written:
     name = options.name or source.name
     design = prepare(source, name, options.kicad_version, ledger)
     assert design.board is not None
-    for fp in design.board.footprints:  # change c0409: no created footprint writes a text of its own
-        for footprint_text in fp.texts:
-            ledger.drop(FOOTPRINT_TEXT_KIND, footprint_text.id, FOOTPRINT_TEXT_REASON)
     # the holes join the prepared board as placed footprints, which ``prepare`` would derive and clean
     assert design.board is not None
     design, holes, plated = generated_holes(

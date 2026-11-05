@@ -2350,7 +2350,7 @@ CANONICAL_ORDER: Mapping[str, tuple[str, ...]] = MappingProxyType(
         "title_block": ("title", "date", "rev", "company", "comment"),
         "footprint": (
             *FOOTPRINT_POSITIONAL, "locked", "layer", "uuid", "at", "property", "path", "attr", NET_TIES,
-            *FP_GRAPHIC_HEADS, "pad", "zone",
+            *FP_GRAPHIC_HEADS, "fp_text", "pad", "zone",
         ),
         "property": ("name", "value", "at", "layer", "hide", "uuid", "effects"),
         "effects": ("font", "justify"),
@@ -2395,6 +2395,7 @@ CANONICAL_ORDER: Mapping[str, tuple[str, ...]] = MappingProxyType(
         "fp_poly": ("pts", "stroke", "fill", "layer", "uuid"),
         "stroke": ("width", "type"),
         "gr_text": (*TEXT_POSITIONAL, "at", "layer", "uuid", "effects"),
+        "fp_text": ("kind", *TEXT_POSITIONAL, "at", "layer", "uuid", "effects"),
         "dimension": (
             "type", "layer", "uuid", "pts", "height", "leader_length", "orientation", "format", "style",
             "gr_text",
@@ -2424,6 +2425,7 @@ POSITIONAL: Mapping[str, tuple[str, ...]] = MappingProxyType(
         "connect_pads": ("connection",),
         "fill": ("filled",),
         "gr_text": TEXT_POSITIONAL,
+        "fp_text": ("kind", *TEXT_POSITIONAL),
         "group": ("name",),
     }
 )
@@ -2449,7 +2451,8 @@ _WRITE_FIELDS: Mapping[str, Mapping[str, str | tuple[str, ...]]] = MappingProxyT
         },
         "footprint": {
             **FOOTPRINT_FIELDS, "locked": "locked", "property": ("fields", "properties"),
-            **dict.fromkeys(FP_GRAPHIC_HEADS, "graphics"), "zone": "keepouts", NET_TIES: "net_ties",
+            **dict.fromkeys(FP_GRAPHIC_HEADS, "graphics"), "fp_text": "texts", "zone": "keepouts",
+            NET_TIES: "net_ties",
         },
         "property": {**FIELD_FIELDS},
         "pad": {**BOARD_PAD_FIELDS, **MARGIN_HEADS, tdlib.HEAD: "teardrop", **SHAPE_HEADS},
@@ -2745,6 +2748,34 @@ def _child_locator(entity: Entity, slots: Sequence[Slot], index: int, head: str,
 def _netless(graphic: Graphic) -> Graphic:
     """A footprint graphic as a created footprint writes it: an ``fp_*`` child holds no net."""
     return dataclasses.replace(graphic, net_id=None) if graphic.net_id is not None else graphic
+
+
+def _fp_text(text: Text, rotation: Udeg) -> Node:
+    """A footprint's own text as a created footprint writes it (change c0422): ``(fp_text user "…" (at X Y A)
+    (layer …) (uuid …) (effects …))`` in the footprint's frame, the angle that of the text on the board as for
+    a property (``H-K-PCB-FPGFX``), mirrored on a bottom layer as a board text is."""
+    knockout = (Atom.symbol("knockout"),) if text.knockout else ()
+    effects = _effects(
+        text.size,
+        text.thickness,
+        mirror=text.layer.startswith("B."),
+        h_justify=text.h_justify,
+        v_justify=text.v_justify,
+        bold=text.bold,
+        italic=text.italic,
+        face=text.face,
+    )
+    return _ordered(
+        "fp_text",
+        {
+            "kind": [Atom.symbol("user")],
+            "text": [Atom.string(text.text)],
+            "at": [at_node(text.position, pad_angle_to_board(text.rotation, rotation), always=True)],
+            "layer": [node("layer", Atom.string(text.layer), *knockout)],
+            "uuid": [_uuid_node(kicad_uuid(text))],
+            "effects": [effects],
+        },
+    )
 
 
 def _write_order(entities: Iterable[E]) -> list[E]:
@@ -3142,6 +3173,9 @@ class _Writer:
         # frame, as an imported footprint holds them (change c0409); a read one keeps them in its slots
         graphics = _write_order(fp.graphics) if created else []
         items["graphics"] = [self.entity(_netless(g), _FP_HEADS[g.kind]) for g in graphics]
+        # a created footprint writes its own texts as ``fp_text user`` after its graphics, as KiCad 10.0.6
+        # saves them (change c0422); a read one keeps them in its slots
+        items["texts"] = [_fp_text(t, fp.rotation) for t in _write_order(fp.texts)] if created else []
         # a created footprint writes its rule areas as zone children in the board's frame, where KiCad reads
         # a footprint's zone (change c0411); a read one keeps them in its slots (``reconcile_zones``)
         placed = fpzones.pad_to_board(fp.position, fp.rotation)

@@ -113,15 +113,15 @@ def test_baseline_layers(item) -> None:
     assert dict(counts) == BASELINE[item.id]
 
 
-CONVERTED_LOSSES = {  # footprint-text: a footprint's own text is reported lost (c0409)
+CONVERTED_LOSSES = {
     "altium-third-party-pcbdoc-01": {"rule": 1},
-    "altium-third-party-pcbdoc-02": {"rule": 1, "text": 1, "footprint-text": 4},
-    "altium-third-party-pcbdoc-03": {"rule": 2, "schematic": 1, "footprint-text": 46},
-    "altium-third-party-pcbdoc-04": {"rule": 1, "footprint-text": 3},
+    "altium-third-party-pcbdoc-02": {"rule": 1, "text": 1},
+    "altium-third-party-pcbdoc-03": {"rule": 2, "schematic": 16},
+    "altium-third-party-pcbdoc-04": {"rule": 1},
     "altium-third-party-pcbdoc-05": {"rule": 1},
-    "altium-third-party-pcbdoc-06": {"rule": 1, "footprint-text": 25},
-    "altium-third-party-pcbdoc-07": {"footprint-text": 12},
-    "altium-third-party-pcbdoc-08": {"text": 298, "graphic": 1000, "footprint-text": 554},
+    "altium-third-party-pcbdoc-06": {"rule": 1},
+    "altium-third-party-pcbdoc-07": {},
+    "altium-third-party-pcbdoc-08": {"text": 298, "graphic": 1000},
 }
 """The losses per kind, measured on 2026-10-15; on 2026-10-16 (change c0170) the slots of the pads of
 ``-07`` (8) and ``-08`` (4) are kept: the import holds a slot's axis in the pad's own frame, and none is
@@ -145,7 +145,20 @@ losses of layer 74).
 Change c0423 (2026-11-05) places every embedded model, on either side and for any turn, and writes every
 other body as a generated STEP model: no row has a ``body`` or ``model`` loss. Of the bodies of rows ``-01``
 to ``-08``, 245, 42, 45, 3, 23, 27, 6 and 81 are carried by their embedded models and 2, 0, 5, 30, 0, 0, 18
-and 1217 are generated; none falls back to the prism over its outline."""
+and 1217 are generated; none falls back to the prism over its outline.
+
+Change c0422 (2026-11-05): a footprint's own texts are written as ``fp_text user`` children (c0409 reported
+them lost); ``FOOTPRINT_TEXTS`` holds the counts, each written and none lost."""
+FOOTPRINT_TEXTS = {
+    "altium-third-party-pcbdoc-02": 4,
+    "altium-third-party-pcbdoc-03": 46,
+    "altium-third-party-pcbdoc-04": 3,
+    "altium-third-party-pcbdoc-06": 25,
+    "altium-third-party-pcbdoc-07": 12,
+    "altium-third-party-pcbdoc-08": 554,
+}
+"""The texts of the components of a row that are neither its designator nor its comment, measured on
+2026-11-05 (change c0422): the report's ``footprint-text`` row counts them and writes every one."""
 ZONE_ARC_OUTLINES = {
     "altium-third-party-pcbdoc-02": 2,
     "altium-third-party-pcbdoc-07": 4,
@@ -193,6 +206,11 @@ def test_converted_reports(item) -> None:
             if row.lost
         }
         assert {kind: count for kind, count in losses.items() if count} == CONVERTED_LOSSES[item.id]
+    rows = {row.kind: row for row in result.conversion.report.rows}
+    texts = rows.get("footprint-text")
+    counted = (texts.source, texts.written, texts.lost) if texts is not None else (0, 0, 0)
+    expected = FOOTPRINT_TEXTS.get(item.id, 0)
+    assert counted == (expected, expected, 0)
     flattened = sum(
         reason.count
         for row in result.conversion.report.rows

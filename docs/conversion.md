@@ -353,6 +353,19 @@ a rule whose scope selects no pad (`IsVia`, `IsTrack`, in the closed scope gramm
 paste `Enabled` switch and the solder `Tented` option are not read (`docs/formats/altium/pcb-library.md`,
 U1 and U2), so a tented pad of the source is open in KiCad (`H-A-CONV-PADMASK`).
 
+**Footprint drawings and texts** (changes c0409, c0422). A component's own lines, arcs, circles, fills and
+regions are its footprint's `fp_line`, `fp_arc`, `fp_circle`, `fp_rect` and `fp_poly` children, and its
+texts other than the first designator and comment are `fp_text user` children, written after the
+drawings and before the pads, as KiCad 10.0.6 saves a footprint (`board.md`, `H-K-PCB-FPGFX`). Each lies
+on the layer the board's items take: an overlay on its silkscreen, a mechanical layer on the user layer
+named after it. A text keeps its string, size, stroke, angle relative to the footprint and justification
+(the import's centred anchor, as for a free text); on a back layer it is mirrored, as a free text is. The
+board footprints and the derived library both hold them, and so do the footprints that
+`import --to python` vendors. A drawing or text on a layer without a KiCad row stays a `footprint-graphic`
+or `footprint-text` loss, and a drawing on the Keep-Out layer becomes a rule area of its footprint (change
+c0411). The KiCad board reader keeps them in their slots; `fpitems.with_footprint_items` projects them for a
+comparison.
+
 **3D models** (changes c0223 and c0423). The model that the PCB document embeds for a body
 (`models3d.body_models`) is written beside the derived library as `<name>.3dshapes/<footprint>_<sha12>.step`
 (`sha12`, the first 12 hex digits of the SHA-256 of the model's bytes) and named in the library footprint and
