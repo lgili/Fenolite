@@ -630,3 +630,15 @@ The approved pilot follows the existing external OpenAir preparation with one Ti
 ## Seven serial external refreshes after the Tiny pilot
 
 The root reviewed the successful explicit-target10 Tiny recipe and authorized seven independent external items on immutable clean5b0853b7: Complex, ECC83, Interf, ColdFire, Multi, Pic and Microwave; Royal is excluded. Actual pinned project coverage includes active worksheet/DRU resources where present, never guessed skip reasons. Each item has its own reviewed import/record plans, readonly replay/import-member comparison, live proof/version audit, private scan and payload/metadata delta; only a fully proved candidate replaces that item in the external frame. Failures remain separate and do not stop unrelated serial items. At most one heavy native CLI runs at once. Authoritative c62 and all publication/CI/human gates stay unchanged.
+
+## First release v1.0.0 without six boards
+
+Decided 2026-11-05 by the coordinator (the maintainer delegated tonight's decisions): `v1.0.0` ships without the
+six boards that fail against the library's core pin `e7673c81`. tiny_tapeout, complex_hierarchy and video stop
+at import (exit 5, c0355's native project context). openair-max's replay output differs. sonde_xilinx and
+royalblue54l_feather differ in replay and at the level-6 netclass proof; royalblue also differs at L7 and S.
+They were converted on 2026-11-03 with `codex/cac-next` cores before c0355. The library moves them out
+(commit `8b485ef` on `cac/library-completion`), so they stay in git history. Refreshing them after a core fix
+is the v1.1 item. The six boards that replay equal and prove ship: ecc83, interf_u,
+kit-dev-coldfire-xilinx_5213, microwave, multichannel and pic_programmer. The tag follows once the library's
+`check.yml` is green on the exact release commit. A package publication needs the coordinator's word.

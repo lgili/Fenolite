@@ -111,8 +111,9 @@
   (library `c58cdf2`): sonde_xilinx and video differ at level 6 (the project's Default netclass and
   `max_curve_error` are absent from the payload); royalblue differs at L6, L7 (teardrops) and S. `release.yml`
   calls `check.yml`, which replays and proves every converted board, so v1.0.0 cannot publish until these six
-  boards are refreshed with the pinned core (after a c0355 fix) or leave the release. Open: maintainer or
-  coordinator decision; the refreshes need a core fix and are not done here.
+  boards are refreshed with the pinned core (after a c0355 fix) or leave the release. Decided 2026-11-05 by
+  the coordinator (design, "First release v1.0.0 without six boards"): they leave v1.0.0 (library `8b485ef`);
+  their refresh is the v1.1 item. Open: the library's `check.yml` green on GitHub for the six remaining boards.
 - [x] 4.5a Prepare an external OpenAir1.0.2 candidate from the author's immutable
  89aacf5013fc0ffe4b988a2e3c5a227bce3c4983 six-input project (five CAD documents plus its active author DRU), not the incoherent
  KiCad-demo97acc source. Verify manifests/licence bytes, reviewed import plan
