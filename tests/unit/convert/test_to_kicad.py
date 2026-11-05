@@ -246,11 +246,11 @@ def test_altium_keepout_closed_and_open() -> None:
     assert result.board is not None
     area, band = result.board.keepouts[-2:]
     assert area.outline == polygon.points
-    assert area.no_tracks and area.no_vias and area.no_copper_pour
+    assert area.no_tracks and area.no_vias and area.no_pads and area.no_copper_pour
     ys = [p.y for p in band.outline]
     xs = [p.x for p in band.outline]
     assert (min(ys), max(ys), min(xs), max(xs)) == (-50000, 50000, 1950000, 3050000)
-    assert band.no_tracks and band.no_vias and band.no_copper_pour
+    assert band.no_tracks and band.no_vias and band.no_pads and band.no_copper_pour  # pads: change c0410
     assert not result.board.graphics
     assert ledger.changed["graphic"][KEEPOUT_AREA] == [polygon.id]
     assert ledger.changed["graphic"][KEEPOUT_BAND] == [line.id]

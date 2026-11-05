@@ -174,7 +174,10 @@ def _keepout_rings(graphic: Any) -> list[tuple[Any, ...]] | None:
 def keepouts(design: Design, ledger: Ledger) -> Design:
     """The drawings of the Keep-Out layer as rule areas on every copper layer (``_keepout_rings``): a filled
     shape one area, a keep-out track or arc the band of its width (change c0407). A drawing that covers no
-    area, or of a kind without an outline, is an explicit loss."""
+    area, or of a kind without an outline, is an explicit loss. Each area forbids tracks, vias, pads and
+    poured copper (change c0410): a Keep-Out layer keep-out applies on every copper layer (S-1710), and KiCad
+    10.0.6 imports a keep-out track or region there with all four (``pcb-records.md``, "Regions and
+    keep-outs")."""
     from fenolite.geometry.errors import GeometryError
     from fenolite.geometry.transform import Transform
     from fenolite.model.board import Keepout
@@ -212,6 +215,7 @@ def keepouts(design: Design, ledger: Ledger) -> Design:
                     layers=copper,
                     no_tracks=True,
                     no_vias=True,
+                    no_pads=True,
                     no_copper_pour=True,
                 )
             )

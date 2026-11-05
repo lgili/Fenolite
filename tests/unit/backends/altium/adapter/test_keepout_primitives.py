@@ -144,3 +144,24 @@ def test_copper_without_the_flag_stays_copper() -> None:
     board = _board(nets=["A"], tracks=[rec.track((0, 0), (100 * MIL, 0), net=0)])
     assert len(board.tracks) == 1 and not board.keepouts
     assert Point(0, 0) == board.tracks[0].start
+
+
+def test_keep_outs_of_a_library_footprint_give_no_copper() -> None:
+    """Change c0410: a keep-out track or region on copper and a polygon cut-out of a library footprint give
+    no graphic, so no copper; they are counted as ``footprint-keepouts`` and the unmapped issue's hint names
+    change c0411. The two tracks of the Keep-Out layer stay drawings of ``Altium.KeepOut``."""
+    from fenolite.backends.altium.adapter.library import import_footprints
+    from fenolite.backends.altium.read.pcblib import read_pcblib
+    from fenolite.core.errors import Issue
+
+    data = cases.keepout_library()
+    issues: list[Issue] = []
+    library = import_footprints(
+        read_pcblib(data), name="keepouts", file="keepouts.PcbLib", sha256=hashlib.sha256(data).hexdigest(),
+        issues=issues,
+    )  # fmt: skip
+    (footprint,) = library.footprints
+    assert not [g for g in footprint.graphics if g.layer.endswith(".Cu")]
+    assert [g.layer for g in footprint.graphics] == ["Altium.KeepOut"] * 2
+    (unmapped,) = [i for i in issues if i.code == "altium.import.unmapped"]
+    assert "footprint-keepouts 3" in unmapped.message and "c0411" in unmapped.hint

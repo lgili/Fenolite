@@ -65,6 +65,16 @@ def issue(code: str, message: str, where: str = "", hint: str = "") -> Issue:
     return Issue(code, IMPORT_ISSUE_CODES[code], message, where, hint)
 
 
+CATEGORY_HINTS: dict[str, str] = {
+    "footprint-keepouts": (
+        "footprint-keepouts are keep-outs and polygon cut-outs of a library footprint: they give no "
+        "copper, and a footprint holds no rule area until change c0411; draw them as rule areas of the "
+        "board if needed."
+    ),
+}
+"""The hint of ``altium.import.unmapped`` for a category that needs one (change c0410)."""
+
+
 class Census:
     """What one import read and mapped. ``mapped`` counts, per record kind, the records that gave a model
     entity; ``unmapped`` counts, per record kind and category, those that gave none; ``extra`` counts
@@ -115,7 +125,10 @@ class Census:
         categories = self.categories()
         if categories:
             listed = ", ".join(f"{name} {count}" for name, count in categories.items())
-            out.append(issue("altium.import.unmapped", f"records without a model entity: {listed}", where))
+            hint = " ".join(text for name, text in CATEGORY_HINTS.items() if name in categories)
+            out.append(
+                issue("altium.import.unmapped", f"records without a model entity: {listed}", where, hint)
+            )
         return out
 
 

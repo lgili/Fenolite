@@ -530,13 +530,43 @@ def vias(doc: PcbDocument, ctx: Context) -> list[Via]:
     return found
 
 
+FOOTPRINT_KEEPOUTS = "footprint-keepouts"
+"""The census category of a keep-out of a library footprint (change c0410): no model entity until c0411."""
+_CENSUS_KINDS: dict[type, str] = {
+    TrackRecord: "tracks",
+    ArcRecord: "arcs",
+    FillRecord: "fills",
+    RegionRecord: "regions",
+}
+
+
+def library_keepout(item: Primitive, ctx: Context) -> bool:
+    """Whether a primitive of a library footprint is a keep-out that the model cannot hold (change c0410): a
+    keep-out track, arc, fill or region on copper, or a polygon cut-out on copper, the Keep-Out or the
+    Multi-Layer layer. A footprint definition has no rule areas until change c0411, so such a primitive gives
+    no copper graphic: it is counted under ``FOOTPRINT_KEEPOUTS`` and named by ``altium.import.unmapped``."""
+    if isinstance(item, RawPrimitive) or type(item) not in _CENSUS_KINDS:
+        return False
+    layer_id = item.prefix.layer
+    copper = ctx.layers.is_copper(layer_id)
+    cutout = (
+        isinstance(item, RegionRecord)
+        and is_polygon_cutout(item)
+        and (copper or layer_id in ALL_COPPER_LAYERS)
+    )
+    return cutout or (copper and is_keepout(item))
+
+
 def definition_graphics(primitives: Sequence[Primitive], ctx: Context, storage: str) -> list[Graphic]:
     """The tracks, arcs, fills and regions of a library footprint as graphics on the neutral layers, in
     primitive order; pads, bodies and texts are left to the caller. ``storage`` names the footprint's
-    storage in the locators."""
+    storage in the locators. A keep-out on copper or a polygon cut-out gives nothing (``library_keepout``)."""
     found: list[Graphic] = []
     for index, item in enumerate(primitives):
         locator = f"{storage}/Data#{index}"
+        if library_keepout(item, ctx):
+            ctx.census.skip(_CENSUS_KINDS[type(item)], FOOTPRINT_KEEPOUTS)
+            continue
         exact = Exact(ctx.census)
         if isinstance(item, TrackRecord):
             start = exact.point("start", item.x1, item.y1)

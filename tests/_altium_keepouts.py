@@ -9,6 +9,11 @@ authored here for Fenolite from the record layout of ``pcb-records.md`` ("Region
 - ``LINE``: one track on Top (1), 0.5 mm wide, with the keep-out flag;
 - ``CUTOUT``: one region of ``KIND=1`` (a polygon cut-out) on Top, without a net.
 
+``keepout_library`` writes a PCB library of one footprint ``KO`` (change c0410): a pad and, in the
+library's frame, a keep-out track on Top (0.5 mm), a keep-out track and a plain track on the Keep-Out layer
+(1 mm), a region of ``KIND=1`` on Top and a keep-out region on Bottom whose restrictions are 3. KiCad 10.0.6's
+``fp upgrade`` makes five rule areas of the footprint of them (``pcb-records.md``).
+
 KiCad 10.0.6's ``pcb import`` of the document gives six rule areas (measured 2026-11-05):
 one per ring track on both copper layers, the band of its width with round ends; the band of ``LINE`` on
 ``F.Cu``; and ``CUTOUT`` on ``F.Cu``, where only poured copper is not allowed. Points are in the KiCad frame
@@ -82,3 +87,30 @@ def keepout_document() -> bytes:
         return write_pcbdoc(PcbDocSpec(outline=BOARD), filename="keepouts.PcbDoc")
     finally:
         pcbdoc.free_records = original  # type: ignore[assignment]
+
+
+def keepout_library() -> bytes:
+    """The PCB library of the module docstring."""
+    from fenolite.backends.altium.pcblib import LibFootprint, write_pcblib
+    from fenolite.core.coords import Size
+    from fenolite.model.board import Pad
+    from fenolite.model.library import FootprintDef
+
+    def at(x: float, y: float) -> tuple[int, int]:
+        return rec.to_units(round(x * MM)), rec.to_units(round(y * MM))
+
+    def region(layer: int, fields: tuple[tuple[str, str], ...], ring: Sequence[tuple[float, float]]) -> bytes:
+        return candidate_record(layer, fields, [at(*p) for p in ring], shape_based=False)
+
+    restricted = (*_fields("BOTTOM", "0"), ("KEEPOUTRESTRICTIONS", "3"), ("KEEPOUTRESTRIC", "3"))
+    extra = (
+        ("Track", _flagged(rec.track_record(1, at(-3, 2), at(3, 2), rec.to_units(LINE_WIDTH)))),
+        ("Track", _flagged(rec.track_record(rec.KEEPOUT_LAYER, at(-3, -2), at(3, -2), rec.to_units(MM)))),
+        ("Track", rec.track_record(rec.KEEPOUT_LAYER, at(-3, -4), at(3, -4), rec.to_units(MM))),
+        ("Region", region(1, _fields("TOP", "1"), ((4, 4), (6, 4), (6, 6), (4, 6)))),
+        ("Region", _flagged(region(32, restricted, ((-6, 4), (-4, 4), (-4, 6), (-6, 6))))),
+    )
+    pad = Pad(id="pad1", number="1", shape="rect", size=Size(MM, MM), position=Point(0, 0),
+              layers=("F.Cu", "F.Mask", "F.Paste"))  # fmt: skip
+    footprint = LibFootprint(FootprintDef(id="fp", name="KO", pads=(pad,)), extra_primitives=extra)
+    return write_pcblib([footprint], filename="keepouts.PcbLib")

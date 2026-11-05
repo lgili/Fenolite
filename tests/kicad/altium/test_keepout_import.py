@@ -65,11 +65,56 @@ def test_rule_areas_match_kicad_import() -> None:
         assert layers_k == layers_m
         assert all(abs(a - b) <= SHAPE_TOLERANCE for a, b in zip(box_k, box_m, strict=True)), (box_k, box_m)
         assert abs(area_k - area_m) <= area_k // 100, (area_k, area_m)
-    # the polygon cut-out keeps out poured copper alone, in KiCad and in Fenolite
+    # the same restrictions on every area (change c0410: the bands forbid pads too); the polygon cut-out
+    # keeps out poured copper alone
     assert kicad.board is not None and ours.board is not None
-    pour_only = [
-        (k.layers, k.no_tracks, k.no_vias, k.no_pads)
-        for k in (*kicad.board.keepouts, *ours.board.keepouts)
-        if k.no_copper_pour and not k.no_tracks
+    assert _restrictions(kicad) == _restrictions(ours)
+    assert _restrictions(ours).count((False, False, False, True, False)) == 1
+
+
+def _restrictions(design: Design) -> list[tuple[bool, bool, bool, bool, bool]]:
+    assert design.board is not None
+    return sorted(
+        (k.no_tracks, k.no_vias, k.no_pads, k.no_copper_pour, k.no_footprints) for k in design.board.keepouts
+    )
+
+
+def _zones(footprint: object) -> list[tuple[tuple[str, ...], tuple[str, ...]]]:
+    """Each zone of a ``.kicad_mod`` as (its layers, the kinds it does not allow)."""
+    found: list[tuple[tuple[str, ...], tuple[str, ...]]] = []
+    for zone in footprint.nodes("zone"):  # type: ignore[attr-defined]
+        held = zone.find("layers") or zone.find("layer")
+        layers = tuple(str(a.value) for a in held.atoms()) if held is not None else ()
+        keepout = zone.find("keepout")
+        kinds = tuple(
+            child.name for child in (keepout.nodes() if keepout is not None else ()) if
+            [str(a.value) for a in child.atoms()] == ["not_allowed"]
+        )  # fmt: skip
+        found.append((layers, kinds))
+    return found
+
+
+def test_library_keepouts_as_kicad_upgrades_them() -> None:
+    """Change c0410 measures what ``fp upgrade`` 10.0.6 makes of the keep-outs of a library footprint (the
+    target of change c0411): five rule areas of the footprint. Fenolite makes no copper of the three on copper
+    (``test_keepout_primitives``)."""
+    if kicad_cli_major() == 9:
+        pytest.skip("Altium libraries are read by `fp upgrade` from 10.0 on only")
+    from fenolite.backends.kicad.sexpr import parse_bytes
+
+    run = cases.runner().run(
+        ["fp", "upgrade", "-o", "out.pretty", "keepouts.PcbLib"],
+        files={"keepouts.PcbLib": keepouts.keepout_library()},
+    )
+    assert run.ok, run.stdout + run.stderr
+    (name,) = [n for n in run.outputs if n.endswith(".kicad_mod")]
+    zones = _zones(parse_bytes(run.outputs[name]))
+    every = ("tracks", "vias", "pads", "copperpour")
+    on_copper = [(layers, kinds) for layers, kinds in zones if len(layers) == 1]
+    assert sorted(on_copper) == [
+        (("B.Cu",), ("tracks", "vias")),
+        (("F.Cu",), ("copperpour",)),
+        (("F.Cu",), every),
     ]
-    assert pour_only == [(("F.Cu",), False, False, False)] * 2
+    everywhere = sorted(kinds for layers, kinds in zones if len(layers) > 1)
+    assert everywhere == [(), every]  # the plain track of the Keep-Out layer forbids nothing in KiCad
