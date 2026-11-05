@@ -6,6 +6,8 @@
 
 The kit privacy scan precedes interpretation, including the decoded Draftsman chunks. Review any
 refusal locally; the command never prints matched private text, overwrites a file or opens Altium.
+``FENOLITE_KIT_REVIEWED_PREFIX`` names one absolute folder that a person reviewed: findings under it are
+counted as reviewed, every other finding still refuses, and the prefix is never printed.
 """
 
 from __future__ import annotations

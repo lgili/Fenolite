@@ -116,8 +116,11 @@ the documents. All 13 are format version 24, one chunk each, 38 root members.
 | F0.13 (`.DwfDot`) | 127 900 | 4 867 | 2 438 | 537 | 1 (3) | as F0.10 without `LinearDimension` | as F0.7 |
 
 Every document holds 29 document parameters and no parameter text. The F0 half of gate G1 is answered on
-these files by Fenolite's reader (all decode), but `test_f0_files_decode` was not run: the kit privacy scan
-refuses the folder for its VM paths (S-1314), and only the maintainer's review may clear it (task 1.4).
+these files by Fenolite's reader (all decode). `test_f0_files_decode` first could not run: the kit privacy
+scan refuses the folder for its VM paths (S-1314). On the maintainer's decision of 2026-11-04 it ran with
+the VM's absolute work folder as the reviewed prefix (see "Observation intake") and passed on the twelve
+`PCBDwf` documents and `F0-13.DwfDot`; the round's PDF output was left out, since its PDF name objects
+still refuse. Gate G1 is GO for decoding (task 1.5).
 Fact rows: `docs/formats/altium/draftsman.md`, "Round F0 as saved by Altium Designer 24.5.2.23".
 
 ### Phase 1 budget
@@ -253,6 +256,12 @@ Send the date, exact version, original/saved hashes and one expected/observed ou
 members and reports hashes, element/item counts and changed member paths against each F0 control.
 It writes nothing, prints no document values and never sets a native verdict. A scan refusal needs
 local review; matched personal strings are not printed. Native files remain outside version control.
+
+`FENOLITE_KIT_REVIEWED_PREFIX=<folder>` names exactly one absolute folder below a root that a person
+reviewed, such as the work folder a native run writes into its files. A finding that is that folder or
+lies under it counts as reviewed; every other finding still refuses, a relative path, a bare root or a
+list refuses as the prefix, and the report holds `privacy_scan: reviewed` with the count
+`privacy_reviewed`, never the prefix. Unset, nothing changes.
 
 ## Reports
 

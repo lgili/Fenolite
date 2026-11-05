@@ -41,8 +41,13 @@ All notable changes to Fenolite are documented here. The format follows
   in Altium Designer 24.5.2.23 on 2026-11-04 (S-1421) read with Fenolite's reader; their element counts,
   sheets, items and filled board data members are recorded `INFERRED` (counts and member names only).
   The candidate documents that Altium refused hold 6 of the 38 root members that every saved document
-  holds. Gate G1 is decided GO for decoding (task 1.5 stays open: the kit privacy scan rightly refuses the
-  F0 files for the VM's absolute work folder, so the F0 intake proof is not run).
+  holds. Gate G1 is decided GO for decoding (task 1.5).
+- **Reviewed prefix for the kit's observation intake** (c0172, task 1.5): `FENOLITE_KIT_REVIEWED_PREFIX`
+  names exactly one absolute folder that a person reviewed; privacy findings under it count as `reviewed`
+  and do not refuse, every other finding still refuses, and reports hold only the count, never the
+  prefix. Unset, the intake behaves as before. With the VM's absolute work folder as the prefix the F0
+  intake proof passed (`test_f0_files_decode`; the round's PDF output left out, its PDF name objects still
+  refuse).
 
 - **Altium edit sessions** (c0241, tasks 2.1, 3.1 to 3.4, 4.1 and 5.1): the opt-in check stage
   `altium.integrity` (`fenolite check DOC --stages altium.integrity`) warns about the index-table faults of

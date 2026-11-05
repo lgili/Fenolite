@@ -4,11 +4,17 @@
 
 Reports contain hashes, counts, format member names and positions only. They are measurements by
 Fenolite, never a native application verdict. A refused scan reports no matched private text.
+
+A person who reviewed the absolute folder that a native run wrote into its files may name exactly that one
+folder with ``FENOLITE_KIT_REVIEWED_PREFIX`` (or ``reviewed_prefix=``): a finding whose matched text is that
+folder or lies under it counts as ``reviewed`` and does not refuse; every other finding still refuses. The
+prefix itself is never reported, only the count of reviewed findings. Unset, nothing changes.
 """
 
 from __future__ import annotations
 
 import hashlib
+import os
 import re
 import xml.etree.ElementTree as ET
 from collections import Counter
@@ -23,12 +29,55 @@ _SUFFIXES = frozenset((".pcbdwf", ".dwfdot", ".pcbdoc", ".pcblib", ".schdoc", ".
 _F0_BASE = {2: 1, 3: 1, 4: 3, 5: 1, 6: 5, 7: 1, 8: 1, 9: 5, 10: 7, 11: 1, 12: 5, 13: 10}
 
 
+REVIEWED_PREFIX_ENV = "FENOLITE_KIT_REVIEWED_PREFIX"
+_ABSOLUTE = re.compile(r"(?:[A-Za-z]:[\\/]|\\\\[^\\/]|/)")
+_SEPARATORS = re.compile(r"[\\/]+")
+
+
 class ObservationError(ValueError):
     """An observation set is ambiguous, missing, malformed, or needs local privacy review."""
 
 
-def checked_files(folder: Path) -> dict[str, bytes]:
-    """Scan raw files and decoded Draftsman chunks before interpreting any document member."""
+def _folder_key(path: str) -> str:
+    """``path`` with each run of separators as one ``/`` and no trailing one (a share keeps ``//`` in
+    front); a drive or share path, which Windows compares without case, is case-folded. ``C:\\\\Kit\\\\A``
+    and ``c:/kit/a`` give the same key."""
+    key = _SEPARATORS.sub("/", path).rstrip("/")
+    if path.startswith("\\"):
+        return "/" + key.casefold()
+    return key if path.startswith("/") else key.casefold()
+
+
+def reviewed_prefix(value: str | None = None) -> str | None:
+    """The folder key of the one reviewed prefix: ``value``, else ``FENOLITE_KIT_REVIEWED_PREFIX``, else
+    ``None``. It must be one absolute folder below a root: a drive, a share or a POSIX root alone, a
+    relative path or a list refuses (the message never holds the value)."""
+    text = os.environ.get(REVIEWED_PREFIX_ENV) if value is None else value
+    if text is None or text == "":
+        return None
+    key = _folder_key(text.strip())
+    if (
+        text != text.strip()
+        or _ABSOLUTE.match(text) is None
+        or any(char in text for char in ';\n\r\t\x00*?"<>|')
+        or len([part for part in key.split("/") if part]) < 2
+    ):
+        raise ObservationError(f"{REVIEWED_PREFIX_ENV} must name exactly one absolute folder below a root")
+    return key
+
+
+def _reviewed(text: str, prefix: str | None) -> bool:
+    if prefix is None:
+        return False
+    key = _folder_key(text)
+    return key == prefix or key.startswith(prefix + "/")
+
+
+def scan_folder(folder: Path, reviewed: str | None = None) -> tuple[dict[str, bytes], int]:
+    """The files of ``folder`` that the intake reads, and how many privacy findings lie under the reviewed
+    prefix (``reviewed``, see ``reviewed_prefix``). Raw files and decoded Draftsman chunks are scanned
+    before any document member is interpreted; any other finding refuses."""
+    prefix = reviewed_prefix(reviewed)
     if folder.is_symlink() or not folder.is_dir():
         raise ObservationError("observations need a real directory")
     found: dict[str, bytes] = {}
@@ -42,7 +91,7 @@ def checked_files(folder: Path) -> dict[str, bytes]:
         data = path.read_bytes()
         found[name] = data
         scan[name] = data
-    raw = privacy_scan(scan)
+    raw = [finding for finding in privacy_scan(scan) if not _reviewed(finding.text, prefix)]
     if raw:
         raise ObservationError(
             f"kit privacy scan requires local review ({len(raw)} finding(s)); no member read"
@@ -50,12 +99,24 @@ def checked_files(folder: Path) -> dict[str, bytes]:
     for name, data in found.items():
         if Path(name).suffix.casefold() in (".pcbdwf", ".dwfdot"):
             scan[name + "#decoded"] = decode(data)[1]
-    decoded = privacy_scan(scan)
+    findings = privacy_scan(scan)
+    decoded = [finding for finding in findings if not _reviewed(finding.text, prefix)]
     if decoded:
         raise ObservationError(
             f"decoded kit privacy scan requires local review ({len(decoded)} finding(s)); no member read"
         )
-    return found
+    return found, len(findings)
+
+
+def checked_files(folder: Path, reviewed: str | None = None) -> dict[str, bytes]:
+    """Scan raw files and decoded Draftsman chunks before interpreting any document member
+    (``scan_folder``, whose reviewed prefix ``reviewed`` defaults to ``FENOLITE_KIT_REVIEWED_PREFIX``)."""
+    return scan_folder(folder, reviewed)[0]
+
+
+def _privacy(count: int) -> dict[str, object]:
+    """The report's privacy fields: counts only, never a matched text or the reviewed prefix."""
+    return {"privacy_scan": "reviewed" if count else "passed", "privacy_reviewed": count}
 
 
 def _members(root: ET.Element) -> dict[str, tuple[str, tuple[tuple[str, str], ...]]]:
@@ -74,9 +135,9 @@ def _members(root: ET.Element) -> dict[str, tuple[str, tuple[tuple[str, str], ..
     return found
 
 
-def observe_f0(folder: Path) -> dict[str, object]:
+def observe_f0(folder: Path, reviewed: str | None = None) -> dict[str, object]:
     """F0 hashes and structural differences from each authored control, without content values."""
-    files = checked_files(folder)
+    files, count = scan_folder(folder, reviewed)
     cases: dict[int, tuple[str, bytes]] = {}
     for name, data in files.items():
         match = re.fullmatch(r"F0-(0[1-9]|1[0-3])\.(?:PCBDwf|DwfDot)", Path(name).name, re.I)
@@ -113,15 +174,15 @@ def observe_f0(folder: Path) -> dict[str, object]:
         "round": "F0",
         "native_verdict": "unjudged",
         "evidence": "INFERRED",
-        "privacy_scan": "passed",
+        **_privacy(count),
         "files": rows,
         "missing": [f"F0.{n}" for n in range(1, 14) if n not in cases],
     }
 
 
-def observe_j(folder: Path) -> dict[str, object]:
+def observe_j(folder: Path, reviewed: str | None = None) -> dict[str, object]:
     """Separate a native plain resave from record edits; never infer index-maintenance rules."""
-    files = checked_files(folder)
+    files, count = scan_folder(folder, reviewed)
     by_name: dict[str, tuple[str, bytes]] = {}
     for name, data in files.items():
         key = Path(name).name.casefold()
@@ -169,9 +230,17 @@ def observe_j(folder: Path) -> dict[str, object]:
         "round": "J",
         "native_verdict": "unjudged",
         "evidence": "INFERRED",
-        "privacy_scan": "passed",
+        **_privacy(count),
         "files": rows,
     }
 
 
-__all__ = ["ObservationError", "checked_files", "observe_f0", "observe_j"]
+__all__ = [
+    "REVIEWED_PREFIX_ENV",
+    "ObservationError",
+    "checked_files",
+    "observe_f0",
+    "observe_j",
+    "reviewed_prefix",
+    "scan_folder",
+]

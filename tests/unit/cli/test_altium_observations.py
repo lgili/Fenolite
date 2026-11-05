@@ -123,3 +123,66 @@ def test_j_changed_records_are_counted_without_content_values(tmp_path: Path) ->
     assert changed["control"] == "J01-resave.PcbDoc"
     assert sum(changed["changes_by_kind"].values()) > 0 and result["native_verdict"] == "unjudged"
     assert "250000" not in json.dumps(result)
+
+
+# The reviewed prefix (c0172 task 1.5, the maintainer's decision of 2026-11-04): one absolute folder that a
+# person reviewed may stand in the files; every other absolute path still refuses, and no report holds it.
+WORK = "\\".join(("D:", "KitWork", "round"))
+"""An authored stand-in for a native run's absolute work folder."""
+
+
+def _kit(folder: Path, *texts: str) -> Path:
+    for index, text in enumerate(texts, 1):
+        (folder / f"F0-{index:02d}.PCBDwf").write_bytes(drawing(text))
+    return folder
+
+
+def test_reviewed_prefix_default_still_refuses(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("FENOLITE_KIT_REVIEWED_PREFIX", raising=False)
+    _kit(tmp_path, WORK + "\\board\\board.PcbDoc")
+    with pytest.raises(ObservationError, match="privacy scan"):
+        checked_files(tmp_path)
+    with pytest.raises(ObservationError, match="privacy scan"):
+        observe_f0(tmp_path)
+
+
+def test_reviewed_prefix_allows_its_folder(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("FENOLITE_KIT_REVIEWED_PREFIX", raising=False)
+    _kit(tmp_path, WORK + "\\board\\board.PcbDoc", WORK)
+    assert set(checked_files(tmp_path, WORK)) == {"F0-01.PCBDwf", "F0-02.PCBDwf"}
+    result = observe_f0(tmp_path, WORK.lower().replace("\\", "/") + "/")
+    assert result["privacy_scan"] == "reviewed" and result["privacy_reviewed"] >= 2
+    monkeypatch.setenv("FENOLITE_KIT_REVIEWED_PREFIX", WORK)
+    assert observe_f0(tmp_path)["privacy_scan"] == "reviewed"
+
+
+def test_reviewed_prefix_refuses_every_other_path(tmp_path: Path) -> None:
+    other = "\\".join(("E:", "Elsewhere", "kit", "board.PcbDoc"))
+    sibling = WORK + "2\\board\\board.PcbDoc"
+    home = "\\".join(("C:", "Users", "ExampleObserver", "own.PcbDoc"))
+    for index, text in enumerate((other, sibling, home)):
+        folder = tmp_path / str(index)
+        folder.mkdir()
+        _kit(folder, WORK + "\\board\\board.PcbDoc", text)
+        with pytest.raises(ObservationError, match="privacy scan"):
+            observe_f0(folder, WORK)
+
+
+def test_reviewed_prefix_is_never_reported(tmp_path: Path) -> None:
+    _kit(tmp_path, WORK + "\\board\\board.PcbDoc")
+    text = json.dumps(observe_f0(tmp_path, WORK))
+    assert "KitWork" not in text and "kitwork" not in text.casefold()
+    (tmp_path / "F0-02.PCBDwf").write_bytes(drawing("\\".join(("E:", "Elsewhere", "kit", "b.PcbDoc"))))
+    with pytest.raises(ObservationError) as error:
+        observe_f0(tmp_path, WORK)
+    assert "kitwork" not in str(error.value).casefold() and "elsewhere" not in str(error.value).casefold()
+
+
+@pytest.mark.parametrize(
+    "value", ["KitWork\\round", "D:\\", "/", "/home", "\\\\server", "D:\\a;E:\\b", " D:\\a\\b"]
+)
+def test_reviewed_prefix_names_one_absolute_folder(tmp_path: Path, value: str) -> None:
+    _kit(tmp_path, "own")
+    with pytest.raises(ObservationError, match="exactly one absolute folder") as error:
+        checked_files(tmp_path, value)
+    assert value.strip() not in str(error.value)
