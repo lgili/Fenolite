@@ -194,3 +194,15 @@ and resources remain immutable; no raw-record hex JSON is duplicated into extens
 
 A body without a component stays unmapped. Bounded MODELID and MODEL.CHECKSUM metadata are
 compatible with this contract; unbounded raw-record copies in ext are prohibited.
+
+## Agent observations in AD 24.5 (S-1604)
+
+Part Z ran on AD 24.5.2.23 as an agent run, not a kit form, so these facts carry no native label, and the
+rows above keep their levels.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| Setting a body's Board Side to Bottom in the Properties panel saves `BODYPROJECTION=1`, keeps `V7_LAYER` and the heights, and draws the body below the board | S-1604 | INFERRED | H-A-IMP-BODY-Z |
+| `MODEL.MODELTYPE` is 0 for an extruded body, 1 for a generic model, 2 for a cylinder and 3 for a sphere. A cylinder of height 2 mm saves overall 2 mm and standoff 0. A sphere of radius 1 mm saves standoff −1 mm and overall +1 mm | S-1604 | INFERRED | H-A-IMP-BODY |
+| The panel keeps a negative standoff. A standoff entered above the overall height, or an overall height entered below the standoff, swaps the two values. The saved file holds what the panel shows | S-1604 | INFERRED | H-A-IMP-BODY-Z |
+| Four generic bodies placed one by one from one STEP file save four `Models` entries, each with its own `ID`. Each entry's `ROTZ` equals its body's `MODEL.3D.ROTZ`. Altium asks nothing about embedding and saves `EMBED=TRUE` | S-1604 | INFERRED | H-A-IMP-BODY |

@@ -829,10 +829,36 @@ Read the saved files with `FENOLITE_ALTIUM_PART_Z_SAVED=<folder of the saved fil
 tests/unit/backends/altium/test_part_z.py -k saved -s`, which prints, per body, its component, projection,
 model type, heights, model name and rotation, and per entry of the `Models` storage its keys, and refuses
 a folder that fails the kit privacy scan. These cases settle `H-A-IMP-BODY` and `H-A-IMP-BODY-Z` for the
-cases they measure (c0387, task 1.2) and the model store per rotation (c0175, task 10.4); no case has run
-here, and no row moves before an actual report.
+cases they measure (c0387, task 1.2) and the model store per rotation (c0175, task 10.4). The agent run of
+2026-11-05 is under "Reports" (S-1604); an agent run moves no row.
 
 ## Reports
+
+### 2026-11-05, actual `AD24.5.2.23`, Part Z (source S-1604)
+
+A Claude agent ran Z1 to Z4 on 2026-11-05 at the maintainer's request (delegation of 2026-11-04), in the
+maintainer's Windows VM, under the approved 24.5 scope. This is not the maintainer's own review.
+`Client.GetProductVersion` is 24.5.2.23 (Trial licence). The kit is
+`~/fenolite-altium-checks/claude-2026-11-05/c0387-Z-bodies` (`SHA256SUMS` `95e3ff5b…`; `body2.PcbDoc`
+`bee5811b…`, `Box_2x1.step` `d8d09829…`), and the run used a VM copy of it. Menu commands ran through UI
+Automation, and Properties fields were set by their automation ids. Each body was selected with an
+authored read-only DelphiScript. The saved files stay outside the repository in
+`~/fenolite-altium-runs/2026-11-05-Z/`: `Z1.PcbDoc` `b86a88cf…`, `Z2.PcbDoc` `938bf7c6…`, `Z3.PcbDoc`
+`31b36fc9…` and `Z4.PcbDoc` `ca7ab0b1…`. Each holds one absolute path, its own VM file name in the header
+(offset 5241). The kit privacy scan reports it, so the reader ran with `FENOLITE_KIT_REVIEWED_PREFIX` set to
+that VM folder: `FENOLITE_ALTIUM_PART_Z_SAVED=<folder> uv run pytest
+tests/unit/backends/altium/test_part_z.py -k saved -s`, 1 passed.
+
+| date | version | case | file (SHA-256) | step | expected | observed |
+|---|---|---|---|---|---|---|
+| 2026-11-05 | AD 24.5 | Z1 | `Z1.PcbDoc` `b86a88cf…` | U1's extruded body, Board Side set to Bottom in the Properties panel | Altium accepts; report the 3D view | accepted with no message. Board Side offers `Top` and `Bottom`, and the layer stays Mechanical 13. In 3D, U1's pads show bare from the top. With View » Flip Board, a grey block appears under U1, so the body is drawn below the board. Saved: U1 `BODYPROJECTION=1`, `V7_LAYER=MECHANICAL13`, standoff 0 mil, overall 98.4252 mil. How far the block reaches below the bottom face was not measured |
+| 2026-11-05 | AD 24.5 | Z2 | `Z2.PcbDoc` `938bf7c6…` | one body of each type, 2 mm high | one body per type; names of the types | the Place menu offers `Extruded 3D Body` and `3D Body`. `3D Body` opens a file chooser, Choose Model, for a STEP file. Cylinder and sphere are not Place commands: the panel's Model Type offers `Generic`, `Extruded`, `Cylinder` and `Sphere`, so two placed extruded bodies were switched to `Cylinder` (height 2 mm, radius 0.5 mm) and `Sphere` (radius 1 mm). Placed bodies have no component, so none is on `R1`. A generic body has no height field. Saved: extruded `MODELTYPE=0`, overall 78.7402 mil; generic `MODELTYPE=1`, `Box_2x1.step`, `EMBED=TRUE`, overall 16.9291 mil; cylinder `MODELTYPE=2`, overall 78.7402 mil; sphere `MODELTYPE=3`, standoff −39.3701 mil and overall 39.3701 mil; one `Models` entry |
+| 2026-11-05 | AD 24.5 | Z3 | `Z3.PcbDoc` `31b36fc9…` | R1's extruded body (standoff 19.685, overall 157.48 mil): (a) overall 1, standoff −0.5; (b) overall 1, standoff 2; (c) overall 0; (d) overall 100 mm | report what is kept; the file holds what the panel keeps | no message in any step. (a) both kept: overall 39.37, standoff −19.685 mil. (b) the panel swaps them: overall 78.74, standoff 39.37 mil. (c) swapped again: overall 39.37, standoff 0 mil. (d) kept: overall 3937.008 mil, standoff 0. Saved after (d): `STANDOFFHEIGHT=0mil`, `OVERALLHEIGHT=3937.0079mil`. The file holds what the panel kept |
+| 2026-11-05 | AD 24.5 | Z4 | `Z4.PcbDoc` `ca7ab0b1…` | four generic bodies from `Box_2x1.step`, Rotation Z° 0, 90, 180 and 270 in the panel | four bodies; embed asked once or four times | Altium never asked to embed. Each Place » 3D Body read the file again. Saved: four bodies `MODELTYPE=1`, `EMBED=TRUE`, `MODEL.3D.ROTZ` 0, 90, 180 and 270, and four `Models` entries, one per body, each with its own `ID`. Each entry's `ROTZ` equals its body's (`ROTX`, `ROTY` and `DZ` are 0). Placed bodies have no component, so none is on `U1`. Every body was placed by its own Place command, so the run does not separate "rotation selects the entry" from "each placement adds an entry" |
+
+`H-A-IMP-BODY` and `H-A-IMP-BODY-Z` keep their levels, because this is an agent run, not a kit form.
+Fenolite's reader reads each saved field as the panel showed it. The facts are in `pcb-bodies.md`,
+"Agent observations in AD 24.5 (S-1604)".
 
 ### 2026-11-04, actual `AD24.5.2.23`, Part Q
 
