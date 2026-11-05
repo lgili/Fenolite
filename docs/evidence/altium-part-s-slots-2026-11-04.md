@@ -34,3 +34,30 @@ digests. They come from separate operator sessions, and no formal kit record exi
 therefore stays `INFERRED` and aggregate task 5.2 stays open. That needs a formal single-run record
 of K5.6–K5.13 and the maintainer's decision on the S1 drill-drawing limit. No native file, screenshot
 or saved document enters the repository; they stay in the agent's kit folder outside it.
+
+## Single-run K5.6–K5.13, 2026-11-04 evening (source S-1583)
+
+A Claude agent ran group K5's Part S steps K5.6 to K5.13 at the maintainer's request of 2026-11-04/05. It
+used the same Altium Designer 24.5.2.23 (Trial) in the maintainer's VM. This is not the maintainer's own
+review. The steps ran in one session on the `slots` sample of the kit built at `0207378b` (`kit.json`
+`f1b0e767…`). It is the same run and form as the S-1579 K6 rerun, with version `AD 24.5`. The inputs
+have the digests above (regions `be65d4b9…`, clearance `822d31cf…`, gate-off `c798ec46…`), and all 15
+inputs still matched them after the run. The method is the same as above. Board Planning Mode and 3D
+Layout Mode were judged from window captures of the document area, which were deleted after viewing.
+
+| step | case | observation | form | `kit verify` |
+|---|---|---|---|---|
+| K5.6 | S1 | The project and PCB open with no message (message count 0). `D1` is a free Multi Layer pad with no designator, a slot hole of 2.0 × 12.0 mm at 30°, not plated, with copper equal to the hole. Its mask and paste modes are 1. NC Drill Files (defaults) showed no message and wrote `slots-SlotHoles.TXT` (`649c90c9…`, `TYPE=NON_PLATED`, three routed slots with centres at (27, 7), (38, 13) and (43, 8) mm) and `slots-RoundHoles.TXT` (`83d17f76…`, one 3.2 mm hole at (52, 8)). Drill Drawings opened a two-page print preview. Page 1 shows a small symbol and page 2 a cross at each of the four hole centres. Neither page draws `D1`'s slot outline | `false` | fail |
+| K5.7 | S2 | DRC on `clearance/`: Hole To Hole Clearance reports `Pad/Via Touching Holes` between the free pads at (1496.063, 511.811) and (1692.913, 314.961) mil, that is `D2` and `D3` | `true` | pass |
+| K5.8 | S3 | Board Planning Mode shows the openings of `S1`, the L of `S2` + `S3` and `cut-out 1`. 3D Layout Mode shows the board with the same three openings cut through it, next to the drilled holes. The NC drill files above hold no hit at `S1`, `S2`, `S3` or `cut-out 1` | `true` | pass |
+| K5.9 | S4 | `regions/` holds three Board Cutout regions (kind 3) for the openings. The L is one region of 164 points, about 42.9 mm². Its three free ends are round in both views | `true` | pass |
+| K5.10 | S5 | The same DRC has 7 violations: four Hole Size, the Hole To Hole pair, and two Board Outline Clearance (Cutout Edge) entries for pad `TP1-1` (7.874 mil against 19.685 mil) and the `TP1` text. No entry names `TP2` | `true` | pass |
+| K5.11 | S6 | Repour All on `clearance/` showed no message. The `GND` polygon holds one region, and its copper surrounds the three milled openings without entering them | `true` | pass |
+| K5.12 | S7 | File » Save As wrote `results/slots/slots-saved.PcbDoc` (`de793c6e…`). `FENOLITE_ALTIUM_S7=<file> uv run pytest tests/unit/backends/altium/test_part_s.py -k s7` gives 1 passed | file | pass |
+| K5.13 | S8 | `gate-off/slots.PcbDoc` opens with no new message. It holds the four free holes and one 4-point region of 60 × 40 mm, and no cut-out. `build-report.json` names `cutout/1`, `slot/S1` and `slot/S2+slot/S3` as `altium.not-lowered` | `true` | pass |
+
+`fenolite kit verify` (at `22855dae`) exits 5. K5.7 to K5.13 pass and K5.6 fails, so `H-A-SLOT-KIT` is
+judged `fail`. The only failing criterion is the S1 drill drawing, which marks `D1` by its centre only.
+That is the limit the S-1570 run noted. The agent typed `false` for K5.6 because the drawing does not show
+the slot as the criterion asks. Whether that limit is acceptable is the maintainer's decision. No record
+was confirmed. `H-A-SLOT-KIT` stays `INFERRED`, and task 5.2 stays open.
