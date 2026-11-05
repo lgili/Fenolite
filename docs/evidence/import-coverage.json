@@ -1,12 +1,12 @@
 {
-  "base_commit": "fbec5cd9e711cc9b50f9b8d393ab8bb1cda48556",
-  "date": "2026-11-02",
-  "measurement_sha256": "c40ba136c8ee4da2d3c3a0fe25cbc1e4d43f857f19860329fcf89db5330c41fd",
+  "base_commit": "a3714479811fdefdb8e0e12f43a6d99ca6f8263a",
+  "date": "2026-11-04",
+  "measurement_sha256": "ccf071169959391b4d691bbffe11d5a1b865fd0e953e7a23c9c35e4912ac4ce1",
   "rows": [
     {
       "counts": {
         "arcs": 200,
-        "drawings": 189,
+        "drawings": 219,
         "nets": 159,
         "parts": 112,
         "rule_areas": 1,
@@ -17,7 +17,7 @@
       },
       "id": "kicad-demo-10-0-6-pcb-01",
       "input_sha256": "123e209e6245cbcc344c1c70b425dcb44a12cd0a2d05f00a39d3f2e7ff307ffa",
-      "measurement_sha256": "b25b6b74deead9d1148c24e2070ae4fbcfe204bf108cdf7ac45ec0eae5d0522e",
+      "measurement_sha256": "6cf5ea1295e95a886384a1da9a26350e2f77fa8d8b8461f64429e5fddd53b27b",
       "unexpressed": []
     },
     {
@@ -240,7 +240,7 @@
     {
       "counts": {
         "arcs": 48,
-        "drawings": 4,
+        "drawings": 21,
         "nets": 1,
         "parts": 2,
         "rule_areas": 0,
@@ -251,7 +251,7 @@
       },
       "id": "kicad-demo-10-0-6-pcb-14",
       "input_sha256": "cd87e6d1b20fe0d129d9a9c807af3118c67749eff44b1f032d85c047a814c6dc",
-      "measurement_sha256": "3414f39412ebdc09b0c2a93328d745671604f3a4d5b635363fc4ecce61bb0a1e",
+      "measurement_sha256": "904eaecd580abbbd017b8aa9a40e9d5baa1e32f09388273eab78b2f494b180bf",
       "unexpressed": []
     },
     {
@@ -274,7 +274,7 @@
     {
       "counts": {
         "arcs": 0,
-        "drawings": 573,
+        "drawings": 584,
         "nets": 108,
         "parts": 309,
         "rule_areas": 0,
@@ -285,7 +285,7 @@
       },
       "id": "kicad-demo-10-0-6-pcb-16",
       "input_sha256": "0d26bf9b6d561e32cf610d428541d6433e60b45e1838f34f73467e25b9144814",
-      "measurement_sha256": "bd95cd2385244a536e71b3b147e60e785c1542f973b7f5c2948d4324e61effdd",
+      "measurement_sha256": "9c585a760f42901b360f3d547602763bb1fb44a5cb4cd2e1183510fbce510def",
       "unexpressed": []
     },
     {
@@ -308,7 +308,7 @@
     {
       "counts": {
         "arcs": 1792,
-        "drawings": 1486,
+        "drawings": 1515,
         "nets": 1338,
         "parts": 1508,
         "rule_areas": 5,
@@ -319,7 +319,7 @@
       },
       "id": "kicad-demo-10-0-6-pcb-18",
       "input_sha256": "1c76ac238b04babc238d2d50585858988fb3f6c4f8d0fbacc738cfe4862fff5b",
-      "measurement_sha256": "26f585bf8ecec719253105555819079ed2eeabf78e4500de32e4d3941a25a6fb",
+      "measurement_sha256": "7899ae83717da20b7bc20275edec1c7bd95a57030b94455236b085e26f43ea06",
       "unexpressed": [
         {
           "count": 10,
@@ -328,10 +328,6 @@
         {
           "count": 5,
           "kind": "zero-length-track"
-        },
-        {
-          "count": 6,
-          "kind": "zone-name"
         },
         {
           "count": 1,

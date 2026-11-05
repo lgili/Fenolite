@@ -47,6 +47,7 @@ from fenolite.checks.copper import CopperFinding, check_copper
 from fenolite.checks.documents import document_copper, project_of
 from fenolite.core.evidence import Level
 from fenolite.model.design import Design
+from fenolite.model.rules import Selector
 
 pytestmark = pytest.mark.needs_corpus
 
@@ -63,11 +64,13 @@ CLEARANCE_RULES = {
     "altium-third-party-pcbdoc-05": (1, 0),
     "altium-third-party-pcbdoc-06": (0, 2),
     "altium-third-party-pcbdoc-07": (2, 1),
-    "altium-third-party-pcbdoc-08": (2, 3),
+    "altium-third-party-pcbdoc-08": (4, 1),
 }
 """Row → the clearance rules the check judges with and the Clearance records it could not read: facts
 of the documents' rule records, not findings (census of 2026-10-06; change c0125 moved the third row
-from ``(0, 3)``, and change c0130 the heavy row from ``(0, 4)``: one generic rule and one cell rule)."""
+from ``(0, 3)``, and change c0130 the heavy row from ``(0, 4)``: one generic rule and one cell rule;
+change c0377 moved the heavy row from ``(2, 3)``: the two rules of the RF nets, scoped with ``or`` and
+``AND``)."""
 CELLS = {HEAVY_BOARD: {"judged": 1, "unjudged": 8}}
 """Row → the cells of its clearance matrices that the rules hold and do not hold, where it has any in an
 enabled record (the matrices of rows 02 and 06 are counted under them too)."""
@@ -346,7 +349,13 @@ def test_vias_without_inner_pads() -> None:
     board = rules.design.board
     assert board is not None and rules.design.rules is not None
     assert rules.left_out == ()  # nothing is left unjudged for the class
-    (generic,) = [r.min for r in rules.design.rules.rules if r.kind == "clearance" and "/" not in r.name]
+    # the generic rule applies to all objects; the cell rules (``general/…``) and, since change c0377, the
+    # scoped rules of the RF nets are not it
+    (generic,) = [
+        r.min
+        for r in rules.design.rules.rules
+        if r.kind == "clearance" and r.selector_a == Selector("all") and r.selector_b is None
+    ]
     assert generic is not None
     layer_of = {
         dict(layer.ext["altium"].payload)["layer_id"]: layer.name

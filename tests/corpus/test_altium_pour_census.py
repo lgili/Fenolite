@@ -159,14 +159,16 @@ POUR_CENSUS: dict[str, tuple[int, dict[str, int], dict[str, tuple[str, ...]]]] =
     ),
     "altium-third-party-pcbdoc-08": (
         33,
-        {"connect-scope": 2, "depends-on-refused": 13, "outline-arc": 6, "polygon-cutout": 2,
-         "rule-scope": 10},
+        {"connect-scope": 2, "depends-on-refused": 14, "outline-arc": 6, "polygon-cutout": 2,
+         "rule-scope": 9},
         {},
     ),
 }  # fmt: skip
 """Row → its polygons, the refused ones per reason, and the failed criteria of each compared polygon (by
 layer and name) against the regions the document holds (``docs/evidence/altium-pour.md``, census of
-2026-10-26). M1 passes on every compared polygon."""
+2026-10-26). M1 passes on every compared polygon. On 2026-11-04 (change c0377) one polygon of ``-08`` is
+no longer refused for a rule scope, since the RF clearance rules now read; an earlier refused polygon of its
+layer lies within its reach, so it is refused as ``depends-on-refused``."""
 
 
 @pytest.mark.parametrize("item", DOCUMENTS, ids=lambda item: item.id)

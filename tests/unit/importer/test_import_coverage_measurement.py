@@ -60,7 +60,7 @@ def test_measurement_does_not_rebuild(tmp_path: Path, monkeypatch: pytest.Monkey
 def test_observations_cover_all_declared_rows_and_bound_inputs() -> None:
     data = observation()
     assert data["schema"] == "fenolite.import-coverage.v0" and data["verification"] == "emission-only"
-    assert data["date"] == "2026-11-02"
+    assert data["date"] == "2026-11-04"
     entries = {row["id"]: row for row in declared()}
     assert {row["id"] for row in data["rows"]} == set(entries)
     assert len(data["rows"]) == len(entries) == 18

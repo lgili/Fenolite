@@ -70,11 +70,13 @@ and a few items of exotic demos (blind vias spanning the whole board, footprints
 
 ## Current source-emission observations
 
-Measured on 2026-11-02 with `tools/measure_import_coverage.py` against emitter commit
-`fbec5cd9e711cc9b50f9b8d393ab8bb1cda48556` (`0.7.0.dev0`, explicit standard technical layer tables).
-[import-coverage.json](import-coverage.json) binds each declared input SHA-256, its complete emission
-counts and omitted kinds, the measurement tool SHA-256, and each observation's SHA-256. The collection
-measurement SHA-256 is `c40ba136c8ee4da2d3c3a0fe25cbc1e4d43f857f19860329fcf89db5330c41fd`.
+Measured on 2026-11-04 with `tools/measure_import_coverage.py` against commit
+`a3714479811fdefdb8e0e12f43a6d99ca6f8263a` of `cac/c0364-lote16`, whose importer, KiCad backend and DSL
+sources equal `cac/lote-16` `b0f8858d` (`0.7.0.dev0`; change c0375 writes repeated zone names, so row 18
+no longer omits them). [import-coverage.json](import-coverage.json) binds each declared input SHA-256,
+its complete emission counts and omitted kinds, the measurement tool SHA-256, and each observation's
+SHA-256. The collection measurement SHA-256 is
+`ccf071169959391b4d691bbffe11d5a1b865fd0e953e7a23c9c35e4912ac4ce1`.
 
 These are **emission-only observations**, including rows 06 and 18. They do not claim a completed
 conversion, equivalence, native output bytes, or elapsed conversion time. The helper uses the production
@@ -103,7 +105,7 @@ expectations. No converted content is retained here.
 | 15 | `d0dee876715fcdd3f656dd6a77cc1141c39bec4d6f8492a3784d38edd6b9a998` | none |
 | 16 | `0d26bf9b6d561e32cf610d428541d6433e60b45e1838f34f73467e25b9144814` | none |
 | 17 | `f620675158ddd5c61e5ce9e15f4c92b230ae1df1cbcec6c502b8ce266e4007ea` | none |
-| 18 | `1c76ac238b04babc238d2d50585858988fb3f6c4f8d0fbacc738cfe4862fff5b` | text 10, zero-length-track 5, zone-name 6, zone-setting 1 |
+| 18 | `1c76ac238b04babc238d2d50585858988fb3f6c4f8d0fbacc738cfe4862fff5b` | text 10, zero-length-track 5, zone-setting 1 |
 <!-- import-coverage:end -->
 
 ## Complete retained conversion measurements — 2026-11-03

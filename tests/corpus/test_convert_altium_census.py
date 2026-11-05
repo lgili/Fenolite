@@ -119,7 +119,7 @@ CONVERTED_LOSSES = {
     "altium-third-party-pcbdoc-05": {"body": 23, "rule": 1},
     "altium-third-party-pcbdoc-06": {"body": 27, "rule": 1, "graphic": 3, "model": 19},
     "altium-third-party-pcbdoc-07": {"body": 24, "model": 3},
-    "altium-third-party-pcbdoc-08": {"body": 1298, "text": 298, "graphic": 1000, "schematic": 1, "model": 52},
+    "altium-third-party-pcbdoc-08": {"body": 1298, "text": 298, "graphic": 1000, "model": 52},
 }
 """The losses per kind, measured on 2026-10-15; on 2026-10-16 (change c0170) the slots of the pads of
 ``-07`` (8) and ``-08`` (4) are kept: the import holds a slot's axis in the pad's own frame, and none is
@@ -130,7 +130,10 @@ derived library (a ``model`` change); every other embedded model is a ``model`` 
 (118, 14, 3, 0, 0, 2, 3 and 41 in rows ``-01`` to ``-08``) or turned about X or Y (48, 4, 24, 2, 0, 17, 0
 and 11). The bodies stay ``body`` losses, since the board's footprints carry no model. No row has a
 ``pad-margin`` loss: the only scoped expansion rules of the documents are of scope ``IsVia`` (rows ``-01``,
-``-04``, ``-05``), which govern no pad."""
+``-04``, ``-05``), which govern no pad.
+
+Change c0372 (found on 2026-11-04) writes the generated schematic of ``-08`` on several pages: the
+generator refused it as one page, and it is now a ``schematic`` change, not a loss."""
 ZONE_ARC_OUTLINES = {
     "altium-third-party-pcbdoc-02": 2,
     "altium-third-party-pcbdoc-07": 4,

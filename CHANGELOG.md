@@ -148,6 +148,7 @@ All notable changes to Fenolite are documented here. The format follows
   `--allow-lossy`) instead of planning no write; the lost schematic explains schematic-only components.
   The generated schematic now keeps each source sheet of a flat project as a KiCad sheet, and spreads a
   sheet too large for A0 over several pages, so such circuits are converted with their schematic.
+  The public heavy Altium document of the corpus now converts with its schematic on pages.
 
 - **Conversion verification scope** (c0371): when a conversion writes a schematic, the board comparison
   covers the placed components only and the schematic comparison the others, so a schematic-only part is

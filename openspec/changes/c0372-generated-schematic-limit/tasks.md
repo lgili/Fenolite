@@ -15,4 +15,10 @@
 
 ## 3. Close
 
+- [x] 3.0 Found on 2026-11-04 (CI 41947475460): the generated schematic of `altium-third-party-pcbdoc-08`
+      is now written on pages instead of refused; its `schematic` loss leaves the census (`design.md`).
+      Proof: `FENOLITE_HEAVY=1 FENOLITE_REQUIRE=corpus uv run pytest -n 2 tests/corpus/test_altium_rule_kinds.py
+      tests/corpus/test_altium_pour_census.py tests/corpus/test_convert_altium_census.py
+      tests/corpus/test_altium_copper.py 'tests/corpus/test_import_corpus.py::test_demo_board_imports_equivalent[18]'`
+      (103 passed, 2026-11-05).
 - [ ] 3.1 Docs, CHANGELOG, `openspec validate --strict`, focused tests, `make check-fast`.
