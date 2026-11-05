@@ -14,6 +14,7 @@ from fenolite.backends.altium.adapter.ids import Ids
 from fenolite.backends.altium.adapter.layers import LayerMap
 from fenolite.core.errors import Issue
 from fenolite.core.provenance import Provenance
+from fenolite.model.board import Keepout
 
 
 @dataclass
@@ -29,6 +30,9 @@ class Context:
     net_ids: dict[int, str] = field(default_factory=lambda: {})
     """Net index of the document → model net id."""
     net_names: dict[int, str] = field(default_factory=lambda: {})
+    keepouts: list[Keepout] = field(default_factory=lambda: [])
+    """The rule areas that keep-out primitives on copper and polygon cut-outs give (change c0407), in the
+    board's frame, in the order they were read."""
 
     def provenance(self, locator: str) -> Provenance:
         return self.ids.provenance(self.file, self.sha256, locator)

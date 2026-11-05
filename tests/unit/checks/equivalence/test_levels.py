@@ -193,6 +193,31 @@ def test_level3_changed_pad_is_located() -> None:
     assert exact.levels[2].compared == 4 and exact.levels[2].summary == {"footprints": 2, "copper_unknown": 0}
 
 
+def test_level3_slot_drill_compares_widths() -> None:
+    """B3 (change c0407): a slot held as drill 2.15 mm and length 1.0 mm (an Altium record whose slot length
+    is below its hole size) and the same oval held as drill 1.0 mm and length 2.15 mm along the other axis
+    (KiCad's ``(drill oval 1 2.15)`` read back) are one hole: no ``pad-drill``. A width that differs still is
+    one, reported as the widths."""
+    from fenolite.model.board import Padstack
+
+    a = _cases.two_layer()
+    mm = 1_000_000
+
+    def slot(length: int, rotation: int) -> Padstack:
+        return Padstack(id="pst-slot", hole_shape="slot", hole_length=length, hole_rotation=rotation)
+
+    altium = _cases.with_pad(a, "D1", "1", drill=2_150_000, padstack=slot(mm, 0))
+    kicad = _cases.with_pad(a, "D1", "1", drill=mm, padstack=slot(2_150_000, 90_000_000))
+    assert not [
+        d for d in compare_designs(altium, kicad, level=3).levels[2].differences if d.kind == "pad-drill"
+    ]
+    wider = _cases.with_pad(a, "D1", "1", drill=1_200_000, padstack=slot(2_150_000, 90_000_000))
+    (drill,) = [
+        d for d in compare_designs(altium, wider, level=3).levels[2].differences if d.kind == "pad-drill"
+    ]
+    assert (drill.where, drill.a, drill.b) == ("D1-1", str(mm), "1200000")
+
+
 def test_level3_placement_does_not_reach_it() -> None:
     a = _cases.two_layer()
     found = _cases.footprint(a, "R1")

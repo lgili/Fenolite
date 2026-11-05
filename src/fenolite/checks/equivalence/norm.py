@@ -91,6 +91,18 @@ def pads_equal_turned(a: Pad, b: Pad, tolerances: Tolerances) -> bool:
     return angles_equal(a.rotation, b.rotation + QUARTER_TURN, tolerances, HALF_TURN)
 
 
+def drill_width(pad: Pad) -> int | None:
+    """The width of a pad's hole (change c0407): ``Pad.drill``, or for a slot with a length the shorter of
+    ``Pad.drill`` and ``Padstack.hole_length``. The model holds a slot as its width and its longer length
+    (``docs/design-model.md``), but a document may give the two numbers the other way round: an Altium
+    record may hold a slot length below its hole size, which a KiCad file holds as an oval of the same two
+    sizes, so ``pad-drill`` compares the two holes' widths and never a length with a width."""
+    stack = pad.padstack
+    if pad.drill is None or stack is None or stack.hole_shape != "slot" or stack.hole_length is None:
+        return pad.drill
+    return min(pad.drill, stack.hole_length)
+
+
 def copper_span(pad: Pad, board: Board) -> frozenset[str] | None:
     """The subset of ``top``, ``inner`` and ``bottom`` that the pad's layers reach, by the ordinals of the
     board's copper layers; ``None`` (unknown) when the board declares one of the names not at all."""

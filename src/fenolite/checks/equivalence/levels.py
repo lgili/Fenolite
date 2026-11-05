@@ -330,18 +330,17 @@ def _pad_differences(
         found.append(
             _difference(3, "pad-size", where, f"{one.size.w}x{one.size.h}", f"{other.size.w}x{other.size.h}")
         )
-    if (one.drill is None) != (other.drill is None) or (
-        one.drill is not None
-        and other.drill is not None
-        and not norm.lengths_equal(one.drill, other.drill, tolerances)
+    drill_a, drill_b = norm.drill_width(one), norm.drill_width(other)  # like with like (change c0407)
+    if (drill_a is None) != (drill_b is None) or (
+        drill_a is not None and drill_b is not None and not norm.lengths_equal(drill_a, drill_b, tolerances)
     ):
         found.append(
             _difference(
                 3,
                 "pad-drill",
                 where,
-                "" if one.drill is None else str(one.drill),
-                "" if other.drill is None else str(other.drill),
+                "" if drill_a is None else str(drill_a),
+                "" if drill_b is None else str(drill_b),
             )
         )
     if not norm.points_equal(one.position, other.position, tolerances):

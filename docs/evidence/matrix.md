@@ -509,7 +509,7 @@ a claim), `see` (its code runs only inside the operations of the named modules o
 | `sch_netlist` | `EVIDENCE` KICAD-VERIFIED: `H-K-NETLIST-OWN`, `H-K-SCH-HIER-FILE`, `H-K-SCH-WIRE-END`<br>`FRAME_ORDER_EVIDENCE` KICAD-VERIFIED: `H-K-SCH-PINFRAME-ORDER`<br>`STACKED_EVIDENCE` KICAD-VERIFIED: `H-K-SCH-STACKED`<br>`STACKED_OPEN_EVIDENCE` KICAD-VERIFIED: `H-K-SCH-STACKED-OPEN` |
 | `schgen` | `EVIDENCE` KICAD-VERIFIED: `H-K-SCH-MINIMAL`, `H-K-SCH-PINFRAME`, `H-K-SCH-UNCONNECTED`, `H-K-SCH-SLASH`, `H-K-SCH-PARITY`, `H-K-SCH-POWER`, `H-K-SCH-LIBTABLE`, `H-K-SCH-HIER-FILE`, `H-K-SCH-HIER-PATH`, `H-K-SCH-WIRE-END` |
 | `schlayout` | see `schgen`, `sch` |
-| `schreadability` | none:  |
+| `schreadability` | none: it measures a created sheet's drawing and states no fact about a file format or a tool |
 | `schwired` | see `schgen`, `sch` |
 | `sexpr` | `EVIDENCE` INFERRED: `H-K-SEXPR-ESCAPES`, `H-K-SEXPR-LEX-10`, `H-K-SEXPR-LEX-9`, `H-K-SEXPR-NUM-CORPUS`, `H-K-SEXPR-NUM-READ`, `H-K-SEXPR-NUM-WRITE-2`, `H-K-SEXPR-STRICT` |
 | `slots` | see `dru`, `mod`, `pcb`, `sch`, `sym`, `wks` |

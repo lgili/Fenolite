@@ -464,6 +464,7 @@ def read_board(doc: PcbDocument, *, file: str, sha256: str, ids: Ids) -> BoardIm
         zones=tuple(found_zones),
         texts=tuple(found_texts),
         graphics=(*edge, *line_graphics, *arc_graphics, *shape_graphics),
+        keepouts=tuple(ctx.keepouts),
         holes=tuple(holes),
     )
     return BoardImport(board, model_nets, classes, components, rules, links, ctx.issues, ctx.census)

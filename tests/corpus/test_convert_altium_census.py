@@ -45,8 +45,9 @@ BASELINE = {
         "Mech.7": 1,
     },
     "altium-third-party-pcbdoc-05": {"Mech.1": 4, "Mech.2": 92, "Mech.4": 92},
+    # change c0407: the three regions of KIND=1 (polygon cut-outs) on the Multi-Layer layer of -06 are rule
+    # areas against pours on every copper layer, no longer graphics of layer 74
     "altium-third-party-pcbdoc-06": {
-        "Altium.74": 3,
         "Altium.KeepOut": 2,
         "Mech.1": 18,
         "Mech.11": 105,
@@ -112,12 +113,12 @@ def test_baseline_layers(item) -> None:
 
 
 CONVERTED_LOSSES = {
-    "altium-third-party-pcbdoc-01": {"body": 247, "rule": 1, "graphic": 20, "model": 166},
+    "altium-third-party-pcbdoc-01": {"body": 247, "rule": 1, "model": 166},
     "altium-third-party-pcbdoc-02": {"body": 42, "rule": 1, "text": 1, "model": 18},
     "altium-third-party-pcbdoc-03": {"body": 50, "rule": 2, "schematic": 1, "model": 27},
     "altium-third-party-pcbdoc-04": {"body": 33, "rule": 1, "model": 2},
     "altium-third-party-pcbdoc-05": {"body": 23, "rule": 1},
-    "altium-third-party-pcbdoc-06": {"body": 27, "rule": 1, "graphic": 3, "model": 19},
+    "altium-third-party-pcbdoc-06": {"body": 27, "rule": 1, "model": 19},
     "altium-third-party-pcbdoc-07": {"body": 24, "model": 3},
     "altium-third-party-pcbdoc-08": {"body": 1298, "text": 298, "graphic": 1000, "model": 52},
 }
@@ -133,7 +134,12 @@ and 11). The bodies stay ``body`` losses, since the board's footprints carry no 
 ``-04``, ``-05``), which govern no pad.
 
 Change c0372 (found on 2026-11-04) writes the generated schematic of ``-08`` on several pages: the
-generator refused it as one page, and it is now a ``schematic`` change, not a loss."""
+generator refused it as one page, and it is now a ``schematic`` change, not a loss.
+
+Change c0407 (2026-11-05): the 12 lines and 8 arcs of the Keep-Out layer of ``-01`` are each the rule area of
+the band their width covers (they were ``graphic`` losses, open outlines that enclosed no area), and the three
+polygon cut-outs on the Multi-Layer layer of ``-06`` are rule areas of the import (they were ``graphic``
+losses of layer 74)."""
 ZONE_ARC_OUTLINES = {
     "altium-third-party-pcbdoc-02": 2,
     "altium-third-party-pcbdoc-07": 4,
@@ -141,6 +147,26 @@ ZONE_ARC_OUTLINES = {
 }
 """Zones whose Altium outline holds an arc vertex: the import leaves them without an outline, and the
 conversion writes the flattened outline of the source record (measured on 2026-10-15)."""
+
+
+POLYGON_CUTOUTS = {"altium-third-party-pcbdoc-01": 2, "altium-third-party-pcbdoc-06": 13}
+"""The free regions of ``KIND=1`` (polygon cut-outs) of a row, measured on 2026-11-05 (change c0407): two on
+Top and Bottom in ``-01``; eight on Top, two on Bottom and three on the Multi-Layer layer in ``-06``. Each
+was copper of its layer (or a graphic of layer 74) before c0407."""
+
+
+@pytest.mark.parametrize("item", [i for i in ROWS if i.id in POLYGON_CUTOUTS], ids=lambda i: i.id)
+def test_polygon_cutouts_keep_pours_off(item) -> None:
+    """A polygon cut-out is a rule area that forbids pours alone, never copper (change c0407)."""
+    design = AltiumBackend().read(require(item)).design
+    assert design.board is not None
+    pour_only = [
+        k
+        for k in design.board.keepouts
+        if k.no_copper_pour and not (k.no_tracks or k.no_vias or k.no_pads or k.no_footprints)
+    ]
+    assert len(pour_only) == POLYGON_CUTOUTS[item.id]
+    assert not [g for g in design.board.graphics if g.layer == "Altium.74"]
 
 
 @pytest.mark.parametrize("item", ROWS, ids=lambda i: i.id)

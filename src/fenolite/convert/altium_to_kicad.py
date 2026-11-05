@@ -129,11 +129,53 @@ def map_layers(design: Design, target: int, ledger: Ledger) -> Design:
     return dataclasses.replace(design, board=board)
 
 
+KEEPOUT_AREA = "a filled keep-out shape becomes a rule area"
+KEEPOUT_BAND = (
+    "a keep-out track becomes a rule area of the band its width covers (arc chord error at most 5000 nm)"
+)
+KEEPOUT_NO_AREA = "a keep-out line that covers no area"
+KEEPOUT_NO_OUTLINE = "a keep-out drawing has no supported outline"
+
+
+def _keepout_rings(graphic: Any) -> list[tuple[Any, ...]] | None:
+    """The rings a drawing on the Keep-Out layer keeps out (change c0407): a filled polygon or rectangle (a
+    region or a fill) and a closed outline of width 0 their outline; a line, an arc, a circle and each side of
+    an outline drawn with a width the band that width covers, one ring per stroke, as KiCad 10.0.6 imports
+    keep-out tracks (``pcb-records.md``, "Regions and keep-outs"). ``None`` for a drawing of another kind;
+    ``GeometryError`` or ``ValueError`` when it covers no area."""
+    from fenolite.core.coords import Point
+    from fenolite.geometry.bands import arc_band, segment_band
+    from fenolite.geometry.polygon import Polygon
+
+    points = tuple(graphic.points)
+    if graphic.kind == "rect" and len(points) == 2:
+        a, b = points
+        points = (a, Point(b.x, a.y), b, Point(a.x, b.y))
+    if graphic.kind in ("polygon", "rect") and (graphic.filled or graphic.width <= 0):
+        return [Polygon(points[:-1] if points[0] == points[-1] else points).outer]
+    if graphic.kind in ("polygon", "rect"):
+        ring = points[:-1] if points[0] == points[-1] else points
+        return [segment_band(a, ring[(i + 1) % len(ring)], graphic.width) for i, a in enumerate(ring)]
+    if graphic.kind == "line" and len(points) == 2:
+        return [segment_band(points[0], points[1], graphic.width)]
+    if graphic.kind == "arc" and len(points) == 3:
+        return [arc_band(points[0], points[1], points[2], graphic.width)]
+    if graphic.kind == "circle" and len(points) == 2:
+        centre, edge = points
+        dx, dy = edge.x - centre.x, edge.y - centre.y
+        far = Point(centre.x - dx, centre.y - dy)
+        return [
+            arc_band(edge, Point(centre.x - dy, centre.y + dx), far, graphic.width),
+            arc_band(far, Point(centre.x + dy, centre.y - dx), edge, graphic.width),
+        ]
+    return None
+
+
 def keepouts(design: Design, ledger: Ledger) -> Design:
-    """Closed connected Keep-Out outlines become rule areas; open/branching outlines are explicit losses."""
+    """The drawings of the Keep-Out layer as rule areas on every copper layer (``_keepout_rings``): a filled
+    shape one area, a keep-out track or arc the band of its width (change c0407). A drawing that covers no
+    area, or of a kind without an outline, is an explicit loss."""
     from fenolite.geometry.errors import GeometryError
-    from fenolite.geometry.polygon import Polygon, assemble_rings
-    from fenolite.geometry.shapes import Arc, Segment
     from fenolite.geometry.transform import Transform
     from fenolite.model.board import Keepout
 
@@ -153,74 +195,28 @@ def keepouts(design: Design, ledger: Ledger) -> Design:
         )
     areas = list(board.keepouts)
     copper = tuple(layer.name for layer in board.layers if layer.kind == "copper")
-    pending: list[tuple[Arc | Segment, Any, str]] = []
     for graphic, kind in collected:
-        if graphic.kind in ("polygon", "rect"):
-            points = graphic.points
-            if graphic.kind == "rect" and len(points) == 2:
-                a, b = points
-                from fenolite.core.coords import Point
-
-                points = (a, Point(b.x, a.y), b, Point(a.x, b.y))
-            try:
-                points = Polygon(points[:-1] if points[0] == points[-1] else points).outer
-            except (GeometryError, IndexError):
-                ledger.drop(kind, graphic.id, "a keep-out line that encloses no area")
-                continue
+        try:
+            rings = _keepout_rings(graphic)
+        except (GeometryError, ValueError, IndexError, TypeError):
+            ledger.drop(kind, graphic.id, KEEPOUT_NO_AREA)
+            continue
+        if rings is None:
+            ledger.drop(kind, graphic.id, KEEPOUT_NO_OUTLINE)
+            continue
+        for index, ring in enumerate(rings):
             areas.append(
                 Keepout(
-                    id=derived_id("kpo", "conversion", graphic.id),
-                    outline=points,
+                    id=derived_id("kpo", "conversion", graphic.id if index == 0 else f"{graphic.id}:{index}"),
+                    outline=ring,
                     layers=copper,
                     no_tracks=True,
                     no_vias=True,
                     no_copper_pour=True,
                 )
             )
-            ledger.change(kind, graphic.id, "a closed keep-out outline becomes a rule area")
-        elif graphic.kind in ("line", "arc") and len(graphic.points) in (2, 3):
-            try:
-                piece = Segment(*graphic.points) if graphic.kind == "line" else Arc(*graphic.points)
-                pending.append((piece, graphic, kind))
-            except (GeometryError, TypeError):
-                ledger.drop(kind, graphic.id, "a keep-out line that encloses no area")
-        else:
-            ledger.drop(kind, graphic.id, "a keep-out drawing has no supported outline")
-    # Partition disconnected contours so one dangling segment never discards a separate closed ring.
-    while pending:
-        group = [pending.pop(0)]
-        ends = {group[0][0].start, group[0][0].end}
-        changed = True
-        while changed:
-            changed = False
-            for item in pending[:]:
-                if {item[0].start, item[0].end} & ends:
-                    pending.remove(item)
-                    group.append(item)
-                    ends.update((item[0].start, item[0].end))
-                    changed = True
-        try:
-            rings = assemble_rings(item[0] for item in group)
-            for ring in rings:
-                areas.append(
-                    Keepout(
-                        id=derived_id("kpo", "conversion", group[0][1].id + str(len(areas))),
-                        outline=ring.polygonize(),
-                        layers=copper,
-                        no_tracks=True,
-                        no_vias=True,
-                        no_copper_pour=True,
-                    )
-                )
-            for _, graphic, kind in group:
-                ledger.change(
-                    kind,
-                    graphic.id,
-                    "a closed keep-out outline becomes a rule area (arc chord error at most 5000 nm)",
-                )
-        except GeometryError:
-            for _, graphic, kind in group:
-                ledger.drop(kind, graphic.id, "a keep-out line that encloses no area")
+        filled = graphic.kind in ("polygon", "rect") and (graphic.filled or graphic.width <= 0)
+        ledger.change(kind, graphic.id, KEEPOUT_AREA if filled else KEEPOUT_BAND)
     return dataclasses.replace(
         design,
         board=dataclasses.replace(

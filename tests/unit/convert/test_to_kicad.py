@@ -212,11 +212,13 @@ def test_altium_odd_layers(count: int) -> None:
 
 
 def test_altium_keepout_closed_and_open() -> None:
+    """A closed outline of width 0 is one rule area; a line drawn with a width is the band it covers (change
+    c0407: it was a loss, "a keep-out line that encloses no area"); a line of width 0 covers no area."""
     import dataclasses
 
     from _convert import two_layer
 
-    from fenolite.convert.altium_to_kicad import Ledger, keepouts
+    from fenolite.convert.altium_to_kicad import KEEPOUT_AREA, KEEPOUT_BAND, KEEPOUT_NO_AREA, Ledger, keepouts
     from fenolite.core.coords import Point
     from fenolite.model.board import Graphic
 
@@ -236,15 +238,57 @@ def test_altium_keepout_closed_and_open() -> None:
         points=(Point(2000000, 0), Point(3000000, 0)),
         width=100000,
     )
-    design = dataclasses.replace(design, board=dataclasses.replace(design.board, graphics=(polygon, line)))
+    thin = dataclasses.replace(line, id="gra-thin", width=0)
+    graphics = (polygon, line, thin)
+    design = dataclasses.replace(design, board=dataclasses.replace(design.board, graphics=graphics))
     ledger = Ledger()
     result = keepouts(design, ledger)
     assert result.board is not None
-    area = result.board.keepouts[-1]
+    area, band = result.board.keepouts[-2:]
     assert area.outline == polygon.points
     assert area.no_tracks and area.no_vias and area.no_copper_pour
+    ys = [p.y for p in band.outline]
+    xs = [p.x for p in band.outline]
+    assert (min(ys), max(ys), min(xs), max(xs)) == (-50000, 50000, 1950000, 3050000)
+    assert band.no_tracks and band.no_vias and band.no_copper_pour
     assert not result.board.graphics
-    assert ledger.lost["graphic"]["a keep-out line that encloses no area"] == [line.id]
+    assert ledger.changed["graphic"][KEEPOUT_AREA] == [polygon.id]
+    assert ledger.changed["graphic"][KEEPOUT_BAND] == [line.id]
+    assert ledger.lost["graphic"][KEEPOUT_NO_AREA] == [thin.id]
+
+
+def test_altium_keepout_track_ring_is_four_bands() -> None:
+    """B1 (change c0407): a closed ring of keep-out tracks on the Keep-Out layer keeps out the band of each
+    track, one rule area per track on every copper layer, as KiCad 10.0.6 imports it; the inside of the ring
+    stays free. The keep-out track and the polygon cut-out on Top are the adapter's rule areas."""
+    import hashlib
+
+    import _altium_keepouts as cases
+
+    from fenolite.backends.altium.adapter import import_board
+    from fenolite.backends.altium.read.pcb import read_pcbdoc
+    from fenolite.convert.altium_to_kicad import KEEPOUT_BAND, Ledger, keepouts
+    from fenolite.core.coords import Point
+    from fenolite.geometry import Location, point_in_ring
+
+    data = cases.keepout_document()
+    design = import_board(read_pcbdoc(data), file="k.PcbDoc", sha256=hashlib.sha256(data).hexdigest())
+    ledger = Ledger()
+    result = keepouts(design, ledger)
+    assert result.board is not None
+    adapter, bands = result.board.keepouts[:2], result.board.keepouts[2:]
+    assert sorted(k.layers for k in adapter) == [("F.Cu",), ("F.Cu",)]
+    assert len(bands) == 4 and all(k.layers == ("F.Cu", "B.Cu") for k in bands)
+    assert len(ledger.changed["graphic"][KEEPOUT_BAND]) == 4
+    mm = 1_000_000
+    for band in bands:
+        xs, ys = [p.x for p in band.outline], [p.y for p in band.outline]
+        spans = sorted((max(xs) - min(xs), max(ys) - min(ys)))
+        assert abs(spans[0] - cases.RING_WIDTH) <= 4 and abs(spans[1] - 11 * mm) <= 4
+    lo_x = min(p.x for k in bands for p in k.outline)
+    lo_y = min(p.y for k in bands for p in k.outline)
+    centre = Point(lo_x + 5 * mm + cases.RING_WIDTH // 2, lo_y + 5 * mm + cases.RING_WIDTH // 2)
+    assert all(point_in_ring(centre, k.outline) == Location.OUTSIDE for k in bands)
 
 
 def test_altium_zone_arc_outline() -> None:
