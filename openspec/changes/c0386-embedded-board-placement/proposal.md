@@ -11,8 +11,11 @@ array, and the axis of a mirrored one. c0374 task 2.2 moved here on 2026-11-04 b
 proved by its deadline.
 
 Evidence at hand: the Gerber and drill outputs that Altium Designer 24.5.2.23 made of `panel-a` in the
-Part Q phase A run (S-1422, kept outside the repository) fix the plain case; the Part Q cases Q7 to Q12
-(c0173 task 7.4) are being run in Altium and may add saved panels and outputs.
+Part Q phase A run (S-1422, kept outside the repository) fix the plain case. The phase B run of the cases
+Q7 to Q12 (c0173 task 7.4, agent runs of 2026-11-04) adds the Gerber and drill outputs of Fenolite's own
+array (Q9) and Altium's dump of the copies' places; its Q12 save stores the array's location with the
+document's 1000 mil offset (the user interface shows 0, 5 mm, the record 25.4, 30.4 mm), which the
+reader's test checks.
 
 ## What Changes
 

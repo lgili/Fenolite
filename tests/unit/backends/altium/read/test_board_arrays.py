@@ -123,3 +123,15 @@ def test_the_saved_panels_read_as_recorded(name: str) -> None:
     assert SAVED
     data = (Path(SAVED).expanduser() / f"{name}.PcbDoc").read_bytes()
     assert tuple(_row(array) for array in board_arrays(data)) == SAVED_PANELS[name]
+
+
+Q12 = os.environ.get("FENOLITE_ALTIUM_Q12")
+
+
+@pytest.mark.skipif(not Q12, reason="FENOLITE_ALTIUM_Q12 names panel-saved.PcbDoc of case Q12")
+def test_the_array_altium_saved_again_reads_back() -> None:
+    """Case Q12 (Part Q phase B): Altium saved Fenolite's array again; the record holds the location
+    with the document's 1000 mil offset (the user interface shows 0, 5 mm) and the pitch to the micrometre."""
+    assert Q12
+    (array,) = board_arrays(Path(Q12).expanduser().read_bytes())
+    assert _row(array) == ("../board/board.PcbDoc", 25.4, 30.4, 0, False, 2, 2, 42, 32, False)
