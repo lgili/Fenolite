@@ -1174,3 +1174,105 @@ def test_cac_closure_deferral_is_explicit_source_bound_and_branch_limited() -> N
         assert (
             hashlib.sha256((ROOT / node.split("::")[0]).read_bytes()).hexdigest() == row["test_file_sha256"]
         )
+
+
+# ---- the optional library-bench nightly job (capability fenolite-library, "Benchmark runs"; c0279) ----
+
+LIBRARY_BENCH_STEPS = [
+    ("checkout", "uses: actions/checkout@v4"),
+    ("setup-uv", "uses: astral-sh/setup-uv"),
+    ("uv sync", "run: uv sync --locked --extra dev --extra geo"),
+    ("kicad-cli version", "kicad-cli version | grep -F 10.0.6"),
+    ("benchmark", "run: uv run python tools/library_bench.py "),
+    ("upload", "uses: actions/upload-artifact@v4"),
+]
+
+
+def library_bench_problems(nightly: str) -> list[str]:
+    """What is wrong with the ``library-bench`` job of ``nightly.yml``: scheduled only, optional, the pinned
+    KiCad 10.0.6 image, the tool run on the head, and the table kept even when a board fails."""
+    job = job_text(nightly, "library-bench")
+    if not job:
+        return ["library-bench: job missing"]
+    problems: list[str] = []
+    if "schedule:" not in triggers(nightly) or re.search(r"^  (push|pull_request):", triggers(nightly), re.M):
+        problems.append(
+            "library-bench: nightly.yml must be scheduled and never run on pushes or pull requests"
+        )
+    if not re.search(r"^    continue-on-error: true\s*$", job, re.MULTILINE):
+        problems.append("library-bench: the job must be optional (continue-on-error: true)")
+    if not re.search(r"image: kicad/kicad:10\.0\.6@sha256:[0-9a-f]{64}\s*$", job, re.MULTILINE):
+        problems.append("library-bench: image must be kicad/kicad:10.0.6 pinned by @sha256 digest")
+    at = -1
+    for name, needle in LIBRARY_BENCH_STEPS:
+        found = job.find(needle)
+        if found < 0:
+            problems.append(f"library-bench: step '{name}' missing")
+        elif found < at:
+            problems.append(f"library-bench: step '{name}' out of order")
+        at = max(at, found)
+    upload = job[job.find("      - name: Upload the table") :]
+    if "if: always()" not in upload or "retention-days: 90" not in upload:
+        problems.append("library-bench: the table must be uploaded always and kept 90 days")
+    return problems
+
+
+def test_library_bench_job() -> None:
+    """Task 4.4 of c0279: Fenolite's optional scheduled job ``library-bench``."""
+    nightly, _ = _workflows()
+    assert library_bench_problems(nightly) == []
+    assert (ROOT / "tools" / "library_bench.py").is_file()
+
+
+def test_library_bench_job_shape_rejected() -> None:
+    nightly, _ = _workflows()
+    job = job_text(nightly, "library-bench")
+    assert library_bench_problems(nightly.replace("  library-bench:", "  other:")) == [
+        "library-bench: job missing"
+    ]
+    required = nightly.replace(job, job.replace("    continue-on-error: true\n", ""))
+    assert "library-bench: the job must be optional (continue-on-error: true)" in library_bench_problems(
+        required
+    )
+    unpinned = nightly.replace(job, re.sub(r"(image: kicad/kicad:10\.0\.6)@sha256:[0-9a-f]{64}", r"\1", job))
+    assert any("pinned by @sha256" in p for p in library_bench_problems(unpinned))
+    no_tool = nightly.replace(job, job.replace("tools/library_bench.py", "tools/other.py"))
+    assert "library-bench: step 'benchmark' missing" in library_bench_problems(no_tool)
+    lost = nightly.replace(
+        job,
+        job.replace(
+            "        if: always()\n        uses: actions/upload-artifact@v4\n",
+            "        uses: actions/upload-artifact@v4\n",
+        ),
+    )
+    assert "library-bench: the table must be uploaded always and kept 90 days" in library_bench_problems(lost)
+    pushed = nightly.replace("on:\n", "on:\n  push:\n", 1)
+    assert any("never run on pushes" in p for p in library_bench_problems(pushed))
+
+
+def release_licence_problems(release: str) -> list[str]:
+    """Why the build job of ``release.yml`` does not compare the shipped licence list with the library's
+    ``licences.toml`` before building (c0279, task 3.2)."""
+    build = job_text(release, "build")
+    checkout = build.find("repository: lgili/fenolite-library")
+    test = build.find("tests/unit/library/test_licences.py -k shipped_copy")
+    problems: list[str] = []
+    if checkout < 0:
+        problems.append("release: the build job must check out lgili/fenolite-library")
+    if test < 0 or "FENOLITE_LIBRARY_CHECKOUT: ${{ github.workspace }}/library" not in build:
+        problems.append("release: the shipped_copy test must run with FENOLITE_LIBRARY_CHECKOUT set")
+    if test >= 0 and (checkout < 0 or test < checkout or test > build.find("- name: Build fenolite")):
+        problems.append("release: the licence comparison must run after the checkout and before the build")
+    return problems
+
+
+def test_release_compares_the_shipped_licence_list() -> None:
+    """Task 3.2 of c0279: at each release the shipped licence list equals the library's."""
+    release = RELEASE_WORKFLOW.read_text(encoding="utf-8")
+    assert release_licence_problems(release) == []
+    unset = release.replace("FENOLITE_LIBRARY_CHECKOUT: ${{ github.workspace }}/library", "OTHER: x")
+    assert "release: the shipped_copy test must run with FENOLITE_LIBRARY_CHECKOUT set" in (
+        release_licence_problems(unset)
+    )
+    alone = release.replace("repository: lgili/fenolite-library", "repository: lgili/other")
+    assert "release: the build job must check out lgili/fenolite-library" in release_licence_problems(alone)

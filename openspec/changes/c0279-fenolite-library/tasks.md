@@ -66,6 +66,15 @@
   Open 2026-10-30: library repository work (`lgili/fenolite-library` exists with README, POLICY.md and the kind folders). Still to add there: `LICENSE` (CC0-1.0), `library.toml`, `licences.toml` (copy of `src/fenolite/cli/data/library-licences.toml`), `sources.toml`, `CONTRIBUTING.md`, `CODEOWNERS`, and the README statements `library audit` checks (the repository's licence does not cover items; test and benchmark inputs; no machine-learning training). Measured 2026-10-30: `library audit` on `first-boards` reports only those three README statements and the boards' missing skip reasons.
 - [ ] 3.2 Its `check.yml` (audit, records, blocks, renders) and `release.yml`; a test in Fenolite keeps the shipped licence list equal to the library's at each release. Proof: the first pull request of the library green; `uv run pytest tests/unit/library/test_licences.py -k shipped_copy -q`.
   Open 2026-10-30: the workflows are library work. In Fenolite, `test_shipped_copy_equals_the_library_list` compares the shipped list with `<checkout>/licences.toml` when `FENOLITE_LIBRARY_CHECKOUT` is set (skipped otherwise); it passes once the library commits the copy.
+  Local 2026-11-04, library `c58cdf2`, local stand-in runner for the `run:` steps of `check.yml` (act is not installed; KiCad 10.0.6 CLI, Python 3.12, core `e7673c81` in a clean venv), library branch `cac/library-completion`: inventory, audit, records, regenerate, versions,
+  origin and blocks exit 0; renders exit 0 (run on the preceding `c7dde64`, whose workflow is the same). The
+  library's composite action installs the pinned core and compares `licences.toml` with the shipped copy;
+  Fenolite's `release.yml` now checks out the library and runs
+  `pytest tests/unit/library/test_licences.py -k shipped_copy` with `FENOLITE_LIBRARY_CHECKOUT` set, so each
+  Fenolite release fails when the lists differ (`test_release_compares_the_shipped_licence_list`). Proof run:
+  `FENOLITE_LIBRARY_CHECKOUT=<clone of c58cdf2> uv run pytest tests/unit/library/test_licences.py -k shipped_copy -q`
+  1 passed. Open: nothing is pushed, so no pull request or GitHub run of the library exists; the pin
+  `e7673c81` must be published unchanged first.
 - [ ] 3.3 First release `v1.0.0` with c0266's and c0273's first items, and its row in `cli/data/library.toml`. Proof: `uv run pytest tests/unit/cli/test_get_cache.py -k table -q`.
   Open 2026-10-30: waits for the library's first release `v1.0.0` (c0266 and c0273 items are not merged); then add its `[[release]]` row (version, index_bytes, index_sha256) to `src/fenolite/cli/data/library.toml`. `test_table_rows_are_well_formed` checks the rows.
 - [x] 3.4 Corpus alignment: the manifest rule for `library:` rows and the residue rule for committed items (scenarios "Share-alike library row marked embeddable", "Vendored item committed"). Proof: `uv run pytest tests/corpus/test_manifest.py tests/residue -q`.
@@ -81,7 +90,29 @@
   Done 2026-10-30: `fenolite.library.gallery` and `cli/_library_gallery.py` (cards with the attribution line, proof, `fenolite get` command and item folder link; index and benchmark pages, the table read from `<release>/bench.json`); `library_image_problems` in tests/unit/test_public_presentation.py. Deviation: the verb writes the pages only; a board card shows `top.svg`/`bottom.svg` that the library's gallery workflow renders with `fenolite render` (task 4.4); cards of symbols, footprints, devices and blocks have no image until c0262 sheets and c0269 schematics land. Proof passed (2 + 2 passed).
 - [ ] 4.4 In the library: `replay` and `proof` jobs in `check.yml`, `bench.yml`, `gallery.yml` with Pages; Fenolite's optional scheduled job `library-bench`. Proof: the library's workflows green on their first runs; `uv run pytest tests/unit/test_ci_workflow.py -q`.
   Open 2026-10-30: the workflows belong to the fenolite-library repository (`check.yml` jobs replay/proof: `fenolite library replay <item>`, `fenolite verify-source ... --json > reply.json` then `fenolite library audit . --item <item> --proof reply.json`; `bench.yml`; `gallery.yml` with Pages). Fenolite's optional `library-bench` job waits for the first library release (nothing to download yet).
+  Local 2026-11-04: Fenolite's optional nightly job `library-bench` (`continue-on-error`, pinned KiCad 10.0.6
+  image) runs `tools/library_bench.py`: newest release from the GitHub API (none yet: it writes
+  `not-run.json`), the three boards with the fewest files, `library replay --with-current` and `verify-source`,
+  `bench_table`. Proofs: `uv run pytest tests/unit/test_ci_workflow.py -q` (56 passed),
+  `uv run pytest tests/unit/tools/test_library_bench.py -q` (4 passed), and an end-to-end run on the library's
+  microwave board (equal, proof passed), which found the dangling-link replay crash (task 6.3). In the library
+  (`ba21ee1`), the `proof` job now rebuilds the recorded `verify-source` step read-only: it passed the upstream
+  folder with default options, so ecc83 (two project files) ended in FEN-2001 and the KiCad 10 projects were
+  proved without `--target 10`. With the fix, on `c58cdf2` (local stand-in runner for the `run:` steps of `check.yml` (act is not installed; KiCad 10.0.6 CLI, Python 3.12, core `e7673c81` in a clean venv), library branch `cac/library-completion`), proof passes for nine of
+  twelve boards (ecc83 and the Coldfire kit newly). `bench.yml` replays without `--upstream`. Open: the
+  workflows' first GitHub runs, and the boards below.
 - [ ] 4.5 First boards (research section 4.6): the KiCad demos with a usable licence (not the non-commercial one), each converted, replayed and proved, with accepted differences recorded and reviewed. Proof: the library's `check.yml` green on the pull request that adds them.
+  Local 2026-11-04 with core `e7673c81` (the library pin): the twelve boards were converted on 2026-11-03 with
+  cores `18351e40`/`5b0853b7` (the `codex/cac-next` line, before c0355 and later import changes). Replay (run
+  with `fef4ea08`; `e7673c81` changes only `library review`): equal for ecc83, interf_u, the Coldfire kit,
+  microwave, multichannel and pic_programmer; import exits 5 for tiny_tapeout, complex_hierarchy and video
+  (c0355 `native project context requires unique supported same-target classes`); output differs for
+  openair-max (`design.py`, `native/project*.context.json`), sonde_xilinx and royalblue54l_feather. Proof
+  (library `c58cdf2`): sonde_xilinx and video differ at level 6 (the project's Default netclass and
+  `max_curve_error` are absent from the payload); royalblue differs at L6, L7 (teardrops) and S. `release.yml`
+  calls `check.yml`, which replays and proves every converted board, so v1.0.0 cannot publish until these six
+  boards are refreshed with the pinned core (after a c0355 fix) or leave the release. Open: maintainer or
+  coordinator decision; the refreshes need a core fix and are not done here.
 - [x] 4.5a Prepare an external OpenAir1.0.2 candidate from the author's immutable
  89aacf5013fc0ffe4b988a2e3c5a227bce3c4983 six-input project (five CAD documents plus its active author DRU), not the incoherent
  KiCad-demo97acc source. Verify manifests/licence bytes, reviewed import plan
@@ -169,6 +200,10 @@ Integration gate 2026-10-31: the complete `make check-fast` on the reconciled in
 
 - [x] 6.1 Override ambient Git newline conversion for fetched library and replay checkouts; prove pinned LF bytes survive a host configured for CRLF. Proof: `uv run pytest tests/unit/cli/test_get.py::test_from_a_checkout_and_a_file_git_url tests/unit/library/test_replay.py::test_replay_fetches_the_pinned_commit -q`.
 - [x] 6.2 Make cache-plan path assertions portable without weakening the no-request proof. Proof: `uv run pytest tests/unit/cli/test_get_cache.py -q`.
+
+- [x] 6.3 `library replay --upstream DIR` copies the given checkout with links kept as links, as a git checkout has them; a dangling link (KiCad's own `qa/tests/resources`) ended the replay with FEN-1001. Proof: `uv run pytest tests/unit/library/test_replay.py -q`.
+
+  2026-11-04: found by running `tools/library_bench.py` (task 4.4) on the library's microwave board: the replay with `--upstream` exited 1 with FEN-1001 on the dangling `qa/tests/resources` link of KiCad `97acc80c`. The new regression test fails without `symlinks=True` and passes with it (8 passed in the file); the same board then replayed equal and its proof passed. The library's `bench.yml` now lets `replay` fetch the pinned commit itself, so its pinned core does not need this fix.
 
 2026-10-31: task 6.1 reproduces both Windows failures on the local host with an isolated CRLF Git configuration (2 failed before the fix). Explicit per-command `core.autocrlf=false` and `core.eol=lf` made both regressions pass. No global Git configuration changes; repository attributes remain respected. Strict validation and focused lint passed.
 

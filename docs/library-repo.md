@@ -79,7 +79,10 @@ final newline) records:
 ## Licences
 
 `licences.toml` (schema `fenolite.library-licences.v0`) is committed in the library; the core ships the same
-file as `src/fenolite/cli/data/library-licences.toml`. The allow-list is closed (SPDX License List 3.29.0,
+file as `src/fenolite/cli/data/library-licences.toml`. The two files are kept equal from both sides: the
+library's CI refuses a pinned core whose shipped copy differs, and Fenolite's release job checks out the library
+and runs `tests/unit/library/test_licences.py -k shipped_copy` with `FENOLITE_LIBRARY_CHECKOUT` set before it
+builds. The allow-list is closed (SPDX License List 3.29.0,
 S-1002):
 
 | family | SPDX ids | reciprocal | a copy carries |
@@ -129,7 +132,10 @@ The library holds no tooling code: its workflows install a pinned released `feno
   audit refuses a board whose recorded proof fails.
 - **Benchmark** (weekly, and on each Fenolite release): every board replayed and proved with the newest
   Fenolite; the table (board, levels, time, differences, result) marks the newly failing boards for an
-  issue and never blocks a merge.
+  issue and never blocks a merge. Fenolite's own optional nightly job `library-bench` runs
+  `tools/library_bench.py`: the three boards of the newest release with the fewest files, replayed with
+  `--with-current` and proved on the head of `dev`, into the same table; while the library has no release it
+  writes `not-run.json` and passes.
 
 ## Releases
 

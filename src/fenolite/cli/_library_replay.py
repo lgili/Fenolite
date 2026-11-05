@@ -175,7 +175,8 @@ def replay_command(args: argparse.Namespace, ctx: Context) -> Result:
         work = Path(temp)
         upstream = work / "upstream"
         if upstream_given is not None:
-            shutil.copytree(upstream_given, upstream, ignore=shutil.ignore_patterns(".git"))
+            # Links stay links, as in a checkout: a dangling one (KiCad's qa/tests/resources) is not followed.
+            shutil.copytree(upstream_given, upstream, symlinks=True, ignore=shutil.ignore_patterns(".git"))
         else:
             _fetch_upstream(record, upstream)
         base = upstream / str(cast(Mapping[str, Any], record.get("upstream") or {}).get("path") or "")

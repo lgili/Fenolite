@@ -143,6 +143,21 @@ def test_replay_reproduces_an_authored_conversion(
     assert folder_files(item) == before
 
 
+def test_replay_keeps_a_dangling_link_of_the_upstream(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, converted: tuple[Path, Path]
+) -> None:
+    """c0279 task 6.3: ``--upstream DIR`` copies links as links; a dangling one (as in KiCad's own tree)
+    used to end the replay with FEN-1001."""
+    upstream, item = converted
+    (upstream / "qa").mkdir()
+    (upstream / "qa" / "resources").symlink_to(upstream / "absent")
+    code, envelope, error = _cli(
+        monkeypatch, tmp_path, "library", "replay", str(item), "--upstream", str(upstream)
+    )
+    assert code == 0, (envelope, error)
+    assert envelope["result"]["equal"] is True
+
+
 @pytest.mark.parametrize("autocrlf", [False, True])
 def test_replay_fetches_the_pinned_commit(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, converted: tuple[Path, Path], autocrlf: bool
