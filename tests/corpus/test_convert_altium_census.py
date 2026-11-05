@@ -127,7 +127,13 @@ CONVERTED_LOSSES = {  # footprint-text: a footprint's own text is reported lost 
     "altium-third-party-pcbdoc-05": {"body": 23, "rule": 1},
     "altium-third-party-pcbdoc-06": {"body": 27, "rule": 1, "model": 19, "footprint-text": 25},
     "altium-third-party-pcbdoc-07": {"body": 24, "model": 3, "footprint-text": 12},
-    "altium-third-party-pcbdoc-08": {"body": 1298, "text": 298, "graphic": 1000, "model": 52},
+    "altium-third-party-pcbdoc-08": {
+        "body": 1298,
+        "text": 298,
+        "graphic": 1000,
+        "model": 52,
+        "footprint-text": 554,
+    },
 }
 """The losses per kind, measured on 2026-10-15; on 2026-10-16 (change c0170) the slots of the pads of
 ``-07`` (8) and ``-08`` (4) are kept: the import holds a slot's axis in the pad's own frame, and none is

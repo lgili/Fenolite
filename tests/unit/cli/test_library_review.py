@@ -374,7 +374,7 @@ def test_pin_content_with_the_viewer_that_wrote_the_acceptance(monkeypatch, tmp_
     edited = tmp_path / "viewer-edited"
     edited.mkdir()
     for name in ("page.html", "viewer.css", "viewer.js"):
-        (edited / name).write_text((viewer_1 / name).read_text() + "\n")
+        (edited / name).write_text((viewer_1 / name).read_text(encoding="utf-8") + "\n", encoding="utf-8")
     flags = ("library", "review", str(path), "--pin-content", "--confirm", "--viewer")
     code, _, error, _ = run(monkeypatch, tmp_path, *flags, str(edited))
     assert code == 4 and error["code"] == "FEN-4002"
