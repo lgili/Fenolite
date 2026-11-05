@@ -45,6 +45,16 @@
 8. **Proof.** The authored library and the expectations of c0410's oracle test are reused unchanged. The
    new tests compare Fenolite's import and its `.kicad_mod` with `fp upgrade`'s for the three areas on
    copper, and place the written footprint turned on a board whose DRC reports a track at the placed band.
+9. **Areas the writers cannot hold (lote-23 CI, 2026-11-05).** A KiCad footprint's zone may name a
+   courtyard (`BT1` of `-06`: `B.Cu`, `B.CrtYd`) or the inner layers of KiCad's stack beyond the board's
+   (`U1` of `-13`). An Altium keep-out lies on a copper layer or the Keep-Out layer and restricts copper
+   objects only (`pcb-records.md`, "Regions and keep-outs"; S-1711). So `lower._written_keepouts` keeps the
+   board's copper layers an area names (all of them: `*.Cu`, one Keep-Out region), leaves out a copper
+   layer the board lacks (it holds nothing there), counts a non-copper layer changed under `keep-out` and
+   an area without a copper layer, or one the record cannot hold, lost; written areas count under
+   `keep-out`. The library writer puts `In<n>.Cu` on Mid-Layer n (layer byte n + 1). The footprint reader
+   takes a file's zones through its `at` whatever the root, as the writer's check does, so a definition
+   read from a board and written as read round-trips its areas (`test_footprint_rt`, `-13`).
 
 ## Changed expectations
 
@@ -59,3 +69,7 @@
   layer, no longer a graphic of `Altium.KeepOut`. The PcbDoc and PcbLib writers write an area on every
   copper layer as such a region, so the adapter reads one back as an area; the conservation sum counts it
   as a rule area. A region of the Keep-Out layer without that flag, and every free one, stays a graphic.
+- `test_convert_census.py::test_not_written_per_kind` and `test_conversion_is_explained` (`-11`, `-14`) and
+  the ledger of `docs/evidence/conversion.md`: the `copper-shape` losses (2 on `One-Air-Max`, 4 on
+  `RoyalBlue54L-NFC-Antenna`) are gone, because c0412 (B12) writes those shapes as regions; c0412 left
+  these expectations as they were, and the integrated batch's CI measured them first.

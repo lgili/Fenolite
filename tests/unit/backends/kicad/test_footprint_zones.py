@@ -14,7 +14,7 @@ import pytest
 
 from fenolite.backends.kicad.embed import local_footprint, place_footprint
 from fenolite.backends.kicad.layers import created_layers
-from fenolite.backends.kicad.mod import read_footprint, write_footprint
+from fenolite.backends.kicad.mod import board_footprints, read_footprint, write_footprint
 from fenolite.backends.kicad.pcb import read_board, write_board
 from fenolite.backends.kicad.sexpr import Node, parse
 from fenolite.backends.kicad.versions import LossyWriteError
@@ -193,3 +193,15 @@ def test_a_board_footprint_brought_back_to_its_origin_has_local_zone_points() ->
         ("-2", "2"),
         ("-2", "0"),
     ]
+
+
+def test_a_board_footprint_read_as_a_definition_round_trips_its_zone() -> None:
+    """A definition read from a board keeps the footprint's ``at`` and its zone in the board's frame when it
+    is written as read; the footprint file reads the zone back in the footprint's own frame, as the
+    writer's check does (``RoyalBlue54L-Feather`` footprint 4 of the public row ``-13``)."""
+    (defn,) = board_footprints(ROTATED)
+    (area,) = defn.keepouts
+    assert area.outline[1] == Point(0, 2 * MM)  # the pad frame of (50, 50) turned 90 degrees
+    text = write_footprint(defn, target=10)
+    assert zone_points(text) == zone_points(ROTATED)  # the bytes as read
+    assert read_footprint(text, library=defn.library).keepouts == defn.keepouts

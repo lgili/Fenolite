@@ -382,6 +382,12 @@ KEEPOUT_BITS: Mapping[str, int] = MappingProxyType(
 restriction ``no_footprints`` has no bit."""
 ALL_COPPER = "*.Cu"
 """The layer of a footprint's rule area on every copper layer, as of a Multi-Layer pad (change c0411)."""
+LIBRARY_COPPER: Mapping[str, int] = MappingProxyType(
+    {"F.Cu": rec.TOP_LAYER, **{f"In{n}.Cu": n + 1 for n in range(1, 31)}, "B.Cu": rec.BOTTOM_LAYER}
+)
+"""A copper layer of a library footprint's rule area → its layer byte: Top 1, Mid-Layer n at n + 1 and
+Bottom 32, as a saved region's ``V7_LAYER`` ``MID<n>`` holds (``pcb-records.md``, "Regions and
+keep-outs")."""
 
 
 def keepout_restrictions(keepout: Keepout) -> int:
@@ -402,7 +408,7 @@ def footprint_keepout_problem(area: Keepout, copper_layers: Sequence[str] = ()) 
         return "the rule area has an outline of fewer than three points"
     if not area.layers:
         return "the rule area names no layer"
-    known = set(copper_layers) if copper_layers else {n for n in rec.LAYER_MAP if n.endswith(".Cu")}
+    known = set(copper_layers) if copper_layers else set(LIBRARY_COPPER)
     # an area on every copper layer of the board is one region of the Keep-Out layer, whatever else it
     # names (a KiCad footprint's zone names the 32 copper layers KiCad has)
     everywhere = bool(copper_layers) and set(area.layers) >= set(copper_layers)
@@ -424,8 +430,8 @@ def keepout_layer_ids(
     names = set(area.layers)
     if ALL_COPPER in names or (copper_layers and names >= set(copper_layers)):
         return [rec.KEEPOUT_LAYER]
-    ids = layer_ids if layer_ids is not None else rec.LAYER_MAP
-    order = list(copper_layers) or list(rec.LAYER_MAP)
+    ids = layer_ids if layer_ids is not None else LIBRARY_COPPER
+    order = list(copper_layers) or list(LIBRARY_COPPER)
     return [ids[n] for n in sorted(names, key=lambda n: order.index(n) if n in order else len(order))]
 
 

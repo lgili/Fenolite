@@ -69,7 +69,6 @@ NOT_WRITTEN: dict[str, dict[str, int]] = {
     "09": {"keep-out": 4, "text": 2, "zone-fill": 1},
     "10": {"keep-out": 4, "text": 2, "zone-fill": 2},
     "11": {
-        "copper-shape": 2,
         "dnp": 11,
         "footprint-copper": 3,
         "footprint-graphic": 1,
@@ -92,7 +91,7 @@ NOT_WRITTEN: dict[str, dict[str, int]] = {
         "zone": 2,
         "zone-fill": 2,
     },
-    "14": {"copper-shape": 4, "footprint-graphic": 5, "outline": 1},
+    "14": {"footprint-graphic": 5, "outline": 1},
     "15": {"dimension": 1, "stackup": 1, "zone-fill": 1},
     "16": {
         "dimension": 6,
@@ -109,7 +108,8 @@ NOT_WRITTEN: dict[str, dict[str, int]] = {
     },
     "17": {"dimension": 2, "stackup": 1, "zone-fill": 2},
 }
-"""Per-board refused items, measured after c0160 on 2026-10-12 (16 light boards)."""
+"""Per-board refused items, measured after c0160 on 2026-10-12 (16 light boards). Change c0412 (B12) writes
+the shapes on copper of ``11`` (2) and ``14`` (4) as regions, so their ``copper-shape`` losses are gone."""
 DIFFERENCES: dict[str, tuple[int, dict[str, int]]] = {
     "01": (5, {"dnp": 2, "pad-kind": 2, "pad-missing": 8}),
     "02": (5, {}),

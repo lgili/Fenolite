@@ -13,6 +13,7 @@ from pathlib import Path
 
 import pytest
 
+from fenolite.backends.altium import lower
 from fenolite.backends.altium import pcbrecords as rec
 from fenolite.backends.altium.adapter.library import import_footprints
 from fenolite.backends.altium.backend import AltiumBackend
@@ -163,3 +164,41 @@ def test_document_rule_areas_survive_a_write(ref: str, layers: tuple[str, ...], 
     (theirs,) = again.keepouts
     assert close(mine, theirs), (mine, theirs)
     assert close(placed_keepout(fp, mine), placed_keepout(again, theirs))
+
+
+def _written(ref: str, *areas: Keepout, derive: bool = False) -> lower.ProjectWrite:
+    first = AltiumBackend().read(BLINK).design
+    fp = _footprint(first, ref)
+    design = first.replace_entity(dataclasses.replace(fp, keepouts=areas))
+    return lower.write_design(design, allow_lossy=True, derive_library=derive)
+
+
+def test_a_footprint_area_off_the_copper_layers_is_reported_not_raised(tmp_path: Path) -> None:
+    """A KiCad footprint's zone may name a courtyard (``BT1`` of the public row ``-06``: ``B.Cu`` and
+    ``B.CrtYd``) or inner layers the board lacks (``U1`` of ``-13``). An Altium keep-out lies on a copper
+    layer or the Keep-Out layer and restricts copper only (``pcb-records.md``; S-1711): the area keeps its
+    copper layers of the board, a non-copper layer is counted changed under ``keep-out``, and an area with
+    no copper layer of the board is counted lost; the write raises nothing."""
+    both = area("kpo_both", ("F.Cu", "F.CrtYd"), no_vias=True)
+    silk = area("kpo_silk", ("F.CrtYd",), no_vias=True)
+    inner = area("kpo_inner", ("F.Cu", "In3.Cu"), no_vias=True)
+    written = _written("R1", both, silk, inner, derive=True)
+    lost = written.inputs.lost["keep-out"]
+    assert [ids for reason, ids in lost.items() if "F.CrtYd" in reason] == [("kpo_silk",)]
+    changed = written.inputs.changed["keep-out"]
+    assert [ids for reason, ids in changed.items() if "F.CrtYd" in reason] == [("kpo_both",)]
+    (name,) = [n for n in written.files if n.endswith(".PcbDoc")]
+    (tmp_path / name).write_bytes(written.files[name])
+    again = _footprint(AltiumBackend().read(tmp_path / name).design, "R1")
+    # both copper areas come back on F.Cu: the courtyard and the inner layer the board lacks hold nothing
+    assert sorted(k.layers for k in again.keepouts) == [("F.Cu",), ("F.Cu",)]
+    assert any(n.endswith(".PcbLib") for n in written.files)
+
+
+def test_a_library_area_on_an_inner_layer_is_a_region_of_its_mid_layer() -> None:
+    """A library has no stack: an area on ``In3.Cu`` is a keep-out region of Mid-Layer 3, layer byte 4
+    (``V7_LAYER`` ``MID<n>`` at n + 1, ``pcb-records.md``)."""
+    footprint = LibFootprint(library_definition(area("kpo_in3", ("In3.Cu",), no_tracks=True)))
+    (region,) = [record for kind, record in footprint_primitives(footprint) if kind == "Region"]
+    assert keepout_layer_ids(area("x", ("In3.Cu",), no_tracks=True)) == [4]
+    assert b"MID3" in region

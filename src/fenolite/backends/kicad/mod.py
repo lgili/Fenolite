@@ -239,10 +239,12 @@ def _definition(
                 _replace(slots, index, ctx.opaque(child, chain))
                 ctx.kept_opaque(f"{head}: {reason}; kept opaque", loc)
     # the keep-out zones are a projection (change c0411): each stays an opaque slot; a board holds a
-    # footprint's zone in the board's frame, so a definition read from a board takes it to its own frame
+    # footprint's zone in the board's frame, so a definition read from a board takes it to its own frame;
+    # so does a footprint file that keeps a board footprint's ``at`` (a definition read from a board and
+    # written as read), as the writer's check reads it (``fpzones.placement_frame``)
     frame = fpzones.same
     at = root.find("at")
-    if chain == BOARD_CHAIN and at is not None:
+    if at is not None:
         frame = fpzones.board_to_pad(ctx.point(at, f"{base}/at[0]"), _at_angle(ctx, at, f"{base}/at[0]"))
     keepouts = fpzones.footprint_keepouts(root.children, native, frame, definition=True)
     return FootprintDef(

@@ -887,6 +887,55 @@ def _library_keepout(area: Keepout, *, bottom: bool) -> Keepout:
     )
 
 
+KEEPOUT_LAYER_REASON = (
+    "the layer(s) {layers} of the rule area of a footprint are no copper layer: an Altium keep-out lies on "
+    "a signal layer or the Keep-Out layer and restricts copper only (vias, tracks, copper, SMD and TH pads)"
+)
+"""The reason a footprint's rule area on a layer other than copper is counted under ``keep-out``: written
+on its copper layers (changed), or not written when it names none (lost)."""
+
+
+def _written_keepouts(fp: FootprintInstance, copper: Sequence[str], account: _Account) -> tuple[Keepout, ...]:
+    """The rule areas of ``fp`` as the document and the derived library write them (change c0411), in the
+    top-side form of ``_library_keepout``. An Altium keep-out is a primitive of a copper layer or of the
+    Keep-Out layer whose restrictions are copper objects (``pcb-records.md``, "Regions and keep-outs";
+    S-1711), so an area keeps only its layers that are copper layers of the board (``copper``, every one
+    ending in ``.Cu`` when it is empty):
+
+    - an area on every copper layer of the board is on ``*.Cu``, one region of the Keep-Out layer in both
+      files (a KiCad footprint's zone names the copper layers of KiCad's stack, not only the board's);
+    - a copper layer the board lacks holds nothing on that board and is left out;
+    - a layer that is no copper layer (a courtyard, say) is counted changed under ``keep-out`` when the
+      area keeps a copper layer, else the area is counted lost;
+    - an area the record cannot hold (``pcblib.footprint_keepout_problem``) is counted lost.
+
+    Each area written is counted written under ``keep-out``."""
+    board = set(copper)
+    out: list[Keepout] = []
+    for area in fp.keepouts:
+        top = _library_keepout(area, bottom=fp.side == "bottom")
+        on_board = [
+            n for n in top.layers if n == pcblib.ALL_COPPER or (n in board if board else n.endswith(".Cu"))
+        ]
+        other = [n for n in top.layers if n != pcblib.ALL_COPPER and not n.endswith(".Cu") and n not in board]
+        if not on_board:
+            account.skip("keep-out", area.id, KEEPOUT_LAYER_REASON.format(layers=", ".join(other) or "-"))
+            continue
+        layers = tuple(on_board)
+        if board and (pcblib.ALL_COPPER in layers or board <= set(layers)):
+            layers = (pcblib.ALL_COPPER,)
+        top = dataclasses.replace(top, layers=layers)
+        problem = pcblib.footprint_keepout_problem(top, copper)
+        if problem is not None:
+            account.skip("keep-out", area.id, problem)
+            continue
+        if other:
+            account.change("keep-out", area.id, KEEPOUT_LAYER_REASON.format(layers=", ".join(other)))
+        out.append(top)
+        account.wrote("keep-out")
+    return tuple(out)
+
+
 @dataclass(frozen=True, slots=True)
 class _Items:
     """What ``_footprint_items`` gives the placed component of one instance."""
@@ -1138,7 +1187,7 @@ def _footprints(
             name=pattern or "FOOTPRINT",
             pads=tuple(pads),
             graphics=own.graphics,
-            keepouts=tuple(_library_keepout(k, bottom=bottom) for k in fp.keepouts),
+            keepouts=_written_keepouts(fp, copper, account),
         )
         native = _FP_NATIVE.fullmatch(fp.native_ids.get(BACKEND, ""))
         placed.append(
