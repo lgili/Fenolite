@@ -1023,6 +1023,21 @@ class DerivedCacheSourceAliases:
 
 
 @dataclass(frozen=True, kw_only=True)
+class DerivedCacheCanonicalNets:
+    """Every net paired under a canonical name, by rule: rows [side, declared name, pairing key]."""
+
+    slash: list[list[str]] = field(
+        metadata={"description": "Nets whose stored {slash} was read as the / of their label text."}
+    )
+    unconnected_single_pad: list[list[str]] = field(
+        metadata={
+            "description": "unconnected-( nets of exactly one pad whose name KiCad derives from that pad, "
+            "keyed by its reference and number."
+        }
+    )
+
+
+@dataclass(frozen=True, kw_only=True)
 class DerivedCacheIdentityPreparation:
     """Private identity and order preparation of side b's native input copy only (c0384 2.1). By c0275's
     design a build gives copper its own identities and order; a prepared proof measures geometry once they
@@ -1055,6 +1070,7 @@ class DerivedCacheIdentityPreparation:
         metadata={"description": "Side-b identities of each admitted pair of fully identical pads."}
     )
     source_aliases: DerivedCacheSourceAliases
+    canonical_nets: DerivedCacheCanonicalNets
 
 
 @dataclass(frozen=True, kw_only=True)

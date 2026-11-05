@@ -1,0 +1,78 @@
+{
+  "before": {
+    "head": "89312d5f",
+    "level7": "differs",
+    "preparation": "refused: electrical objects differ",
+    "sides": [
+      "6c67e319",
+      "37277939"
+    ]
+  },
+  "board": "public KiCad 9.0.9.1 demo flat_hierarchy",
+  "board_sha256_prefix": "4bd316f0",
+  "canonical_nets": {
+    "counted": "read-only from the same source and an identical-code build, no native run",
+    "examples": [
+      [
+        "unconnected-(J1-Pad1)",
+        "unconnected-(J1-1-Pad1)"
+      ],
+      [
+        "/pic_programmer/VPP_ON",
+        "{slash}pic_programmer{slash}VPP_ON"
+      ]
+    ],
+    "slash": {
+      "side_b": 4
+    },
+    "unconnected_single_pad": {
+      "side_a": 77,
+      "side_b": 77,
+      "spelling_differs": 56
+    }
+  },
+  "commands": [
+    "fenolite import <copy>/flat_hierarchy.kicad_pro --to python --out <proj> (dry-run, then --confirm --plan)",
+    "fenolite verify-source <proj>/design.py --against <copy>/flat_hierarchy.kicad_pro"
+  ],
+  "finding": "task 1.4: the build's net spelling differs from the 9.0.9.1 source (fidelity, not geometry)",
+  "head": "30da426f",
+  "level7": {
+    "label": "L7 after identity and order preparation",
+    "moved": 378,
+    "preparation": "applied",
+    "rewritten": 625,
+    "sides": {
+      "a": {
+        "exact_geometry_sha256_prefix": "6c67e319",
+        "raw_caches": 176,
+        "regenerated_caches": 178
+      },
+      "b": {
+        "exact_geometry_sha256_prefix": "6c67e319",
+        "raw_caches": 0,
+        "regenerated_caches": 178
+      }
+    },
+    "source_aliases": 0,
+    "status": "equal"
+  },
+  "one_run_rule": "one verify-source run on 30da426f; the earlier scratch measurement used a monkeypatch and is not this proof",
+  "schema": "fenolite.c0384.flat-hierarchy-prepared-proof.v0",
+  "tool": "kicad-cli 10.0.6",
+  "verify_source": {
+    "error_issues": [],
+    "exit": 0,
+    "levels": {
+      "1": "equal",
+      "2": "equal",
+      "3": "equal",
+      "4": "equal",
+      "5": "equal",
+      "6": "equal",
+      "7": "equal",
+      "8": "equal",
+      "S": "equal"
+    }
+  }
+}

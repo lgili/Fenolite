@@ -218,6 +218,7 @@ def identities(a: CacheInput, b: CacheInput) -> tuple[dict[str, object], Any]:
         "moved": [],
         "identical_pairs": [],
         "source_aliases": {"note": SOURCE_ALIAS, "count": 0, "identities": []},
+        "canonical_nets": {"slash": [], "unconnected_single_pad": []},
     }
     try:
         root = parse_bytes(b.files[b.name])
@@ -237,6 +238,12 @@ def identities(a: CacheInput, b: CacheInput) -> tuple[dict[str, object], Any]:
             "note": SOURCE_ALIAS,
             "count": len(pairing.source_aliases_kept),
             "identities": list(pairing.source_aliases_kept),
+        },
+        "canonical_nets": {
+            rule.replace("-", "_"): [
+                [side, declared, key] for side, kind, declared, key in pairing.canonical_nets if kind == rule
+            ]
+            for rule in (identity_pairing.SLASH_RULE, identity_pairing.UNCONNECTED_RULE)
         },
     }, prepared
 

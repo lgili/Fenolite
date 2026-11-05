@@ -86,6 +86,13 @@
     decision. The rewrite touches only the paired objects' own identity fields (unit test: the paired
     board equals the source), so ordinary fills and editable fields are unchanged by construction.
 
+- [ ] 1.4 Fidelity finding (not geometry), from the flat_hierarchy replay: the build spells single-pad nets
+  `unconnected-(J1-1-Pad1)` where the 9.0.9.1 source has `unconnected-(J1-Pad1)` (the pad's pin name is
+  `1`), and writes `/pic_programmer/VPP_ON` as `{slash}pic_programmer{slash}VPP_ON`. Check whether the KiCad
+  writer should keep the source's spelling for an imported board, or whether KiCad 9 and 10 name these
+  nets differently, citing the public KiCad sources that show it; record the fact in
+  `docs/formats/kicad/` with its source and evidence label before any writer change.
+
 ## 2. One focused approved implementation
 
 - [x] 2.1 (from c0355 2.1) Implement only approved private identity/order preparation with complete receipts
@@ -126,21 +133,46 @@
     identities) and the label by what was prepared. Proofs: `test_identity_pairing.py` (order in own slots,
     stale order refused), `test_derived_cache_identity.py` (moved receipt, label, alias count). One native
     run per side, complete exact multisets and all old checks unchanged.
-- [ ] 2.2 (from c0355 2.2) Preserve defaults, source, canonical and native file bytes; add facts, guide or
+- [x] 2.2 (from c0355 2.2) Preserve defaults, source, canonical and native file bytes; add facts, guide or
   result-owner changes only if needed and approved; update CHANGELOG and run focused checks.
-- [ ] 2.3 (from c0355 2.3) Fresh production Royal/native public and authored neighbours with full inputs and
+  - 2026-11-05: `byte-preservation-proof.json` in this folder: base 1169f10d against 89312d5f, fixed seed and
+    timestamp, five public KiCad demos (microwave, pic_programmer, interf_u, complex_hierarchy, RoyalBlue).
+    Every source is byte-identical after both runs; import trees are identical except RoyalBlue's new
+    `native/fill.cache.json` (the only source with ordinary fills); builds are byte-identical on
+    microwave, interf_u and complex_hierarchy, pic_programmer refuses its lossy build (exit 7) on both sides,
+    and RoyalBlue's build differs only in the carried fills and the build receipt, and is byte-identical to
+    base once the carrier is moved away. The level-7 preparation changes only private proof copies. Facts,
+    guide and result changes were the approved ones of 0.3 and 2.1 (CHANGELOG per part). Focused checks
+    (ruff, format, `pyright src`, the touched and neighbouring unit folders through the lock, native 10.0.6
+    identity and teardrop tests): pass on 52bacc41, after the missing explain entry was added.
+- [x] 2.3 (from c0355 2.3) Fresh production Royal/native public and authored neighbours with full inputs and
   context, exact raw and qualified observations, no normal-cache removal or acceptance waiver.
   - 2026-11-05 Royal part: fresh public RoyalBlue import and `verify-source` on this code (kicad-cli
     10.0.6, full inputs and project context, no acceptance): all nine levels equal; level 7 labelled "L7
     after identity and order preparation", 289/a562fa79 on both sides (raw 263 versus 0 stays visible),
     35 ordinary fills carried as native carry-over, no normal cache removed. Receipt
     `royal-prepared-proof.json`. Still open: the public and authored neighbours on this code.
+  - 2026-11-05 neighbours on 89312d5f (fresh import and `verify-source`, kicad-cli 10.0.6, no acceptance):
+    complex_hierarchy, interf_u, pic_programmer and tiny_tapeout pass all nine levels (tiny_tapeout writes a
+    fill carrier; complex_hierarchy, equal unprepared before, now reads "L7 after identity and order
+    preparation", 529 rewritten, 364 moved, 16b255c6 on both sides). flat_hierarchy (9.0.9.1 demo, board
+    4bd316f0) still differed at level 7 (6c67e319 versus 37277939): the pairing refused because the build
+    spells 92 objects' nets differently (finding 1.4). The coordinator approved two canonical net rules
+    (`slash`, `unconnected_single_pad`, receipted in `canonical_nets`).
+  - 2026-11-05 flat_hierarchy on 30da426f, one `verify-source` run (`flat-hierarchy-prepared-proof.json`): all
+    nine levels equal, level 7 "L7 after identity and order preparation", 625 rewritten, 378 moved, 6c67e319
+    on both sides (raw 176 versus 0 stays visible); canonical nets: 4 `slash` on side b, 77
+    `unconnected_single_pad` per side, 56 of them spelled differently. Authored neighbours: the import fill
+    round-trip project and the native derived-teardrop, duplicate-identity, pad-field-order and identity
+    controls pass on this code (focused runs above). No normal cache removed, no acceptance.
 
 ## 3. Closure
 
 - [ ] 3.1 (from c0355 3.1) Root-owned combined fast and exact-head native CI, source/format/surface review and
   all linked literal gates. Never archive because a private diagnostic improved.
-- [ ] 4.4 (from c0355 4.4) After coordinator review, the approved original Royal comparison with the complete
+- [x] 4.4 (from c0355 4.4) After coordinator review, the approved original Royal comparison with the complete
   old acceptance gates passes at level 7, or its failure is retained.
   - 2026-11-05: the comparison passes on the approved label (see 2.3 and `royal-prepared-proof.json`);
     left for the coordinator's review.
+  - 2026-11-05: approved by the coordinator 2026-11-05 under the label "L7 after identity and order
+    preparation"; plain L7 is not claimed.

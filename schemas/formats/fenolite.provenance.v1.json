@@ -234,6 +234,37 @@
         "version"
       ]
     },
+    "DerivedCacheCanonicalNets": {
+      "description": "Every net paired under a canonical name, by rule: rows [side, declared name, pairing key].",
+      "type": "object",
+      "properties": {
+        "slash": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "description": "Nets whose stored {slash} was read as the / of their label text."
+        },
+        "unconnected_single_pad": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "description": "unconnected-( nets of exactly one pad whose name KiCad derives from that pad, keyed by its reference and number."
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "slash",
+        "unconnected_single_pad"
+      ]
+    },
     "DerivedCacheCrossings": {
       "type": "object",
       "properties": {
@@ -334,6 +365,9 @@
         },
         "source_aliases": {
           "$ref": "#/$defs/DerivedCacheSourceAliases"
+        },
+        "canonical_nets": {
+          "$ref": "#/$defs/DerivedCacheCanonicalNets"
         }
       },
       "additionalProperties": false,
@@ -346,7 +380,8 @@
         "rewritten",
         "moved",
         "identical_pairs",
-        "source_aliases"
+        "source_aliases",
+        "canonical_nets"
       ]
     },
     "DerivedCacheRuleDelta": {

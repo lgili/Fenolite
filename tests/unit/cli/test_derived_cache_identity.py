@@ -62,3 +62,25 @@ def test_source_aliases_are_counted_and_noted() -> None:
         "count": 2,
         "identities": sorted((TARGET["p1"], TARGET["p2"])),
     }
+
+
+def test_canonical_nets_are_receipted_by_rule_with_old_and_new_spelling() -> None:
+    source = board(SOURCE, na="/s/A", nb="unconnected-(R1-Pad2)", pin="x")
+    target = board(TARGET, na="{slash}s{slash}A", nb="unconnected-(R1-x-Pad2)", pin="x")
+    receipt, _ = identities(_input(dumps(source)), _input(dumps(target)))
+    assert receipt["status"] == "applied"
+    assert receipt["canonical_nets"] == {
+        "slash": [["b", "{slash}s{slash}A", "/s/A"]],
+        "unconnected_single_pad": [
+            ["a", "unconnected-(R1-Pad2)", "unconnected-single-pad:R1:2"],
+            ["b", "unconnected-(R1-x-Pad2)", "unconnected-single-pad:R1:2"],
+        ],
+    }
+
+
+def test_a_refused_pairing_receipts_no_canonical_net() -> None:
+    receipt, _ = identities(
+        _input(dumps(board(SOURCE))), _input(dumps(board(TARGET, na="unconnected-(R1-Pad1)", twin=True)))
+    )
+    assert receipt["status"] == "refused" and "exactly one pad" in str(receipt["reason"])
+    assert receipt["canonical_nets"] == {"slash": [], "unconnected_single_pad": []}

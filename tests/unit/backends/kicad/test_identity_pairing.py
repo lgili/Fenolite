@@ -8,10 +8,10 @@ from __future__ import annotations
 import pytest
 
 from fenolite.backends.kicad.identity_pairing import apply, pair
-from fenolite.backends.kicad.sexpr import Node, parse
+from fenolite.backends.kicad.sexpr import Node, dumps, parse
 
-NETS = '(net 0 "") (net {a} "A") (net {b} "B")'
-PAD = '(pad "{n}" smd circle (at {x} 0) (size 1 1) (layers "F.Cu") (net {code} "{name}") (uuid "{u}"))'
+NETS = '(net 0 "") (net {a} "{na}") (net {b} "{nb}")'
+PAD = '(pad "{n}" smd circle (at {x} 0) (size 1 1) (layers "F.Cu"){pin} (net {code} "{name}") (uuid "{u}"))'
 SEG = '(segment (start {x} 0) (end {x} 5) (width 0.2) (layer "F.Cu") (net {code}) (uuid "{u}"))'
 VIA = '(via (at {x} 9) (size 0.6) (drill 0.3) (layers "F.Cu" "B.Cu") (net {code}) (uuid "{u}"))'
 
@@ -24,14 +24,19 @@ def board(
     twin: bool = False,
     seg_x: float = 0,
     extra: str = "",
+    na: str = "A",
+    nb: str = "B",
+    pin: str = "",
 ) -> Node:
-    """Pads 1 (A) and 2 (B), optionally a stacked twin of pad 1; one segment and one via per net."""
+    """Pads 1 (net ``na``) and 2 (net ``nb``, pin name ``pin``), optionally a stacked twin of pad 1; one
+    segment and one via per net."""
+    pin2 = f' (pinfunction "{pin}")' if pin else ""
     pads = [
-        PAD.format(n="1", x=0, code=a, name="A", u=ids["p1"]),
-        PAD.format(n="2", x=1, code=b, name="B", u=ids["p2"]),
+        PAD.format(n="1", x=0, code=a, name=na, u=ids["p1"], pin=""),
+        PAD.format(n="2", x=1, code=b, name=nb, u=ids["p2"], pin=pin2),
     ]
     if twin:
-        pads.append(PAD.format(n="1", x=0, code=a, name="A", u=ids["p3"]))
+        pads.append(PAD.format(n="1", x=0, code=a, name=na, u=ids["p3"], pin=""))
     footprint = (
         '(footprint "R" (layer "F.Cu") (at 10 10 -90) (property "Reference" "R1") ' + " ".join(pads) + ")"
     )
@@ -41,7 +46,7 @@ def board(
         + VIA.format(x=0, code=a, u=ids["v1"])
         + VIA.format(x=1, code=b, u=ids["v2"])
     )
-    return parse("(kicad_pcb " + NETS.format(a=a, b=b) + footprint + copper + extra + ")")
+    return parse("(kicad_pcb " + NETS.format(a=a, b=b, na=na, nb=nb) + footprint + copper + extra + ")")
 
 
 SOURCE = {
@@ -82,7 +87,7 @@ def test_exactly_two_fully_identical_pads_pair_in_file_order_and_are_listed() ->
 
 
 def test_three_identical_pads_or_two_identical_tracks_refuse() -> None:
-    triple = PAD.format(n="1", x=0, code=1, name="A", u="{u}")
+    triple = PAD.format(n="1", x=0, code=1, name="A", u="{u}", pin="")
     source = board(SOURCE, twin=True)
     fp = source.nodes("footprint")[0]
     source = source.with_children(
@@ -117,6 +122,20 @@ def test_an_aliased_source_identity_is_kept_and_listed_never_rewritten() -> None
         (board(TARGET, extra=SEG.format(x=4, code=1, u="11111111-0000-4000-8000-0000000000ee")), "differ"),
         (board(dict(TARGET, s2=TARGET["s1"])), "target identity aliases"),
         (board(TARGET, extra='(net 9 "A")'), "two netcodes"),
+        # canonical names (coordinator decision 2026-11-05): two nets under one key, either rule
+        (board(TARGET, na="{slash}A", extra='(net 9 "/A")'), "share one canonical"),
+        (
+            board(TARGET, nb="unconnected-(R1-Pad2)", extra='(net 9 "unconnected-single-pad:R1:2")'),
+            "share one canonical",
+        ),
+        # an unconnected-( net of two pads, or one whose name names another pad
+        (board(TARGET, na="unconnected-(R1-Pad1)", twin=True), "exactly one pad"),
+        (board(TARGET, nb="unconnected-(R9-Pad2)"), "does not derive"),
+        (board(TARGET, nb="unconnected-(R1-y-Pad2)", pin="x"), "does not derive"),
+        (
+            board(TARGET, nb="unconnected-(R1-Pad2)", extra='(net 9 "unconnected-(R1-Pad7)")'),
+            "exactly one pad",
+        ),
     ],
 )
 def test_refusals(target: Node, match: str) -> None:
@@ -127,7 +146,7 @@ def test_refusals(target: Node, match: str) -> None:
 def test_an_object_net_outside_the_declarations_refuses() -> None:
     bad = parse(
         "(kicad_pcb "
-        + NETS.format(a=1, b=2)
+        + NETS.format(a=1, b=2, na="A", nb="B")
         + SEG.format(x=0, code=7, u="11111111-0000-4000-8000-0000000000aa")
         + ")"
     )
@@ -161,3 +180,33 @@ def test_a_stale_order_pairing_refuses() -> None:
     pairing = pair(source, board(TARGET))
     with pytest.raises(ValueError, match="does not match"):
         apply(_swap_roots(board(TARGET), 0, 1), pairing)
+
+
+def test_a_stored_slash_pairs_with_its_label_text_and_is_receipted() -> None:
+    source, target = board(SOURCE, na="/s/A"), board(TARGET, na="{slash}s{slash}A")
+    pairing = pair(source, target)
+    assert len(pairing.rewritten) == 6
+    assert pairing.canonical_nets == (("b", "slash", "{slash}s{slash}A", "/s/A"),)
+    assert apply(target, pairing) == board(SOURCE, na="{slash}s{slash}A")  # identities only, names stay
+
+
+def test_a_single_pad_unconnected_net_pairs_by_its_pad_in_either_spelling() -> None:
+    source = board(SOURCE, nb="unconnected-(R1-Pad2)", pin="x")  # the 9.0.9 demo spelling
+    target = board(TARGET, nb="unconnected-(R1-x-Pad2)", pin="x")  # the spelling with the pin name
+    pairing = pair(source, target)
+    key = "unconnected-single-pad:R1:2"
+    assert pairing.canonical_nets == (
+        ("a", "unconnected-single-pad", "unconnected-(R1-Pad2)", key),
+        ("b", "unconnected-single-pad", "unconnected-(R1-x-Pad2)", key),
+    )
+    assert len(pairing.rewritten) == 6
+
+
+def test_an_object_net_name_contradicting_its_canonical_declaration_refuses() -> None:
+    target = parse(
+        dumps(board(TARGET, na="{slash}A")).replace(
+            '(net 1 "{slash}A")\n\t\t\t(uuid', '(net 1 "/A")\n\t\t\t(uuid'
+        )
+    )
+    with pytest.raises(ValueError, match="contradicts"):
+        pair(board(SOURCE, na="/A"), target)

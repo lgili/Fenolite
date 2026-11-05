@@ -10,15 +10,16 @@ segment, arc and via and every footprint pad to the identity of its source count
 model, the source, every written file and every other level stay untouched.
 
 Each object is keyed by its complete non-identity content, its net named by the board's own declared net
-name (net codes may differ), the unique net child of a pad placed last (its position is native-neutral)
-and a pad's footprint reference, layer and placement (quarter turns compared modulo 360). A pairing exists
-only when both boards hold the same key multiset. Refused, never first-matched: changed, missing or extra
-objects, duplicate signatures other than the one proven case, malformed or duplicated identities,
-undeclared or contradictory nets, two codes for one name. The one admitted duplicate is a group of exactly
-two pads that are identical apart from their identity on both sides: exchanging their identities leaves
-every zone and fill byte-identical on native 10.0.6 (``test_fully_identical_pads_exchange_their_identities
-_without_changing_fills``); they pair in file order and are listed. An object whose source identity is
-shared by several source objects keeps its own identity and is listed, never rewritten.
+name (net codes may differ; two canonical rules, ``net_keys``), the unique net child of a pad placed last
+(its position is native-neutral) and a pad's footprint reference, layer and placement (quarter turns
+compared modulo 360). A pairing exists only when both boards hold the same key multiset. Refused, never
+first-matched: changed, missing or extra objects, duplicate signatures other than the one proven case,
+malformed or duplicated identities, undeclared or contradictory nets, two codes for one name. The one
+admitted duplicate is a group of exactly two pads that are identical apart from their identity on both
+sides: exchanging their identities leaves every zone and fill byte-identical on native 10.0.6
+(``test_fully_identical_pads_exchange_their_identities_without_changing_fills``); they pair in file order
+and are listed. An object whose source identity is shared by several source objects keeps its own identity
+and is listed, never rewritten.
 
 The same pairing also gives the order preparation: the root segments, arcs and vias of the copy take the
 file order of their source counterparts, in the slots they already occupy (one RoyalBlue teardrop outline
@@ -27,14 +28,16 @@ a proof after this preparation measures geometry once identity and order are ali
 Fenolite keeps the source's identities or order.
 """
 
-# evidence: none, it pairs two board readings for a private proof copy and states no format fact
+# evidence: see pcb, schgen
 
 from __future__ import annotations
 
+import re
 from collections import Counter
 from dataclasses import dataclass
 from fractions import Fraction
 
+from fenolite.backends.kicad.netnames import SLASH, UNCONNECTED_PREFIX, model_name, pin_text
 from fenolite.backends.kicad.sexpr import Atom, Node, dumps
 
 IDS = frozenset({"uuid", "tstamp"})
@@ -54,8 +57,75 @@ def declarations(root: Node) -> dict[str, str]:
     return names
 
 
-def content(node: Node, names: dict[str, str] | None = None) -> str:
-    """The object's complete content without its own identity; nets by declared name when ``names``."""
+SLASH_RULE = "slash"
+UNCONNECTED_RULE = "unconnected-single-pad"
+
+
+@dataclass(frozen=True, slots=True)
+class NetKeys:
+    """A board's declared net names and the name each net is paired under."""
+
+    names: dict[str, str]
+    """Net code → declared name."""
+    keys: dict[str, str]
+    """Net code → pairing key: the declared name, or its canonical name under one of the two rules."""
+    canonical: tuple[tuple[str, str, str], ...]
+    """``(rule, declared name, key)`` of every net whose key is not its declared name, in file order."""
+
+
+def _single_pad_name(name: str, ref: str, number: str, pin: str | None) -> bool:
+    """Whether ``name`` is KiCad's derived name of a pin on no net for this pad
+    (``unconnected-(<ref>-Pad<number>)``, or ``unconnected-(<ref>[unit]-<pin name>-Pad<number>)`` with the
+    pad's own pin name; ``netnames.unconnected_name``, ``H-K-SCH-UNCONNECTED``)."""
+    if name == f"{UNCONNECTED_PREFIX}{ref}-Pad{number})":
+        return True
+    pattern = re.escape(UNCONNECTED_PREFIX + ref) + "[A-Z]?-" + re.escape(pin_text(pin or "")) + "-Pad"
+    return bool(pin) and re.fullmatch(pattern + re.escape(number) + r"\)", name) is not None
+
+
+def net_keys(root: Node) -> NetKeys:
+    """The pairing key of every declared net (approved by the coordinator 2026-11-05, c0384).
+
+    ``slash``: a ``{slash}`` in a stored name is the ``/`` of its label text (``netnames.model_name``; KiCad's
+    parity test reads both as one, ``docs/formats/kicad/drc.md``). ``unconnected-single-pad``: a net whose
+    name starts with ``unconnected-(`` must carry exactly one pad and be KiCad's derived name for that pad;
+    it is keyed by that pad's reference and number. Refused: an ``unconnected-(`` net on no pad or several
+    pads, or whose name does not derive from its pad, and two nets under one key."""
+    names = declarations(root)
+    pads: dict[str, list[tuple[str, str, str | None]]] = {}
+    for footprint in root.nodes("footprint"):
+        ref = parent(footprint).split("|", 1)[0]
+        for pad in footprint.nodes("pad"):
+            nets = pad.nodes("net")
+            if len(nets) == 1 and nets[0].atoms():
+                pin = [p.atoms()[0].value for p in pad.nodes("pinfunction") if p.atoms()]
+                number = pad.atoms()[0].value if pad.atoms() else ""
+                pads.setdefault(nets[0].atoms()[0].value, []).append((ref, number, pin[0] if pin else None))
+    keys: dict[str, str] = {}
+    canonical: list[tuple[str, str, str]] = []
+    for code, name in names.items():
+        key = name
+        if name.startswith(UNCONNECTED_PREFIX):
+            carried = pads.get(code, [])
+            if len(carried) != 1:
+                raise ValueError("unconnected net does not carry exactly one pad; pairing refused")
+            ref, number, pin = carried[0]
+            if not _single_pad_name(name, ref, number, pin):
+                raise ValueError("unconnected net name does not derive from its pad; pairing refused")
+            key = f"{UNCONNECTED_RULE}:{ref}:{number}"
+            canonical.append((UNCONNECTED_RULE, name, key))
+        elif SLASH in name:
+            key = model_name(name)
+            canonical.append((SLASH_RULE, name, key))
+        keys[code] = key
+    if len(set(keys.values())) != len(keys):
+        raise ValueError("two nets share one canonical net name; pairing refused")
+    return NetKeys(names, keys, tuple(canonical))
+
+
+def content(node: Node, names: dict[str, str] | None = None, keys: dict[str, str] | None = None) -> str:
+    """The object's complete content without its own identity; nets by declared name when ``names``, written
+    under their ``keys`` when given (checked against ``names``)."""
 
     def named(child: Node | Atom) -> Node | Atom:
         if names is None or not isinstance(child, Node) or child.name != "net":
@@ -65,7 +135,7 @@ def content(node: Node, names: dict[str, str] | None = None) -> str:
             raise ValueError("object net is not a declared netcode")
         if len(atoms) == 2 and atoms[1].value != names[atoms[0].value]:
             raise ValueError("object net name contradicts its declaration")
-        return child.with_children((Atom.string(names[atoms[0].value]),))
+        return child.with_children((Atom.string((keys or names)[atoms[0].value]),))
 
     kept = [named(c) for c in node.children if not (isinstance(c, Node) and c.name in IDS)]
     if node.name == "pad":
@@ -108,16 +178,18 @@ def identity(node: Node) -> Node:
     return found[0]
 
 
-def objects(root: Node, names: dict[str, str] | None) -> dict[str, list[Node]]:
+def objects(
+    root: Node, names: dict[str, str] | None, keys: dict[str, str] | None = None
+) -> dict[str, list[Node]]:
     """Every root segment/arc/via and footprint pad under its key, in file order."""
     keyed: dict[str, list[Node]] = {}
     for child in root.nodes():
         if child.name in ROOT_KINDS:
-            keyed.setdefault(child.name + "|" + content(child, names), []).append(child)
+            keyed.setdefault(child.name + "|" + content(child, names, keys), []).append(child)
         elif child.name == "footprint":
             context = parent(child)
             for pad in child.nodes("pad"):
-                keyed.setdefault("pad|" + context + "|" + content(pad, names), []).append(pad)
+                keyed.setdefault("pad|" + context + "|" + content(pad, names, keys), []).append(pad)
     return keyed
 
 
@@ -135,11 +207,15 @@ class Pairing:
     """``(kind, target identity, old position, new position)`` of every root segment, arc and via whose
     position among the root segments, arcs and vias (0-based, file order) changes to its source
     counterpart's; the slots of all other root children stay as they are."""
+    canonical_nets: tuple[tuple[str, str, str, str], ...] = ()
+    """``(side, rule, declared name, key)`` of every net paired under a canonical name, ``a`` (source) then
+    ``b`` (target), each in file order."""
 
 
 def pair(source: Node, target: Node) -> Pairing:
     """The complete feature-keyed pairing of ``target`` onto ``source``; ``ValueError`` when refused."""
-    a, b = objects(source, declarations(source)), objects(target, declarations(target))
+    na, nb = net_keys(source), net_keys(target)
+    a, b = objects(source, na.names, na.keys), objects(target, nb.names, nb.keys)
     if {k: len(v) for k, v in a.items()} != {k: len(v) for k, v in b.items()}:
         raise ValueError("electrical objects differ; pairing refused")
     target_ids = Counter(identity(node).atoms()[0].value for nodes in b.values() for node in nodes)
@@ -181,7 +257,11 @@ def pair(source: Node, target: Node) -> Pairing:
         if old != new
     )
     return Pairing(
-        tuple(order), tuple(sorted(identical)), tuple(sorted(kept)), tuple(sorted(moved, key=lambda r: r[2]))
+        tuple(order),
+        tuple(sorted(identical)),
+        tuple(sorted(kept)),
+        tuple(sorted(moved, key=lambda r: r[2])),
+        tuple(("a", *row) for row in na.canonical) + tuple(("b", *row) for row in nb.canonical),
     )
 
 
@@ -247,4 +327,17 @@ def apply(target: Node, pairing: Pairing, *, order: bool = True) -> Node:
     return result
 
 
-__all__ = ["Pairing", "apply", "content", "declarations", "identity", "objects", "pair", "parent"]
+__all__ = [
+    "SLASH_RULE",
+    "UNCONNECTED_RULE",
+    "NetKeys",
+    "Pairing",
+    "apply",
+    "content",
+    "declarations",
+    "identity",
+    "net_keys",
+    "objects",
+    "pair",
+    "parent",
+]
