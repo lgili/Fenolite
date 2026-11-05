@@ -4417,6 +4417,11 @@ meaning = "The source board holds arcs whose start, mid and end lie on one line 
 fix = "Nothing to fix. Redraw the arc in the source if it was meant to bend."
 see = "import"
 
+["import.fill-cache-dropped"]
+meaning = "The source's ordinary zone fill caches could not be bound to the emitted board, so native/fill.cache.json is left out. The carrier is native carry-over, never a Fenolite fill: it holds KiCad's own fills and binds the exact emitted board, project and rule bytes, and a build drops it on any change."
+fix = "Nothing to fix. The built board has no ordinary fills; run fenolite fill or refill in KiCad."
+see = "import"
+
 ["library.deprecated"]
 meaning = "The design uses a library record (pins, package, device or part) that is deprecated: its interface was replaced by another record. The design still builds."
 fix = "Move the part to the record named in the message (deprecated.by) when you can; read the reason in the record."
