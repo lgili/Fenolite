@@ -771,6 +771,29 @@ and nothing was saved.
 The four copies of Q5 are the expected outcome, not a defect. Q1 set Column Count 2 and Row Count 2, so
 the array holds four boards. The outputs repeat each board's 7 top and 3 bottom flashes four times.
 
+### 2026-11-04 evening, actual `AD24.5.2.23`, Part Q phase B (source S-1585)
+
+Run by a Claude agent at the maintainer's request of 2026-11-04/05 in the maintainer's Windows VM. It is
+not the maintainer's own review. The kit was built from the Part Q phase B builder at `aa49b069`
+(`origin/cac/lote-14`). This branch lacks the array writer of task 7.2, so the kit came from that commit.
+Its digests are `written/panel.PcbDoc` `75bb8545…`, `board/board.PcbDoc` `fd478b3a…` and
+`flat/panel.PcbDoc` `ab1e0159…`. The run used a VM copy of the kit. Q8 saved only that copy of
+`board.PcbDoc`. `written/panel.PcbDoc` and `flat/panel.PcbDoc` are unchanged after the run.
+
+| case | expected | observed | result |
+|---|---|---|---|
+| Q7 | opens with no repair message; one 2 × 2 array of `board.PcbDoc` as `expected.md` | no new message; one array, `..\board\board.PcbDoc` with its child loaded, 2 × 2, spacing 42 / 32 mm, at (0, 5) mm, 82 × 62 mm, rotation 0, not mirrored, `OriginMode` 1; Mechanical 1 `Route Tool Path`, Mechanical 2 `V-Cut`; 40 × 0.6 mm and 4 × 3 mm non-plated free pads; 3 free 1 mm Top pads | pass |
+| Q8 | after a saved move in `board.PcbDoc`, all four copies show it | the agent moved one free Top track by +2 mm in X (to 12.8, 10 – 20, 10 mm) and saved (`51361162…`, read back at the new place). The four copies still show the old place after closing and reopening both documents. The array's in-memory child board, path `written\../board/board.PcbDoc`, still lists the old track. Altium was not restarted | fail |
+| Q8 (layers) | unassigned, named `V-Cut` and `Route Tool Path` | `Kind` 0 for both, the same value as the unnamed mechanical layers; the names match | pass |
+| Q9 | four copies; mouse-bite and tooling holes in the non-plated drill file; `V-Cut` in its own Gerber | Gerber Files with defaults writes 11 Gerber files. Every mechanical layer is unticked by default, so no `V-Cut` file is written. The board profile is 82 × 72 mm. NC Drill with defaults writes one file, `panel.TXT`. Under `;TYPE=PLATED` it holds 4 × 0.3 mm and 8 × 0.9 mm: one via and two holes per copy. Under `;TYPE=NON_PLATED` it holds 40 × 0.6 mm and 4 × 3 mm. After Cancel in Import Drill Data, an "Error" dialog without readable text came up, and a CAMtastic document opened | partial: copies and holes pass; no separate non-plated file and no `V-Cut` Gerber by default |
+| Q10 | every message; none blocks the outputs | 36 violations, all on free pads: 32 MinimumSolderMaskSliver (7.748 mil between neighbouring mouse-bite holes) and 4 HoleSize (3 mm > 100 mil). The copies' own content is not reported. The outputs of Q9 were written | pass |
+| Q11 | the flat panel opens without repair; the same holes and layers; note repeated-designator messages | no new message on open; no repeated-designator message. 71 pads, the same drill table as Q9 and the same Gerber file set. DRC gives 88 violations: the same 36, plus 48 SilkToSolderMaskClearance and 4 NetAntennae from the copies' content | pass |
+| Q12 | Save As `panel-saved.PcbDoc` reads back the same array | File » Save As wrote `panel-saved.PcbDoc` (`c312d8e9…`, 762368 bytes) with no message; `FENOLITE_ALTIUM_Q12=<that file> uv run pytest tests/unit/backends/altium/test_part_q.py -k q12`, run at `aa49b069`: 1 passed | pass |
+
+`H-A-PANEL-RECORD`, `H-A-PANEL-LAYERKIND` and `H-A-PANEL-KIT` keep their levels, because this was an
+agent run. `EMBEDDED_ARRAYS` stays `False`: Q8 did not pass and Q9 passed only in part. The saved files
+and outputs stay in `c0173-QB2-native/`, outside the repository.
+
 ### 2026-11-04, actual `AD24.5.2.23`, Part T
 
 Source S-1571: [T1–T6 report](altium-part-t-convert-2026-11-04.md) and
