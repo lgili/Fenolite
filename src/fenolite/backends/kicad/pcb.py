@@ -339,8 +339,9 @@ def stored_net_name(net: Net) -> str:
     A net read from a board keeps the spelling of its file. The reader gives a net stored with ``{slash}``
     the name with the slash and keeps the spelling in the net's ``kicad`` bag; every other read net is
     named as stored (KiCad writes the nets of sub-sheets with raw slashes), and its id is derived from
-    that name. Every other net is created, and a ``/`` in its name is written ``{slash}``, as KiCad stores
-    the net of a label whose text holds a slash.
+    that name. A build with a drawn schematic keeps, in the same bag, the spelling KiCad gives a net named
+    by a label of a sheet (``lens.build.sheet_spellings``, change c0408). Every other net is created, and a
+    ``/`` in its name is written ``{slash}``, as KiCad stores the net of a label whose text holds a slash.
     """
     kept = _ext_pairs(net).get(STORED_KEY)
     if kept is not None:

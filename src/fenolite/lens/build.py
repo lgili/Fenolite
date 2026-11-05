@@ -71,7 +71,7 @@ from fenolite.backends.kicad.outline import (
     outline_box,
     outline_case,
 )
-from fenolite.backends.kicad.pcb import WRITE_EVIDENCE, read_board, write_board
+from fenolite.backends.kicad.pcb import STORED_KEY, WRITE_EVIDENCE, read_board, write_board
 from fenolite.backends.kicad.pro_template import ProjectResource, validate_resources
 from fenolite.backends.kicad.schgen import GeneratedSchematic
 from fenolite.backends.kicad.schlayout import SymbolPlacement
@@ -93,6 +93,7 @@ from fenolite.lens.pins import PIN_ISSUE_CODES
 from fenolite.lens.preserve import PRESERVE_ISSUE_CODES, Prepared
 from fenolite.lens.rolecopper import RoleCopperPlanner, apply_plan
 from fenolite.model import canonical, drawn_connect, pairs
+from fenolite.model.base import ExtBag
 from fenolite.model.board import (
     ComponentBody,
     FootprintInstance,
@@ -105,7 +106,7 @@ from fenolite.model.board import (
     Via,
     ViaProtection,
 )
-from fenolite.model.circuit import Component, Interface, Net, NetClass, Pin, PinRef
+from fenolite.model.circuit import Circuit, Component, Interface, Net, NetClass, Pin, PinRef
 from fenolite.model.design import Design
 from fenolite.model.drawn import DrawnSchematic
 from fenolite.model.library import DeviceDef, FootprintDef, SymbolDef, flatten_symbol
@@ -2104,13 +2105,13 @@ def build_design(
         symbol_files = _symbol_libraries(generated, authored_symbols, target, allow_lossy, issues)
         if any(i.severity == "error" for i in issues):
             return _refused(built, issues, libraries)
-        drawn_texts, found = drawn_netlist_issues(
+        drawn_texts, found, spellings = drawn_netlist_issues(
             target_design, generated, name, target, allow_lossy, contextual=context_symbols is not None
         )
         issues += found
         if any(i.severity == "error" for i in issues):
             return _refused(built, issues, libraries)
-        target_design = lower_for_schematic(target_design, generated)
+        target_design = lower_for_schematic(target_design, generated, spellings)
     elif schematic == "write":
         generated = schgen.generate_schematic(
             target_design,
@@ -2801,9 +2802,9 @@ def drawn_netlist_issues(
     allow_lossy: bool,
     *,
     contextual: bool = False,
-) -> tuple[dict[str, str], list[Issue]]:
-    """The sheet texts of a drawn schematic and the guard's issues (capability design-dsl, "Drawn schematic
-    build guard"; change c0276).
+) -> tuple[dict[str, str], list[Issue], dict[str, str]]:
+    """The sheet texts of a drawn schematic, the guard's issues (capability design-dsl, "Drawn schematic
+    build guard"; change c0276) and the stored names of ``sheet_spellings`` (change c0408).
 
     The texts the build would write are read back with ``sch.read_schematic``, extracted and resolved
     (``backends.kicad.drawn.resolve_sheets``), without any tool, and the nets are compared with the circuit
@@ -2831,7 +2832,7 @@ def drawn_netlist_issues(
         for path, text in texts.items()
         if path != root_file
     }
-    _drawn, netlist, found = drawn_mod.resolve_sheets(
+    resolved, netlist, found = drawn_mod.resolve_sheets(
         root, children, circuit=design.circuit, name=name, root_file=root_file
     )
     issues += [i for i in found if i.code.startswith("drawn.")]
@@ -2850,24 +2851,90 @@ def drawn_netlist_issues(
             )
         else:
             issues.append(compared)
-    return texts, issues
+    return texts, issues, sheet_spellings(resolved, netlist, design.circuit)
 
 
-def lower_for_schematic(design: Design, generated: GeneratedSchematic) -> Design:
+def sheet_spellings(
+    drawn: DrawnSchematic, netlist: drawn_connect.DrawnNetlist, circuit: Circuit
+) -> dict[str, str]:
+    """Net id to the name KiCad gives that net of a drawn schematic, where it differs from
+    ``netnames.stored_name`` (capability kicad-file-backend, "Net names in KiCad's stored form"; change
+    c0408).
+
+    KiCad names the net of a local or hierarchical label with the path of the sheet's names before the
+    text, keeping the slashes of the path and writing a slash of the text ``{slash}``
+    (``H-K-SCH-SLASH``): ``/pic_programmer/VPP_ON``. A circuit net is respelled when the drawing has a net
+    of exactly its pins whose name is the circuit net's name and comes from one sheet prefix and one label
+    text; a net named by a global label or power symbol, a net KiCad may name otherwise, a sheet name with a
+    ``/`` or ``{`` and a net whose stored name the board already keeps are left as they are."""
+    found, _ = drawn_connect.instances(drawn)
+    prefixes = {
+        "/" + "".join(f"{part}/" for part in instance.names)
+        for instance in found
+        if not any("/" in part or "{" in part for part in instance.names)
+    }
+    components = {c.id: c for c in circuit.components}
+    drawn_pins = set(netlist.pins)
+    by_members: dict[frozenset[tuple[str, str]], Net] = {}
+    for net in circuit.nets:
+        members: set[tuple[str, str]] = set()
+        for member in net.members:
+            component = components.get(member.component_id)
+            if component is None:
+                continue
+            path = drawn_connect.component_path(component)
+            members.update((path, pad) for pad in component.pads_of(member.pin) if (path, pad) in drawn_pins)
+        if members:
+            by_members[frozenset(members)] = net
+    spellings: dict[str, str] = {}
+    for drawn_net in netlist.nets:
+        net = by_members.get(frozenset(drawn_net.members))
+        if net is None or net.name != drawn_net.name or drawn_net.name in drawn_net.labels:
+            continue
+        bag = net.ext.get("kicad")
+        if bag is not None and any(key == STORED_KEY for key, _ in bag.payload):
+            continue
+        split = [
+            (prefix, text)
+            for text in drawn_net.labels
+            for prefix in prefixes
+            if prefix + text == drawn_net.name
+        ]
+        if len(split) != 1:
+            continue
+        prefix, text = split[0]
+        spelling = prefix + netnames.stored_name(text)
+        if spelling != netnames.stored_name(net.name):
+            spellings[net.id] = spelling
+    return spellings
+
+
+def _respelled(net: Net, spelling: str) -> Net:
+    """``net`` with ``spelling`` kept as its stored name in its ``kicad`` bag."""
+    bag = net.ext.get("kicad") or ExtBag()
+    payload = (*((k, v) for k, v in bag.payload if k != STORED_KEY), (STORED_KEY, spelling))
+    return dataclasses.replace(net, ext={**net.ext, "kicad": ExtBag(bag.min_version, payload)})
+
+
+def lower_for_schematic(
+    design: Design, generated: GeneratedSchematic, spellings: Mapping[str, str] | None = None
+) -> Design:
     """The design that is written beside a generated schematic, so that KiCad's parity test and its
     "Update PCB from Schematic" find the board in agreement with the sheet (``docs/schematic.md``).
 
     Each pad of an unconnected pin gets a net of the name KiCad derives for that pin, and each component
     gets the path of its symbol: ``/<symbol uuid>`` on the root sheet, and the uuids of the sheet
-    references from the top down before it on a child sheet (``H-K-SCH-HIER-PATH``). Nothing else
-    changes; the stored layout and the model never hold these
+    references from the top down before it on a child sheet (``H-K-SCH-HIER-PATH``). A net of
+    ``spellings`` (``sheet_spellings``) keeps the name KiCad gives it as its stored name (change c0408).
+    Nothing else changes; the stored layout and the model never hold these
     nets. Applying the function twice gives the result of applying it once.
     """
     board = design.board
     if board is None:
         return design
     paths = {c.id: _path(c) for c in design.circuit.components}
-    nets = list(design.circuit.nets)
+    given = spellings or {}
+    nets = [_respelled(net, given[net.id]) if net.id in given else net for net in design.circuit.nets]
     known = {net.id for net in nets}
     footprints: list[FootprintInstance] = []
     for fp in board.footprints:
@@ -3116,6 +3183,7 @@ __all__ = [
     "check_existing",
     "lower_for_schematic",
     "schematic_netlist_issue",
+    "sheet_spellings",
     "stale_sheets",
     "read_record",
 ]
