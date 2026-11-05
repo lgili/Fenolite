@@ -260,6 +260,27 @@ def polygon_fields(
     return fields
 
 
+SPLIT_PLANE = "Split Plane"
+"""The ``POLYGONTYPE`` of the polygon that gives an internal plane its net (``pcb-copper.md``)."""
+
+
+def split_plane_fields(layer_text: str, vertices: Sequence[tuple[int, int]], net: int) -> list[Field]:
+    """The fields of one ``Split Plane`` polygon of ``Polygons6`` (change c0389, task 2.7; ``pcb-copper.md``,
+    "Layer stack"): the seven common keys on the plane's ``LAYER`` (``PLANE1`` …), ``PRIMITIVELOCK=TRUE``,
+    ``POLYGONTYPE=Split Plane``, the closed straight vertices and ``NET``, the order of the saved plane
+    (S-1653). ``vertices`` are in binary units in the Altium frame, without the closing vertex; ``net`` is the
+    net's index. ``ValueError`` for fewer than three vertices."""
+    if len(vertices) < 3:
+        raise ValueError("a split plane needs at least three points")
+    return [
+        *common_fields(layer_text),
+        ("PRIMITIVELOCK", "TRUE"),
+        ("POLYGONTYPE", SPLIT_PLANE),
+        *_outline(vertices),
+        ("NET", str(net)),
+    ]
+
+
 def _routing(stack: StackSpec | None = None, mechanical: Sequence[int] = ENABLED_MECHANICAL) -> list[Field]:
     fields: list[Field] = [RECORD, ("TOGGLELAYERS", "1" * _LEGACY_COUNT)]
     for index in range(1, 11):
@@ -468,6 +489,7 @@ def board_text(
 
 __all__ = [
     "KIND",
+    "SPLIT_PLANE",
     "Dielectric",
     "StackSpec",
     "VERSION",
@@ -481,4 +503,5 @@ __all__ = [
     "format_line",
     "name_codes",
     "polygon_fields",
+    "split_plane_fields",
 ]

@@ -164,7 +164,7 @@ The plane variant `p0` is not committed; the test rebuilds it and checks its dig
 | `tests/data/altium/routed/routed.PrjPcb` | `9c35d817e1d0ab294f8ad72674d2e2c4f470d449b71b998eba0886b78b7b62f0` |
 | `tests/data/altium/routed/routed.SchDoc` | `01ab1936ab50c1d506c0891f471b4a01177489f14ae76d943538ca91022fabf5` |
 | `tests/data/altium/routed/routed.SchLib` | `792908e69ccf5d932b6b5ce93fb65e835bad3c82c21b7c228415ae53e8d79d25` |
-| `p0/routed.PcbDoc` | `8e0978ec8ee6c22e3a8a3a76b4e14f17be811b9604f463207f3d6eae2f84dbb1` |
+| `p0/routed.PcbDoc` | `4082a630a46d1a5213c05bf699692c19b953eb6dfdb08ecce7d557683cf392c5` |
 
 Expected copper, in millimetres from the outline's top-left corner (Y down); the last column is the width
 of a track or arc, or the diameter and hole of a via:
@@ -203,8 +203,11 @@ copies.
   tracks, the vias and four copper layers are visible. Settles `H-A-PCB-CU-VIEWER`.
 - **C6** (`p0/routed.PcbDoc`, SHA-256 above): open the plane variant. Expected: the Layer Stack Manager
   lists Internal Plane 1 between Top Layer and Mid-Layer 2; the plane is on `GND`; the `GND` pads and the
-  `GND` via that cross it show no connection line. The variant holds four tracks (none on the plane) and
-  one polygon on Bottom Layer. Settles `H-A-PCB-CU-PLANE`.
+  `GND` via that cross it show no connection line. The variant holds four tracks (none on the plane), one
+  polygon on Bottom Layer and, since change c0389 (task 2.7), one `Split Plane` polygon on Internal Plane 1
+  (`GND`) and the rules `PlaneConnect` (pads Relief, vias Direct) and `PlaneClearance`. A design rule check
+  reports no Starved Thermal and no Un-Routed Net between the `GND` via and `D1` pad 1 (the 2026-11-05
+  run on the earlier bytes `8e0978ec…` reported both). Settles `H-A-PCB-CU-PLANE`.
 
 - **C7** (script copper, change c0053; `blink_routed.PcbDoc`, SHA-256
   `6691042bc82ef6250d4944f6b08ab8be16b8aeb83d39f0c6975d42cfc332333a`): the copper comes from the design
@@ -304,7 +307,7 @@ Altium Designer. No file that Altium wrote is committed.
 
 | file | SHA-256 |
 |---|---|
-| `tests/data/altium/board6/board6.PcbDoc` | `9da3b8c4bd6f1c832251bccfc3eb02e93e714cb179f55af16c08a0ec21b83e8a` |
+| `tests/data/altium/board6/board6.PcbDoc` | `39fa67748befc67521ba04f8bf78aa2e66cf75105bfebd704e99ccc3e404f7ee` |
 | `tests/data/altium/board6/board6.PcbLib` | `9d09f5126ba6aad6026f4c85fa2899c908eaa363aeaec1b58b59e64a11666e22` |
 | `tests/data/altium/board6/board6.PrjPcb` | `75e7078fdb8fc79b606ad0c0a3acf30103faada43dc440a7fb01e5daad2f7219` |
 | `tests/data/altium/board6/board6.SchDoc` | `36e9850be729dd5e91e14c9b0adab1fb9ac7ef036154839f94d279a12ffc2118` |
@@ -332,6 +335,7 @@ Values to compare (millimetres from the outline's upper-left corner, Y down, as 
 | keep-out | rectangle (22, 12) to (30, 17) on the Keep-Out layer; restrictions: vias and tracks (value 3, in the keys `KEEPOUTRESTRICTIONS` and `KEEPOUTRESTRIC`) |
 | hole | (4, 25), 3.2 mm, not plated, no copper |
 | polygons | `GND` on Top Layer and `GND` on Bottom Layer, each 1 mm inside the outline, unpoured |
+| plane (change c0389, task 2.7) | one `Split Plane` polygon on Internal Plane 1, net `GND`, over the outline; the rules `PlaneConnect` (pads Relief, vias Direct) and `PlaneClearance` (20 mil) |
 | graphics | a line on Mechanical 13, an arc, a circle and a filled triangle on Top Overlay, a rectangle on Mechanical 14 |
 
 Steps; report one generic outcome per step (`as expected`, or what differed in one sentence), the tool as

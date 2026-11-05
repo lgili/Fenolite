@@ -102,6 +102,18 @@ its two "no driving source" warnings. `kit verify` exits 0: K2.1 to K2.5 pass, t
 skipped, and the privacy scan finds nothing. `H-A-KIT-SCRIPT` and `H-A-PH-NO-CACHE` pass. The archive
 (`c91de60a…`, 2051 bytes) stays in local storage, unpublished.
 
+## Stale rows after c0389 task 2.7 (2026-11-05)
+
+c0389 task 2.7 makes the PCB writer add one `Split Plane` polygon per internal plane and the plane rules
+`PlaneConnect` and `PlaneClearance` (`docs/formats/altium/pcb-copper.md`, "Layer stack"). The sample `board6`
+holds a plane, so its PCB document has other bytes, and the runs `2026-11-05-e28d0bb1` and
+`2026-11-05-c91de60a` are stale for its steps K2.4 and K5.1 to K5.5; no other sample changes. Before the rows
+below were set back, `fenolite kit status` listed them as nine stale rows. Each is set back to its level
+before the kit runs, with the stale run named in its result: `H-A-WRITE-PCBDOC`, `H-A-PH-NO-CACHE`,
+`H-A-KIT-RESAVE`, `H-A-KIT-COMPILE` and `H-A-KIT-SCRIPT` to `INFERRED`; `H-A-PCBX-STACK`, `H-A-PCBX-VIASPAN`,
+`H-A-PCBX-TEXT` and `H-A-PCBX-KEEPOUT` to the author report of 2026-10-09. To restore them, build the current
+kit and run K2.4 and K5.1 to K5.5 on `board6`, then `fenolite kit verify` and `fenolite kit record --confirm`.
+
 ## Author report of 2026-10-07 (opening only)
 
 On 2026-10-07 the author reported that the projects of the kit built from `5adad054` opened in Altium

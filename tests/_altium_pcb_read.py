@@ -148,7 +148,7 @@ class PolygonRecord:
     layer: str
     net: int | None
     name: str
-    pour_index: int
+    pour_index: int | None
     vertices: list[tuple[str, str]]
     fields: dict[str, str]
 
@@ -818,11 +818,13 @@ def decode_name(codes: str) -> str:
 
 
 def read_polygons(data: bytes, nets: int) -> list[PolygonRecord]:
-    """The polygon pours of ``Polygons6/Data`` (``pcb-copper.md``, "Polygon pour"): each closed (the first
-    vertex repeated last), with a pour index that no other polygon has, a net index that names a net, and
-    a layer that is not a plane."""
+    """The polygons of ``Polygons6/Data`` (``pcb-copper.md``, "Polygon pour" and "Layer stack"): each closed
+    (the first vertex repeated last), with a net index that names a net. A pour has a pour index that no
+    other polygon has and a layer that is not a plane; a ``Split Plane`` polygon (change c0389) lies on a
+    plane, has a net and no pour index, and follows every pour."""
     out: list[PolygonRecord] = []
     seen: set[int] = set()
+    split = False
     for number, block in enumerate(property_blocks(data, "Polygons6/Data")):
         where = f"Polygons6 record {number}"
         vertices: list[tuple[str, str]] = []
@@ -833,13 +835,20 @@ def read_polygons(data: bytes, nets: int) -> list[PolygonRecord]:
         net = int(block["NET"]) if "NET" in block else None
         if net is not None and not 0 <= net < nets:
             raise PcbReadError(f"{where}: net {net} of {nets}")
-        index = int(block.get("POURINDEX", "-1"))
-        if index in seen:
-            raise PcbReadError(f"{where}: the pour index {index} is used by another polygon")
-        seen.add(index)
         layer = block.get("LAYER", "")
-        if layer.startswith("PLANE"):
+        if block.get("POLYGONTYPE") == "Split Plane":
+            if not layer.startswith("PLANE") or net is None or "POURINDEX" in block:
+                raise PcbReadError(f"{where}: a split plane on {layer}, net {net}, needs a plane and a net")
+            split = True
+        elif split:
+            raise PcbReadError(f"{where}: a polygon pour after a split plane")
+        elif layer.startswith("PLANE"):
             raise PcbReadError(f"{where}: a polygon on {layer}, a plane")
+        index = None if split else int(block.get("POURINDEX", "-1"))
+        if index is not None:
+            if index in seen:
+                raise PcbReadError(f"{where}: the pour index {index} is used by another polygon")
+            seen.add(index)
         out.append(PolygonRecord(layer, net, decode_name(block.get("NAME", "")), index, vertices, block))
     return out
 

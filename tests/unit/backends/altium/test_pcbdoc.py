@@ -740,8 +740,11 @@ def test_plane_in_the_document() -> None:
     assert doc.copper_chain == [1, 39, 3, 32] and doc.plane_nets == {1: "GND"}
     assert doc.board["PLANE1NETNAME"] == "GND" and doc.board["V9_STACK_LAYER5_USEDBYPRIMS"] == "FALSE"
     assert [t.prefix.layer for t in doc.free_tracks] == [3]
-    assert [(p.layer, p.name) for p in doc.polygons] == [("BOTTOM", "GND_L04_P000")]
-    assert all(p.fields["POLYGONTYPE"] == "Polygon" for p in doc.polygons)  # no split-plane record
+    assert [(p.layer, p.name, p.fields["POLYGONTYPE"]) for p in doc.polygons] == [
+        ("BOTTOM", "GND_L04_P000", "Polygon"),
+        ("PLANE1", "", "Split Plane"),  # the plane's net region, after the pours (change c0389)
+    ]
+    assert doc.polygons[1].net == doc.polygons[0].net and doc.polygons[1].pour_index is None
 
 
 def test_plane_holds_no_primitive() -> None:

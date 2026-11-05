@@ -208,13 +208,30 @@ def holes() -> bool:
 
 
 def zones() -> bool:
-    """One zone per polygon with its layer and outline, without a fill: the polygons are unpoured."""
+    """One zone per polygon with its layer and outline, without a fill: the polygons are unpoured. Each plane
+    adds the zone of its ``Split Plane`` polygon (change c0389): the plane's layer and net over the board
+    outline, whose points KiCad may start elsewhere."""
     found, model = imported()
-    assert model.board is not None and found.board.board is not None
+    assert model.board is not None and found.board.board is not None and model.board.outline is not None
     theirs = found.board.board.zones
-    return len(theirs) == len(model.board.zones) and all(
-        any(t.layers == z.layers and _all(z.outline, t.outline) and not t.fills for t in theirs)
-        for z in model.board.zones
+    nets = {net.id: net.name for net in found.board.circuit.nets}
+    outline = model.board.outline.points
+    planes = [
+        t
+        for t in theirs
+        if t.layers[0] in PLANES
+        and nets.get(t.net_id or "") == PLANES[t.layers[0]]
+        and len(t.outline) == len(outline)
+        and all(any(same(p, q) for q in t.outline) for p in outline)
+        and not t.fills
+    ]
+    return (
+        len(theirs) == len(model.board.zones) + len(PLANES)
+        and len(planes) == len(PLANES)
+        and all(
+            any(t.layers == z.layers and _all(z.outline, t.outline) and not t.fills for t in theirs)
+            for z in model.board.zones
+        )
     )
 
 

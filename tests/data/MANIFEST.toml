@@ -1460,7 +1460,7 @@ notes = "schematic of the same build (c0098), beside its board"
 path = "tests/data/altium/board6/board6.PcbDoc"
 origin = "authored"
 corpus_id = ""
-notes = "experimental PCB document of the six-layer sample (tests/_altium_board6.py): six copper layers with one plane, a through, a blind and a buried via, four texts, five graphics, a keep-out, a non-plated hole and two unpoured polygons (c0085 golden file)"
+notes = "experimental PCB document of the six-layer sample (tests/_altium_board6.py): six copper layers with one plane, a through, a blind and a buried via, four texts, five graphics, a keep-out, a non-plated hole, two unpoured polygons and the plane's split plane (c0085 golden file; c0389 plane records)"
 
 [[file]]
 path = "tests/data/altium/board6/board6.PcbLib"

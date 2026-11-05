@@ -233,12 +233,14 @@ def test_board6_golden_files() -> None:
 
 
 def test_board6_two_polygons() -> None:
-    """Scenario "Two polygons": two unpoured polygons, no region of poured copper, one info with 2."""
+    """Scenario "Two polygons": two unpoured polygons, no region of poured copper, one info with 2; the plane
+    adds its split plane after them (change c0389)."""
     output = board6()
     document, _design = read_document(output.files[f"{NAME}.PcbDoc"], f"{NAME}.PcbDoc")
     assert [(p.layer, p.polygon_type, p.record.get("NET") is not None) for p in document.polygons] == [
         ("TOP", "Polygon", True),
         ("BOTTOM", "Polygon", True),
+        ("PLANE1", "Split Plane", True),
     ]
     assert all(region.prefix.polygon is None for region in document.regions)  # type: ignore[union-attr]
     assert not any(t.prefix.polygon is not None for t in (*document.tracks, *document.arcs))  # type: ignore[union-attr]
@@ -256,7 +258,8 @@ def test_board6_island_removal_is_written() -> None:
     with tempfile.TemporaryDirectory() as folder:
         output = board6_build(Path(folder), dataclasses.replace(model, board=board))
     document, _design = read_document(output.files[f"{NAME}.PcbDoc"], f"{NAME}.PcbDoc")
-    assert [p.record.get("REMOVEDEAD") for p in document.polygons] == ["FALSE", "TRUE"]
+    pours = [p for p in document.polygons if p.polygon_type == "Polygon"]
+    assert [p.record.get("REMOVEDEAD") for p in pours] == ["FALSE", "TRUE"]
 
 
 def test_board6_protocol_names_the_bytes() -> None:

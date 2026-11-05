@@ -46,6 +46,7 @@ from fenolite.backends.altium.docboard import (
     common_fields,
     name_codes,
     polygon_fields,
+    split_plane_fields,
 )
 from fenolite.backends.altium.libboard import guid
 from fenolite.backends.altium.pcblib import (
@@ -1470,6 +1471,22 @@ def polygon_records(
     return out
 
 
+def split_plane_records(spec: PcbDocSpec, copper: _Copper) -> list[bytes]:
+    """One ``Split Plane`` polygon per internal plane of the stack, top to bottom (change c0389, task 2.7;
+    ``pcb-copper.md``, "Layer stack"): on the plane's layer, with the plane's net and the board outline as
+    its vertices. A saved plane holds this record and Altium's Plane Connect check reads the plane's copper
+    from it (S-1653); the saved form pulls the outline back by the plane's pull-back distance, which the
+    written form leaves to Altium, as it does the pull-back tracks (``H-A-PCB-CU-PLANE``)."""
+    stack = document_stack(spec)
+    vertices = [_units(copper.frame(point)) for point in spec.outline]
+    return [
+        rec.property_block(
+            split_plane_fields(rec.layer_text(layer), vertices, copper.net(f"plane {layer}", net))
+        )
+        for layer, net in zip(stack.planes, stack.plane_nets, strict=True)
+    ]
+
+
 def class_records(classes: Sequence[NetClassSpec], nets: Mapping[str, int], filename: str) -> list[bytes]:
     """One ``Classes6`` record per net class, in name order (``pcb-copper.md``, "Net classes"): a ``KIND=0``
     class that is no super class, its nets as members ``M0``, ``M1`` … in name order. ``ValueError`` for a
@@ -1549,7 +1566,25 @@ DEFAULT_VIA_DRILL = 300_000
 """The values of the ``All`` rules in nanometres: Fenolite's choices (``pcb-copper.md``)."""
 RULE_CLEARANCE, RULE_WIDTH, RULE_VIAS = 0, 2, 11
 """The rule-kind numbers that open a ``Rules6`` record."""
+RULE_PLANE_CONNECT, RULE_PLANE_CLEARANCE = 6, 12
+"""The rule-kind numbers of the Power Plane Connect Style and the Power Plane Clearance rules."""
 ALL_SCOPE = "All"
+PLANE_CONNECT_KEYS: tuple[Field, ...] = (
+    ("PAD.PLANECONNECTSTYLE", "Relief"),
+    ("PAD.RELIEFEXPANSION", "20mil"),
+    ("PAD.RELIEFENTRIES", "4"),
+    ("PAD.RELIEFCONDUCTORWIDTH", "10mil"),
+    ("PAD.RELIEFAIRGAP", "10mil"),
+    ("VIA.PLANECONNECTSTYLE", "Direct"),
+    ("VIA.RELIEFEXPANSION", "20mil"),
+    ("VIA.RELIEFENTRIES", "4"),
+    ("VIA.RELIEFCONDUCTORWIDTH", "10mil"),
+    ("VIA.RELIEFAIRGAP", "10mil"),
+)
+"""The keys of the ``All`` Plane Connect rule that a document with a plane holds (change c0389, task 2.7):
+the values of the untouched rule of a saved document (S-1653), pads by thermal relief, vias directly."""
+PLANE_CLEARANCE_KEYS: tuple[Field, ...] = (("CLEARANCE", "20mil"),)
+"""The keys of the ``All`` Plane Clearance rule that a document with a plane holds (S-1653)."""
 
 
 def _mil(nm: int) -> str:
@@ -1659,7 +1694,9 @@ def rule_records(spec: PcbDocSpec, filename: str) -> list[bytes]:
     scopes are those of a rule of the design is left out: the design's rule replaces it. Priorities count
     from 1 within a kind. The limits of a width or via rule of c0038 span its preferred value and the
     written copper of its scope. The rules of c0038 are written only for a spec with copper or net
-    classes; no rule is written with ``rules`` off."""
+    classes; no rule is written with ``rules`` off. A document whose stack holds an internal plane ends with
+    one Plane Connect and one Plane Clearance rule scoped ``All`` (``PLANE_CONNECT_KEYS``,
+    ``PLANE_CLEARANCE_KEYS``; change c0389, task 2.7), so Altium does not fall back on its own default."""
     if not spec.rules:
         return []
     has_copper = bool(spec.tracks or spec.arcs or spec.vias or spec.zones or spec.net_classes)
@@ -1682,6 +1719,13 @@ def rule_records(spec: PcbDocSpec, filename: str) -> list[bytes]:
             out.append(
                 _rule(number, kind, name, first, priority, keys, filename, second=second, net_scope=net_scope)
             )
+    if document_stack(spec).planes:
+        for number, kind, keys in (
+            (RULE_PLANE_CONNECT, "PlaneConnect", PLANE_CONNECT_KEYS),
+            (RULE_PLANE_CLEARANCE, "PlaneClearance", PLANE_CLEARANCE_KEYS),
+        ):
+            name = f"{kind}_plane" if kind in names else kind
+            out.append(_rule(number, kind, name, ALL_SCOPE, 1, keys, filename, net_scope="AnyNet"))
     return out
 
 
@@ -1898,7 +1942,10 @@ def _write(
     more_texts, more_wide = free_texts(spec, frame, len(texts))
     texts += more_texts
     wide += more_wide
-    filled["Polygons6"] = polygon_records(spec.zones, copper, optimal_void_rotation=not computed)
+    filled["Polygons6"] = [
+        *polygon_records(spec.zones, copper, optimal_void_rotation=not computed),
+        *split_plane_records(spec, copper),
+    ]
     filled["Classes6"] = [
         *class_records(spec.net_classes, nets, filename),
         *component_class_records(spec.components, filename),

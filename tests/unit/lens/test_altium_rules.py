@@ -51,21 +51,28 @@ def built(design: Design, *, document: bool = True) -> BuildOutput:
     return output
 
 
+PLANE_KINDS = ("PlaneConnect", "PlaneClearance")
+"""The rules a document with a plane ends with (``pcb-copper.md``, "Layer stack")."""
+
+
 def read_back(
     output: BuildOutput, name: str = DOCUMENT
 ) -> tuple[list[tuple[str, str, int, str, str]], list[Rule]]:
     """The rule records of the built document as (kind, name, priority, scope1, scope2), and the neutral
-    rules they map to; every record must map."""
+    rules they map to; every record must map but the plane rules of a document with a plane (change c0389),
+    which the model has no counterpart of."""
     document = read_pcbdoc(output.files[name], file=name)
     mapping = map_rules([r.fields for r in document.rules], origin=name)
-    assert mapping.unmapped == (), mapping.unmapped
+    assert all(u.kind in PLANE_KINDS and u.reason == "no-counterpart" for u in mapping.unmapped), (
+        mapping.unmapped
+    )
+    rules = [r for r in document.rules if r.rule_kind not in PLANE_KINDS]
     header = [
-        (r.rule_kind or "", r.name or "", r.priority or 0, r.scope1 or "", r.scope2 or "")
-        for r in document.rules
+        (r.rule_kind or "", r.name or "", r.priority or 0, r.scope1 or "", r.scope2 or "") for r in rules
     ]
-    assert [r.kind_number for r in document.rules] == [
+    assert [r.kind_number for r in rules] == [
         rulemap.row_of(next(rule.kind for rule in mapping.ruleset.rules if rule.name == r.name)).number
-        for r in document.rules
+        for r in rules
     ]
     return header, list(mapping.ruleset.rules)
 

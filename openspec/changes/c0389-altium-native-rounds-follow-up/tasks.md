@@ -25,6 +25,14 @@
   Altium's design rule check: Starved Thermal on the `GND` via (13 %) and on `D1` pad 1 (10 %), and an
   Un-Routed Net between them (S-1601). The cause is not studied. Proof: a C6 rerun in Altium with no such
   violation, recorded under "Reports" of `docs/evidence/altium-pcb.md`; `H-A-PCB-CU-PLANE` set by it.
+  - 2026-11-05: needs C6 rerun. Studied against the public rule definitions (S-1652) and the saved plane
+    records of the corpus (S-1653): the sample's holes starve neither thermal, and the document held no
+    `Split Plane` polygon and no plane rule. The writer now adds one split plane per plane on its net and
+    the `All` rules `PlaneConnect` (pads Relief, vias Direct) and `PlaneClearance`
+    (`tests/unit/backends/altium/test_plane_connect.py`); the new `p0` is `4082a630…`.
+    The kit sample `board6` holds a plane, so kit steps K2.4 and K5.1 to K5.5 must run again on the
+    current kit; until then nine register rows are set back (`docs/evidence/altium-kit/README.md`, "Stale
+    rows after c0389 task 2.7").
 - [ ] 2.5 (from c0166 3.3) Execute Repeat R1-R4 and R5 when its implementation is available; preserve any branch blocker. Proof: the report and focused Repeat tests.
   - Blocker on 2026-11-05: Repeat R1–R5 was not run in any agent round (S-1570 to S-1589); R5 keeps its recorded failure.
   - 2026-11-05 (S-1602, AD 24.5.2.23 Trial, agent run): R1 and R2 run on the committed bytes that passed in AD 26.5
