@@ -226,6 +226,39 @@ the native verdict `unjudged`; `SHA256SUMS` binds the exact handover bytes. Work
 Report the date, exact version, file hashes, whether each opens without a message and what it shows.
 These probes settle `H-A-DWF-MINIMAL`, `H-A-DWF-IMPORT` and `H-A-DWF-TEMPLATE`; no probe has run here.
 
+### Round FPC: correction round (c0388 task 1.1)
+
+Prepare with `FENOLITE_DWF_F0=<reviewed F0 folder> FENOLITE_ALTIUM_PART_FPC=<outside folder> uv run pytest
+tests/unit/backends/altium/test_part_f.py -k fpc_correction_kit`, with `FENOLITE_KIT_REVIEWED_PREFIX` set
+to the VM's absolute work folder that a person reviewed. The kit holds the routed blink project, the probes
+below and `SHA256SUMS`. Every probe is stored uncompressed, as FP1 and FP2, which open (S-1589). FPC1 to
+FPC4 and FPC6 keep the candidates' relative `SourceDocumentName`; FPC5 and the drop series keep the
+absolute path of the empty F0.1 control, and the members taken from it may hold that path too, so the kit
+stays in the VM. `status.json` lists the dropped members and keeps the
+native verdict `unjudged`. Work on a copy.
+
+1. **FPC1** Open FP3 with the 32 root members it lacks taken from the empty F0.1 control (its own six
+   members kept, format version 22). Expected: no message, `FENOLITE-1` on one A4 sheet.
+2. **FPC2** Open FP4 corrected the same way; Import Changes from `blink_routed.PcbDoc`. Expected: no
+   message; the board outline and the top parts fill the view.
+3. **FPC3** Register the kit folder as a document template folder in Preferences (restore the setting
+   afterwards), then use `FPC3.DwfDot`, which holds FPC2, in File » New » Draftsman Document. Expected: a
+   document with the current board, and no error window.
+4. **FPC4** Open FP3 with only empty `ArrowStyles`, `FillStyles` and `LineStyles` added. Expected: no
+   message, `FENOLITE-1`. Opening tells whether the three style lists alone caused the refusal of S-1575.
+5. **FPC5** Open the empty F0.1 control with only its `Pages` replaced by FP3's sheet. Expected: no
+   message, `FENOLITE-1`. Opening tells whether the writer's sheet form is accepted.
+6. **FPC6** Open FPC1 with the control's format version 24 in place of 22. Expected: no message,
+   `FENOLITE-1`.
+7. **D01 to D32** Open each probe of `drop/`: the empty F0.1 control without one root member, named in
+   the file name. Expected: an empty A4 sheet. A probe that is refused names a member that the writer
+   needs.
+
+Report the date, the exact version, the file hashes and, per probe, whether it opens without a message and
+what it shows. G2 is decided again from this report only (c0388, task 1.1): it passes for the writer when
+FPC1 or FPC4 opens and FPC2 fills its view; FPC3 settles `H-A-DWF-TEMPLATE`. If no FPC probe opens, route P
+of c0172's Decision 9 is decided.
+
 ### Round F1 to F8: candidate acceptance
 
 Prepare with `FENOLITE_ALTIUM_PART_F=<outside folder> uv run pytest

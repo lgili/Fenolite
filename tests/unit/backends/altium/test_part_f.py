@@ -33,7 +33,7 @@ import pytest
 
 import fenolite.cli.main as cli_main
 from fenolite.backends.altium import draftsman
-from fenolite.backends.altium.read.draftsman import decode, read_draftsman
+from fenolite.backends.altium.read.draftsman import INSTANCE, NAMESPACE, decode, read_draftsman
 from fenolite.backends.altium.read.pcb import read_pcbdoc
 from fenolite.cli.altium_observations import checked_files
 from fenolite.exports.drawing_tables import drill_rows, stackup_block
@@ -261,6 +261,216 @@ def test_fp_candidates(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     for name in ("FP3.PCBDwf", "FP4.PCBDwf", "FP5.DwfDot"):
         assert read_draftsman((folder / name).read_bytes()).root is not None
     assert json.loads((folder / "status.json").read_text())["native_verdict"] == "unjudged"
+
+
+_TAG = re.compile(rb"<(/?)([A-Za-z_][\w.:-]*)((?:[^>\"']|\"[^\"]*\"|'[^']*')*?)(/?)>")
+STYLE_LISTS = ("ArrowStyles", "FillStyles", "LineStyles")
+"""The root members that hold a style list in every document of round F0 and that FP3 and FP4 lack
+(``docs/formats/altium/draftsman.md``, "Round F0 as saved by Altium Designer 24.5.2.23")."""
+
+
+def root_members(xml: bytes) -> tuple[bytes, list[tuple[str, bytes]], bytes]:
+    """The root's start tag, its direct members as (local name, bytes) in file order, and the root's end
+    tag. The three parts joined give ``xml`` back byte for byte; ``ValueError`` otherwise."""
+    tags = iter(_TAG.finditer(xml))
+    root = next(tags, None)
+    if root is None or root.group(1) or root.group(4) or root.start() != 0:
+        raise ValueError("the text does not start with the root's start tag")
+    members: list[tuple[str, bytes]] = []
+    depth, start, name = 1, 0, b""
+    for tag in tags:
+        closing, opening = bool(tag.group(1)), not tag.group(1) and not tag.group(4)
+        if depth == 1:
+            if closing:
+                end = xml[tag.start() :]
+                if end.strip() != tag.group(0):
+                    raise ValueError("text after the root's end tag")
+                body = xml[root.end() : tag.start()]
+                joined = b"".join(data for _, data in members)
+                if joined != body:
+                    raise ValueError("text between the root's members")
+                return xml[: root.end()], members, end
+            start, name = tag.start(), tag.group(2).rsplit(b":", 1)[-1]
+            if not opening:
+                members.append((name.decode(), xml[start : tag.end()]))
+                continue
+        depth += -1 if closing else 1 if opening else 0
+        if depth == 1:
+            members.append((name.decode(), xml[start : tag.end()]))
+    raise ValueError("the root is not closed")
+
+
+def grafted(candidate: bytes, control: bytes, *, keep: tuple[str, ...] = ()) -> bytes:
+    """``control``'s root with each of its members replaced by ``candidate``'s member of the same name,
+    except the members named in ``keep``; a candidate member that ``control`` lacks is an error."""
+    _, own, _ = root_members(candidate)
+    head, members, tail = root_members(control)
+    mine = dict(own)
+    if set(mine) - {name for name, _ in members}:
+        raise ValueError("the candidate holds a member the control lacks")
+    body = b"".join(mine[name] if name in mine and name not in keep else data for name, data in members)
+    return head + body + tail
+
+
+def dropped(xml: bytes, member: str) -> bytes:
+    """``xml`` without its root member ``member``."""
+    head, members, tail = root_members(xml)
+    if member not in {name for name, _ in members}:
+        raise ValueError(f"no root member {member}")
+    return head + b"".join(data for name, data in members if name != member) + tail
+
+
+def member_order(name: str) -> tuple[bool, str]:
+    """The order of a root's members in every document of round F0 and in FP3: ``Id`` first, then the
+    others by name."""
+    return (name != "Id", name)
+
+
+def with_style_lists(xml: bytes) -> bytes:
+    """``xml`` with an empty member for each of ``STYLE_LISTS`` that it lacks, in the root's member order
+    (``member_order``)."""
+    head, members, tail = root_members(xml)
+    names = {name for name, _ in members}
+    added = [(name, f"<{name}/>".encode()) for name in STYLE_LISTS if name not in names]
+    ordered = sorted([*members, *added], key=lambda member: member_order(member[0]))
+    if [name for name, _ in members] != [name for name, _ in ordered if name not in dict(added)]:
+        raise ValueError("the root's members are not in name order")
+    return head + b"".join(data for _, data in ordered) + tail
+
+
+def part_fpc(folder: Path, monkeypatch: pytest.MonkeyPatch, scratch: Path, f0: Path) -> dict[str, bytes]:
+    """The correction round of c0388 (task 1.1) into ``folder``: FP3 and FP4 corrected from the empty
+    document of round F0 (``F0-01.PCBDwf`` of ``f0``, after the kit privacy scan), the template FPC3, the
+    authored style lists of FPC4, the writer's sheet in the native document (FPC5) and the drop series
+    D01 to Dnn, one probe per root member that FP3 lacks. Every probe is stored uncompressed, as FP1 and
+    FP2, which open (S-1589)."""
+    fp = scratch / "fp"
+    part_fp(fp, monkeypatch, scratch / "fp-scratch")
+    fp3 = decode((fp / "FP3.PCBDwf").read_bytes())[1]
+    fp4 = decode((fp / "FP4.PCBDwf").read_bytes())[1]
+    controls = checked_files(f0)
+    found = [data for name, data in controls.items() if Path(name).name.casefold() == "f0-01.pcbdwf"]
+    assert len(found) == 1, "exactly one empty F0.1 control is required"
+    empty = decode(found[0])[1]
+    lacking = [name for name, _ in root_members(empty)[1] if name not in dict(root_members(fp3)[1])]
+    files = {
+        path.name: path.read_bytes() for path in sorted(fp.iterdir()) if path.name.startswith(PROJECT + ".")
+    }
+    fpc2 = grafted(fp4, empty)
+    probes = {
+        "FPC1.PCBDwf": grafted(fp3, empty),
+        "FPC2.PCBDwf": fpc2,
+        "FPC3.DwfDot": fpc2,
+        "FPC4.PCBDwf": with_style_lists(fp3),
+        "FPC5.PCBDwf": grafted(fp3, empty, keep=tuple(n for n, _ in root_members(fp3)[1] if n != "Pages")),
+        "FPC6.PCBDwf": grafted(fp3, empty, keep=("FormatVersion",)),
+    }
+    for index, member in enumerate(lacking, start=1):
+        probes[f"drop/D{index:02d}-{member}.PCBDwf"] = dropped(empty, member)
+    for name, xml in probes.items():
+        files[name] = draftsman.encode(xml)
+    page = (ROOT / "docs/evidence/altium-draftsman.md").read_text()
+    start = page.index("### Round FPC")
+    steps = page[start : page.index("\n### ", start + 1)]
+    listing = "".join(f"- `D{index:02d}`: without `{member}`\n" for index, member in enumerate(lacking, 1))
+    files["README.md"] = (
+        "# Part F correction round (c0388, task 1.1)\n\nNative acceptance is unjudged. Work on a copy.\n\n"
+        + steps
+        + "\n## The drop series\n\n"
+        + listing
+    ).encode()
+    files["status.json"] = (
+        json.dumps({"drop": lacking, "native_verdict": "unjudged"}, sort_keys=True) + "\n"
+    ).encode()
+    _write_bundle(folder, files)
+    return files
+
+
+def _authored_control() -> bytes:
+    """An authored stand-in for the empty F0.1 control: the root members of round F0 by name, a few
+    filled, the others empty or nil; nothing of a saved document."""
+    _, own, _ = root_members(decode(draftsman.write_draftsman(_probe_spec()))[1])
+    names = sorted(
+        {*dict(own), "ArrowStyles", "DocumentOptions", "FillStyles", "IsPanel", "LineStyles"},
+        key=member_order,
+    )
+    filled = {
+        "DocumentOptions": b"<DocumentOptions><Grid>10</Grid></DocumentOptions>",
+        "FormatVersion": b"<FormatVersion>24</FormatVersion>",
+        "IsPanel": b"<IsPanel>false</IsPanel>",
+        "Pages": b"<Pages><Page><Id>1</Id><Items/></Page></Pages>",
+        "SourceDocumentName": b"<SourceDocumentName>board.PcbDoc</SourceDocumentName>",
+    }
+    body = b"".join(filled.get(name, f'<{name} i:nil="true"/>'.encode()) for name in names)
+    head = f'<Document xmlns="{NAMESPACE}" xmlns:i="{INSTANCE}">'.encode()
+    return head + body + b"</Document>"
+
+
+def _probe_spec() -> draftsman.DraftsmanSpec:
+    text = draftsman.DraftsmanItem(
+        "text", "Text", (10_000_000, 10_000_000), (80_000_000, 5_000_000), texts=("FENOLITE-1",)
+    )
+    sheet = draftsman.DraftsmanSheet("probe", "Probe", "A4", (297_000_000, 210_000_000), (text,))
+    return draftsman.DraftsmanSpec(PROJECT, (sheet,))
+
+
+def test_root_members_split_and_join() -> None:
+    xml = decode(draftsman.write_draftsman(_probe_spec()))[1]
+    head, members, tail = root_members(xml)
+    assert head + b"".join(data for _, data in members) + tail == xml
+    assert [name for name, _ in members] == ["Id", "FontStyles", "FormatVersion", "Pages", "Parameters",
+                                             "SourceDocumentName"]  # fmt: skip
+    with pytest.raises(ValueError, match="root"):
+        root_members(xml[:-3])
+    with pytest.raises(ValueError, match="between"):
+        root_members(xml.replace(b"<FormatVersion>", b" <FormatVersion>"))
+
+
+def test_correction_probes_from_an_authored_control() -> None:
+    """The graft keeps the candidate's members and takes the rest from the control; the drop series takes
+    one member out; the style lists are added empty, in name order."""
+    control = _authored_control()
+    candidate = decode(draftsman.write_draftsman(_probe_spec()))[1]
+    names = [name for name, _ in root_members(control)[1]]
+    fpc1 = grafted(candidate, control)
+    assert [name for name, _ in root_members(fpc1)[1]] == names
+    assert dict(root_members(fpc1)[1])["Pages"] == dict(root_members(candidate)[1])["Pages"]
+    assert dict(root_members(fpc1)[1])["IsPanel"] == b"<IsPanel>false</IsPanel>"
+    assert b"<FormatVersion>22<" in fpc1 and b"<FormatVersion>24<" in grafted(
+        candidate, control, keep=("FormatVersion",)
+    )
+    page_only = grafted(
+        candidate, control, keep=tuple(n for n in dict(root_members(candidate)[1]) if n != "Pages")
+    )
+    assert b"FENOLITE-1" in page_only and b"board.PcbDoc" in page_only
+    assert [n for n, _ in root_members(dropped(control, "IsPanel"))[1]] == [
+        n for n in names if n != "IsPanel"
+    ]
+    with pytest.raises(ValueError, match="no root member"):
+        dropped(control, "Absent")
+    with pytest.raises(ValueError, match="lacks"):
+        grafted(control, candidate)
+    styled = with_style_lists(candidate)
+    order = [name for name, _ in root_members(styled)[1]]
+    assert order == sorted(order, key=member_order) and set(STYLE_LISTS) <= set(order)
+    assert dict(root_members(styled)[1])["LineStyles"] == b"<LineStyles/>"
+    assert read_draftsman(draftsman.encode(styled)).root is not None
+
+
+@pytest.mark.skipif(
+    not (os.environ.get("FENOLITE_ALTIUM_PART_FPC") and os.environ.get("FENOLITE_DWF_F0")),
+    reason="the correction round needs the reviewed F0 folder and a folder outside the repository",
+)
+def test_fpc_correction_kit(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    folder = Path(os.environ["FENOLITE_ALTIUM_PART_FPC"]).expanduser()
+    assert ROOT not in folder.resolve().parents
+    files = part_fpc(folder, monkeypatch, tmp_path, Path(os.environ["FENOLITE_DWF_F0"]).expanduser())
+    probes = [name for name in files if name.endswith((".PCBDwf", ".DwfDot"))]
+    assert len([name for name in probes if name.startswith("drop/")]) == len(
+        json.loads(files["status.json"])["drop"]
+    )
+    for name in probes:
+        assert read_draftsman(files[name]).root is not None, name
 
 
 def _library_prefix(library: PurePath, source: PurePath) -> str:
