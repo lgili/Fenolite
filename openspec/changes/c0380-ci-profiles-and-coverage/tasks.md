@@ -56,3 +56,17 @@
 2026-11-03: pre-reuse full run 41637238612 completed at 784092fe in 57m56s; all fourteen exact-head receipts and the complete disjoint native union were present. Product/native failures and five nonpassing required resource cases correctly failed the audit and aggregate. The source-identical fast probe 41637958755 passed and remains available. The failed full-run endpoint later returned 404; captured evidence remains archived outside the repository. Do not infer a passing complete gate from absent remote history.
 
 2026-11-03: tasks 3.8/3.9: 123 focused reuse/census/context/policy controls passed, including 66 policy controls and real extraction/lowering with counted native stubs. The broader integration bundle passed 245 controls before the final unlisted-input guard, which passed its focused repeat. Collect-only inventory matched all 4,229 previous native ids, order and resource metadata exactly. Three focused native cases sch-106/107/108 retained their complete semantic reports and all strict refusals; summed case time was 50.970s before and 20.746s after, with two disclosed reuses. This is not full-suite native validation. Static gates and strict OpenSpec passed; final local fast and exact-head CI are required and remain open.
+
+2026-11-04 (root), found by the first complete native run on lote-14 (CI 41945588359, aa49b069): task 3.5's
+cross-audit failed on five resource-marked unit cases in two files that had never run with the KiCad
+libraries in CI.
+- `test_pages_kicad.py::test_kicad_table_names_every_design_block`: the c0340 guide page `board-practice`
+  had no `ERRORS` row. Its script checks clean with kicad-cli 10.0.6, and the row is now `set()`.
+- `test_altium_rta2.py`: two failed and two skipped cases. The Altium lens flattened a second time, without
+  parents, a derived library symbol that `LibraryResolver.symbol` had already given its root's body, so
+  every official KiCad 10.0.6 symbol defined by `extends` was refused with `altium.symbol-off-grid`.
+  `resolve_symbols` now clears `extends` on what the resolver returns. The authored regression is
+  `tests/unit/lens/test_altium_derived_symbol.py`. Locally with the 10.0.6 libraries, all 103 rta2 cases
+  pass with no skip.
+Tasks 3.5, 3.6, 4.1, 4.2 and 5.2 close on the exact-head CI of the batch that carries these fixes.
+

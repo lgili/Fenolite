@@ -317,7 +317,9 @@ def resolve_symbols(
     errors: list[LibraryError] = []
     for lib_id in wanted:
         try:
-            found[lib_id] = resolver.symbol(lib_id)
+            # the resolver already gives a derived library symbol its root's body (``resolve_extends``)
+            # and keeps the ``extends`` name; Altium has no derivation, so the symbol is written flat
+            found[lib_id] = dataclasses.replace(resolver.symbol(lib_id), extends="")
         except LibraryError as error:
             errors.append(error)
     if errors:

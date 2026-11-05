@@ -25,6 +25,7 @@ OPEN = "kicad.drc.unconnected-items"
 ERRORS: dict[tuple[str, int], set[str]] = {
     ("block-layouts", 0): {"kicad.erc.pin-not-connected"},
     ("board-floorplan", 0): {OPEN, "kicad.erc.pin-not-connected"},
+    ("board-practice", 0): set(),
     ("board-power", 0): {OPEN, "kicad.erc.pin-not-driven", "kicad.erc.pin-not-connected"},
     ("board-power", 1): {OPEN},
     ("board-review", 0): {"kicad.erc.pin-not-connected"},
