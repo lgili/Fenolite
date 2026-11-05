@@ -214,7 +214,8 @@ class Candidate:
     and the items' geometry, never of the rest of the board. ``source`` is the family (``shape``, ``z-shape``,
     ``via-l``, ``fanout``, ``role`` or ``external:<router>``), ``relaxed`` the relaxations of a ``role``
     candidate; ``length`` the length of its tracks in nanometres and ``layers`` its copper layers in stack
-    order. No score: candidates come in generation order."""
+    order. No score: candidates come in generation order. ``bundle`` is empty for an independent candidate,
+    otherwise the indivisible bundle ID that must be used for decisions."""
 
     id: str
     subject: str
@@ -225,6 +226,16 @@ class Candidate:
     vias: tuple[Via, ...] = ()
     length: Nm = 0
     layers: tuple[str, ...] = ()
+    bundle: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class Bundle:
+    """An indivisible, jointly checked set of provisional candidates (c0367)."""
+
+    id: str
+    fingerprint: str
+    members: tuple[Candidate, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -317,7 +328,8 @@ class RoutingResult:
     in ``unrouted`` too. ``roles`` (change c0244) holds one ``RoleOutcome`` per role route of the job, in
     its order. ``candidates`` (change c0280) holds the candidates of a proposal run, in generation order, and
     ``refusals`` one ``(subject key, reason, blockers)`` per subject left without a candidate; a proposal run
-    returns no track, arc or via.
+    returns no track, arc or via. ``bundles`` holds jointly validated atomic alternatives (c0367);
+    each of their members is also listed in ``candidates``.
     """
 
     tracks: tuple[Track, ...] = ()
@@ -335,6 +347,7 @@ class RoutingResult:
     roles: tuple[RoleOutcome, ...] = ()
     candidates: tuple[Candidate, ...] = ()
     refusals: tuple[tuple[str, str, tuple[str, ...]], ...] = ()
+    bundles: tuple[Bundle, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -387,6 +400,7 @@ __all__ = [
     "ROUTER_FEATURES",
     "SUBJECT_KINDS",
     "Candidate",
+    "Bundle",
     "EscapeKind",
     "FinishedRun",
     "JobAttach",

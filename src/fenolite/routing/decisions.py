@@ -1,8 +1,10 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
-"""The route decision record ``fenolite.route-decisions.v0`` (change c0280; capability cli-contract, "Route
-decision record"; ``docs/routing.md``, "Proposals").
+"""Route decision records ``fenolite.route-decisions.v0`` (and its prepared ``v1`` mirror, change c0217).
+Changes c0280/c0367; capability cli-contract, "Route decision record"; ``docs/routing.md``, "Proposals".
 
+The optional ``bundles`` key holds complete bundle identities and member lists; it is written only when a
+bundle was decided, so a record without bundles keeps its c0280 bytes.
 The record keeps what the user decided on the proposals of ``fenolite route --propose``: each accepted
 candidate (``locked``: its subject, net, ends, the items it placed, the corridors of a group candidate, its
 relaxations and the decision id) and each rejected candidate or proposal (``rejected``: its id, subject and
@@ -15,6 +17,7 @@ of the wrong type raises ``FormatError``, which ``fenolite route`` reports as ``
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -98,12 +101,22 @@ class Rejected:
 
 
 @dataclass(frozen=True, slots=True)
+class RecordBundle:
+    """All members of one accepted/rejected alternative, bound to its source inputs."""
+
+    id: str
+    fingerprint: str
+    members: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
 class Decisions:
     """The decisions of one board: the board's file name, the locked and the rejected entries."""
 
     board: str
     locked: tuple[Locked, ...] = ()
     rejected: tuple[Rejected, ...] = ()
+    bundles: tuple[RecordBundle, ...] = ()
 
     def sorted(self) -> Decisions:
         """The record with its entries sorted by subject, then id, each id once (the last one kept)."""
@@ -113,6 +126,7 @@ class Decisions:
             self.board,
             tuple(sorted(locked.values(), key=lambda e: (e.subject, e.candidate))),
             tuple(sorted(rejected.values(), key=lambda e: (e.subject, e.id))),
+            tuple(sorted({b.id: b for b in self.bundles}.values(), key=lambda b: b.id)),
         )
 
 
@@ -166,7 +180,7 @@ def corridor_data(corridor: RecordCorridor) -> dict[str, Any]:
 def to_data(decisions: Decisions) -> dict[str, Any]:
     """The JSON value of the record, its entries sorted."""
     held = decisions.sorted()
-    return {
+    result = {
         "schema": SCHEMA,
         "board": held.board,
         "locked": [
@@ -185,6 +199,12 @@ def to_data(decisions: Decisions) -> dict[str, Any]:
         ],
         "rejected": [{"id": e.id, "subject": e.subject, "reason": e.reason} for e in held.rejected],
     }
+
+    if held.bundles:
+        result["bundles"] = [
+            {"id": b.id, "fingerprint": b.fingerprint, "members": list(b.members)} for b in held.bundles
+        ]
+    return result
 
 
 def dumps(decisions: Decisions) -> bytes:
@@ -324,16 +344,44 @@ class _Reader:
 def from_data(value: object, *, file: str = "") -> Decisions:
     """The record of a JSON value; ``FormatError`` naming the JSON pointer of the first fault."""
     reader = _Reader(file)
-    data = reader.obj(value, "", ("schema", "board", "locked", "rejected"))
+    data = reader.obj(value, "", ("schema", "board", "locked", "rejected"), ("bundles",))
     if not accepts_schema(data["schema"], SCHEMA):
         raise reader.fail(f"the schema must be {SCHEMA!r}", "/schema")
     locked = reader.items(data["locked"], "/locked")
     rejected = reader.items(data["rejected"], "/rejected")
-    return Decisions(
+    bundles: list[RecordBundle] = []
+    for i, item in enumerate(reader.items(data.get("bundles", []), "/bundles")):
+        where = f"/bundles/{i}"
+        row = reader.obj(item, where, ("id", "fingerprint", "members"))
+        ident = reader.text(row["id"], where + "/id")
+        digest = reader.text(row["fingerprint"], where + "/fingerprint")
+        members = reader.texts(row["members"], where + "/members")
+        if re.fullmatch(r"b-[0-9a-f]{16}", ident) is None or re.fullmatch(r"[0-9a-f]{64}", digest) is None:
+            raise reader.fail("invalid bundle identity", where)
+        if len(members) < 2 or len(set(members)) != len(members):
+            raise reader.fail("bundle needs distinct members", where + "/members")
+        bundles.append(RecordBundle(ident, digest, members))
+    record = Decisions(
         reader.text(data["board"], "/board"),
         tuple(reader.locked(v, f"/locked/{i}") for i, v in enumerate(locked)),
         tuple(reader.rejected(v, f"/rejected/{i}") for i, v in enumerate(rejected)),
-    ).sorted()
+        tuple(bundles),
+    )
+    seen: set[str] = set()
+    ids: set[str] = set()
+    held = {e.candidate for e in record.locked}
+    refused = {e.id for e in record.rejected}
+    for i, bundle in enumerate(record.bundles):
+        members = set(bundle.members)
+        accepted = members <= held and bundle.id not in refused
+        rejected_bundle = bundle.id in refused and not members & held
+        if bundle.id in ids or seen & members or not (accepted or rejected_bundle):
+            raise reader.fail(
+                "bundle members must form one complete accepted or rejected unit", f"/bundles/{i}"
+            )
+        ids.add(bundle.id)
+        seen.update(members)
+    return record.sorted()
 
 
 def loads(data: bytes | str, *, file: str = "") -> Decisions:
@@ -364,15 +412,29 @@ def with_entries(
     locked: Sequence[Locked] = (),
     rejected: Sequence[Rejected] = (),
     forget: Mapping[str, object] | Sequence[str] = (),
+    bundles: Sequence[RecordBundle] = (),
 ) -> Decisions:
     """``decisions`` with the given entries added (replacing entries of the same id) and the ids of
     ``forget`` removed, sorted."""
     gone = set(forget)
-    return Decisions(
+    all_bundles = {b.id: b for b in (*decisions.bundles, *bundles)}
+    for bundle in all_bundles.values():
+        if gone & set(bundle.members) and bundle.id not in gone:
+            raise ValueError(f"use atomic bundle {bundle.id} instead of an individual member")
+        if bundle.id in gone:
+            gone.update(bundle.members)
+    added_ids = {e.candidate for e in locked}
+    denied_ids = {e.id for e in rejected}
+    replace_locked = set[str]().union(*(set(b.members) for b in all_bundles.values() if b.id in denied_ids))
+    replace_rejected = {b.id for b in all_bundles.values() if set(b.members) <= added_ids}
+    result = Decisions(
         decisions.board,
-        tuple(e for e in (*decisions.locked, *locked) if e.candidate not in gone),
-        tuple(e for e in (*decisions.rejected, *rejected) if e.id not in gone),
+        tuple(e for e in (*decisions.locked, *locked) if e.candidate not in gone | replace_locked),
+        tuple(e for e in (*decisions.rejected, *rejected) if e.id not in gone | replace_rejected),
+        tuple(b for b in all_bundles.values() if b.id not in gone),
     ).sorted()
+    # Validate programmatically assembled records as strictly as disk input.
+    return from_data(to_data(result))
 
 
 __all__ = [
@@ -382,6 +444,7 @@ __all__ = [
     "Decisions",
     "Locked",
     "RecordCorridor",
+    "RecordBundle",
     "RecordEnd",
     "RecordItem",
     "RecordTrack",

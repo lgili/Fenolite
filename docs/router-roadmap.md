@@ -39,7 +39,8 @@ Direct native Altium editing remains c0241-altium-edit-sessions, not a missing r
 
 c0365 tasks 1–6 are locally implemented with focused proofs; exact-head CI and closing tasks remain open.
 c0366 tasks 1–6 have local proofs and the full local quick gate passes; exact-head CI closing evidence remains pending.
-c0367–c0370 remain proposals with implementation tasks unchecked. Dependencies mean
+c0367 tasks 1–6 are implemented with local proofs and the full local quick gate passes; exact-head CI remains pending.
+c0368–c0370 remain proposals with implementation tasks unchecked. Dependencies mean
 required interfaces/evidence, not permission to merge unrelated working branches.
 
 | Change | Scope | Dependencies |

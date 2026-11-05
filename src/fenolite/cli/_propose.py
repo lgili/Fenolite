@@ -67,6 +67,7 @@ from fenolite.routing import decisions as record_io
 from fenolite.routing.decisions import (
     Decisions,
     Locked,
+    RecordBundle,
     RecordCorridor,
     RecordEnd,
     RecordItem,
@@ -79,6 +80,7 @@ from fenolite.routing.merge import RoutingError, apply
 from fenolite.routing.octilinear import fresh
 from fenolite.routing.protocol import (
     SUBJECT_KINDS,
+    Bundle,
     Candidate,
     JobAttach,
     JobNet,
@@ -113,6 +115,11 @@ NOT_EVALUATED = (
 PROPOSAL_KEYS = ("id", "subject", "kind", "net", "ends", "region", "candidates", "reason", "alternatives")
 CANDIDATE_KEYS = ("id", "source", "relaxed", "items", "geometry", "facts", "rejected")
 REASONS = {
+    "negotiate-subjects": "negotiation needs at least two distinct connection subjects",
+    "negotiate-unsupported": "a selected pair or critical group is unsupported as an atomic routing unit",
+    "negotiate-round-limit": "the explicit negotiation round bound ended with unresolved conflicts",
+    "negotiate-judge-missing": "negotiation needs whole-bundle connectivity and final judges",
+    "negotiate-refused": "the complete negotiated set failed final validation",
     "no-room": "every shape is refused by the clearance",
     "no-layer": "its ends share no allowed layer and no via fits",
     "too-long": "every shape is longer than max-length",
@@ -151,7 +158,12 @@ def register(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument("--reason", default=None, metavar="TEXT", help="with --reject: why, one line")
     parser.add_argument(
-        "--replay", action="store_true", help="place again the locked decisions whose copper the board lacks"
+        "--replay",
+        nargs="?",
+        const="all",
+        default=None,
+        metavar="BUNDLE",
+        help="replay all locked decisions, or one atomic bundle",
     )
     parser.add_argument(
         "--forget",
@@ -241,6 +253,10 @@ def check(args: argparse.Namespace, router: Router) -> None:
                 where=option,
                 hint="proposals reach the board only through --accept and a reviewed plan",
             )
+    negotiating_decision = (
+        current == "accept"
+        and dict(word.split("=", 1) for word in args.router_option).get("negotiate") == "on"
+    )
     if current != "propose":
         for value, option in (
             (args.kind, "--kind"),
@@ -249,7 +265,7 @@ def check(args: argparse.Namespace, router: Router) -> None:
             (args.nets, "--nets"),
             (args.group, "--group"),
         ):
-            if value:
+            if value and not (negotiating_decision and option in ("--kind", "--nets", "--group")):
                 raise CliError(
                     "FEN-2001", f"{option} goes with --propose", where=option, hint="add --propose"
                 )
@@ -276,6 +292,14 @@ def check(args: argparse.Namespace, router: Router) -> None:
 
 
 # --- the board ----------------------------------------------------------------------------------------------
+
+
+def _bundle_evidence(evidence: Evidence, active: bool) -> Evidence:
+    if active:
+        from fenolite.routing.negotiate import EVIDENCE
+
+        return Evidence.combine(evidence, EVIDENCE)
+    return evidence
 
 
 def _field_context(fields: Fields) -> dict[str, Any]:
@@ -486,6 +510,8 @@ class Found:
     issues: list[Issue]
     cut: int = 0
     fields: Fields | None = None
+    bundles: tuple[Bundle, ...] = ()
+    negotiated: bool = False
 
 
 def _job_attach(attach: Attach) -> JobAttach:
@@ -653,6 +679,34 @@ def find(
             )
         )
     issues: list[Issue] = []
+    bundles: tuple[Bundle, ...] = ()
+
+    def bundle_check(candidates: tuple[Candidate, ...]) -> str:
+        try:
+            after = apply(
+                design,
+                RoutingResult(
+                    tracks=tuple(t for c in candidates for t in c.tracks),
+                    vias=tuple(v for c in candidates for v in c.vias),
+                ),
+            )
+        except RoutingError:
+            return "merge"
+        if why := _field_acceptance(board, after, candidates):
+            return why
+        before_report = connectivity(design, pads=board.pads, pour=pour)
+        after_report = connectivity(after, pads=board.pads, pour=rejoin(pour, after, pads=board.pads))
+        for name in {s.net for s in chosen}:
+            before_net, after_net = before_report.net(name), after_report.net(name)
+            expected = sum(s.net == name for s in chosen)
+            if (
+                before_net is None
+                or after_net is None
+                or len(before_net.open) - len(after_net.open) < expected
+            ):
+                return "connectivity"
+        return ""
+
     if job_subjects:
         copper = ZoneCopper(design, pour)
         extra = {
@@ -664,6 +718,17 @@ def find(
         }
         if fields is not None:
             extra["search_fields"] = fields
+        if options.get("negotiate") == "on":
+            extra["bundle_check"] = bundle_check
+            paths = (
+                *_field_dependencies(board),
+                board.path,
+                *((board.roles_file,) if board.roles_file else ()),
+            )
+            rows = [
+                (p.name, hashlib.sha256(p.read_bytes()).hexdigest() if p.is_file() else "") for p in paths
+            ]
+            extra["_bundle_input"] = content_hash(sorted(rows))
         given = dict(options)
         if args.candidates is not None:
             given["candidates"] = str(args.candidates)
@@ -685,6 +750,7 @@ def find(
                 subjects=tuple(job_subjects),
             )
         )
+        bundles = result.bundles
         issues += [i for i in result.issues if i.code != "route.proposal-open"]
         by_subject: dict[str, list[Candidate]] = {}
         for candidate in result.candidates:
@@ -695,7 +761,17 @@ def find(
             proposal.candidates = by_subject.get(key, [])
             if key in refused and not proposal.reason:
                 proposal.reason, proposal.blockers = refused[key]
-    found = Found(plan, proposals, pour, routes, nets, issues, fields=fields)
+    found = Found(
+        plan,
+        proposals,
+        pour,
+        routes,
+        nets,
+        issues,
+        fields=fields,
+        bundles=bundles,
+        negotiated=options.get("negotiate") == "on",
+    )
     _measure(args, board, found, facts_of=facts_of, started=started)
     return found
 
@@ -1182,7 +1258,7 @@ def _record_items(candidate: Candidate) -> list[RecordItem]:
 
 
 def _candidate_json(proposal: Proposal, candidate: Candidate, rejected: bool) -> dict[str, Any]:
-    return {
+    result = {
         "id": candidate.id,
         "source": candidate.source,
         "relaxed": list(candidate.relaxed),
@@ -1192,12 +1268,17 @@ def _candidate_json(proposal: Proposal, candidate: Candidate, rejected: bool) ->
         "rejected": rejected,
     }
 
+    if candidate.bundle:
+        result["bundle"] = candidate.bundle
+    return result
+
 
 def _present(board: Design, entry: Locked) -> bool:
     if board.board is None:
         return False
-    tracks = {(t.layer, t.width, t.start, t.end) for t in board.board.tracks}
-    vias = {(v.position, v.diameter) for v in board.board.vias}
+    net_id = next((n.id for n in board.circuit.nets if n.name == entry.net), None)
+    tracks = {(t.layer, t.width, t.start, t.end) for t in board.board.tracks if t.net_id == net_id}
+    vias = {(v.position, v.diameter) for v in board.board.vias if v.net_id == net_id}
     for item in entry.items:
         if isinstance(item, RecordTrack):
             for p, q in zip(item.points, item.points[1:], strict=False):
@@ -1218,6 +1299,11 @@ def reply(
 ) -> tuple[dict[str, Any], list[Issue]]:
     """``result`` of ``--propose`` and its issues (decisions 6 and 7)."""
     rejected_ids = {entry.id: entry for entry in record.rejected}
+    current_bundles = {b.id for b in found.bundles}
+    for bundle in record.bundles:
+        if bundle.id in rejected_ids and bundle.id in current_bundles:
+            for ident in bundle.members:
+                rejected_ids[ident] = rejected_ids[bundle.id]
     issues: list[Issue] = []
     proposals: list[dict[str, Any]] = []
     rejected_rows: list[dict[str, Any]] = []
@@ -1313,6 +1399,27 @@ def reply(
             f"fenolite route {board.name} --router octilinear --reject ID --reason TEXT --dry-run",
         ],
     }
+    if found.negotiated:
+        from fenolite.routing.bundles import data as bundle_data
+
+        result["bundles"] = [
+            bundle_data(b) for b in found.bundles if args.show_rejected or b.id not in rejected_ids
+        ]
+    if found.negotiated:
+        from shlex import join
+
+        base = ["fenolite", "route", board.name, "--router", "octilinear"]
+        for option in args.router_option:
+            base += ["--router-option", option]
+        for flag, values in (("--nets", args.nets or ()), ("--kind", args.kind), ("--group", args.group)):
+            for value in values:
+                base += [flag, value]
+        if args.requirements:
+            base += ["--requirements", args.requirements]
+        visible = [b for b in found.bundles if args.show_rejected or b.id not in rejected_ids]
+        result["next"] = [
+            join([*base, flag, b.id, "--dry-run"]) for b in visible for flag in ("--accept", "--reject")
+        ]
     if found.fields is not None:
         result["role_fields"] = _field_context(found.fields)
     return result, issues
@@ -1401,7 +1508,7 @@ def _field_acceptance(board: Board, after: Design, candidates: Sequence[Candidat
     job = RoutingJob(
         board.design, (), board.layers, extra={**board.checks, "role_check": board.judge.findings}
     )
-    return rejection(job, combined, fields)
+    return rejection(job, combined, fields, after=after)
 
 
 def run_accept(
@@ -1415,9 +1522,29 @@ def run_accept(
     found = find(args, ctx, board, router, options, facts_of=accepted_ids)
     issues += found.issues
     candidates = {c.id: (p, c) for p in found.proposals for c in p.candidates}
+    bundles = {bundle.id: bundle for bundle in found.bundles}
+    recorded_owners = {member: b.id for b in record.bundles for member in b.members}
+    for ident in (*accepted_ids, *rejected_ids):
+        if ident in candidates and (candidates[ident][1].bundle or ident in recorded_owners):
+            bundle_id = candidates[ident][1].bundle or recorded_owners[ident]
+            raise CliError(
+                "FEN-2001",
+                f"{ident} belongs to atomic bundle {bundle_id}",
+                hint=f"use the bundle id {bundle_id}",
+            )
+    accepted_bundle_ids = [ident for ident in accepted_ids if ident in bundles]
+    accepted_ids = [
+        member.id
+        for ident in accepted_ids
+        for member in (
+            bundles[ident].members
+            if ident in bundles
+            else ((candidates[ident][1],) if ident in candidates else ())
+        )
+    ] + [ident for ident in args.accept if ident not in bundles and ident not in candidates]
     proposals = {p.subject.proposal: p for p in found.proposals}
     unknown = [i for i in accepted_ids if i not in candidates]
-    unknown += [i for i in rejected_ids if i not in candidates and i not in proposals]
+    unknown += [i for i in rejected_ids if i not in candidates and i not in proposals and i not in bundles]
     if unknown:
         issues.append(
             Issue(
@@ -1509,7 +1636,16 @@ def run_accept(
                 after,
                 kicad_cli=args.kicad_cli,
                 timeout=DEFAULT_TIMEOUT,
-                together=units,
+                together=tuple(
+                    frozenset[str]().union(
+                        *(
+                            unit
+                            for (_, candidate, _), unit in zip(kept, units, strict=True)
+                            if (candidate.bundle or candidate.id) == key
+                        )
+                    )
+                    for key in dict.fromkeys(candidate.bundle or candidate.id for _, candidate, _ in kept)
+                ),
             )
             after, gate_result, gate_evidence = gated.design, gated.result, gated.evidence
             issues += gated.issues
@@ -1525,6 +1661,16 @@ def run_accept(
                 hint="review candidates together; accept a compatible set",
             )
         )
+    kept_ids = {c.id for _, c, _ in kept}
+    for ident in accepted_bundle_ids:
+        if not {c.id for c in bundles[ident].members} <= kept_ids:
+            issues.append(
+                Issue(
+                    "route.proposal-conflict",
+                    "error",
+                    f"the complete bundle {ident} did not survive final gating; nothing is planned",
+                )
+            )
     failed = any(i.severity == "error" for i in issues)
     decision = decision_id(board.input.sha256 or "", [c.id for _, c, _ in kept])
     locked = [
@@ -1543,11 +1689,39 @@ def run_accept(
     ]
     reason = args.reason.strip() if args.reason else ""
     rejected = [
-        Rejected(i, candidates[i][0].subject.key if i in candidates else proposals[i].subject.key, reason)
+        Rejected(
+            i,
+            "bundle"
+            if i in bundles
+            else (candidates[i][0].subject.key if i in candidates else proposals[i].subject.key),
+            reason,
+        )
         for i in rejected_ids
-        if i in candidates or i in proposals
+        if i in candidates or i in proposals or i in bundles
     ]
-    new_record = record_io.with_entries(record, locked=locked, rejected=rejected)
+    metadata = [
+        RecordBundle(b.id, b.fingerprint, tuple(c.id for c in b.members))
+        for b in found.bundles
+        if b.id in (*accepted_bundle_ids, *rejected_ids)
+    ]
+    for new in metadata:
+        for old in record.bundles:
+            if old.id != new.id and set(old.members) & set(new.members):
+                failed = True
+                issues.append(
+                    Issue(
+                        "route.proposal-conflict",
+                        "error",
+                        f"{new.id} shares stored members with {old.id}; nothing is planned",
+                        new.id,
+                        hint=f"fenolite route {board.name} --router octilinear --forget {old.id} --dry-run",
+                    )
+                )
+    new_record = (
+        record_io.with_entries(record, locked=locked, rejected=rejected, bundles=metadata)
+        if not failed
+        else record
+    )
     writes: tuple[PlannedWrite, ...] = ()
     if not failed:
         writes = _plan_write(
@@ -1560,7 +1734,8 @@ def run_accept(
     evidence = gate_evidence or Evidence(Level.UNVERIFIED, router.name, hypotheses=("H-G-PROP-FACTS",))
     if found.fields is not None:
         evidence = Evidence.combine(evidence, FIELD_EVIDENCE)
-    return Result(
+    evidence = _bundle_evidence(evidence, found.negotiated)
+    result = Result(
         result={
             "mode": "accept",
             "board": board.name,
@@ -1580,10 +1755,16 @@ def run_accept(
             ctx.cwd,
             board.path,
             board.roles_file,
-            board.record_path if board.record_path.is_file() else None,
+            board.record_path,
             *_field_dependencies(board),
         ),
     )
+
+    if accepted_bundle_ids or any(i in bundles for i in rejected_ids):
+        result.result["bundles"] = (
+            [] if failed else [i for i in (*accepted_bundle_ids, *rejected_ids) if i in bundles]
+        )
+    return result
 
 
 def _record_end(end: Attach) -> RecordEnd:
@@ -1681,33 +1862,73 @@ def run_replay(args: argparse.Namespace, ctx: Context, board: Board, router: Rou
     )
     replayed: list[str] = []
     stale: list[dict[str, str]] = []
-    for entry in record.locked:
-        if _present(after, entry):
+    bundle_members = {ident: b.id for b in record.bundles for ident in b.members}
+    requested = args.replay if isinstance(args.replay, str) else "all"
+    if requested in bundle_members:
+        raise CliError(
+            "FEN-2001",
+            f"use atomic bundle {bundle_members[requested]}",
+            hint=f"--replay {bundle_members[requested]}",
+        )
+    accepted = {e.candidate: e for e in record.locked}
+    units = [
+        (b.id, tuple(accepted[i] for i in b.members))
+        for b in record.bundles
+        if set(b.members) <= set(accepted)
+    ]
+    units += [(e.candidate, (e,)) for e in record.locked if e.candidate not in bundle_members]
+    if requested != "all":
+        units = [(ident, entries) for ident, entries in units if ident == requested]
+        if not units:
+            raise CliError("FEN-2001", f"no accepted replay unit {requested}")
+    for ident, entries in units:
+        missing = [entry for entry in entries if not _present(after, entry)]
+        if not missing:
             continue
-        why = _stale(board, entry)
-        items, areas = _entry_items(entry, after)
+        why = next((why for entry in entries if (why := _stale(board, entry))), "")
         trial = after
         if not why:
-            try:
-                trial = _with_items(after, items, areas)
-            except RoutingError:
-                why = "blocked"
+            for entry in missing:
+                items, areas = _entry_items(entry, trial)
+                try:
+                    trial = _with_items(trial, items, areas)
+                except RoutingError:
+                    why = "blocked"
+                    break
         if not why and fresh(copper_check(after), copper_check(trial)):
             why = "blocked"
+        if not why and ident.startswith("b-"):
+            candidates: list[Candidate] = []
+            for entry in entries:
+                items, _ = _entry_items(entry, trial)
+                candidates.append(
+                    Candidate(
+                        entry.candidate,
+                        entry.subject,
+                        "search",
+                        tracks=items.tracks,
+                        vias=items.vias,
+                        bundle=ident,
+                    )
+                )
+            why = _field_acceptance(dataclasses.replace(board, search_active=True), trial, candidates)
         if why:
-            stale.append({"candidate": entry.candidate, "subject": entry.subject, "why": why})
+            for entry in entries:
+                row = {"candidate": entry.candidate, "subject": entry.subject, "why": why}
+                if ident.startswith("b-"):
+                    row["bundle"] = ident
+                stale.append(row)
             issues.append(
                 Issue(
                     "route.proposal-stale",
                     "warning",
-                    f"the decision {entry.candidate} of {entry.subject} cannot be replayed: {why}",
-                    entry.candidate,
-                    hint=f"fenolite route {board.name} --router octilinear --propose --nets {entry.net}",
+                    f"the complete decision unit {ident} cannot be replayed: {why}",
+                    ident,
                 )
             )
             continue
         after = trial
-        replayed.append(entry.candidate)
+        replayed.extend(entry.candidate for entry in missing)
     writes = _plan_write(board, after, record, board_changed=bool(replayed), record_changed=False, ctx=ctx)
     return Result(
         result={
@@ -1718,10 +1939,18 @@ def run_replay(args: argparse.Namespace, ctx: Context, board: Board, router: Rou
             "record": _relative(board.record_path, ctx.cwd),
         },  # fmt: skip
         issues=tuple(issues),
-        evidence=Evidence(Level.UNVERIFIED, router.name, hypotheses=("H-G-PROP-REPLAY",)),
+        evidence=_bundle_evidence(
+            Evidence(Level.UNVERIFIED, router.name, hypotheses=("H-G-PROP-REPLAY",)), bool(record.bundles)
+        ),
         input=board.input,
         writes=writes,
-        depends=depends_on(ctx.cwd, board.path, board.record_path if board.record_path.is_file() else None),
+        depends=depends_on(
+            ctx.cwd,
+            board.path,
+            board.record_path,
+            board.roles_file,
+            *_field_dependencies(dataclasses.replace(board, search_active=True)),
+        ),
     )
 
 
@@ -1730,9 +1959,26 @@ def run_forget(args: argparse.Namespace, ctx: Context, board: Board, router: Rou
     record = board.record()
     issues: list[Issue] = list(board.issues)
     ids = list(dict.fromkeys(args.forget))
+    requested_ids = list(ids)
+    bundle_by_member = {ident: b.id for b in record.bundles for ident in b.members}
+    bundles = {b.id: b for b in record.bundles}
+    for ident in ids:
+        if ident in bundle_by_member:
+            raise CliError(
+                "FEN-2001",
+                f"use atomic bundle {bundle_by_member[ident]}",
+                hint=f"--forget {bundle_by_member[ident]}",
+            )
+    ids = list(
+        dict.fromkeys(
+            ident
+            for requested in ids
+            for ident in ((requested, *bundles[requested].members) if requested in bundles else (requested,))
+        )
+    )
     locked = {e.candidate: e for e in record.locked}
     rejected = {e.id for e in record.rejected}
-    unknown = [i for i in ids if i not in locked and i not in rejected]
+    unknown = [i for i in requested_ids if i not in locked and i not in rejected and i not in bundles]
     if unknown:
         issues.append(
             Issue(
@@ -1747,24 +1993,27 @@ def run_forget(args: argparse.Namespace, ctx: Context, board: Board, router: Rou
     removed = 0
     if not unknown and after.board is not None:
         # matched by geometry: a board read back gives its items the ids of their KiCad uuids
-        tracks: set[tuple[str, int, Point, Point]] = set()
-        vias: set[tuple[Point, int]] = set()
+        tracks: set[tuple[str, int, Point, Point, str | None]] = set()
+        vias: set[tuple[Point, int, str | None]] = set()
         names: set[str] = set()
         for i in ids:
             entry = locked.get(i)
             if entry is None:
                 continue
             items, areas = _entry_items(entry, after)
-            tracks |= {(t.layer, t.width, t.start, t.end) for t in items.tracks}
-            vias |= {(v.position, v.diameter) for v in items.vias}
+            tracks |= {(t.layer, t.width, t.start, t.end, t.net_id) for t in items.tracks}
+            tracks |= {(t.layer, t.width, t.end, t.start, t.net_id) for t in items.tracks}
+            vias |= {(v.position, v.diameter, v.net_id) for v in items.vias}
             names |= {a.name for a in areas}
         held = after.board
         trimmed = dataclasses.replace(
             held,
             tracks=tuple(
-                t for t in held.tracks if not (t.locked and (t.layer, t.width, t.start, t.end) in tracks)
+                t
+                for t in held.tracks
+                if not (t.locked and (t.layer, t.width, t.start, t.end, t.net_id) in tracks)
             ),
-            vias=tuple(v for v in held.vias if not (v.locked and (v.position, v.diameter) in vias)),
+            vias=tuple(v for v in held.vias if not (v.locked and (v.position, v.diameter, v.net_id) in vias)),
             keepouts=tuple(k for k in held.keepouts if k.name not in names),
         )
         removed = (len(held.tracks) + len(held.vias) + len(held.keepouts)) - (
@@ -1784,15 +2033,17 @@ def run_forget(args: argparse.Namespace, ctx: Context, board: Board, router: Rou
         result={
             "mode": "forget",
             "board": board.name,
-            "forgotten": ids if not failed else [],
+            "forgotten": requested_ids if not failed else [],
             "removed": removed,
             "record": _relative(board.record_path, ctx.cwd),
         },  # fmt: skip
         issues=tuple(issues),
-        evidence=Evidence(Level.UNVERIFIED, router.name),
+        evidence=_bundle_evidence(
+            Evidence(Level.UNVERIFIED, router.name), any(i in bundles for i in requested_ids)
+        ),
         input=board.input,
         writes=writes,
-        depends=depends_on(ctx.cwd, board.path, board.record_path if board.record_path.is_file() else None),
+        depends=depends_on(ctx.cwd, board.path, board.record_path),
     )
 
 
@@ -1812,19 +2063,20 @@ def run_propose(
     result, issues = reply(args, board, found, record)
     if args.gate == "drc":
         result["drc_unattributed"] = unattributed
+    evidence = Evidence(Level.UNVERIFIED, router.name, hypotheses=("H-G-PROP-LEFTOVERS", "H-G-PROP-FACTS"))
+    if found.fields is not None:
+        evidence = Evidence.combine(evidence, FIELD_EVIDENCE)
+    evidence = _bundle_evidence(evidence, found.negotiated)
     return Result(
         result=result,
         issues=(*board.issues, *found.issues, *issues),
-        evidence=Evidence.combine(
-            Evidence(Level.UNVERIFIED, router.name, hypotheses=("H-G-PROP-LEFTOVERS", "H-G-PROP-FACTS")),
-            FIELD_EVIDENCE if found.fields is not None else Evidence(),
-        ),
+        evidence=evidence,
         input=board.input,
         depends=depends_on(
             ctx.cwd,
             board.path,
             board.roles_file,
-            board.record_path if board.record_path.is_file() else None,
+            board.record_path,
             *_field_dependencies(board),
         ),
     )

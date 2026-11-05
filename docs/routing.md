@@ -573,7 +573,7 @@ switching-exposure penalty. There is no inferred high-voltage clearance: missing
 pair distances refuse that victim with `search-role-limit`.
 
 `route --requirements FILE` reuses the existing requirements TOML schema. It requires octilinear
-opt-in search in `--propose`, `--accept` or `--reject` mode. Repeat the requirements path and search
+opt-in search in `--propose`, `--accept` or `--reject` mode, or atomic bundle replay. Repeat the requirements path and search
 options when preparing a decision. Explicit pair distances also bind nets without HV roles. The
 maximum declared clearance, creepage, embedded and laminate insulation distance is conservatively
 projected onto XY across all layers; this is not a creepage field solver or a laminate certification.
@@ -604,3 +604,55 @@ requirements, roles (including creation of a default role document), the profile
 rules and built-model sidecars as plan inputs. Any edit invalidates the reviewed plan (`FEN-4002`).
 
 See [role-field evidence](evidence/router-role-fields.md) for local proofs and pending CI coverage.
+
+### Negotiated atomic alternatives (c0367)
+
+Add `--router-option negotiate=on --router-option negotiate-max-rounds=N` to bounded octilinear
+search in proposal/accept/reject mode. Default `negotiate=off` keeps independent proposals. At least
+two ordinary connection subjects are required. Current pairs and critical groups remain unsupported
+as negotiated units and are refused rather than split into independent legs.
+
+The negotiator replaces only its own in-memory provisional paths. Fixed board geometry, manual and
+locked copper, previous accepted copper and electrical corridors remain hard obstacles. Integer
+nonnegative current/history penalties steer repeated search away from provisional conflicts. One
+explicit discovered-state budget is shared across all calls and rounds, with the shared deadline and
+cancellation callback. No physical/electrical distance is supplied by these software coefficients.
+
+A result exposes one jointly validated alternative in `result.bundles`: `id`, `fingerprint`, `members`
+(candidate IDs) and `subjects` (connection keys). Every member's candidate row adds `bundle`.
+`RoutingResult.bundles` mirrors this contract. Before emission the entire set passes swept geometry,
+connection checks and both existing copper and confirmed-role judgments. Direct routing adapters
+supply `extra["bundle_check"]` for complete-set connectivity and dynamic role compilation. Partial
+or overlapping intermediate paths cannot escape as candidates. There is no rank, score, continuous
+optimality or arbitrary-board completion claim; increasing a bound does not guarantee completion.
+
+Use `--accept BUNDLE` or `--reject BUNDLE --reason TEXT` with the same router options and the same
+`--nets`, `--kind` or `--group` selection as the proposal. Negotiated decisions accept these selectors
+so a subset can be regenerated. `result.next` repeats the actual controls and selectors. Candidate
+count is irrelevant to the single joint alternative and is not an identity input. A bundle hashes
+all member payloads, subjects and geometry-generation inputs. The decision record separately guards
+the reviewed transaction, preserving the identity of an unchanged rejected alternative.
+
+Member IDs are refused by accept/reject/replay/forget with `FEN-2001` naming the bundle. Accept writes
+all members locked and their membership in the same reviewed board/record transaction; a native DRC
+gate treats their copper as one unit, and a partial gate result plans nothing. Reject writes only
+the complete decision; `--show-rejected` displays it. `--replay [BUNDLE]` stages missing members as one
+unit after rechecking current endpoints, fields and copper; bare replay keeps its old all-decisions
+behavior, including before PATH. Replay accepts `--requirements FILE` without search options to
+resolve current HV requirements. If a sibling is stale or a user distance is missing, none of that
+unit's missing members is restored. `--forget BUNDLE` drops the whole decision and matching locked
+copper of its nets, preserving unrelated/manual conductors. All writes retain plan guards, receipt
+hashes, rollback and recovery behavior; changed role/profile/requirement/project/decision inputs
+invalidate a reviewed write. Confirmation does not rerun negotiation.
+
+Independent records retain exactly `fenolite.route-decisions.v0` serialization. Records with bundles
+use `fenolite.route-decisions.v1`, adding `bundles` with `id`, `fingerprint` and `members`; a bundle
+must be wholly accepted or wholly rejected and membership cannot overlap. Future schema versions
+and incomplete metadata are refused. New alternatives sharing stored member IDs require an explicit
+reviewed forget of the old unit before replacement; rejection history is never silently discarded.
+Forgetting the last bundle returns to the legacy representation.
+
+Additional refusal reasons are `negotiate-subjects`, `negotiate-unsupported`, `negotiate-round-limit`,
+`negotiate-judge-missing` and `negotiate-refused`; existing resource/role reasons still apply. A bound
+means unresolved exploration. See [negotiation evidence](evidence/router-negotiation.md) for authored
+proofs and pending pinned CI, and `fenolite guide route-proposals --text` for executable instructions.

@@ -418,14 +418,27 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             search_options(options)
         except ValueError as error:
             raise CliError("FEN-2001", str(error), where="--router-option") from None
+    from fenolite.routing.negotiate import OPTIONS as NEGOTIATE_OPTIONS
+    from fenolite.routing.negotiate import options as negotiate_options
+
+    if any(key in options for key in NEGOTIATE_OPTIONS):
+        if args.router != "octilinear" or not (args.propose or args.accept or args.reject):
+            raise CliError(
+                "FEN-2001", "negotiation requires octilinear proposals or decisions", where="--router-option"
+            )
+        try:
+            if negotiate_options(options) is not None and search_options(options)[1] is None:
+                raise ValueError("negotiation requires bounded search")
+        except ValueError as error:
+            raise CliError("FEN-2001", str(error), where="--router-option") from None
     if args.requirements is not None and (
         args.router != "octilinear"
-        or not (args.propose or args.accept or args.reject)
-        or options.get("search", "off") == "off"
+        or not (args.propose or args.accept or args.reject or args.replay)
+        or (not args.replay and options.get("search", "off") == "off")
     ):
         raise CliError(
             "FEN-2001",
-            "--requirements needs opt-in search in proposal or decision mode",
+            "--requirements needs opt-in search proposals/decisions or bundle replay",
             where="--requirements",
         )
     escape_patterns = tuple(args.escape)

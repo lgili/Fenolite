@@ -189,6 +189,14 @@ def _candidate(job: RoutingJob, subject: JobSubject, net_id: str | None, shape: 
     return Candidate(ident, subject.key, shape.source, shape.relaxed, tracks, (), vias, total, layers)
 
 
+def search_candidate(
+    job: RoutingJob, subject: JobSubject, runs: tuple[tuple[str, Polyline], ...], vias: tuple[Point, ...]
+) -> Candidate:
+    """Give a completed search path the same canonical identity in either proposal mode."""
+    net_id = next((n.id for n in job.design.circuit.nets if n.name == subject.net), None)
+    return _candidate(job, subject, net_id, _Shape("search", runs, vias))
+
+
 # --- distinct candidates ------------------------------------------------------------------------------------
 
 
@@ -516,7 +524,7 @@ def propose_options(options: Mapping[str, str], issues: list[Issue]) -> tuple[in
     bad value (the role-mode options go to the ``role`` family)."""
     keep, max_length = CANDIDATES, MAX_LENGTH
     for key, value in sorted(options.items()):
-        if key in (*ROLE_OPTIONS, *SEARCH_OPTIONS):
+        if key in (*ROLE_OPTIONS, *SEARCH_OPTIONS, "negotiate", "negotiate-max-rounds"):
             continue
         if key == "candidates" and value.isdigit() and 1 <= int(value) <= MAX_CANDIDATES:
             keep = int(value)
@@ -572,6 +580,14 @@ def propose(job: RoutingJob, world: World, pads: Sequence[object], tool: str) ->
         )
     logs: list[str] = []
     keep, max_length = propose_options(job.options, issues)
+    from fenolite.routing.negotiate import options as negotiate_options
+    from fenolite.routing.negotiate import propose as negotiate_propose
+
+    rounds = negotiate_options(job.options)
+    if rounds is not None:
+        if limits is None:
+            raise ValueError("negotiation requires bounded search")
+        return negotiate_propose(job, world, limits, rounds, max_length=max_length, stop=stop)
     search = _Search(job, world, pads, max_length, keep)
     nets: dict[str, JobNet] = {net.name: net for net in job.nets}
     candidates: list[Candidate] = []

@@ -193,7 +193,7 @@ def test_reviewed_acceptance_refuses_changed_field_inputs(
     assert built.board.read_bytes() == before
 
 
-@pytest.mark.parametrize("args", [(), ("--propose",), ("--replay",)])
+@pytest.mark.parametrize("args", [(), ("--propose",)])
 def test_requirements_without_opt_in_search_are_usage_errors(tmp_path: Path, args) -> None:
     code, _, err = cli(
         "route",

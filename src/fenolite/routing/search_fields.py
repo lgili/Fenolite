@@ -245,7 +245,7 @@ class Evaluator:
         return result
 
 
-def rejection(job: RoutingJob, candidate: Candidate, fields: Fields) -> str:
+def rejection(job: RoutingJob, candidate: Candidate, fields: Fields, *, after: Design | None = None) -> str:
     """Both existing judges remain authoritative; inference never becomes a hard role."""
     from collections.abc import Callable, Sequence
     from typing import cast
@@ -271,10 +271,11 @@ def rejection(job: RoutingJob, candidate: Candidate, fields: Fields) -> str:
     roles = job.extra.get("role_check")
     if not callable(copper) or not callable(roles):
         return "search-role-refused"
-    try:
-        after = apply(job.design, RoutingResult(tracks=candidate.tracks, vias=candidate.vias))
-    except RoutingError:
-        return "search-role-refused"
+    if after is None:
+        try:
+            after = apply(job.design, RoutingResult(tracks=candidate.tracks, vias=candidate.vias))
+        except RoutingError:
+            return "search-role-refused"
     copper_judge = cast("Callable[[Design],Sequence[tuple[str,str,tuple[str,...],int]]]", copper)
     if fresh(copper_judge(job.design), copper_judge(after)):
         return "search-role-refused"

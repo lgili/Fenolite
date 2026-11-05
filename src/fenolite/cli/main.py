@@ -12,6 +12,7 @@ import io
 import json
 import os
 import random
+import re
 import signal
 import sys
 import time
@@ -824,11 +825,32 @@ def _failure(exc: BaseException) -> CliError:
     return CliError("FEN-1003", where="fenolite")  # Interrupted, or a Ctrl+C where no handler is installed
 
 
+def _route_replay_arguments(argv: Sequence[str]) -> list[str]:
+    """Keep legacy bare --replay before PATH unambiguous when adding optional bundle IDs."""
+    words = list(argv)
+    takes_value = {"--fields", "--limit", "--cursor", "--format", "--seed", "--timestamp", "--kicad-version"}
+    command = 0
+    while command < len(words) and words[command].startswith("-"):
+        flag, equals, _ = words[command].partition("=")
+        command += 2 if flag in takes_value and not equals else 1
+    if command < len(words) and words[command] == "route":
+        for i in range(command + 1, len(words)):
+            if words[i] == "--":
+                break
+            if words[i] == "--replay" and (
+                i + 1 == len(words)
+                or (words[i + 1] != "all" and re.fullmatch(r"[bc]-[0-9a-f]{16}", words[i + 1]) is None)
+            ):
+                words[i] = "--replay=all"
+
+    return words
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """Run ``fenolite`` with ``argv`` (defaults to ``sys.argv[1:]``) and return the exit code. Every
     non-zero exit leaves one error object on stderr and no traceback."""
     started = time.perf_counter()
-    raw = list(sys.argv[1:] if argv is None else argv)
+    raw = _route_replay_arguments(sys.argv[1:] if argv is None else argv)
     out, err = sys.stdout, sys.stderr
     mode = resolve_mode(force_json="--json" in raw, force_text="--text" in raw, stream=out)
     ctx: Context | None = None
@@ -874,7 +896,7 @@ def invoke(argv: Sequence[str], *, cwd: Path) -> tuple[int, dict[str, Any] | Non
         try:
             commands = discover()
             parser = build_parser(commands, in_process=True)
-            args = parser.parse_args(list(argv))
+            args = parser.parse_args(_route_replay_arguments(argv))
             if args.text:
                 raise CliError(
                     "FEN-2001", "--text: fenolite.api.run returns the JSON envelope", where="--text"

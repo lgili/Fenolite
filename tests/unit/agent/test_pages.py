@@ -54,11 +54,13 @@ TOOLS = (
     "placement",
     "recovery",
     "routing",
+    "route-proposals",
     "rules",
     "supplier-lookup",
     "viewer",
 )
 """The twenty tool pages written by hand."""
+"""The twelve tool pages written by hand."""
 PRACTICE = (
     "board-assembly",
     "board-emc",
@@ -76,6 +78,8 @@ PRACTICE = (
 FEATURES = ("signal-topologies", "starter-blocks", "device-symbols", "equivalent-s")
 WRITTEN = (*TOOLS, *PRACTICE, *FEATURES)
 """The thirty-five pages written by hand."""
+WRITTEN = (*TOOLS, *PRACTICE)
+"""The twenty-three pages written by hand."""
 GENERATED = guide.GENERATED_TOPICS
 RUN_TAGS = ("fenolite-loop", "fenolite-cmd", "fenolite-recipe")
 """The tags whose lines are commands: a public command needs a line in one of them."""
@@ -100,6 +104,7 @@ HOME: Mapping[str, tuple[str, ...]] = {
     "model-versions": ("migrate", "explain"),
     "placement": ("place", "pads", "neighbors", "region"),
     "routing": ("route", "tidy", "fill", "net", "fetch"),
+    "route-proposals": ("route",),
     "rules": ("analyze",),
     "checks": ("check", "ready", "explain", "netlist", "parity", "doctor", "capabilities"),
     "files": ("inspect", "diff", "equivalent", "roundtrip", "fmt", "restore", "view", "import"),
@@ -159,6 +164,10 @@ TEACHES: Mapping[str, tuple[str, ...]] = {
     "routing": (
         "`direct`", "`freerouting`", "--nets", "--rip", "result.unrouted", "design.track", "design.via",
         "design.stitch", "via_step", "arc_to", "design.zone", "fenolite fill",
+    ),
+    "route-proposals": (
+        "negotiate=on", "negotiate-max-rounds=N", "result.bundles", "atomic",
+        "--replay", "--forget", "FEN-4002",
     ),
     "rules": ("netclass(", "minimum(", "select.", "is an example", "fabricator"),
     "checks": (
@@ -517,6 +526,11 @@ def test_topics_load() -> None:
     topics = [page.topic for page in pages]
     assert topics == [guide.START, *sorted((*WRITTEN, *GENERATED))]
     assert len(TOOLS) == 20 and len(PRACTICE) == 11 and len(GENERATED) == 8
+    """Scenario "The twenty-three pages load"."""
+    pages = guide.pages()
+    topics = [page.topic for page in pages]
+    assert topics == [guide.START, *sorted((*WRITTEN, *GENERATED))]
+    assert len(TOOLS) == 12 and len(PRACTICE) == 11 and len(GENERATED) == 2
     for page in pages:
         assert page.title and page.summary and "\n" not in page.summary, page.topic
         assert page.text.startswith(f"# {page.title}\n"), page.topic
@@ -1178,4 +1192,36 @@ def test_role_search_inputs_and_facts_have_tested_instructions() -> None:
         "invalidate the reviewed plan",
     ):
         assert word in page.text, word
+    assert cmd_problems(page) == []
+
+
+def test_negotiated_bundles_have_tested_agent_instructions() -> None:
+    page = guide.page("route-proposals")
+    for text in (
+        "negotiate=on",
+        "negotiate=off",
+        "negotiate-max-rounds=N",
+        "result.bundles",
+        "fingerprint",
+        "members",
+        "subjects",
+        "bundle",
+        "result.next",
+        "--accept",
+        "--reject",
+        "--replay [BUNDLE]",
+        "--forget BUNDLE",
+        "--requirements FILE",
+        "FEN-2001",
+        "FEN-4002",
+        "negotiate-subjects",
+        "negotiate-unsupported",
+        "negotiate-round-limit",
+        "negotiate-judge-missing",
+        "negotiate-refused",
+        'extra["bundle_check"]',
+        "fenolite.route-decisions.v0",
+        "fenolite.route-decisions.v1",
+    ):
+        assert text in page.text, text
     assert cmd_problems(page) == []

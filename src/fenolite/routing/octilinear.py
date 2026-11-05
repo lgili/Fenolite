@@ -571,6 +571,13 @@ class OctilinearRouter:
             search_options(job.options)
             if not job.subjects:
                 raise ValueError("search options require proposal subjects")
+        from fenolite.routing.negotiate import OPTIONS as NEGOTIATE_OPTIONS
+        from fenolite.routing.negotiate import options as negotiate_options
+
+        if any(key in job.options for key in NEGOTIATE_OPTIONS):
+            negotiate_options(job.options)
+            if not job.subjects:
+                raise ValueError("negotiation options require proposal subjects")
         issues: list[Issue] = []
         plain = not job.roles and not job.subjects
         max_length, rounds = _options(job.options, issues) if plain else (MAX_LENGTH, ROUNDS)

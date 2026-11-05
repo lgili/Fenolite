@@ -73,7 +73,7 @@ fenolite net blink/build GND --json
 - **`octilinear`** leaves open what its shapes cannot reach (`route.unrouted`), a pair it cannot
   couple (`route.pair-not-routed`) and copper the copper check refuses (`route.check-refused`).
 - **`--roles critical`** routes only the confirmed gate loops and Kelvin pairs, locked and fenced from
-  pours; `result.roles` gives each group's status and fix. **`--propose`**: page `board-routing`.
+  pours; `result.roles` gives each group's status and fix. **`--propose`**: `route-proposals`.
 - A router that is not installed exits 6 (page `recovery`).
 
 ## Copper in the script

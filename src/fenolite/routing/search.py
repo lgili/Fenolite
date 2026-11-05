@@ -8,7 +8,7 @@ Only ordinary connection subjects are supported; pairs and critical groups stay 
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from math import isqrt
 from typing import cast
@@ -167,6 +167,23 @@ class _Graph:
                         self.subject.net, self.job.layers[state.layer], points, self.subject.width
                     ).penalty
                 )
+            penalty = self.job.extra.get("_negotiation_cost")
+            if callable(penalty):
+                evaluate = cast(Callable[[str, str, Polyline, int], int], penalty)
+                if points:
+                    extra = evaluate(
+                        self.subject.net, self.job.layers[state.layer], points, self.subject.width
+                    )
+                else:
+                    at = Point(state.x, state.y)
+                    probe = (at, Point(at.x + 1, at.y))
+                    extra = sum(
+                        evaluate(self.subject.net, layer, probe, self.subject.via_diameter)
+                        for layer in self.job.layers
+                    )
+                if type(extra) is not int or extra < 0:
+                    raise ValueError("negotiation costs must be nonnegative integers")
+                value += extra
             previous = found.get(there)
 
             def key(entry: tuple[int, Polyline]) -> tuple[int, tuple[tuple[int, int], ...]]:
