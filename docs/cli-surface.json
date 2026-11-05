@@ -4941,6 +4941,19 @@
           "required": false,
           "type": "string"
         },
+        "--renders": {
+          "aliases": [
+            "--renders"
+          ],
+          "choices": null,
+          "default": null,
+          "deprecated": null,
+          "experimental": false,
+          "nargs": null,
+          "positional": false,
+          "required": false,
+          "type": "string"
+        },
         "--reviewer": {
           "aliases": [
             "--reviewer"

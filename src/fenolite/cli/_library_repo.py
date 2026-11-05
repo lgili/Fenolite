@@ -26,7 +26,7 @@ USAGE: dict[str, tuple[bool, str]] = {
     "audit": (False, "fenolite library audit ROOT [--item PATH] [--base REF] [--proof FILE]"),
     "replay": (False, "fenolite library replay ITEM [--upstream DIR] [--keep DIR] [--with-current]"),
     "release": (True, "fenolite library release ROOT --version V --out DIR"),
-    "gallery": (True, "fenolite library gallery ROOT --release DIR --out DIR"),
+    "gallery": (True, "fenolite library gallery ROOT --release DIR --out DIR [--renders DIR]"),
 }
 """Per verb: whether it writes (through plan and confirm) and its usage, as ``fenolite capabilities`` lists
 it (``library <verb>``)."""
@@ -77,6 +77,13 @@ def register(parser: argparse.ArgumentParser) -> None:
     )
     group.add_argument(
         "--release", metavar="DIR", help="gallery: the folder of a release made by 'library release'"
+    )
+    group.add_argument(
+        "--renders",
+        metavar="DIR",
+        help="gallery: board views (top.svg, bottom.svg) and block schematics (schematic.svg) per item "
+        "folder, "
+        "with failures.json naming the ones that could not be made",
     )
 
 

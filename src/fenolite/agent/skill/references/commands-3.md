@@ -113,6 +113,7 @@ Back to [the command index](commands.md).
 - `--keep DIR`: replay: keep the work folder here (must be missing or empty)
 - `--with-current`: replay: run the fenolite steps with this Fenolite instead of the recorded version
 - `--release DIR`: gallery: the folder of a release made by 'library release'
+- `--renders DIR`: gallery: board views (top.svg, bottom.svg) and block schematics (schematic.svg) per item folder, with failures.json naming the ones that could not be made
 - `--sheets DIR`: check: plan deterministic standalone HTML review sheets
 - `--compare OLD`: check: compare records with this old tree or library
 - `--fail-on {error,warning}` (default `error`): check: lowest finding severity that exits 5

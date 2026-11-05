@@ -120,7 +120,7 @@ The library holds no tooling code: its workflows install a pinned released `feno
 | replay | `fenolite library replay <item> --json` per changed converted item | `library.replay-differs` |
 | proof | `fenolite verify-source <item>/design.py --against <upstream> --provenance <item>/PROVENANCE.json --json`, then `fenolite library audit . --item <item> --proof <reply>` | `library.proof-failed` |
 | release | `fenolite library release . --version <v> --out dist --confirm` | an audit error |
-| gallery | `fenolite library gallery . --release dist --out site --confirm`, `fenolite render` per board | never |
+| gallery | `fenolite build` and `kicad-cli pcb export svg` per board, `fenolite library gallery . --release dist --out site --renders renders --confirm` | never |
 
 - **Replay** fetches the upstream at the recorded commit (or uses `--upstream DIR`) in a temporary folder,
   checks the input digests of `import.inputs`, runs the steps with the recorded tool versions (`fenolite` in
@@ -157,6 +157,29 @@ authors." (authored items: "Authored for fenolite-library"), the proof result, t
 and a link to the item folder. An item with `trademarks.restricted` gets no card. Fenolite's README, site
 and launch material show third-party items only as gallery images with that line, and an item by an
 organisation needs `featured` first. The site stays within the Pages limits (S-1001).
+
+The site (change c0405) is plain HTML and CSS with one small script and no file from another origin: an
+index of cards in a responsive grid with a search box, kind chips, a licence filter and a light or dark
+theme (the reader's system choice until they pick one), one page per item and the benchmark page in the
+same style. A card shows the item's image, title, kind, licence and attribution. An item page shows a
+large preview, a facts table (pins, pads, package, source, proof level), the `fenolite get` command with a
+copy button, and links to the item's folder, `LICENSE`, `NOTICE` and `PROVENANCE.json` at the release tag.
+
+Images, all SVG:
+
+| kind | image | made by |
+|---|---|---|
+| symbol | the symbol on paper, with its pin table | Fenolite, from the item's files (`catalog_scene`) |
+| footprint | the land on a dark board: copper, silkscreen, courtyard, fabrication, drills, pad numbers, an outline around pin 1 | Fenolite, from the item's files |
+| device | its symbol and its footprint side by side | Fenolite, from the dependencies |
+| block | its usage sheet, cropped, without the drawing sheet | Fenolite, from `schematic.kicad_sch` in `--renders` (or a ready `schematic.svg`) |
+| board | top and bottom, cropped to the board | `kicad-cli pcb export svg --mode-single --page-size-mode 2 --exclude-drawing-sheet` into `--renders` |
+
+`--renders DIR` mirrors the gallery folders (`boards/<source>/<name>/top.svg`, `bottom.svg`;
+`blocks/<namespace>/<name>/schematic.kicad_sch`) and may hold `failures.json` (`{item id: reason}`). An image
+that cannot be made becomes a placeholder on the card and the page naming why; `result.placeholders` lists
+each one (`id`, `kind`, `reason`), the library's job writes them to its summary, and the site is still made.
+The same release and renders give the same bytes.
 
 ## `fenolite get`
 

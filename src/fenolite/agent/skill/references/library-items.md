@@ -25,12 +25,14 @@ fenolite get --status --json
   `--accept-licence` (`FEN-4003`). A `reciprocal` item brings share-alike terms with it; tell the user.
 - A download happens only with `--confirm`; `--offline` uses the cache. A build whose pinned folder is
   missing exits 6 (`FEN-6004`): restore it with `get --locked`.
-- The library's own CI runs `library audit`, `replay`, `release` and `gallery`:
+- The library's own CI runs `library audit`, `replay`, `release` and `gallery` (`--renders` holds the board
+  views and block sheets made with KiCad; an image that cannot be made is a placeholder in
+  `result.placeholders`):
 
   ```fenolite-cmd
   fenolite library audit . --json
   fenolite library release . --version 1.0.0 --out dist --dry-run --json
-  fenolite library gallery . --release dist --out site --dry-run --json
+  fenolite library gallery . --release dist --out site --renders renders --dry-run --json
   fenolite library replay boards/cc-by-sa/kicad-demos/ecc83 --upstream upstream --json
   ```
 
