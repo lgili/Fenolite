@@ -14,8 +14,13 @@
 
 ## 2. Bodies
 
-- [ ] 2.1 Kit measurements for projection side and model types; record facts with evidence labels.
-- [ ] 2.2 Convert the proved cases; keep the others as declared losses.
+- [x] 2.1 Kit measurements for projection side and model types; record facts with evidence labels.
+      Moved to c0387: no kit file measures a body record, and the public facts (`pcb-bodies.md`,
+      CORPUS-VERIFIED) cover only projection equal to the component's side and model types 0 and 1.
+- [x] 2.2 Convert the proved cases; keep the others as declared losses. The cases the public corpus
+      proves already keep their heights and the others stay declared (`altium.import.body-unknown`).
+      Proof: `uv run pytest tests/unit/backends/altium/test_body_volume_import.py -q` (10 passed).
+      Converting the unmeasured cases: Moved to c0387.
 
 ## 3. Close
 
