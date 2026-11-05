@@ -32,4 +32,6 @@
 ## 5. Close
 
 - [x] 5.1 ruff, format, `pyright src`, focused tests, CHANGELOG, `openspec validate --strict`. Proof: ruff and format clean on the 42 touched files, `pyright src` 0 errors, `openspec validate --strict` valid, generators `--check` clean; focused run (heavy lock, -n 2) 20 failed, 15 099 passed, the 20 the same as on clean 8872e092; touched files pass on 3.11.
-- [ ] 5.2 `make check-fast` on the integrated batch and the full CI (coordinator).
+- [x] 5.2 `make check-fast` on the integrated batch and the full CI (coordinator).
+
+  Closed on lote-23 CI 42081905514 (all jobs green, ci-complete with coverage audit) on 5ab9d6452, fast-forwarded to dev.

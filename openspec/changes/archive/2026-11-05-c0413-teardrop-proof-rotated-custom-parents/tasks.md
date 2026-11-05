@@ -25,4 +25,6 @@
   `H-K-DERIVED-TD-PROOF` and add a `CHANGELOG.md` line. Proof:
   `uv run pytest tests/unit/test_format_facts.py tests/unit/test_hypotheses_register.py tests/unit/test_evidence_register.py -q`.
   2026-11-05: done. 70 passed (format facts, hypotheses, evidence registers, inferred hypotheses).
-- [ ] 3.2 The coordinator's batch `make check-fast` and the required CI jobs pass on the exact commit.
+- [x] 3.2 The coordinator's batch `make check-fast` and the required CI jobs pass on the exact commit.
+
+  Closed on lote-23 CI 42081905514 (all jobs green, ci-complete with coverage audit) on 5ab9d6452, fast-forwarded to dev.

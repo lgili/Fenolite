@@ -935,3 +935,67 @@ and the angles; otherwise it MUST keep its computed ends. The fact is recorded w
 - **WHEN** an arc's computed end lies more than 10 µm from its vertex
 - **THEN** the arc keeps the ends of its centre, radius and angles
 
+### Requirement: Unmeasured body records stay declared
+The Altium import SHALL give a component body known heights only when its projection side, model type and
+heights match a case that public files or a saved kit file prove. Every other body SHALL be kept with
+unknown heights and an `altium.import.body-unknown` warning that names its reasons.
+
+#### Scenario: A body projected from the other side
+- **WHEN** a top component holds a body whose `BODYPROJECTION` is 1 and no saved kit file measures that case
+- **THEN** the body is kept with unknown heights and the import warns `altium.import.body-unknown`
+
+#### Scenario: A measured case
+- **WHEN** a saved kit file proves the meaning of a body record that was unknown
+- **THEN** the import gives such bodies their heights and the fact is recorded with its source and label
+
+### Requirement: Keep-outs and polygon cut-outs on copper are rule areas
+The Altium board import SHALL make a rule area, never copper, of a polygon cut-out (a region of `KIND=1`) and of a track, arc, fill or region on a copper layer whose second flag byte is 2 (a keep-out), whether the primitive is free or belongs to a component.
+
+- A polygon cut-out MUST forbid poured copper alone. It is on its copper layer, or on every copper layer of
+  the board when it lies on the Keep-Out or the Multi-Layer layer.
+- A keep-out track or arc MUST give the band its width covers, with round ends. A full circle gives two half
+  bands.
+- A keep-out fill or region MUST give its outline.
+- Each keep-out is on its own layer. A region keeps the restrictions it holds (`KEEPOUTRESTRICTIONS`, else
+  `KEEPOUTRESTRIC`); a track, arc or fill takes every restriction.
+- A keep-out of a component becomes a rule area of the board, in the board's frame.
+- Drawings on the Keep-Out layer stay graphics of `Altium.KeepOut`.
+
+#### Scenario: A polygon cut-out on Top
+- **GIVEN** an authored document with a region of `KIND=1` on Top without a net
+- **WHEN** it is imported
+- **THEN** the board holds no copper graphic for it and one rule area on `F.Cu` that forbids pours alone,
+  as KiCad 10.0.6's `pcb import` makes of the same document
+
+#### Scenario: A keep-out track on Top
+- **GIVEN** the same document with a 0.5 mm track on Top whose keep-out flag is set
+- **WHEN** it is imported
+- **THEN** the board holds no track for it and one rule area on `F.Cu`: the band of 0.5 mm along the
+  track, with every restriction
+
+#### Scenario: Polygon cut-outs of a public document
+- **GIVEN** the public row `altium-third-party-pcbdoc-06`, with thirteen regions of `KIND=1` on Top,
+  Bottom and Multi-Layer
+- **WHEN** it is imported
+- **THEN** the board holds thirteen pour-only rule areas and no graphic of layer 74
+
+### Requirement: Keep-outs of a library footprint give no copper
+The Altium library import SHALL make no graphic of a keep-out track, arc, fill or region on a copper layer of a library footprint, nor of a polygon cut-out on a copper, the Keep-Out or the Multi-Layer layer. Each MUST be counted under the census category `footprint-keepouts`, and the hint of `altium.import.unmapped` MUST name change c0411, which gives footprint definitions rule areas.
+
+#### Scenario: An authored library with keep-outs
+- **GIVEN** a PcbLib footprint with a keep-out track on Top, a polygon cut-out on Top, a keep-out region on
+  Bottom, and a flagged and a plain track on the Keep-Out layer
+- **WHEN** it is imported
+- **THEN** the footprint holds no copper graphic, its two Keep-Out layer tracks stay `Altium.KeepOut`
+  graphics, and `altium.import.unmapped` names `footprint-keepouts 3` with a hint that names c0411
+
+### Requirement: Keep-outs of a footprint are its rule areas
+The Altium import SHALL make rule areas of a footprint, never copper and never a loss, of the keep-outs of a library footprint or of a component: keep-out tracks and arcs as bands, keep-out fills and regions as their outlines, and polygon cut-outs as pour-only areas, with the layers and restrictions of the board import.
+
+#### Scenario: The authored library against `fp upgrade`
+- **GIVEN** the authored PcbLib of change c0410
+- **WHEN** it is imported by Fenolite and written as a KiCad footprint, and also upgraded by `kicad-cli fp
+  upgrade` 10.0.6
+- **THEN** both footprints hold the same rule areas: layers, restrictions, boxes within 10 µm and areas
+  within 1 %
+

@@ -20,4 +20,6 @@
 
 - [x] 3.1 ruff check, ruff format --check, `pyright src`, the focused tests; a CHANGELOG line;
   `openspec validate c0410-keepout-pads-library-keepouts --strict`.
-- [ ] 3.2 `make check-fast` on the integrated batch and the full CI (coordinator).
+- [x] 3.2 `make check-fast` on the integrated batch and the full CI (coordinator).
+
+  Closed on lote-23 CI 42081905514 (all jobs green, ci-complete with coverage audit) on 5ab9d6452, fast-forwarded to dev.

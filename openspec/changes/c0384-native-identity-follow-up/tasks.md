@@ -128,7 +128,7 @@
     that KiCad's netlist of the generated hierarchical sheet keeps with `/` (4 nets, 11 pads). Writer fixes
     (a) and (b) wait for the coordinator's decision; nothing in the writer changed.
   - 2026-11-05 coordinator: both fixes approved as a build bug of their own, change c0408
-    (`openspec/changes/c0408-built-net-spelling/`); this task records the finding and stays open here until
+    (`openspec/changes/archive/2026-11-05-c0408-built-net-spelling/`); this task records the finding and stays open here until
     c0408 lands. The canonical net rules of 1.3 stay: they serve boards built before c0408.
 
 ## 2. One focused approved implementation

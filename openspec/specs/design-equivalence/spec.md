@@ -851,3 +851,72 @@ SHALL refuse; actual pad metadata loss SHALL NOT be hidden to obtain corresponde
 - **WHEN** correspondence cannot be proved completely
 - **THEN** no first-match, field drop, normal-fill removal, tolerance or repeated native run fabricates equality
 
+### Requirement: Level 3 compares hole widths
+Level 3 SHALL compare the width of each pad's hole: `Pad.drill`, or for a slot with a length the shorter of `Pad.drill` and `Padstack.hole_length`. `pad-drill` MUST report the two widths.
+
+#### Scenario: One slot held two ways
+- **GIVEN** a slot held as drill 2.15 mm with length 1.0 mm on one side, and as drill 1.0 mm with length
+  2.15 mm on the other
+- **WHEN** the two designs are compared at level 3
+- **THEN** no `pad-drill` difference is reported
+
+#### Scenario: A wider slot
+- **GIVEN** the same slot held as drill 1.2 mm with length 2.15 mm on the other side
+- **WHEN** the two designs are compared at level 3
+- **THEN** one `pad-drill` difference names 1000000 and 1200000
+
+### Requirement: Rotated and custom teardrop parents
+Qualification of native-derived padvia caches SHALL accept a parent footprint or pad at any
+whole-microdegree angle and SHALL refuse a finer angle. A non-quarter pose SHALL be judged with the
+fixed-point cosine and sine and an explicit error bound: a containment or contact test SHALL hold only
+when it holds for the parent bodies shrunk by the bound, SHALL fail only when it fails for them grown by
+the bound, and SHALL refuse qualification otherwise. A custom pad SHALL qualify with `(clearance outline)`
+or `(clearance convexhull)`; its body SHALL be its anchor plus only primitive copper known from inside:
+a line of positive width as its round-capped stroke, a filled circle as its disc and, for an exact
+quarter-turn parent, a filled polygon or rectangle as its interior. Arcs, unfilled or unknown primitives
+and the primitives of bottom-side footprints SHALL add no body. Native regeneration SHALL remain the only
+source of derived-cache equality.
+
+#### Scenario: Turned custom antenna and primitive-attached cache
+- **GIVEN** the public demo board `kicad-demo-9-0-9-1-pcb-01` with a custom pad at 20°, a custom pad with
+  `(clearance convexhull)` and a cache attached only to a custom pad's line primitive
+- **WHEN** `verify-source` runs its strict round trip with KiCad 10.0.6
+- **THEN** the derived-cache proof qualifies both sides, regenerates six caches on each with equal exact
+  geometry, and no teardrop `opaque-count` remains
+
+#### Scenario: Native contact agrees with the turned body
+- **GIVEN** authored pads: a 4 × 0.4 mm rectangle at 30°, a custom pad at 30° and 90° with a 1 mm wide
+  line primitive, and a custom pad with `(clearance convexhull)`
+- **WHEN** a probe track of another net ends inside the turned body but outside the unturned one, in a
+  line's round cap, past that cap, or inside the convex-hull anchor
+- **THEN** KiCad 9.0.9 and 10.0.6 report `shorting_items` exactly where the parent body predicts contact
+
+#### Scenario: Unsettled contact refuses
+- **WHEN** a non-quarter parent's contact test differs between its shrunk and grown bodies, or a
+  coordinate lies beyond the bounded board frame
+- **THEN** the board does not qualify and no derived-cache equality is claimed
+
+### Requirement: Level 3 compares slot length and axis
+Level 3 SHALL compare the length and the axis of each pad's slot hole, read by its extents: the length is the longer of `Pad.drill` and `Padstack.hole_length`, and the axis, in the footprint's frame and modulo a half turn, lies along that longer side (`Pad.rotation + Padstack.hole_rotation`, plus a quarter turn when `Pad.drill` is the longer). A `pad-slot` difference MUST be reported when only one pad has a slot hole, or when the lengths or the axes differ beyond the tolerances. A slot whose two numbers are equal is a round hole.
+
+#### Scenario: One slot held two ways
+- **GIVEN** a slot held as drill 2.15 mm, length 1.0 mm and hole rotation 0° on one side, and as drill 1.0
+  mm, length 2.15 mm and hole rotation 90° on the other
+- **WHEN** the two designs are compared at level 3
+- **THEN** no `pad-slot` and no `pad-drill` difference is reported
+
+#### Scenario: A longer slot
+- **GIVEN** the same slot held as drill 1.0 mm and length 3.0 mm at hole rotation 90° on the other side
+- **WHEN** the two designs are compared at level 3
+- **THEN** one `pad-slot` difference names `2150000@90000000` and `3000000@90000000`
+
+#### Scenario: A slot along the other axis
+- **GIVEN** the slot held as drill 1.0 mm and length 2.15 mm at hole rotation 0° on the other side
+- **WHEN** the two designs are compared at level 3
+- **THEN** one `pad-slot` difference names `2150000@90000000` and `2150000@0`
+
+#### Scenario: KiCad's oval of an Altium slot
+- **GIVEN** an authored PcbLib with slot pads in both orders of the two numbers and on turned pads
+- **WHEN** it is upgraded by `kicad-cli fp upgrade` 10.0.6 and imported by Fenolite
+- **THEN** every slot KiCad encodes has the same length, width and axis on both sides
+

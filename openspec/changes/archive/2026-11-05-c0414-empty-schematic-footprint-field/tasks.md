@@ -20,4 +20,6 @@
 
 - [x] 3.1 `CHANGELOG.md` line and a dated note in `docs/evidence/fidelity.md`. Proof:
   `uv run pytest tests/unit/test_fidelity_docs.py -q`. Done 2026-11-05: 3 passed.
-- [ ] 3.2 The coordinator's batch `make check-fast` and the required CI jobs pass on the exact commit.
+- [x] 3.2 The coordinator's batch `make check-fast` and the required CI jobs pass on the exact commit.
+
+  Closed on lote-23 CI 42081905514 (all jobs green, ci-complete with coverage audit) on 5ab9d6452, fast-forwarded to dev.
