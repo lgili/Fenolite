@@ -27,6 +27,16 @@
 - [ ] 1.3 **Maintainer.** Run `make residue-history` with the private lists on the commit to be released, and
   record the summary line and the commit under this task; decide each hit by open question 2. Proof: the
   record under this task.
+  - 2026-11-05, pre-release run (the coordinator repeats it on the release commit; 1.3 stays open):
+    `make residue-history` with the private token list on tip fa689a18 of claude/cac-remaining-f711ae,
+    every one of the 50 local refs, through the machine lock (22:08–22:52). Summary line:
+    `residue: 1 hit(s) in 1 file(s); 22552 file(s) scanned; waivers: 23; private gate: on` (exit 5).
+    The hit: one private token (3 characters) in one binary test image (tests/…/png), inside a compressed
+    IDAT chunk, first seen in a 2026-10-29 commit reachable only from the c0245-engineering-viewer branch
+    (local and origin), not from this tip. Decision by open question 2: a chance byte match in compressed
+    image data, not a token of a private project, so no history rewrite; no waiver entry is needed on the
+    release line because the blob is not in it. A release-commit run that still scans that branch reports
+    the same hit and gets the same decision. No token, path or hit text is written here.
 
 ## 2. Licences
 
