@@ -74,6 +74,16 @@ def cache_files() -> dict[str, bytes]:
     return files_of(library_dir())
 
 
+def unpublished_releases(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``get`` knows no published release: the demo releases call themselves 1.0.0 like the first release of
+    fenolite-library, whose shipped row in ``cli/data/library.toml`` would refuse their index. Tests of the
+    mechanics trust a demo index through ``--from``, ``--index-sha256`` or the lock instead."""
+    from fenolite.cli import cmd_get
+
+    template, _ = cmd_get._table()
+    monkeypatch.setattr(cmd_get, "_table", lambda: (template, ()))
+
+
 def no_network(monkeypatch: pytest.MonkeyPatch) -> list[str]:
     """Every way of this process to the network raises; the list holds what was tried."""
     tried: list[str] = []

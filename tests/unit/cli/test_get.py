@@ -13,7 +13,17 @@ from pathlib import Path
 
 import pytest
 from _checkcli import run
-from _libdemo import DEMO, cache_files, demo_copy, edit_json, files_of, no_network, project, write_release
+from _libdemo import (
+    DEMO,
+    cache_files,
+    demo_copy,
+    edit_json,
+    files_of,
+    no_network,
+    project,
+    unpublished_releases,
+    write_release,
+)
 
 DEVICE = "fenolite_library/devices/Demo/EXB"
 SYMBOL = "fenolite_library/symbols/Demo/EXB"
@@ -29,6 +39,7 @@ def release(tmp_path: Path) -> Path:
 
 @pytest.fixture(autouse=True)
 def offline(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    unpublished_releases(monkeypatch)
     return no_network(monkeypatch)
 
 

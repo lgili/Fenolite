@@ -4659,7 +4659,7 @@ origin = "authored"
 corpus_id = ""
 notes = "Authored for Fenolite (c0266), CC0-1.0: original illustrative source records, design and local release only; fixture licence declarations are original text, not upstream legal code or approval; release commit is an all-zero fixture marker."
 spdx = "CC0-1.0"
-sha256 = "86a8aab4d620503e472fb9c11101c773063b0f881056009d23310c47c3a1dd5d"
+sha256 = "b9026deb706e14ec9645461465f856417f014cd3defde5586dd8cf6e95d62afe"
 
 [[file]]
 path = "examples/library-devices/design.py"
@@ -4675,7 +4675,7 @@ origin = "authored"
 corpus_id = ""
 notes = "Authored for Fenolite (c0266), CC0-1.0: original illustrative source records, design and local release only; fixture licence declarations are original text, not upstream legal code or approval; release commit is an all-zero fixture marker."
 spdx = "CC0-1.0"
-sha256 = "29dda0a280d3d31317982f8af612fd80e8cee6f24253f5ebbb3f89d33eb40873"
+sha256 = "69631db9b6d50c350e30957050455195257ff1518566b4cf49abcb85bee8e9a3"
 
 [[file]]
 path = "examples/library-devices/release/devices-cc0.tar.gz"
@@ -4713,7 +4713,7 @@ origin = "authored"
 corpus_id = ""
 notes = "Authored for Fenolite (c0266), CC0-1.0: original illustrative source records, design and local release only; fixture licence declarations are original text, not upstream legal code or approval; release commit is an all-zero fixture marker."
 spdx = "CC0-1.0"
-sha256 = "a23fd1746e1882c4971ee4b6783bf879c723fde747af24a585c46d9a0f0dda61"
+sha256 = "461c141b3fb25b86d2c3eb9b5f5c78d650c28de78ffa25c96da3fd40296bea63"
 
 [[file]]
 path = "examples/library-devices/release/symbols-cc0.tar.gz"
@@ -4816,7 +4816,7 @@ origin = "authored"
 corpus_id = ""
 notes = "Authored for Fenolite (c0266), CC0-1.0: original illustrative source records, design and local release only; fixture licence declarations are original text, not upstream legal code or approval; release commit is an all-zero fixture marker."
 spdx = "CC0-1.0"
-sha256 = "25a8c9ddd71322abbe3f065d190d9042ae7948403fc710bcb249c76ea773e29f"
+sha256 = "70710d33d2a562cc0cac457b105471e267e78dece498fc0d70ae906252221498"
 
 [[file]]
 path = "examples/library-devices/source/sources.toml"

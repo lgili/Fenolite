@@ -12,7 +12,16 @@ from pathlib import Path
 
 import pytest
 from _checkcli import run
-from _libdemo import DEMO, ROOT, demo_copy, edit_json, files_of, no_network, write_release
+from _libdemo import (
+    DEMO,
+    ROOT,
+    demo_copy,
+    edit_json,
+    files_of,
+    no_network,
+    unpublished_releases,
+    write_release,
+)
 
 from fenolite.dsl.lock import read_lock
 
@@ -25,6 +34,7 @@ def isolated(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("KICAD_CONFIG_HOME", str(tmp_path / "kicad-config"))
     for name in ("KICAD10_FOOTPRINT_DIR", "KICAD10_SYMBOL_DIR", "KICAD9_FOOTPRINT_DIR", "KICAD9_SYMBOL_DIR"):
         monkeypatch.delenv(name, raising=False)
+    unpublished_releases(monkeypatch)
     no_network(monkeypatch)
 
 

@@ -5,7 +5,8 @@ schema = "fenolite.library-releases.v0"
 repository = "lgili/fenolite-library"
 url_template = "https://github.com/lgili/fenolite-library/releases/download/v{version}/{asset}"
 
-# [[release]]
-# version = "1.0.0"
-# index_bytes = 0
-# index_sha256 = "<64 hex>"
+# v1.0.0: tag v1.0.0 on commit 754ed737 (Library checks run 41947694170); index built twice, byte-identical.
+[[release]]
+version = "1.0.0"
+index_bytes = 127429
+index_sha256 = "b6c50c7e8e1d9d0a4c05d213b86b5b3398917abe0aa7a24c159af26562fdc6c1"

@@ -6,25 +6,25 @@ design = "library_devices"
 "R1" = "R1"
 
 [library.items."device/FenoliteDevices:Demo900"]
-index = "sha256:a23fd1746e1882c4971ee4b6783bf879c723fde747af24a585c46d9a0f0dda61"
+index = "sha256:461c141b3fb25b86d2c3eb9b5f5c78d650c28de78ffa25c96da3fd40296bea63"
 path = "fenolite_library/devices/FenoliteDevices/Demo900"
-release = "1.0.0"
+release = "0.1.0"
 spdx = "CC0-1.0"
 tree = "fenolite-tree-1:d815d29a1784c1139fe0c54d0cd121bbd0440b1c9935bbb7bfc6cd0def54cb49"
 version = "1.0.0"
 
 [library.items."footprint/FenoliteDevices:DemoTwoPad"]
-index = "sha256:a23fd1746e1882c4971ee4b6783bf879c723fde747af24a585c46d9a0f0dda61"
+index = "sha256:461c141b3fb25b86d2c3eb9b5f5c78d650c28de78ffa25c96da3fd40296bea63"
 path = "fenolite_library/footprints/FenoliteDevices/DemoTwoPad"
-release = "1.0.0"
+release = "0.1.0"
 spdx = "CC0-1.0"
 tree = "fenolite-tree-1:0e6278b5b3926b1b3702015524871dda6d786cbcb89c1f9f450bb1ddd5765968"
 version = "1.0.0"
 
 [library.items."symbol/FenoliteDevices:DemoTwoPin"]
-index = "sha256:a23fd1746e1882c4971ee4b6783bf879c723fde747af24a585c46d9a0f0dda61"
+index = "sha256:461c141b3fb25b86d2c3eb9b5f5c78d650c28de78ffa25c96da3fd40296bea63"
 path = "fenolite_library/symbols/FenoliteDevices/DemoTwoPin"
-release = "1.0.0"
+release = "0.1.0"
 spdx = "CC0-1.0"
 tree = "fenolite-tree-1:1dc5126a47f18ddb3ada542bdecb2d124477514680c2d3a88dc481e2adaa89d1"
 version = "1.0.0"

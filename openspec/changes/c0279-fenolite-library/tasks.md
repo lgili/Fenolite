@@ -79,8 +79,22 @@
   origin, blocks, renders, and six replay and six proof jobs); its composite action compared `licences.toml`
   with the pinned core's shipped copy. `release.yml` is in the library. The Fenolite test passes against a
   clone of that commit (1 passed), and Fenolite's own `release.yml` runs it.
-- [ ] 3.3 First release `v1.0.0` with c0266's and c0273's first items, and its row in `cli/data/library.toml`. Proof: `uv run pytest tests/unit/cli/test_get_cache.py -k table -q`.
+- [x] 3.3 First release `v1.0.0` with c0266's and c0273's first items, and its row in `cli/data/library.toml`. Proof: `uv run pytest tests/unit/cli/test_get_cache.py -k table -q`.
   Open 2026-10-30: waits for the library's first release `v1.0.0` (c0266 and c0273 items are not merged); then add its `[[release]]` row (version, index_bytes, index_sha256) to `src/fenolite/cli/data/library.toml`. `test_table_rows_are_well_formed` checks the rows.
+  Done 2026-11-05: fenolite-library `v1.0.0` is tagged (annotated tag `b9d43835`, coordinator-approved) on
+  commit `754ed737494ac5c9056f2adfac96477e3f90a158`, green in library CI run 41947694170. It holds c0266's
+  `FenoliteDevices` items and reviewed `LibrePCBBaseReview` set, c0273's `FenoliteBlocks:resistor_link` and six
+  boards. Its row in `cli/data/library.toml`: `index_bytes = 127429`, `index_sha256 =
+  b6c50c7e8e1d9d0a4c05d213b86b5b3398917abe0aa7a24c159af26562fdc6c1`. `fenolite library release` built it twice from
+  a clean clone of the tagged commit: byte-identical, SHA256SUMS checked, audit 0, index commit `754ed737`,
+  14 items. Its archives carry the fixed gzip header, so the bytes do not depend on the interpreter. With a
+  shipped 1.0.0 row, a folder that calls itself 1.0.0 is checked against it: the demo release of
+  `examples/library-devices/` became `0.1.0` (release, lock and manifest hashes regenerated; vendored trees
+  unchanged), and the `get` tests trust their demo releases without the shipped table (`unpublished_releases`).
+  Proof: `uv run pytest tests/unit/cli/test_get_cache.py -k table -q` passed, and the whole file 9 passed;
+  test_get 11, test_get_lock 8, test_examples -k library 6, test_hermetic_examples 61 and test_manifest 60
+  passed. Not yet usable over the network: the GitHub Release and its assets wait for the maintainer's OK
+  with Fenolite v0.7.0. Until then `get --release 1.0.0` without `--from` fails with FEN-6003.
 - [x] 3.4 Corpus alignment: the manifest rule for `library:` rows and the residue rule for committed items (scenarios "Share-alike library row marked embeddable", "Vendored item committed"). Proof: `uv run pytest tests/corpus/test_manifest.py tests/residue -q`.
   Done 2026-10-30: `library_row_problems` in tests/corpus/test_manifest.py (`library:<kind>/<id>@<version>`, `origin:third-party`, embeddable only under CC0) and tests/residue/test_library_items.py (no tracked `fenolite_library/` folder, no converted or seeded `PROVENANCE.json` unless declared authored, which the demo fixture is). Proof passed (91 passed).
 

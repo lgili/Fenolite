@@ -2,6 +2,6 @@
 # Authored for Fenolite as local release metadata.
 schema = "fenolite.library.v0"
 name = "fenolite-library-demo"
-version = "1.0.0"
+version = "0.1.0"
 [requires]
 fenolite = ">=0.7"

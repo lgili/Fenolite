@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 from _checkcli import run
-from _libdemo import DEMO, cache_files, files_of, no_network, project, write_release
+from _libdemo import DEMO, cache_files, files_of, no_network, project, unpublished_releases, write_release
 
 from fenolite.cli import cmd_get, fetch
 from fenolite.cli.cmd_get import KnownRelease, asset_url, known_releases
@@ -26,6 +26,7 @@ def release(tmp_path: Path) -> Path:
 
 @pytest.fixture
 def tried(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    unpublished_releases(monkeypatch)
     return no_network(monkeypatch)
 
 
@@ -50,10 +51,12 @@ def _serve(monkeypatch: pytest.MonkeyPatch, release: Path) -> list[str]:
 
 
 def test_table_rows_are_well_formed() -> None:
-    """``cli/data/library.toml``: each known release pins an index by size and SHA-256 (none yet: the first
-    release of fenolite-library adds its row)."""
-    for row in known_releases():
+    """``cli/data/library.toml``: each known release pins an index by size and SHA-256; the first release of
+    fenolite-library, ``v1.0.0``, has its row."""
+    rows = known_releases()
+    for row in rows:
         assert row.index_bytes > 0 and len(row.index_sha256) == 64
+    assert "1.0.0" in [row.version for row in rows]
     assert (
         asset_url("1.0.0", "index.json")
         == "https://github.com/lgili/fenolite-library/releases/download/v1.0.0/index.json"

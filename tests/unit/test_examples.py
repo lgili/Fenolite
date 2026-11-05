@@ -650,7 +650,7 @@ def test_library_devices_release_is_authored_and_reproducible() -> None:
     example = ROOT / "examples/library-devices"
     report = audit(example / "source")
     assert not report.issues, [(i.code, i.message) for i in report.issues]
-    release = build_release(example / "source", report.items, "1.0.0", shipped(), commit="0" * 40)
+    release = build_release(example / "source", report.items, "0.1.0", shipped(), commit="0" * 40)
     assert {name: (example / "release" / name).read_bytes() for name in release.assets} == release.assets
     for path in (example / "source").rglob("LICENSE"):
         assert "Authored for Fenolite" in path.read_text()
