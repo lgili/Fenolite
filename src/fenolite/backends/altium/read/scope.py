@@ -52,6 +52,12 @@ class _Refused(Exception):
     """The query is outside the grammar; the message says why."""
 
 
+SPELLED: dict[str, str] = {"and": "And", "or": "Or", "not": "Not"}
+"""The operators by their letters in any case, and the spelling the grammar holds (change c0377): an
+operator is read in any letter case (``H-A-RD-PRJ-SCOPE-CASE``, ``INFERRED``; ``rule-file.md``, "Closed
+scope grammar")."""
+
+
 def _tokens(text: str) -> list[_Token]:
     found: list[_Token] = []
     position = 0
@@ -60,7 +66,10 @@ def _tokens(text: str) -> list[_Token]:
         if match is None:  # only spaces are left
             break
         kind = match.lastgroup or "other"
-        found.append(_Token(kind, match.group(kind)))
+        word = match.group(kind)
+        if kind == "name":
+            word = SPELLED.get(word.casefold(), word)
+        found.append(_Token(kind, word))
         position = match.end()
     return found
 

@@ -42,6 +42,13 @@ def test_class_and_item_kind() -> None:
         ("Not IsVia", Selector("not", items=(VIA,))),
         ("Not (InNet('A') Or IsVia)", Selector("not", items=(Selector("or", items=(NET_A, VIA)),))),
         ("(InNet('A'))", NET_A),
+        ("InNet('A') AND InNet('B')", Selector("and", items=(NET_A, NET_B))),
+        ("IsVia or IsTrack", Selector("or", items=(VIA, TRACK))),
+        ("not InNet('A')", Selector("not", items=(NET_A,))),
+        (
+            "(InNet('A') OR InNet('B')) and IsTrack",
+            Selector("and", items=(Selector("or", items=(NET_A, NET_B)), TRACK)),
+        ),
         (
             "(InNet('A') Or InNet('B')) And IsTrack",
             Selector("and", items=(Selector("or", items=(NET_A, NET_B)), TRACK)),
@@ -94,7 +101,8 @@ def test_layer_and_wildcard_refused() -> None:
         ("   ", "empty"),
         ("Width > 10", "function Width"),
         ("'A'", "quoted value"),
-        ("InNet('A') AND InNet('B')", "text left over"),
+        ("InNet('A') And NOT IsVia", "mixes Not with And"),
+        ("InNet('A') and InNet('B') or IsVia", "mixes the operators And and Or"),
         ("all", "function all"),
     ],
 )

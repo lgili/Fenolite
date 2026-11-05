@@ -52,7 +52,11 @@ known to `kicad-cli`, so nothing here is `ORACLE-VERIFIED`, and the meaning of t
 `rules.RULE_KIND_MAP`: a record maps only when its kind is in this table, its `NETSCOPE` is the one
 given, its `LAYERKIND` is `SameLayer`, its other keys are header keys or keys of its row, and the
 further conditions hold. Routing Via Style gives two neutral rules. A dash is a limit the kind does not
-give.
+give. A kind that limits one object (Width, Routing Via Style, Hole Size, Minimum Annular Ring) maps with
+`NETSCOPE` `AnyNet` or `DifferentNets` (change c0377, `rules.ONE_OBJECT_KINDS`): the net scope relates
+the nets of two objects, so it selects nothing more for a rule on one object (`H-A-RD-PRJ-NETSCOPE-ONE`,
+INFERRED: no public source states what the key does on such a kind; the public documents hold both values
+on it, S-0580).
 
 | RULEKIND | neutral kind | min | opt | max | net scope | further conditions |
 |---|---|---|---|---|---|---|
@@ -157,6 +161,35 @@ other text is refused with a reason and the rule is reported with the reason `sc
 | `x Or y`, `x \|\| y` | `or(x, y, …)` |
 | `Not x` | `not(x)` |
 | `(x)` | `x` |
+
+The operators are read in any letter case: `and` and `AND` are `And`, `or` and `OR` are `Or`, `not`
+and `NOT` are `Not` (change c0377; `H-A-RD-PRJ-SCOPE-CASE`, INFERRED). No public source states Altium's letter-case
+rule (S-1531 states none); the public documents, which Altium saved, hold scopes written with `not` and
+`AND` (S-0580), and Altium's pages spell `And`, `AND` and `Not` in their examples. Altium states the
+precedence, highest first: brackets, `Not`, `And`, `Or`, then `&&` and `||`, ties from left to right
+(S-1531); the grammar still holds one kind of operator per parenthesis level, which needs no precedence.
+
+**Unmapped forms on the public boards** (change c0377, task 1.1; S-0580 documents, read 2026-11-04 with
+Fenolite's own reader, counts only). Kinds with no neutral counterpart, per rule record: FanoutControl 40,
+PolygonConnect 18, MatchedLengths 15, SolderMaskExpansion 11, ComponentClearance 10, PlaneConnect 9,
+DiffPairsRouting 9, PasteMaskExpansion 8 (and 8 each of the other kinds of the default rule set). Refused
+records of mapped kinds, among them: HoleToHoleClearance with `ALLOWSTACKEDMICROVIAS=TRUE` 6, RoutingVias
+with via template keys 4, BoardOutlineClearance object matrices 3, Clearance scopes 5 (`HasFootprint`,
+`InPolygon`, `InDifferentialPairClass`, a left-over token), Width keys and scopes 4, HoleSize scopes with
+`HoleDiameter` 2, and one record each refused for `NETSCOPE` on HoleSize, RoutingVias and Width. What stays open, and why:
+
+| form | reason it does not map (a declared loss: the rule is reported unmapped with this reason) |
+|---|---|
+| `HasFootprint`, `InPolygon`, `InNamedPolygon`, `InComponentClass`, `WithinRoom`, `IsDifferentialPair`, `InDifferentialPairClass`, `HoleDiameter` | the neutral selector has no footprint name, pour, component class, room, pair object or hole size leaf |
+| `OnLayer`, `OnTopLayer`, `OnBottomLayer` joined with other terms | a layer condition maps only as the whole scope (change c0125) |
+| Clearance with `NETSCOPE=AnyNet` | a neutral clearance holds between different nets; a clearance between objects of one net has no counterpart, so mapping the record would drop half of it |
+| HoleToHoleClearance with `ALLOWSTACKEDMICROVIAS=TRUE` | the neutral rule has no exception for stacked micro-vias |
+| Clearance with `IGNOREPADTOPADCLEARANCEINFOOTPRINT=TRUE`, an object matrix of differing cells | the neutral rule cannot leave out the pads of one footprint or tell the objects apart (change c0125) |
+| Width with per-layer widths or impedance keys (`FAVIMP`, `MAXIMP`, `<LAYER>_MINWIDTH`) | the neutral rule holds one width per rule, by selector, and no impedance profile |
+| RoutingVias with via template keys | no neutral form of a via template |
+| PlaneConnect, PolygonConnect | no neutral rule; the board keeps Polygon Connect Style records (change c0215) |
+| SolderMaskExpansion, PasteMaskExpansion | no neutral rule; the pad's expansion modes are `INFERRED` (`pcb-read.md`, `PadRecord`), so a pad following the rule cannot be told apart |
+| FanoutControl, ShortCircuit, UnRoutedNet, RoutingTopology, RoutingPriority, RoutingLayers, RoutingCorners, DiffPairsRouting, MatchedLengths, test point kinds, silk and mask sliver kinds, Height, LayerPairs, NetAntennae, UnpouredPolygon, ComponentClearance, PlaneClearance | no neutral rule kind holds them (`no-counterpart`) |
 
 ## Clearance forms that map
 

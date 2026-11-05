@@ -219,9 +219,7 @@ def test_reasons_in_their_order() -> None:
     assert reasons([record("Height", width, ENABLED="FALSE")]) == ["no-counterpart"]
     assert reasons([record("BoardOutlineClearance", ENABLED="FALSE")]) == ["disabled"]
     assert reasons([record("Width", width, ENABLED="FALSE", NETSCOPE="DifferentNets")]) == ["disabled"]
-    assert reasons([record("Width", width, NETSCOPE="DifferentNets", LAYERKIND="AdjacentLayers")]) == [
-        "net-scope"
-    ]
+    assert reasons([record("Width", width, NETSCOPE="SameNet", LAYERKIND="AdjacentLayers")]) == ["net-scope"]
     assert reasons([record("Width", ("BOGUS", "1"), LAYERKIND="AdjacentLayers")]) == ["layer-kind"]
     assert reasons([record("Width", ("TOPLAYER_MINWIDTH", "1mil"), ("MINLIMIT", "x"))]) == ["keys"]
     assert reasons([record("Width", ("MINLIMIT", "10"), SCOPE1EXPRESSION="OnLayer('Top')")]) == ["value"]
@@ -708,3 +706,18 @@ def test_the_three_records_of_a_matrix_on_two_layers() -> None:
     without = map_rules(records, origin="b")
     assert [r.name for r in without.ruleset.rules] == ["Clearance"]
     assert [(u.index, u.reason) for u in without.unmapped] == [(0, "scope"), (1, "scope")]
+
+
+def test_a_rule_on_one_object_maps_with_either_net_scope() -> None:
+    """change c0377: Width, Routing Via Style, Hole Size and Minimum Annular Ring limit one object, so their
+    ``NETSCOPE`` (AnyNet or DifferentNets) selects nothing more; a Clearance keeps its own net scope."""
+    for kind, keys in (
+        ("Width", (("MINLIMIT", "10mil"),)),
+        ("HoleSize", (("MINLIMIT", "10mil"), ("MAXLIMIT", "100mil"), ("ABSOLUTEVALUES", "TRUE"))),
+        ("MinimumAnnularRing", (("MINIMUMRING", "5mil"),)),
+    ):
+        for scope in ("AnyNet", "DifferentNets"):
+            mapping = map_rules([record(kind, *keys, NETSCOPE=scope)], origin="b")
+            assert not mapping.unmapped and mapping.ruleset.rules, (kind, scope)
+    assert reasons([record("Width", ("MINLIMIT", "10mil"), NETSCOPE="SameNet")]) == ["net-scope"]
+    assert reasons([record("Clearance", ("GAP", "10mil"), NETSCOPE="AnyNet")]) == ["net-scope"]

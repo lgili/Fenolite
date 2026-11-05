@@ -152,6 +152,13 @@ MATRIX_KINDS: dict[str, str | None] = {
 holds no item of the kind: a fill and a region are graphics in the model, text is no copper item, and the
 clearance of a hole is another neutral kind (``rule-file.md``, "Cells of an object matrix";
 ``H-A-RULE-CLEARANCE-CELLS``)."""
+ONE_OBJECT_KINDS = frozenset({"Width", "RoutingVias", "HoleSize", "MinimumAnnularRing"})
+"""The kinds whose neutral rule limits one object (a track's width, a via, a hole, an annular ring): the
+net scope, which relates the nets of two objects, does not change what they select (change c0377,
+``H-A-RD-PRJ-NETSCOPE-ONE``, ``INFERRED``); a record of one of them maps with either value of
+``NET_SCOPES``."""
+NET_SCOPES = ("AnyNet", "DifferentNets")
+"""The values of ``NETSCOPE`` that the public documents hold."""
 CELL_PAIR = "cell"
 UNJUDGED_PAIR = "cells_not_lifted"
 """Pairs that the mapper adds to a rule's bag: the item kinds of a cell rule (``track-via``), and on the
@@ -532,7 +539,8 @@ def _map_one(fields: Sequence[Field], index: int, origin: str, layers: CopperLay
     if enabled != "TRUE":
         raise _Refusal("disabled", f"ENABLED={enabled}: a disabled rule is skipped and the next one applies")
     net_scope = _get(fields, "NETSCOPE")
-    if net_scope != table.net_scope:
+    one_object = kind in ONE_OBJECT_KINDS and net_scope in NET_SCOPES
+    if net_scope != table.net_scope and not one_object:
         raise _Refusal("net-scope", f"NETSCOPE={net_scope}; the table needs {table.net_scope}")
     layer_kind = _get(fields, "LAYERKIND")
     if layer_kind != SAME_LAYER:
