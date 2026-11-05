@@ -733,7 +733,7 @@ are committed.
 
 ## Part H: a slot shorter than its hole (change c0416)
 
-Pending: no Altium verification is claimed. Altium's pad dialog says a slot's Length cannot be smaller than
+No native kit form is claimed. The agent run of 2026-11-05 is under "Reports" (S-1605). Altium's pad dialog says a slot's Length cannot be smaller than
 its Hole Size (S-0770), but a record may hold a smaller one. KiCad 10.0.6 reads such a hole by its extents:
 an oval whose long side lies across the record's slot rotation. Level 3 of `equivalent` compares slots that
 way (change c0416, `pcb-records.md`). This part asks what Altium Designer makes of the record
@@ -833,6 +833,32 @@ cases they measure (c0387, task 1.2) and the model store per rotation (c0175, ta
 2026-11-05 is under "Reports" (S-1604); an agent run moves no row.
 
 ## Reports
+
+### 2026-11-05, actual `AD24.5.2.23`, Part H (source S-1605)
+
+A Claude agent ran H1 to H6 on 2026-11-05 at the maintainer's request (delegation of 2026-11-04), in the
+maintainer's Windows VM, under the approved 24.5 scope. This is not the maintainer's own review.
+`Client.GetProductVersion` is 24.5.2.23 (Trial licence). The kit was built at `4ab835e1`
+(`origin/cac/lote-22`) with `FENOLITE_ALTIUM_PART_H=<outside folder> uv run pytest
+tests/unit/backends/altium/test_part_h.py` into `~/fenolite-altium-checks/claude-2026-11-05/c0416-H`:
+`holes.PcbDoc` `e31205570a2a…` and `slots.PcbLib` `db575bcd1ff5…`. The run used a VM copy, and both
+inputs still match `SHA256SUMS` after the run. Menu commands ran through UI Automation. The Properties
+fields were read by their automation ids after an authored read-only DelphiScript selected each pad.
+
+| date | version | case | file (SHA-256) | step | expected | observed |
+|---|---|---|---|---|---|---|
+| 2026-11-05 | AD 24.5 | H1 | `holes.PcbDoc` `e31205570a2a…` | open; Properties of `P1` to `P6` | no repair message; values as the table | as expected. No message on open. Hole Shape `Slot` for all six. `P2`, `P4` and `P6` show Hole Size 84.646 mil and Length 39.37 mil, hole rotation 0, 30 and 0, pad rotation 0, 0 and 30. `P1`, `P3` and `P5` show 39.37 and 84.646 mil, hole rotation 0, 30 and 90, pad rotation 0, 0 and 45 |
+| 2026-11-05 | AD 24.5 | H2 | `holes.PcbDoc` `e31205570a2a…` | 2D and 3D Layout Mode, each hole; Reports » Measure Distance on one short slot | long sides along 0°, 90°, 30°, 120°, 135° and 120° | as expected. A fit of the hole pixels of each 2D view, scaled by the 4 mm pad, gives axes 0.0°, 90.0°, 30.1°, 119.9°, 134.9° and 119.9°, each 2.14 to 2.16 mm long and 0.99 to 1.00 mm wide. 3D Layout Mode shows the same directions. Measure Distance between the visible ends of `P2`'s hole reads Y 85 mil (2.16 mm, on a 5 mil snap) |
+| 2026-11-05 | AD 24.5 | H3 | `holes-SlotHoles.TXT` `014b1f81…`, `holes.DRR` `c50e9f5a…`, `holes.LDP` `98599f2f…` | File » Fabrication Outputs » NC Drill Files (defaults), Drill Drawings | six plated slots, 2.15 × 1 mm, along the H2 axes | as expected. NC Drill writes no round-hole file, only `holes-SlotHoles.TXT`: `;TYPE=PLATED`, tool `T01` 1.0 mm, and six routed paths (`G00`, `M15`, `G01`, `M16`) of 1.15 mm between centres, at 0°, 90°, 30°, 120°, 135° and 120°. With the 1 mm tool, each slot is 2.15 × 1 mm. The report lists `T1` 1 mm, Slot, 6, PTH. An Import Mill/Route Data dialog followed and was cancelled, and the CAMtastic document that opened was closed unsaved. Drill Drawings opens a print preview with six drill symbols in a row and no drill table; nothing was printed |
+| 2026-11-05 | AD 24.5 | H4 | `holes-saved.PcbDoc` `1de97471…` | File » Save As, then `FENOLITE_ALTIUM_H4=<file> … -k h4` | the test passes | as expected. No message on save. 1 passed, with or without a reviewed prefix. The kit privacy scan finds the file's own VM path in its header |
+| 2026-11-05 | AD 24.5 | H5 | `slots.PcbLib` `db575bcd1ff5…` | footprint `SL`, pads `1` to `6`; then pad `1` Length 0.9 mm on an unsaved copy | no repair message; values of H1; report whether Length below Hole Size is accepted | no message on open, and the six pads show the values of H1. On the unsaved copy, Length 0.9 mm with Hole Size 1 mm is accepted with no message: the panel keeps Slot, 1 mm and 0.9 mm. The library was closed without saving |
+| 2026-11-05 | AD 24.5 | H6 | `slots-saved.PcbLib` `f142d52c…` | File » Save As of the unchanged library, then `FENOLITE_ALTIUM_H6=<file> … -k h6` | the test passes | as expected. No message on save, and 1 passed |
+
+Altium reads each short slot as KiCad 10.0.6 does. The hole spans the two numbers' extents, and its long
+side lies across the record's slot rotation (`P2` 90°, `P6` 120°). `P3` and `P4`, which KiCad loses, lie at
+30° and 120°. Altium keeps the four numbers of every pad through Save As (H4, H6). Its panel accepts a
+Length below the Hole Size (H5). `norm.slot_form` and the Altium adapter need no change. `H-A-SLOT-SHORT`
+keeps its level, because this is an agent run, not a kit form.
 
 ### 2026-11-05, actual `AD24.5.2.23`, Part Z (source S-1604)
 

@@ -22,8 +22,15 @@
   cases H1 to H6, with `H-A-SLOT-SHORT` registered as `INFERRED`. `test_part_h.py` builds the files outside
   the repository, and checks the saved files of H4 and H6. Proof:
   `uv run pytest tests/unit/backends/altium/test_part_h.py tests/unit/test_hypotheses_register.py -q`.
-- [ ] 3.2 Run Part H in Altium Designer (altium-rounds-2, on the VM) and record the outcomes; revisit
+- [x] 3.2 Run Part H in Altium Designer (altium-rounds-2, on the VM) and record the outcomes; revisit
   `norm.slot_form` and the Altium adapter if H2 or H3 differ.
+  - 2026-11-05, done (S-1605). An agent ran H1 to H6 in AD 24.5.2.23 on the VM, on the kit built at
+    `4ab835e1`. Every case came out as expected (`docs/evidence/altium-pcb.md`, "Reports", 2026-11-05 Part
+    H). H2 and H3 match KiCad 10.0.6's axes (`P1` 0°, `P2` 90°, `P5` 135°, `P6` 120°), and `P3` and `P4`
+    lie at 30° and 120°. So `norm.slot_form` and the Altium adapter stay as they are. The H4 and H6 readbacks
+    pass (`FENOLITE_ALTIUM_H4=…`, `FENOLITE_ALTIUM_H6=… uv run pytest
+    tests/unit/backends/altium/test_part_h.py -k h4|h6`, 1 passed each). `H-A-SLOT-SHORT` stays `INFERRED`,
+    because an agent run moves no level.
 
 ## 4. Close
 
