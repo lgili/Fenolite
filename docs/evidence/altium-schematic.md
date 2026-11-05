@@ -1419,6 +1419,29 @@ viewing.
 Not run: the A4 PCB Model dialog and the L2 Pin Editor dialog (their fields read through the API), A1,
 A3, A5 to A7, L6 and Part H (earlier reports), and N4 (the Viewer). No level changes.
 
+### 2026-11-05, actual `AD24.5.2.23`, Part R steps R1 and R2 (source S-1602)
+
+A Claude agent ran these steps at the maintainer's request of 2026-11-05 (delegation of 2026-11-04) in
+the maintainer's Windows VM, on Altium Designer 24.5.2.23 (Trial). It is not the maintainer's own review.
+The files are copies of the committed `tests/data/altium/channels/two/` (`two.PrjPcb` `38384a5c…`,
+`two.SchDoc` `68ed6877…`, `two_ch.SchDoc` `cad7f566…`), the same bytes that passed R1 to R4 in AD 26.5 on
+2026-10-14 (S-0740 to S-0742). R2 used twelve copies of that project, each with one pair of
+`ChannelDesignatorFormatString` and `ChannelRoomNamingStyle` values set in the project file.
+
+| step | expected | observed |
+|---|---|---|
+| R1 | both sheets compile; the repeat gives two channels (six components, five nets, eleven memberships in AD 26.5) | the compile gives 6 errors and 2 warnings: "Missing child-sheet in two_ch.SchDoc in Symbol Repeat(CH,1,2) at 700mil,6700mil."; "Net OUT1 has only one pin (Pin U1-1)", the same for `OUT2` (`U1-2`) and `VCC` (`J1-1`); "Sheet-Entry Repeat(OUT) not matched to Port" and "Sheet-Entry VCC not matched to Port"; and no footprint found for `J1` and `U1` (warnings). The flattened design holds 2 components, `J1` and `U1`, with no channel. Altium's `two.PrjPcbStructure` lists only the top-level document `two.SchDoc` |
+| R2 | each naming pair gives its channel designators | all twelve projects flatten to `J1` and `U1` with no channel, so the naming cannot be judged |
+
+The first run was scripted (`DM_OpenProject`, `DM_Compile`), with the 13 copies open together. It was
+then repeated through the user interface, with only one copy open: File » Open, then Project » Validate
+PCB Project. That run gives the same 8 messages and the same 2 components. The sheet symbol stores its
+child as the file name record `two_ch.SchDoc`, the bytes that AD 26.5 read. No field is known that 24.5
+reads differently. This is an observation scoped to AD 24.5.2.23 Trial: the repeat does not expand in
+that version. The AD 26.5 pass of 2026-10-14 stands, the writer is unchanged, and no level moves
+(coordinator's decision of 2026-11-05). R3 and R4 were not run, because they need the channels, and R5
+keeps its recorded failure.
+
 ## Author report of 2026-10-07 (opening only)
 
 On 2026-10-07 the author reported, for the files he was given: every project opened in Altium Designer 26

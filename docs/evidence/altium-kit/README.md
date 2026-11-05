@@ -88,6 +88,20 @@ steps of those four samples, and it is recorded as `2026-11-05-e28d0bb1.json`.
   unpublished. Nothing was copied from another project. Every document was closed with Don't Save after
   its result was written.
 
+## K2 rerun of 2026-11-05 (c0389, task 6.1)
+
+A Claude agent reran group K2 with the fixed kit script (S-1591) at the maintainer's request (delegation of
+2026-11-04), on Altium Designer 24.5.2.23 (Trial) in the maintainer's Parallels Windows VM (S-1603). It is
+recorded as `2026-11-05-c91de60a.json`. Kit digest `cb286eb0…`, the kit the tree builds (`fenolite kit
+status`: no stale row); script `843f93f7…`. The run started with no `results/script.log`. For each of the
+samples `flat`, `tree`, `routed`, `board6` and `libs`, the agent opened the project, showed its schematic,
+ran `FenoliteKitRun` from File » Run Script, and closed the project. No error dialog came up. The script
+created `results/script.log` on its first call and appended to it after that; the log holds `K2.1 done`
+to `K2.5 done`. Every `messages.txt` reports "Compile successful, no errors found", and `tree` also has
+its two "no driving source" warnings. `kit verify` exits 0: K2.1 to K2.5 pass, the other 45 steps are
+skipped, and the privacy scan finds nothing. `H-A-KIT-SCRIPT` and `H-A-PH-NO-CACHE` pass. The archive
+(`c91de60a…`, 2051 bytes) stays in local storage, unpublished.
+
 ## Author report of 2026-10-07 (opening only)
 
 On 2026-10-07 the author reported that the projects of the kit built from `5adad054` opened in Altium

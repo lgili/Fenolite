@@ -27,6 +27,12 @@
   violation, recorded under "Reports" of `docs/evidence/altium-pcb.md`; `H-A-PCB-CU-PLANE` set by it.
 - [ ] 2.5 (from c0166 3.3) Execute Repeat R1-R4 and R5 when its implementation is available; preserve any branch blocker. Proof: the report and focused Repeat tests.
   - Blocker on 2026-11-05: Repeat R1–R5 was not run in any agent round (S-1570 to S-1589); R5 keeps its recorded failure.
+  - 2026-11-05 (S-1602, AD 24.5.2.23 Trial, agent run): R1 and R2 run on the committed bytes that passed in AD 26.5
+    on 2026-10-14. The repeat does not expand in 24.5: "Missing child-sheet in two_ch.SchDoc in Symbol
+    Repeat(CH,1,2)", and all twelve naming pairs flatten to `J1` and `U1`. The same happens through the UI with
+    one project open. This is recorded as an observation scoped to that version; the 26.5 pass stands, and the
+    writer and the levels are unchanged (coordinator's decision). Still open: R3 and R4 need the channels, so
+    they wait for AD 26; R5 keeps its failure.
 - [ ] 2.6 (from c0166 3.4) Execute remaining OutJob, template/custom-border, hierarchy-mode and rule-export requests. Proof: the report and focused documentation/provenance tests.
   - Blocker on 2026-11-05: The OutJob, template/custom-border, hierarchy-mode and rule-export requests were not run in any agent round (S-1570 to S-1589).
 
@@ -80,7 +86,7 @@
 
 ## 6. Kit script (c0385)
 
-- [ ] 6.1 (from c0385 5.2) The kit script creates `results/script.log`: `Rewrite` when the file is missing, `Append`
+- [x] 6.1 (from c0385 5.2) The kit script creates `results/script.log`: `Rewrite` when the file is missing, `Append`
   otherwise. Rerun group K2 in Altium and raise `H-A-KIT-SCRIPT` again on the new run.
   - Blocker on 2026-11-05: in run `2026-11-05-e28d0bb1` (S-1590, AD 24.5.2.23) the script's `Append` on the missing
     log raised `EInOutError` "The specified file was not found" and the script stopped; the row is `INFERRED`.
@@ -88,3 +94,8 @@
     false and `Append` when it is true, with no `Try` around them (`FileExists`: S-1591; design, "Task 6.1").
     Proof: `uv run pytest tests/unit/verify/kit/test_script.py -q`. Left open for the K2 rerun in Altium and
     the new `H-A-KIT-SCRIPT` result.
+  - Done on 2026-11-05 (S-1603, AD 24.5.2.23, agent run on the maintainer's delegation): group K2 rerun on the
+    kit `cb286eb0…` (script `843f93f7…`), started with no `results/script.log`. The script created the log and
+    appended `K2.1 done` to `K2.5 done`; `kit verify` exits 0 with K2.1 to K2.5 passing. Recorded as
+    `docs/evidence/altium-kit/2026-11-05-c91de60a.json`; `H-A-KIT-SCRIPT` is
+    `ALTIUM-VERIFIED(kit; AD 24.5; 2026-11-05; 2026-11-05-c91de60a)`.
