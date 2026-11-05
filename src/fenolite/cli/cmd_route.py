@@ -398,6 +398,20 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         if not separator or not key or not value:
             raise CliError("FEN-2001", f"invalid --router-option {option!r}; expected KEY=VALUE")
         options[key] = value
+    from fenolite.routing.search import SEARCH_OPTIONS
+    from fenolite.routing.search import options as search_options
+
+    if any(key in options for key in SEARCH_OPTIONS):
+        if args.router != "octilinear" or not (args.propose or args.accept or args.reject):
+            raise CliError(
+                "FEN-2001",
+                "search options require --router octilinear and --propose, --accept or --reject",
+                where="--router-option",
+            )
+        try:
+            search_options(options)
+        except ValueError as error:
+            raise CliError("FEN-2001", str(error), where="--router-option") from None
     escape_patterns = tuple(args.escape)
     for pattern in escape_patterns:
         try:

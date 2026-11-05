@@ -519,3 +519,47 @@ It downloads external code and a router binary, so it is informative evidence ra
 merge check. It runs the feasibility probes and the `build` → `place` → `route` → `fill` → `check`
 loop on each target. It also installs Java 25 and the pinned Freerouting jar, checked against its SHA-256,
 and runs the Freerouting probes and the same loop with `--router freerouting`.
+
+
+## Bounded internal search (c0365)
+
+The octilinear router can search for ordinary-connection candidates when its fixed patterns are
+insufficient. This is opt-in and read-only: it adds candidate geometry, not accepted board copper.
+
+| Router option | Meaning |
+| --- | --- |
+| `search=off` | Default: existing fixed-pattern behavior |
+| `search=fallback` | Search only when the fixed families produced no candidate |
+| `search=only` | Skip fixed families and search supported ordinary connections |
+| `search-grid=LENGTH` | Required positive lattice spacing, anchored at board origin |
+| `search-max-states=N` | Required positive cap on discovered states |
+| `search-max-vias=N` | Required nonnegative through-via bound |
+
+Use these options with `route --router octilinear --propose`, then inspect the candidates and
+prepare `--accept ID --dry-run` with the same router options, candidate count and max-length.
+`--reject` also accepts the same options to regenerate the candidate identity. Other modes and
+routers refuse search options as usage errors; invalid or missing bounds are never ignored.
+Confirm using the reviewed plan: confirmation writes its stored bytes without running search again.
+
+Search uses integer eight-direction movements and exact octilinear stubs to off-grid endpoints;
+no pad is moved or snapped. Existing clearance/edge checks judge swept geometry, not just lattice
+points. Cutouts are excluded and through vias are checked on every copper layer, including layers
+that are not allowed for signal tracks. Existing copper remains immutable. Pair nets (including
+named/model pairs absent from job selection) and non-connection subjects receive
+`search-unsupported`; this does not enable independent routing of a coupled leg.
+
+A search candidate has `source=search` and the existing measured facts, no rank or recommendation.
+`state-limit`, `budget`, `cancelled`, `search-geometry` and `search-unsupported` are refusal reasons
+under the existing `route.proposal-open` finding. A complete route longer than `max-length` is not
+emitted. Reaching a bound means exploration is incomplete, not that a physical route is impossible.
+The sparse grid can miss narrower or off-grid paths. Search returns one completed path per subject;
+role costs and negotiated rerouting remain separate proposed changes.
+
+The direct routing API returns explored/discovered counts and termination in `RoutingResult.log`;
+`RoutingJob.extra["cancelled"]` may provide a callable returning true to stop work. A job timeout
+is shared across subjects and the CLI accounts for proposal preparation and fact measurement.
+A fixed state-limited run is deterministic. Wall-clock truncation can explore a different subset,
+so timing is not a byte-repeatability or exhaustive-search guarantee.
+
+See [search evidence](evidence/router-search.md) for sources, authored proofs and oracle limits,
+and [router roadmap](router-roadmap.md) for remaining work.

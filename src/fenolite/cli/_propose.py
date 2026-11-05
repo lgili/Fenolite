@@ -116,6 +116,10 @@ REASONS = {
     "pads": "a pad of its group is missing from the board",
     "all-rejected": "every candidate was rejected",
     "budget": "--timeout ended before it",
+    "cancelled": "the routing job was cancelled",
+    "state-limit": "the explicit search state bound was reached",
+    "search-unsupported": "search does not support this subject or an independent pair leg",
+    "search-geometry": "search needs valid board geometry and endpoint attachments",
 }
 NetValues = Callable[..., tuple[Nm, ...]]
 
@@ -493,6 +497,7 @@ def find(
 ) -> Found:
     """The proposals of ``board``: subjects, the router's candidates and, for every candidate (or only those
     of ``facts_of``), its facts."""
+    started = time.monotonic() if started is None else started
     design = board.design
     assert design.board is not None
     pour = pour_copper(design, pads=board.pads, boundary=board_boundary(design.board), grid=DEFAULT_GRID_NM)
@@ -568,6 +573,11 @@ def find(
                 extra,
                 plane_layers=board.planes,
                 progress=ctx.progress,
+                budget=(
+                    None
+                    if args.timeout is None
+                    else max(1e-9, args.timeout - (time.monotonic() - (started or time.monotonic())))
+                ),
                 roles=tuple(group_routes),
                 subjects=tuple(job_subjects),
             )

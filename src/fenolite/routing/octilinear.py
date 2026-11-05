@@ -564,6 +564,13 @@ class OctilinearRouter:
     def route(self, job: RoutingJob) -> RoutingResult:
         """Route the job's nets and pairs, or its role routes only when it has any (``routing.roleroute``);
         the result is ``UNVERIFIED`` until KiCad checks it."""
+        from fenolite.routing.search import SEARCH_OPTIONS
+        from fenolite.routing.search import options as search_options
+
+        if any(key in job.options for key in SEARCH_OPTIONS):
+            search_options(job.options)
+            if not job.subjects:
+                raise ValueError("search options require proposal subjects")
         issues: list[Issue] = []
         plain = not job.roles and not job.subjects
         max_length, rounds = _options(job.options, issues) if plain else (MAX_LENGTH, ROUNDS)

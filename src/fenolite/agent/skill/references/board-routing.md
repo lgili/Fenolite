@@ -11,6 +11,30 @@ right, routing is mostly short and straight. When a net will not route, the caus
 upstream: a barrier with too few ways across it, or a part on the wrong side. Change the cause, not the
 router's settings. The page `routing` gives the routers and the commands.
 
+## Bounded search proposals
+
+For an ordinary connection that fixed shapes cannot finish, add `--router-option search=fallback`.
+`search=only` skips the fixed shapes; `search=off` is the unchanged default. Opt-in needs all three
+bounds: `search-grid=LENGTH`, `search-max-states=N` (positive), and `search-max-vias=N` (zero allowed).
+These are search limits, not fabrication or electrical requirements. The core uses no external router.
+
+```fenolite-cmd
+fenolite route board.kicad_pcb --router octilinear --propose --nets SIG --router-option search=fallback --router-option search-grid=0.5mm --router-option search-max-states=50000 --router-option search-max-vias=1 --json
+fenolite route board.kicad_pcb --router octilinear --accept c-0123456789abcdef --router-option search=fallback --router-option search-grid=0.5mm --router-option search-max-states=50000 --router-option search-max-vias=1 --dry-run --json
+```
+
+Inspect the geometry/facts, then repeat acceptance with `--confirm --plan PLAN_ID`. The example ID
+is a placeholder: use the actual candidate ID. Acceptance/rejection regenerate proposals, so repeat
+the same search, candidate-count and max-length options. Confirmation writes the reviewed bytes.
+New candidates have `source=search`, no score or recommendation. Search never moves existing copper.
+It handles ordinary connections, not independent pair legs or critical groups (`search-unsupported`).
+A via checks every copper layer it crosses. Missing outline or invalid endpoints give `search-geometry`;
+`state-limit`, `budget` and `cancelled` mean incomplete exploration, never a partial route or proof of
+impossibility. Raise an algorithmic bound only after inspecting the constraints. A fixed bound is
+repeatable; wall-clock truncation is not an exhaustive or byte-identical search guarantee.
+The direct routing API supports a `RoutingJob.extra["cancelled"]` predicate and returns search work
+counters in `RoutingResult.log`; these diagnostics are not candidate scores.
+
 ## Count the crossings
 
 Before you route, find each barrier on the board:

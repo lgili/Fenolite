@@ -310,3 +310,17 @@ inventory is recaptured. These are active changes, not successful batch gates.
 c0330 `root-sheet-presentation-identity` follows the clean external-library
 replay: pair only explicitly resolved project-root panels after a safe filename
 change, retaining child identities, visible-loss detection and collision refusal.
+## Router follow-up allocation — 2026-11-03
+
+The inspected local and origin refs reserve ids through c0356; c0365–c0370 are allocated below.
+Recheck current refs before allocating another id. These proposed changes start from `router-c0280`
+and do not alter the independent CAC integration. See [router roadmap](../docs/router-roadmap.md).
+
+| Change | Phase / purpose |
+| --- | --- |
+| [c0365-router-search](changes/c0365-router-search/proposal.md) | 3A: bounded internal search |
+| [c0366-router-role-costs](changes/c0366-router-role-costs/proposal.md) | 3B: electrical constraints and cost fields |
+| [c0367-router-negotiated-reroute](changes/c0367-router-negotiated-reroute/proposal.md) | 3C: congestion negotiation and atomic reroute bundles |
+| [c0368-router-external-candidates](changes/c0368-router-external-candidates/proposal.md) | Deferred 4: external-router candidates |
+| [c0369-router-proposal-viewer](changes/c0369-router-proposal-viewer/proposal.md) | Deferred 4: proposal geometry and review controls |
+| [c0370-router-completion-review](changes/c0370-router-completion-review/proposal.md) | Cross-cutting workflow and acceptance, not a phase 5 |

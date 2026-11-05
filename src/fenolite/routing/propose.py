@@ -41,6 +41,7 @@ from fenolite.core.ids import content_hash, derived_id
 from fenolite.core.units import Nm, parse_length
 from fenolite.geometry import Location, dist2_point_segment, point_in_ring, rotate_point
 from fenolite.model.board import Track, Via
+from fenolite.routing.budget import Budget
 from fenolite.routing.octilinear import (
     EVIDENCE,
     MAX_LENGTH,
@@ -52,11 +53,15 @@ from fenolite.routing.octilinear import (
 )
 from fenolite.routing.protocol import Candidate, JobNet, JobRoleRoute, JobSubject, RoutingJob, RoutingResult
 from fenolite.routing.roleroute import refusal, route_roles, z_shapes
+from fenolite.routing.search import SEARCH_OPTIONS, coupled_nets
+from fenolite.routing.search import options as search_options
+from fenolite.routing.search import search as maze_search
+from fenolite.routing.search_grid import StopReason
 
 CANDIDATES = 4
 """The default of ``--candidates``: candidates kept per subject."""
 MAX_CANDIDATES = 8
-FAMILIES = ("shape", "z-shape", "via-l", "fanout", "role")
+FAMILIES = ("shape", "z-shape", "via-l", "fanout", "role", "search")
 """The families of the octilinear router, in generation order."""
 RELAXATIONS = ("kelvin-vias=2", "gate-vias=2", "keep-away=clearance")
 """The relaxations of the ``role`` family, one at a time, after its defaults; isolation is never relaxed."""
@@ -509,7 +514,7 @@ def propose_options(options: Mapping[str, str], issues: list[Issue]) -> tuple[in
     bad value (the role-mode options go to the ``role`` family)."""
     keep, max_length = CANDIDATES, MAX_LENGTH
     for key, value in sorted(options.items()):
-        if key in ROLE_OPTIONS:
+        if key in (*ROLE_OPTIONS, *SEARCH_OPTIONS):
             continue
         if key == "candidates" and value.isdigit() and 1 <= int(value) <= MAX_CANDIDATES:
             keep = int(value)
@@ -538,6 +543,18 @@ def propose_options(options: Mapping[str, str], issues: list[Issue]) -> tuple[in
 def propose(job: RoutingJob, world: World, pads: Sequence[object], tool: str) -> RoutingResult:
     """Candidates for ``job.subjects`` (see the module); the result holds no track, arc or via."""
     issues: list[Issue] = []
+    mode, limits = search_options(job.options)
+    budget = Budget(job.budget) if job.budget is not None else None
+    given_cancel = job.extra.get("cancelled")
+    cancelled = cast(Callable[[], bool], given_cancel) if callable(given_cancel) else lambda: False
+
+    def stop() -> StopReason | None:
+        if cancelled():
+            return "cancelled"
+        return "budget" if budget is not None and budget.left() <= 0 else None
+
+    protected_pairs: frozenset[str] = coupled_nets(job) if limits is not None else frozenset()
+    logs: list[str] = []
     keep, max_length = propose_options(job.options, issues)
     search = _Search(job, world, pads, max_length, keep)
     nets: dict[str, JobNet] = {net.name: net for net in job.nets}
@@ -549,12 +566,32 @@ def propose(job: RoutingJob, world: World, pads: Sequence[object], tool: str) ->
         tally = _Tally()
         shaped: list[_Shape] = []
         reason = ""
-        if subject.kind == "group":
-            shaped, reason = search.role(subject, tally)
+        if stopped := stop():
+            reason = stopped
+        elif subject.net in protected_pairs and subject.kind != "group":
+            reason = "search-unsupported"
         else:
-            shaped = search.plain(subject, tally)
-            if subject.kind == "fanout":
-                shaped += search.fanout(subject, tally)
+            if mode != "only":
+                if subject.kind == "group":
+                    shaped, reason = search.role(subject, tally)
+                else:
+                    shaped = search.plain(subject, tally)
+                    if subject.kind == "fanout":
+                        shaped += search.fanout(subject, tally)
+            if limits is not None and not shaped:
+                outcome = maze_search(job, subject, world, limits, max_length=max_length, stop=stop)
+                reason = outcome.reason
+                if outcome.stats is not None:
+                    stats = outcome.stats
+                    detail = (
+                        f"search {subject.key}: {outcome.reason or stats.termination}; "
+                        f"expanded={stats.expanded}; discovered={stats.discovered}"
+                    )
+                    logs.append(detail)
+                    if outcome.reason:
+                        tally.block(detail)
+                if outcome.runs or outcome.vias:
+                    shaped.append(_Shape("search", outcome.runs, outcome.vias))
         net = nets.get(subject.net)
         net_id = net.net_id if net is not None else search.net_ids.get(subject.net)
         clearance = world.clearance(world.subject(subject.net, ""), world.subject(subject.net, ""))
@@ -575,6 +612,7 @@ def propose(job: RoutingJob, world: World, pads: Sequence[object], tool: str) ->
         evidence=EVIDENCE,
         candidates=tuple(candidates),
         refusals=tuple(refusals),
+        log=tuple(logs),
     )
 
 

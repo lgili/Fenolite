@@ -16,6 +16,12 @@ Draftsman writer and Embedded Board Arrays remain gated.
 The dated decisions below preserve the planning history. Earlier “pending publication” and release-hold
 statements describe their stated dates, not the current release. Current milestone rows are updated below.
 
+## Router follow-up specifications — 2026-11-03
+
+The [router roadmap](router-roadmap.md) reconciles the original phases 0–4 with six proposed
+changes c0365–c0370: search, electrical costs, negotiation, external candidates, viewer drawing
+and workflow acceptance. These are unimplemented proposals, not a release commitment or a phase 5.
+
 ## Planning history
 
 Additional work implemented and archived on 2026-10-12: c0164 adds native Altium schematic layout

@@ -1128,3 +1128,26 @@ def test_model_migration_recipe_behaves_as_written(tmp_path: Path, no_tools: Non
     blocks = [block for block in guide.blocks(guide.page("model-versions")) if block.tag == "fenolite-recipe"]
     assert len(blocks) == 1
     assert recipe_problems(blocks[0], tmp_path / "sandbox") == []
+def test_bounded_search_options_have_tested_agent_instructions() -> None:
+    """c0365: teach every search option, explicit acceptance, refusals and limits."""
+    page = guide.page("board-routing")
+    for word in (
+        "search=fallback",
+        "search=only",
+        "search=off",
+        "search-grid=LENGTH",
+        "search-max-states=N",
+        "search-max-vias=N",
+        "source=search",
+        "state-limit",
+        "budget",
+        "cancelled",
+        "search-unsupported",
+        "search-geometry",
+        "--accept",
+        "--confirm --plan",
+        "RoutingResult.log",
+        'extra["cancelled"]',
+    ):
+        assert word in page.text, word
+    assert cmd_problems(page) == []
