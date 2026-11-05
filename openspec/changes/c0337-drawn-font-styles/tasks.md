@@ -22,9 +22,10 @@
   `public-replays-20261104.json`. Coldfire (1 bold) does not reach the style levels: its import refuses
   (exit 5) because a KiCad-9 board (20241229) arrives with a project holding KiCad-10-only keys; that
   importer finding is preserved, not waived. Native 9.0.9 belongs to the required CI jobs.
-- [ ] 2.3 Update CHANGELOG and documentation, check-fast coordinated with root, required exact-head CI. Proof: actual gate records; no local full suite.
+- [x] 2.3 Update CHANGELOG and documentation, check-fast coordinated with root, required exact-head CI. Proof: actual gate records; no local full suite.
   2026-11-04: CHANGELOG and `docs/evidence/drawn-fonts.md` record the replays. Root-coordinated fast
   and exact-head CI stay open.
+  - 2026-11-05 (coordinator, maintainer's delegation of 2026-11-04): CI 41968083051 on 5f46b8d7 (cac/lote-16): every required job green, including unit on five platforms, kicad-9, kicad-10 shards 0-3, routing 9/10, viewer, mcp, wheel, complete test coverage and ci-complete.
 
 Task0.1 passed 2026-11-02: strict proposal validation and real CLI10.0.6 probes. Sources S-1204/1205 and aggregate source/SVG digests recorded before implementation; all native input snapshots unchanged. Colour observed effective and awaits separate scope decision.
 

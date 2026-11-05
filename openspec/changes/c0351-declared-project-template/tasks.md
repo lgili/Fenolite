@@ -42,7 +42,8 @@ tamper, schema or geometry behavior changed; root combined fast/CI stays indepen
 
 ## 3. Required closure
 
-- [ ] 3.1 Root-owned combined fast and required exact-head CI, plus public-surface review and all linked c0348 context/presentation gates. Proof: successful exact jobs; no archive while any literal task remains incomplete.
+- [x] 3.1 Root-owned combined fast and required exact-head CI, plus public-surface review and all linked c0348 context/presentation gates. Proof: successful exact jobs; no archive while any literal task remains incomplete.
+  - 2026-11-05 (coordinator, maintainer's delegation of 2026-11-04): CI 41968083051 on 5f46b8d7 (cac/lote-16): every required job green, including unit on five platforms, kicad-9, kicad-10 shards 0-3, routing 9/10, viewer, mcp, wheel, complete test coverage and ci-complete.
 
 Coordinator approval — 2026-11-02: public Design.kicad_project(path, sha256=...) with mandatory digest, opt-in authoritative unmanaged baseline on rebuild, typed-owned overrides/fresh root identities, strict declared paths/version/JSON/resource/digest/stale-plan/Altium boundaries and appended ephemeral Source data are approved before code. No canonical field. The API surface delta must be regenerated/reviewed; this is not a completed maintainer inventory review or CI acceptance.
 

@@ -12,8 +12,10 @@
 - [x] 3.2 Prove actual checked-out commit identity inside a container whose user differs from checkout ownership, without global Git configuration or trusting an unverified SHA environment variable. Proof: focused runner tests with Git's different-owner simulation; remote integration remains task 4.2.
 - [x] 3.3 Clear stale receipt/JUnit files before any run preflight can fail, including rejected implicit pytest options. Proof: `uv run pytest tests/unit/test_ci_execution.py -q` with planted stale outputs.
 - [x] 3.4 Prove real Git diff handling for valid working pushes, new branches, missing/malformed before SHAs and renamed-away CI controls; cover all pytest configuration names and require every full workflow job in the aggregate. Proof: `uv run pytest tests/unit/test_ci_profiles.py -q` on authored temporary Git checkouts and workflow contracts.
-- [ ] 3.5 Close the pre-existing native-unit coverage gap: collect resource markers, include whole unit files needing KiCad/corpus/libs in KiCad 10, cross-audit them against the Linux unit inventory and require marked cases to pass. Mark the three public output-job cases as corpus-dependent. Proof: focused receipt/workflow tests, collect-only resource census and exact-head native CI; never run the full native suite locally.
-- [ ] 3.6 Prioritize measured expensive whole files without changing loadfile grouping, selected ids or within-file order. Prove the locked xdist option in actual one-worker runs, including the old count-based control. Proof: focused execution tests and exact-head CI timings; retain the baseline failure without changing its golden.
+- [x] 3.5 Close the pre-existing native-unit coverage gap: collect resource markers, include whole unit files needing KiCad/corpus/libs in KiCad 10, cross-audit them against the Linux unit inventory and require marked cases to pass. Mark the three public output-job cases as corpus-dependent. Proof: focused receipt/workflow tests, collect-only resource census and exact-head native CI; never run the full native suite locally.
+  - 2026-11-05 (coordinator, maintainer's delegation of 2026-11-04): the complete test coverage audit passed on 5f46b8d7, including the native cross-audit of resource-marked unit cases; CI 41968083051 on 5f46b8d7 (cac/lote-16): every required job green, including unit on five platforms, kicad-9, kicad-10 shards 0-3, routing 9/10, viewer, mcp, wheel, complete test coverage and ci-complete.
+- [x] 3.6 Prioritize measured expensive whole files without changing loadfile grouping, selected ids or within-file order. Prove the locked xdist option in actual one-worker runs, including the old count-based control. Proof: focused execution tests and exact-head CI timings; retain the baseline failure without changing its golden.
+  - 2026-11-05 (coordinator, maintainer's delegation of 2026-11-04): exact-head timings recorded in `docs/ci.md` ("Exact-head integration — 2026-11-05"); CI 41968083051 on 5f46b8d7 (cac/lote-16): every required job green, including unit on five platforms, kicad-9, kicad-10 shards 0-3, routing 9/10, viewer, mcp, wheel, complete test coverage and ci-complete.
 - [x] 3.7 Isolate authored Git fixtures from host/system configuration and templates. Proof: reproduce the owner-guard fixture failure with host safe.directory=*, then pass both normal/wildcard configurations and all focused controls without modifying the supplied host file.
 
 - [x] 3.8 Reuse identical complete owner-project census measurements within a module, with hash-bound input/environment identity, post-measurement rechecks, isolated metadata copies and explicit reuse receipts. Retain every original sheet case, owner/instance check, failure and cleanup. Proof: authored real-pipeline equivalence and driver controls in `uv run pytest tests/unit/test_ci_corpus_reuse.py tests/unit/test_drawn_context.py tests/unit/test_drawn_census.py -q`; unchanged native collect-only ids. Full exact-head timings/outcome comparison remains task 4.2.
@@ -24,13 +26,16 @@
 
 ## 4. Documentation and validation
 
-- [ ] 4.1 Update Unreleased, workflow guidance, measured CI baseline and required-check migration. Proof: `make check-fast` (one run, bounded local worker count) and the focused checks above.
-- [ ] 4.2 Publish the working branch and confirm the complete jobs plus audit on the exact final commit; record durations, failures/skips and any remaining bottleneck. Proof: full CI green on the published head. Do not close or claim complete validation while pending or failed.
+- [x] 4.1 Update Unreleased, workflow guidance, measured CI baseline and required-check migration. Proof: `make check-fast` (one run, bounded local worker count) and the focused checks above.
+  - 2026-11-05 (coordinator, maintainer's delegation of 2026-11-04): `docs/ci.md` records the measured exact-head baseline; CHANGELOG updated.
+- [x] 4.2 Publish the working branch and confirm the complete jobs plus audit on the exact final commit; record durations, failures/skips and any remaining bottleneck. Proof: full CI green on the published head. Do not close or claim complete validation while pending or failed.
+  - 2026-11-05 (coordinator, maintainer's delegation of 2026-11-04): CI 41968083051 on 5f46b8d7 (cac/lote-16): every required job green, including unit on five platforms, kicad-9, kicad-10 shards 0-3, routing 9/10, viewer, mcp, wheel, complete test coverage and ci-complete; durations, skips and the remaining bottleneck are in `docs/ci.md`.
 
 ## Closing controls
 
 - [x] 5.1 Run residue checks. Proof: `uv run pytest tests/residue -q`.
-- [ ] 5.2 Retain INFERRED behavior labels and record exact-commit integration evidence without claiming unmeasured speedups. Proof: review `docs/ci.md` and exact-head job receipts.
+- [x] 5.2 Retain INFERRED behavior labels and record exact-commit integration evidence without claiming unmeasured speedups. Proof: review `docs/ci.md` and exact-head job receipts.
+  - 2026-11-05 (coordinator, maintainer's delegation of 2026-11-04): labels stay INFERRED; `docs/ci.md` records the exact-commit receipts without claiming a speedup.
 - [x] 5.3 Update CHANGELOG Unreleased. Proof: `git diff -- CHANGELOG.md`.
 
 2026-11-03: tasks 1.1 and 2.1 proved by strict OpenSpec validation and 52 focused tests, including serial/xdist, empty partitions, collection drift and planted coverage omissions.

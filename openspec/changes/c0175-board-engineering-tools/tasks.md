@@ -171,8 +171,9 @@ crossing analysis), with the requirement "Region renders" of `manufacturing-expo
 
 ## 14. Closing
 
-- [ ] 14.1 Run the tests and the residue scan. Proof: `make check-fast`, then the CI jobs of the branch.
+- [x] 14.1 Run the tests and the residue scan. Proof: `make check-fast`, then the CI jobs of the branch.
   - 2026-11-04, OPEN (exact blocker): waits on the CI jobs of the batch that carries task 10.4's commit; nothing to change in code.
+  - 2026-11-05 (coordinator, maintainer's delegation of 2026-11-04): `make check-fast` by the owners; CI 41968083051 on 5f46b8d7 (cac/lote-16): every required job green, including unit on five platforms, kicad-9, kicad-10 shards 0-3, routing 9/10, viewer, mcp, wheel, complete test coverage and ci-complete. Task 10.4 stays open (Altium rotation kit).
 - [x] 14.2 Update the evidence labels: the hypotheses of packages 1, 2 and 7 in `docs/hypotheses.md` (package 12's are c0241's), and the matrix. Proof: `uv run python tools/gen_evidence_matrix.py --check`; `uv run pytest tests/unit/test_hypotheses_register.py -q`.
   - 2026-10-28: package 1: `H-G-DSN-WIDTH-ALL` and `H-G-DSN-ONE-SIDED` stay `ORACLE-VERIFIED(freerouting 2.4.1)`, their proof moved from the local run to CI: both `routing` jobs passed `test_router_input_bench`, which asserts the criterion, in runs 40355527379 (`aaea7b4`) and 40703612332 (`01068dd`); `docs/evidence/routing.md` names the runs. Packages 2 and 7: `H-G-TIES`, `H-G-PRACTICE-*`, `H-G-SHAPE-*` and `H-G-POWER-SPLIT` stay `INFERRED`: only authored unit benches prove them, and no oracle or corpus test compares them with KiCad. Package 12 is not updated here: it moves to change c0241, which registers its rows. The matrix lists no `H-G-` row and is unchanged. Proof passed: `uv run python tools/gen_evidence_matrix.py --check` (exit 0), `uv run pytest tests/unit/test_hypotheses_register.py tests/unit/verify/test_register.py -q -n 2` (53 passed).
 - [x] 14.3 Add an entry to `CHANGELOG.md` under `## [Unreleased]` once the maintainer has opened the version after 0.5.0. Proof: `uv run pytest tests/unit -k "release_record or changelog" -q`.

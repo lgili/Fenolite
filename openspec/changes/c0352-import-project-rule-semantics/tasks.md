@@ -7,7 +7,7 @@
 - [x] 2.2 After explicit option B review, add narrowly traced native-context level6 floor + supported class/effective-membership comparison without canonical model changes or suppression of existing differences.
 - [x] 2.3 Prove floor tampering below all classes on both source paths, ambiguous/malformed inputs, stale plans, and no hidden side inputs.
 - [x] 2.6 Keep the agent guide navigation contract after appending native-context/cache explanations: move Read next to the final line without removing any content. Proof: `uv run pytest tests/unit/agent/test_pages.py -q`, 105 passed (2026-11-03).
-- [ ] 3.1 Run focused import/API/rules and native controls, default regressions, guide generation if needed, lint/types and private residue checks. Root coordinates combined fast/CI.
+- [x] 3.1 Run focused import/API/rules and native controls, default regressions, guide generation if needed, lint/types and private residue checks. Root coordinates combined fast/CI.
   Local part 2026-11-04 on clean 468d8a61: focused native-context/rule/import/emit/verify-source/
   derived-cache/minimum/preserve/schema group 498 passed. Actual kicad-cli 10.0.6 `tests/kicad/rules`:
   104 passed, 1 failed — `test_topology_length_budget[100000-True]` (c0258 topology lowering, outside
@@ -15,6 +15,7 @@
   `project-geometry-default-compat.json`; byte guard 77 passed. Guide generation, ruff, pyright and the
   residue scan run in the batch's check-fast; the private residue gate is not configured in this
   environment, so private names were checked by hand. Root combined fast/CI stays open.
+  - 2026-11-05 (coordinator, maintainer's delegation of 2026-11-04): CI 41968083051 on 5f46b8d7 (cac/lote-16): every required job green, including unit on five platforms, kicad-9, kicad-10 shards 0-3, routing 9/10, viewer, mcp, wheel, complete test coverage and ci-complete.
 - [x] 3.2 Re-run Royal strict full proof honestly, record remaining geometry findings without waivers, and update changelog/evidence.
   Passed 2026-11-04 (`docs/evidence/public-replays-20261104.json`): fresh import of the 10.0.6 Royal demo
   (board digest 535dbe21, equal to corpus row kicad-demo-10-0-6-pcb-13) and strict `verify-source` with

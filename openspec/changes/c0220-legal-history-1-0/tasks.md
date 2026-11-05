@@ -24,7 +24,7 @@
       only from the branch `c0195-mcp-server` (an example path of a client configuration, gone from `dev`).
       Until that branch is deleted or the hit is decided by open question 2, the nightly job and a release
       fail at this step.
-- [ ] 1.3 **Maintainer.** Run `make residue-history` with the private lists on the commit to be released, and
+- [x] 1.3 **Maintainer.** Run `make residue-history` with the private lists on the commit to be released, and
   record the summary line and the commit under this task; decide each hit by open question 2. Proof: the
   record under this task.
   - 2026-11-05, pre-release run (the coordinator repeats it on the release commit; 1.3 stays open):
@@ -37,6 +37,12 @@
     image data, not a token of a private project, so no history rewrite; no waiver entry is needed on the
     release line because the blob is not in it. A release-commit run that still scans that branch reports
     the same hit and gets the same decision. No token, path or hit text is written here.
+  - 2026-11-05, release-commit run (coordinator, on the maintainer's delegation of 2026-11-04): `make residue-history`
+    with the same private token list on 5f46b8d7 (cac/lote-16, the commit fast-forwarded to dev with this record),
+    every one of the 65 local refs, through the machine lock (queued 01:31, ended 01:51). Summary line:
+    `residue: 1 hit(s) in 1 file(s); 22834 file(s) scanned; waivers: 23; private gate: on` (exit 5).
+    The single hit is the same blob, offset and pattern as the pre-release run, not reachable from 5f46b8d7;
+    same decision by open question 2: no rewrite, no waiver. No token, path or hit text is written here.
 
 ## 2. Licences
 

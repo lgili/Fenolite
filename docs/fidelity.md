@@ -180,7 +180,8 @@ Until then the authored script `tests/data/fidelity/sensor_code/design.py` is pr
 
 Levels 5 strict, 6 and 7 are `INFERRED`: unit tests with planted edits and the authored fixture. Level 8 is
 `INFERRED` because one renderer draws both sides (`H-K-FID-PLOT-AGREE`). That KiCad keeps zone outlines when
-it refills and saves a board is `H-K-FID-ZONE-OUTLINE`, `INFERRED` until the KiCad CI job measures it.
+it refills and saves a board is `H-K-FID-ZONE-OUTLINE`, `KICAD-VERIFIED (10.0.x)` since the kicad-10 CI job of
+2026-11-05 measured it; 9.0.x has no `pcb upgrade` and is out of scope.
 
 ## Round-trip test categories
 

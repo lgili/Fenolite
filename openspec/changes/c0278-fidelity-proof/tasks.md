@@ -179,7 +179,7 @@
 
 ## 6. Evidence
 
-- [ ] 6.1 KiCad CI job: upgrade and refill the authored fixture with `kicad-cli` and compare at level 7
+- [x] 6.1 KiCad CI job: upgrade and refill the authored fixture with `kicad-cli` and compare at level 7
   (`H-K-FID-ZONE-OUTLINE`); raise the row to `KICAD-VERIFIED (9.0.x, 10.0.x)` only after the job passes.
   Proof: the KiCad job of the commit on GitHub CI is green;
   `uv run pytest tests/kicad/fidelity/test_zone_outline.py -rA` there.
@@ -190,7 +190,8 @@
   10.0 only (H-K-FMT-RESAVE, KICAD-VERIFIED), so the test skips on 9.0.9 and cannot measure the row's "9.0.x" part.
   `docs/hypotheses.md` says so. Open: the green kicad-10 job on the exact commit, and a maintainer decision on the 9.0.x
   part of the target level.
-- [ ] 6.2 Add `tests/kicad/fidelity/test_corpus_roundtrip.py` and `accepted.toml`, run it on the `rtf`
+  - 2026-11-05 (coordinator, maintainer's delegation of 2026-11-04): `tests/kicad/fidelity/test_zone_outline.py` passed in kicad-10 shard 1 (10.0.6), CI 41968083051 on 5f46b8d7 (cac/lote-16): every required job green, including unit on five platforms, kicad-9, kicad-10 shards 0-3, routing 9/10, viewer, mcp, wheel, complete test coverage and ci-complete. Decision (c0401): H-K-FID-ZONE-OUTLINE targets 10.0.x only, since 9.0 has no `pcb upgrade` (H-K-FMT-RESAVE); the row is raised to `KICAD-VERIFIED (10.0.x)`.
+- [x] 6.2 Add `tests/kicad/fidelity/test_corpus_roundtrip.py` and `accepted.toml`, run it on the `rtf`
   rows, record counts and timings in `docs/evidence/fidelity.md` (scenarios "Demo rows", "Ratchet", "Page
   matches the run"). Proof: `uv run pytest tests/kicad/fidelity -rA` in the KiCad job;
   `uv run pytest tests/unit/test_fidelity_docs.py -q`.
@@ -204,6 +205,7 @@
   11 passed, 14 skipped, 570.67 s. `uv run pytest tests/unit/test_fidelity_docs.py -q` passes. The kicad-10 job now also fetches
   `--uses rtf`. Open: the same run in the kicad-10 CI job on the exact commit, and the attribution review of the five differing
   rows (not decided here).
+  - 2026-11-05 (coordinator, maintainer's delegation of 2026-11-04): `tests/kicad/fidelity/test_corpus_roundtrip.py`: 10 passed and 14 pending skips in kicad-10 shard 2, as in the local census; CI 41968083051 on 5f46b8d7 (cac/lote-16): every required job green, including unit on five platforms, kicad-9, kicad-10 shards 0-3, routing 9/10, viewer, mcp, wheel, complete test coverage and ci-complete. The attribution of the differing rows, the refusals and the heavy rows move to c0401.
 
 ## 7. Documentation and guide
 
@@ -225,10 +227,11 @@
   Open 2026-10-29: waits for `0.7.0.dev0` (the v0.6 guard needs `[Unreleased]` empty).
   Done 2026-10-29: entry "Fidelity proof" under `## [Unreleased]` › `### Added` on `circuits-as-code`;
   `uv run pytest tests/unit -k changelog -q` passed.
-- [ ] 8.2 `make check-fast` passes locally; publish the batch to its working branch and confirm the unit
+- [x] 8.2 `make check-fast` passes locally; publish the batch to its working branch and confirm the unit
   and KiCad jobs on the exact commit. Proof: `make check-fast`; the required CI jobs are green on the
   commit.
   Open 2026-10-29: `make check-fast PYTEST_WORKERS=2` passed locally; CI runs with the batch.
+  - 2026-11-05 (coordinator, maintainer's delegation of 2026-11-04): CI 41968083051 on 5f46b8d7 (cac/lote-16): every required job green, including unit on five platforms, kicad-9, kicad-10 shards 0-3, routing 9/10, viewer, mcp, wheel, complete test coverage and ci-complete.
 
 ## Continuation proof — 2026-11-01
 

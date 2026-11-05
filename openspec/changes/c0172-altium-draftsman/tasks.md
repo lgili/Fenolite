@@ -103,7 +103,8 @@
   open; neither an Altium session nor private-history clearance is claimed.
 
 - [x] 7.4 Add to `CHANGELOG.md` under `## [Unreleased]`: the Draftsman reader, the document behind its gate, the two build options, the job output and the project parameters, or the route that shipped. Proof: `grep -n "Draftsman" CHANGELOG.md`; `openspec validate c0172-altium-draftsman --strict --no-interactive` passes.
-- [ ] 7.5 Publish the branch for CI and confirm the required jobs on the exact commit (AGENTS.md, workflow 4). Proof: `gh pr checks` shows `unit` and `wheel` passing.
+- [x] 7.5 Publish the branch for CI and confirm the required jobs on the exact commit (AGENTS.md, workflow 4). Proof: `gh pr checks` shows `unit` and `wheel` passing.
+  - 2026-11-05 (coordinator, maintainer's delegation of 2026-11-04): CI 41968083051 on 5f46b8d7 (cac/lote-16): every required job green, including unit on five platforms, kicad-9, kicad-10 shards 0-3, routing 9/10, viewer, mcp, wheel, complete test coverage and ci-complete (unit and wheel included).
 
 ## Continuation review — 2026-11-01
 

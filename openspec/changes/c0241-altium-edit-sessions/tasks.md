@@ -41,8 +41,9 @@ here on 2026-10-29 and renumbered: 6.1 is 1.1, 6.2 is 1.2, 6.3 is 2.1, 6.4 to 6.
 
 ## 6. Closing
 
-- [ ] 6.1 Run the tests and the residue scan. Proof: `make check-fast`, then the CI jobs of the branch.
+- [x] 6.1 Run the tests and the residue scan. Proof: `make check-fast`, then the CI jobs of the branch.
   - 2026-11-04, OPEN (exact blocker): `make check-fast` passed on the change's tree except one drift that was fixed in the same commit (`docs/cli-surface.json` regenerated: 22675 passed before the fix, 55 passed in `test_cli_surface.py` after); the CI jobs of the batch that carries it (`cac/lote-14`, run 41945588359) were still running at 23:30, so the task waits on their result on the exact commit.
+  - 2026-11-05 (coordinator, maintainer's delegation of 2026-11-04): CI 41968083051 on 5f46b8d7 (cac/lote-16): every required job green, including unit on five platforms, kicad-9, kicad-10 shards 0-3, routing 9/10, viewer, mcp, wheel, complete test coverage and ci-complete.
 - [x] 6.2 **Moved to c0389 (decided 2026-11-05), as 4.3.** Update the evidence labels of the rows `H-A-EDIT-*` and `H-A-INTEG-*` and the matrix. Proof: `uv run python tools/gen_evidence_matrix.py --check`; `uv run pytest tests/unit/test_hypotheses_register.py -q`.
   - 2026-11-04, BLOCKED (exact blocker): the labels move only on the maintainer's reports of tasks 1.2 and 4.2 (Altium runs J1 to J22 and J23 to J33); phase B is built and waiting at the agent's kit folder `c0241-J/phase-b` (task 4.1).
   - 2026-11-05, review on the maintainer's delegation of 2026-11-04 (the coordinator's decision: a recorded Claude-agent run in Altium 24.5.2.23 satisfies this task only when its proof criteria pass as written): stays open. Tasks 1.2 and 4.2 stay open, so no label moves.

@@ -169,6 +169,32 @@ shards can queue under account concurrency limits. No fixed speedup is promised.
 and its coverage audit remain required rollout proof; record that run and its actual timing before
 closing c0380. A failing baseline or unrelated portability issue is not waived by a faster workflow.
 
+### Exact-head integration — 2026-11-05
+
+Run [41968083051](https://github.com/lgili/Fenolite/actions/runs/41968083051) on `5f46b8d7` (`cac/lote-16`, full
+profile) passed every job, the coverage audit and `ci-complete`, with 14 complete receipts on the exact commit.
+Wall time 68.4 min from start to the last job. Job durations (start to end, including setup):
+
+| Job | Minutes | Receipt outcomes (test execution) |
+|---|---:|---|
+| kicad-10 shard 0/4 | 66.4 | 1,047 passed, 37 skipped (3,848 s) |
+| kicad-10 shard 1/4 | 45.8 | 638 passed, 23 skipped (2,599 s) |
+| kicad-10 shard 2/4 | 23.8 | 1,101 passed, 64 skipped (1,293 s) |
+| kicad-10 shard 3/4 | 38.3 | 1,527 passed, 39 skipped (2,165 s) |
+| kicad-9 | 32.5 | 1,714 passed, 1,009 skipped (1,875 s) |
+| routing KiCad 10 / 9 | 28.9 / 20.0 | 60 passed, 8 skipped / 54 passed, 14 skipped |
+| unit ubuntu py3.11 | 65.7 | 23,451 passed, 4,325 skipped (3,828 s) |
+| unit ubuntu py3.12 / py3.13 | 45.8 / 33.2 | 23,451 passed, 4,325 skipped each |
+| unit macos py3.12 | 44.0 | 23,450 passed, 4,326 skipped |
+| unit windows py3.12 | 48.9 | 23,324 passed, 4,452 skipped |
+| viewer / mcp / wheel / quality | 3.6 / 1.2 / 1.0 / 1.4 | 125 passed / 66 passed / — / — |
+
+The skips are declared (tool, platform or `pending` corpus rows); the audit requires every resource-marked
+unit case to pass in kicad-10 and found none skipped or missing. The remaining bottleneck is kicad-10 shard 0
+and the py3.11 unit job, about 66 minutes each; the four kicad-10 shards are unbalanced (24–66 minutes), because
+the partition hashes whole files. This is one run, not a benchmark: the labels stay INFERRED and no speedup is
+claimed against the earlier runs above.
+
 Local validation on 2026-11-03: static gates passed and 149 focused CI/diagnostic controls passed.
 The first bounded `make check-fast` finished in 26m44s with 20,056 passed, 52 skipped and two failures:
 the workflow-shape assertion was updated and its focused proof passed; the Altium byte guard for

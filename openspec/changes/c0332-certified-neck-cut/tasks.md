@@ -97,7 +97,8 @@ caller above within the existing limits. Tasks 2.2 to 2.16 stay open for it.
 ## 2. Combined validation
 
 - [x] 2.1 Run local make check-fast and focused tests on the final combined signed source; record exact failures without bypasses. Proof: complete local logs and source SHA.
-- [ ] 2.2 Only with explicit push authorization, require exact-head CI and required native acceptance before merge/archive. Proof: exact commit/job/native receipts; interrupted or partial jobs do not pass.
+- [x] 2.2 Only with explicit push authorization, require exact-head CI and required native acceptance before merge/archive. Proof: exact commit/job/native receipts; interrupted or partial jobs do not pass.
+  - 2026-11-05 (coordinator, maintainer's delegation of 2026-11-04): CI 41968083051 on 5f46b8d7 (cac/lote-16): every required job green, including unit on five platforms, kicad-9, kicad-10 shards 0-3, routing 9/10, viewer, mcp, wheel, complete test coverage and ci-complete. The native receipts include the 27 cases deferred on codex/cac-next (they run on cac/lote-*); the repour session's local run on 1120ce66 passed 28/28 with 370 exact cuts and no refusal.
 
 Integrated proof — 2026-11-02: clean signed 71d2ac93 reproduces all 75
 reviewed candidate plans/1172 files, preserving ten refusals and 1170 baseline

@@ -29,7 +29,7 @@
   page/hypothesis controls 297 passed; actual KiCad 10.0.6 `tests/kicad/board/test_derived_teardrop_proof.py`
   1 passed. CHANGELOG records the measurement; the guide's `max_curve_error` and padvia lines are unchanged
   and its generation check passes. No acceptance, threshold or evidence level changed.
-- [ ] 3.2 Rerun affected public board proofs and coordinate complete exact-head fast/CI. Proof: actual source-bound outcomes, no acceptance/threshold changes, required CI jobs before closure.
+- [x] 3.2 Rerun affected public board proofs and coordinate complete exact-head fast/CI. Proof: actual source-bound outcomes, no acceptance/threshold changes, required CI jobs before closure.
   Local part 2026-11-04 (`docs/evidence/public-replays-20261104.json`, kicad-cli 10.0.6, inputs equal to
   their corpus digests and unchanged afterwards): Complex imports and passes all nine levels, exit 0,
   accepted [], regenerated 167/167 with exact 16b255c6. Royal exits 5 only at level 7: regenerated
@@ -37,6 +37,7 @@
   for this side) and raw teardrop 263/0. flat_hierarchy (9.0.9.1 demo) exits 5 only at level 7: raw
   176 to 178 versus 0 to 178, geometry 6c67e319 versus 37277939, raw teardrop 176/0. No waiver or
   acceptance. Native 9.0.9 and the exact-head fast/CI jobs remain for the coordinator; keep open.
+  - 2026-11-05 (coordinator, maintainer's delegation of 2026-11-04): CI 41968083051 on 5f46b8d7 (cac/lote-16): every required job green, including unit on five platforms, kicad-9, kicad-10 shards 0-3, routing 9/10, viewer, mcp, wheel, complete test coverage and ci-complete.
 - [x] 3.3 Coordinate final model0 inventory/schema/fingerprint with root before model1 freeze. Proof: final source-bound regeneration/gates after the last model field.
   Done 2026-11-04: c0218's `transition-proof.json` recaptured the combined final model 0 at
   7c1789ae, which contains this change's model work: 75 rows, 1137 files, the only difference

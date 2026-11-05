@@ -164,8 +164,9 @@
   `uv run pytest tests/unit/test_release_record_v06.py tests/consistency -q` on the `0.7.0.dev0` base.
   Passed 2026-11-01 on the supplied 0.7.0.dev0 base: 710 tests, 41 expected mutating-command skips;
   one Added entry records the package protocol and reviewed upgrades.
-- [ ] 5.3 Push the batch to the working branch and confirm that the required unit and KiCad jobs pass on
+- [x] 5.3 Push the batch to the working branch and confirm that the required unit and KiCad jobs pass on
   that exact commit. Run only `make check-fast` and the focused tests locally (AGENTS.md, workflow 4).
   Proof: the run of the commit on GitHub CI is green; `make check-fast` passes locally.
   Open: the integration worker owns publication, the serialized local gate and exact-commit CI.
   This worker makes signed local commits only and claims no CI result.
+  - 2026-11-05 (coordinator, maintainer's delegation of 2026-11-04): CI 41968083051 on 5f46b8d7 (cac/lote-16): every required job green, including unit on five platforms, kicad-9, kicad-10 shards 0-3, routing 9/10, viewer, mcp, wheel, complete test coverage and ci-complete. The lote-16 run 41960624994 had failed on the block-item tests (FEN-3006 after c0279's v1.0.0 pin); 5f46b8d7 fixed the tests.

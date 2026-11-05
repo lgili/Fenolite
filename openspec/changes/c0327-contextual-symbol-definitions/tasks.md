@@ -77,7 +77,7 @@
   1.86 s and 44 extraction/lowering/context cases passed in 9.78 s. Changed-file
   types report zero errors. The real replay outcome remains task 2.2.
 
-- [ ] 2.1 Prove authored native cache/property preservation, component semantics,
+- [x] 2.1 Prove authored native cache/property preservation, component semantics,
   negative guards and all-nine-level fidelity on actual KiCad 9 and 10.
   Proof: `uv run pytest tests/kicad/schematic/test_contextual_symbols.py -q` in both required CI jobs.
   Supplemental local actual 9.0.2: 2 passed in 7.34 s. All component fields and
@@ -87,6 +87,7 @@
   Local 10.0.6 repeat 2026-11-04 on clean 468d8a61, `FENOLITE_REQUIRE=kicad`: 2 passed in 17.34 s
   (4 components and 4 BOM rows, all nine levels equal; 8 pins / 5 groups, 4 complete contextual
   definitions, all partitions equal). The required 9.0.9 and 10.0.6 CI jobs still close this task.
+  - 2026-11-05 (coordinator, maintainer's delegation of 2026-11-04): `tests/kicad/schematic/test_contextual_symbols.py`: 2 passed in kicad-9 (9.0.9) and 2 passed in kicad-10 shard 3 (10.0.6), CI 41968083051 on 5f46b8d7 (cac/lote-16): every required job green, including unit on five platforms, kicad-9, kicad-10 shards 0-3, routing 9/10, viewer, mcp, wheel, complete test coverage and ci-complete.
 - [x] 2.2 Replay the real VME owner and all of its row contexts with declared inputs.
   Preserve any remaining refusal, naming difference and all five reader-floor failures.
   Proof: the literal c0276 corpus driver reports its actual source/version-bound outcomes.
@@ -125,9 +126,10 @@
   Final frame/evidence follow-up: 197 focused cases pass in 42.85 s; all 3213
   Python files formatted, four generation checks/strict spec pass, residue
   remains zero with the same 16 waivers and no available private gate.
-- [ ] 2.4 Root repeats one complete gate and required CI on the exact published
+- [x] 2.4 Root repeats one complete gate and required CI on the exact published
   combined head. Keep c0276 task 7.2 and naming/native application proofs separate.
   Proof: required exact-head jobs complete successfully; no full KiCad suite on the maintainer PC.
+  - 2026-11-05 (coordinator, maintainer's delegation of 2026-11-04): CI 41968083051 on 5f46b8d7 (cac/lote-16): every required job green, including unit on five platforms, kicad-9, kicad-10 shards 0-3, routing 9/10, viewer, mcp, wheel, complete test coverage and ci-complete.
 
 ## Maintainer-host native continuation — 2026-11-02
 

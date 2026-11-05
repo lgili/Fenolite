@@ -75,7 +75,8 @@ not completion or authorization to register a guessed plugin.
 - [x] 6.1 Residue: every fixture and sidecar carries its authored line, no real MPN or key is in the tree, no absolute path. Proof: `.venv/bin/python tools/residue/scan.py`.
 - [x] 6.2 Evidence: `H-G-SUPPLIER-OFFLINE` in `docs/hypotheses.md` with its measurement; the evidence matrix regenerated. Proof: `uv run pytest tests/unit/test_hypotheses_register.py -q`; `uv run python tools/gen_evidence_matrix.py --check`.
 - [x] 6.3 Add the entry to `CHANGELOG.md` under `## [Unreleased]`. This waits for `0.7.0.dev0` on `dev` (the guard of v0.6 keeps `[Unreleased]` empty until then). Proof: `.venv/bin/python -m pytest tests/unit/test_release_record*.py tests/unit/test_release_tool.py -k changelog -q`.
-- [ ] 6.4 Run `make check-fast`, publish the batch to its working branch, and read the required CI jobs on the exact commit. Proof: `make check-fast`; the required jobs green on the pushed head.
+- [x] 6.4 Run `make check-fast`, publish the batch to its working branch, and read the required CI jobs on the exact commit. Proof: `make check-fast`; the required jobs green on the pushed head.
+  - 2026-11-05 (coordinator, maintainer's delegation of 2026-11-04): CI 41968083051 on 5f46b8d7 (cac/lote-16): every required job green, including unit on five platforms, kicad-9, kicad-10 shards 0-3, routing 9/10, viewer, mcp, wheel, complete test coverage and ci-complete.
 
 Initial framework review 2026-11-01: 0.2 remained open because primary DigiKey terms were inaccessible,
 Mouser terms returned 403, Nexar API-terms body was unavailable and Farnell's readable partner
