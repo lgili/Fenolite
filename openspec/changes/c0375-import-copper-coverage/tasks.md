@@ -20,4 +20,7 @@
       tests/corpus/test_altium_pour_census.py tests/corpus/test_convert_altium_census.py
       tests/corpus/test_altium_copper.py 'tests/corpus/test_import_corpus.py::test_demo_board_imports_equivalent[18]'`
       (103 passed, 2026-11-05).
-- [ ] 3.1 Docs, CHANGELOG, guide lines, `openspec validate --strict`, focused tests, `make check-fast`.
+- [x] 3.1 Docs, CHANGELOG, guide lines, `openspec validate --strict`, focused tests, `make check-fast`.
+      Done 2026-11-05. `make check-fast` scope: CI 41947475460 on 515ddc6a, `quality` and the five `unit`
+      jobs passed; later commits of `cac/c0364-lote16`: focused tests passed and `openspec validate
+      --strict` passed. The guide lines are on pages `files` and `altium` (`tests/unit/agent/test_pages.py`, 113 passed).

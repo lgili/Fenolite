@@ -24,4 +24,7 @@
 
 ## 3. Close
 
-- [ ] 3.1 Docs, CHANGELOG, `openspec validate --strict`, focused tests, `make check-fast`.
+- [x] 3.1 Docs, CHANGELOG, `openspec validate --strict`, focused tests, `make check-fast`.
+      Done 2026-11-05. `make check-fast` scope: CI 41947475460 on 515ddc6a, `quality` and the five `unit`
+      jobs passed; later commits of `cac/c0364-lote16`: focused tests passed and `openspec validate
+      --strict` passed. Tasks 2.1 and 2.2 moved to c0387.

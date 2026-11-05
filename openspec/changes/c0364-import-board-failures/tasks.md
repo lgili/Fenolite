@@ -25,8 +25,11 @@
 
 ## 5. Close
 
-- [ ] 5.1 Docs (`docs/dsl.md`), `CHANGELOG.md`, generated surface and guide,
+- [x] 5.1 Docs (`docs/dsl.md`), `CHANGELOG.md`, generated surface and guide,
       `openspec validate c0364-import-board-failures --strict`, `make check-fast`.
+      Done 2026-11-05. `make check-fast` scope: CI 41947475460 on 515ddc6a, `quality` and the five `unit`
+      jobs passed; later commits of `cac/c0364-lote16`: focused tests passed and `openspec validate
+      --strict` passed.
 - [x] 5.2 Re-run the failing commands on the maintainer's private boards outside the repository and
       record the outcome per item (no private data in the repository). Outcome 2026-11-04: the 41 internal
       failures of the batch are gone (38 `check` runs complete, 24 with exit 0 and 14 with findings; 3
@@ -37,4 +40,4 @@
 Status of 5.1: the first `make check-fast` run found 5 failures caused by this change (surface, part
 attributes, field-order and approved model-shape tests); the design moved the flag out of the model and
 the 5 tests, the touched areas on Python 3.11 (6 841 tests) and the openspec/residue/consistency tests
-(1 112) pass. A repeated `make check-fast` waits for the machine (another batch runs its suite).
+(1 112) pass. Closed on 2026-11-05 by CI 41947475460 (task 5.1).

@@ -7,5 +7,8 @@
 
 ## 2. Close
 
-- [ ] 2.1 Docs, CHANGELOG, explain entry, guide line for the new code, `openspec validate --strict`,
+- [x] 2.1 Docs, CHANGELOG, explain entry, guide line for the new code, `openspec validate --strict`,
       focused tests, `make check-fast`.
+      Done 2026-11-05. `make check-fast` scope: CI 41947475460 on 515ddc6a, `quality` and the five `unit`
+      jobs passed; later commits of `cac/c0364-lote16`: focused tests passed and `openspec validate
+      --strict` passed. The guide line is on page `altium` (`tests/unit/agent/test_pages.py`, 113 passed).
