@@ -21,7 +21,7 @@
 - [ ] 2.4 (from c0166 3.2) Execute PCB D/C requests, X8.6 counts and the supplementary long-via measurement. Proof: dated per-step report and the hypothesis/provenance tests.
   - 2026-11-05 (S-1601, AD 24.5.2.23, agent run): D1 to D3, C6, X8.6 and the long-via measurement run and recorded under "Reports" of `docs/evidence/altium-pcb.md`. D1 to D3 are as expected. C6 is not: a design rule check reports Starved Thermal and an Un-Routed Net between the `GND` via and `D1` pad 1, so `H-A-PCB-CU-PLANE` stays pending. X8.6 repeats the counts of 2026-10-13. The nine via bytes hold the via diameter. Hypothesis notes added, levels unchanged.
   - Still open: C6 fails its expectation (plane connectivity; cause not studied), and C5 (Viewer upload) was not run.
-- [ ] 2.7 (follow-up of 2.4, C6) Find why the plane writer's connection of the `GND` via and `D1` pad 1 fails
+- [x] 2.7 (follow-up of 2.4, C6) Find why the plane writer's connection of the `GND` via and `D1` pad 1 fails
   Altium's design rule check: Starved Thermal on the `GND` via (13 %) and on `D1` pad 1 (10 %), and an
   Un-Routed Net between them (S-1601). The cause is not studied. Proof: a C6 rerun in Altium with no such
   violation, recorded under "Reports" of `docs/evidence/altium-pcb.md`; `H-A-PCB-CU-PLANE` set by it.
@@ -40,6 +40,8 @@
     `2026-11-05-ddbe216c`) passes and restores the four `H-A-PCBX-*` rows. The other five rows stay
     `INFERRED`, because they also name steps of other samples (`docs/evidence/altium-kit/README.md`, "board6
     rerun of 2026-11-05").
+  - Closed 2026-11-05 by the coordinator on S-1607: C6 has no Starved Thermal and no Un-Routed Net. `H-A-PCB-CU-PLANE`
+    records the run and stays `INFERRED`, since an agent run raises no level under the approved scope.
 - [ ] 2.5 (from c0166 3.3) Execute Repeat R1-R4 and R5 when its implementation is available; preserve any branch blocker. Proof: the report and focused Repeat tests.
   - Blocker on 2026-11-05: Repeat R1–R5 was not run in any agent round (S-1570 to S-1589); R5 keeps its recorded failure.
   - 2026-11-05 (S-1602, AD 24.5.2.23 Trial, agent run): R1 and R2 run on the committed bytes that passed in AD 26.5
