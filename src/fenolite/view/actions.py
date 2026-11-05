@@ -22,6 +22,8 @@ from typing import Any, cast
 
 from fenolite.view import conflicts
 from fenolite.view.project import Document, ProjectTree
+from fenolite.view.proposal_controls import ControlError
+from fenolite.view.proposal_controls import words as proposal_control_words
 from fenolite.view.runs import KICAD_BOARD, KICAD_PROJECT, is_altium, under_root
 
 ACTION_HEADER = "X-Fenolite-Action"
@@ -36,8 +38,8 @@ ROLE_NAME = re.compile(r"^[^\s,=:\\]{1,128}$")
 """A net or group name the Confirm roles action passes on: no space, comma, ``=``, ``:`` or backslash."""
 NO_ROLES = "the board has no role data in this session: run roles first"
 NO_PROPOSALS = "the board has no proposal data in this session: run proposals first"
-CANDIDATE_ID = re.compile(r"^[cp]-[0-9a-f]{16}$")
-"""A candidate (``c-``) or proposal (``p-``) id of ``route --propose`` (change c0280)."""
+CANDIDATE_ID = re.compile(r"^[cpb]-[0-9a-f]{16}$")
+"""A candidate (``c-``), bundle (``b-``) or proposal (``p-``) id of ``route --propose``."""
 REASON_CHARS = 300
 ALTIUM = "Altium documents are not written from the viewer"
 NOT_A_BOARD = "the actions write a KiCad board: open the board of the project"
@@ -227,6 +229,9 @@ class Context:
     groups: frozenset[str] | None = None
     candidates: frozenset[str] | None = None
     proposals: frozenset[str] | None = None
+    route_controls: object | None = None
+    proposal_stale: bool = False
+    route_unavailable: str = ""
     resolve: Json | None = None
 
 
@@ -361,6 +366,10 @@ def _typed(key: str, option: Option, value: Any, context: Context, root: Path) -
 
 def _decision_ids(key: str, value: Any, context: Context, *, proposals: bool) -> list[str] | ActionRefused:
     """``value`` as candidate ids (and, for a reject, proposal ids) of the session's proposal data."""
+    if context.proposal_stale:
+        return ActionRefused("proposals are stale or from an earlier board revision; run proposals again")
+    if context.route_unavailable:
+        return ActionRefused(context.route_unavailable)
     if context.candidates is None:
         return ActionRefused(NO_PROPOSALS)
     known: set[str] = set(context.candidates)
@@ -470,6 +479,11 @@ def plan(body: Any, tree: ProjectTree, context: Context = Context()) -> ActionRe
     flags = _flags(name, values)
     if isinstance(flags, ActionRefused):
         return flags
+    if name in ("route-accept", "route-reject"):
+        controls = proposal_control_words(context.route_controls, tree.root)
+        if isinstance(controls, ControlError):
+            return ActionRefused(controls.reason)
+        flags += controls
     on_board = name in ("roles", "route-accept", "route-reject")
     path = doc.file if on_board and doc.file is not None else target(tree, doc)
     rel = path.resolve().relative_to(tree.root.resolve()).as_posix()

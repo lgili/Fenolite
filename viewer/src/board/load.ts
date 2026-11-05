@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 Fenolite contributors
+import { buildProposals } from "../panels/proposals";
 import { $, esc } from "../core/dom";
 import { cv, S, setS, st, vis } from "../core/state";
 import { fit, fitted, setFitted } from "../core/viewport";
@@ -31,7 +32,7 @@ export function loadBoard(scene, keepView) {
   for (const l of S.layers) if (!vis.has(l.id)) vis.set(l.id, l.visible);
   if (!st.cur || !S.layers.some(l => l.id === st.cur)) st.cur = (S.layers.find(l => l.id === "F.Cu") || S.layers[0] || {}).id;
   if (st.query) st.query = st.query.text && S.prims ? { text: st.query.text, ...queryRun(S, queryParse(st.query.text)) } : null;
-  buildCaches(); resetRoleCache(); buildTabs(); buildPanels(); buildRoles(); buildDiffList(); buildMessages(); buildVariants(); buildReview(); applyProjNet();
+  buildCaches(); resetRoleCache(); buildTabs(); buildPanels(); buildRoles(); buildProposals(); buildDiffList(); buildMessages(); buildVariants(); buildReview(); applyProjNet();
   cv.style.display = st.mode3d ? "none" : "block";
   setDocTitle(S.meta.name);
   if (V3.built) { V3.built = false; if (st.mode3d) { build3D(); draw3D(); } }

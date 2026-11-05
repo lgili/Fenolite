@@ -25,6 +25,7 @@ bounded body. The runner is injected by ``cmd_view``, as the scene builder is.
 
 from __future__ import annotations
 
+import hashlib
 import hmac
 import json
 import secrets
@@ -108,6 +109,7 @@ class _State:
     updated: str | None = None
     signature: tuple[int, int] | tuple[int, int, str] | None = None
     pending: tuple[int, int] | tuple[int, int, str] | None = None
+    proposals_stale: bool = False
 
 
 class Live:
@@ -198,10 +200,42 @@ class Live:
         candidates, proposal_ids = (
             proposals_view.ids_of(cast("dict[str, Any]", held)) if isinstance(held, dict) else (None, None)
         )
+        proposal_context: dict[str, Any] = {}
+        if isinstance(held, dict):
+            held = cast("dict[str, Any]", held)
+            doc = self.tree.document(doc_id)
+            try:
+                current = (
+                    hashlib.sha256(doc.file.read_bytes()).hexdigest()
+                    if doc is not None and doc.file is not None and doc.file.is_file()
+                    else ""
+                )
+            except OSError:
+                current = ""
+            state = self.states.get(doc_id)
+            proposal_context["proposal_stale"] = (
+                (state is not None and state.proposals_stale)
+                or not held.get("sha256")
+                or held.get("sha256") != current
+            )
+            proposal_context["route_controls"] = held.get("controls")
+            if held.get("controls") is None:
+                families = {
+                    c.get("source") for p in held.get("proposals", []) for c in p.get("candidates", [])
+                }
+                if families - {"shape", "z-shape", "via-l", "fanout", "role"}:
+                    proposal_context["route_unavailable"] = (
+                        "regeneration controls are missing; rerun proposals with the current CLI"
+                    )
         data = scene.get("roles")
         if not isinstance(data, dict):  # c0305: the inferred roles and groups that Confirm roles may name
             return actions.Context(
-                refs=refs, findings=findings, candidates=candidates, proposals=proposal_ids, resolve=resolve
+                refs=refs,
+                findings=findings,
+                candidates=candidates,
+                proposals=proposal_ids,
+                resolve=resolve,
+                **proposal_context,
             )
         rows = [_object(r) for r in cast("list[Any]", cast("dict[str, Any]", data).get("roles") or [])]
         groups = [_object(g) for g in cast("list[Any]", cast("dict[str, Any]", data).get("groups") or [])]
@@ -215,6 +249,7 @@ class Live:
             candidates=candidates,
             proposals=proposal_ids,
             resolve=resolve,
+            **proposal_context,
         )
 
     def _tools(self) -> ActionTools:
@@ -414,6 +449,8 @@ class Live:
                 self.checks.pop(job.doc, None)
         if doc is not None and state is not None and doc.file is not None:
             state.signature = self._document_signature(doc)  # read again now, not after the watcher settles
+            if job.action not in ("export", "bom"):
+                state.proposals_stale = True
             self._rebuild(doc, state)
         return {"receipt": receipt, "written": entry}
 
@@ -489,6 +526,11 @@ class Live:
             return {}
         assert doc.file is not None
         derived = self.derive(doc.file, found.command, outcome.envelope)
+        if found.command == "proposals" and isinstance(derived.get("proposals"), dict):
+            state = self.states.get(job.doc)
+            if state is not None:
+                state.proposals_stale = False
+                self._rebuild(doc, state)  # future action contexts use the new IDs too
         if "check" in derived:
             with self.lock:
                 self.checks[job.doc] = derived["check"]
@@ -557,6 +599,8 @@ class Live:
         return signature
 
     def _store(self, state: _State, scene: dict[str, Any], generation: int) -> bool:
+        if state.proposals_stale and isinstance(scene.get("proposals"), dict):
+            scene = scene | {"proposals": {**scene["proposals"], "stale": True}}
         data = json.dumps(compact(scene), separators=(",", ":"), ensure_ascii=False).encode("utf-8")
         with self.lock:
             if state.generation != generation:

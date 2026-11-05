@@ -121,3 +121,88 @@ def test_notice() -> None:
     )
     if version is not None:
         assert f"Preact {version}" in head and f"Preact {version}" in notice
+
+
+def test_proposal_model_converts_geometry_once_and_keeps_unknown_facts() -> None:
+    import shutil
+    import subprocess
+
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("node is not installed")
+    source = _text(STATIC / "viewer.js").split("// ---- proposals.ts\n", 1)[1].split("// ---- ", 1)[0]
+    candidate = {
+        "id": "c-unknown",
+        "source": "unfamiliar-family",
+        "polylines": [{"layer": "F.Cu", "width": 250, "points": [[1000, 2000], [3000, 4000]]}],
+        "vias": [{"at": [3000, 4000], "diameter": 600, "drill": 300, "layers": ["F.Cu", "B.Cu"]}],
+        "facts": {"length": None, "vias": 1},
+    }
+    script = (
+        source
+        + "\nconst c = "
+        + json.dumps(candidate)
+        + ";\n"
+        + """
+const sc = {proposals:{schema:'fenolite.view_proposals.v0',proposals:[{box:[0,0,4000,5000],
+  ends:[{at:[1000,2000],layers:['F.Cu']}],candidates:[c]}]}};
+proposalsToMM(sc); const first = JSON.stringify(sc); proposalsToMM(sc);
+console.log(JSON.stringify({same:first===JSON.stringify(sc),sc,facts:proposalFacts(c)}));
+"""
+    )
+    done = subprocess.run([node, "-e", script], capture_output=True, text=True, timeout=30, check=False)
+    assert done.returncode == 0, done.stderr
+    data = json.loads(done.stdout)
+    assert data["same"] is True
+    subject = data["sc"]["proposals"]["proposals"][0]
+    assert subject["ends"][0]["at"] == [1, 2]
+    assert subject["candidates"][0]["polylines"][0]["width"] == 0.25
+    assert subject["candidates"][0]["vias"][0]["drill"] == 0.3
+    assert dict(data["facts"])["Length (nm)"] == "unknown"
+    assert dict(data["facts"])["Vias"] == "1"
+    assert subject["candidates"][0]["source"] == "unfamiliar-family"
+
+
+def test_proposal_bundle_contains_safe_panel_and_layered_overlay() -> None:
+    js = _text(STATIC / "viewer.js")
+    assert 'id="proposalList"' in _text(STATIC / "page.html")
+    panel = js.split("// ---- panels/proposals.tsx\n", 1)[1].split("// ---- ", 1)[0]
+    assert "preact.render(" in panel and "innerHTML" not in panel
+    assert "Nothing is selected for acceptance" in panel
+    assert "Locked decisions" in panel and "Focus / cross-probe" in panel
+    drawing = js.split("// ---- proposals/draw.ts\n", 1)[1].split("// ---- ", 1)[0]
+    assert "setLineDash" in drawing and "strokeRect" in drawing
+
+
+def test_proposal_through_via_remains_visible_on_its_inner_barrel_layer() -> None:
+    import shutil
+    import subprocess
+
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("node is not installed")
+    js = _text(STATIC / "viewer.js")
+    model = js.split("// ---- proposals.ts\n", 1)[1].split("// ---- ", 1)[0]
+    drawing = js.split("// ---- proposals/draw.ts\n", 1)[1].split("// ---- ", 1)[0]
+    script = (
+        model
+        + """
+const circles = [], lines = [];
+const ctx = {save(){},restore(){},setLineDash(){},beginPath(){},stroke(){},strokeRect(){},
+  arc(...args){circles.push(args)},moveTo(){},lineTo(...args){lines.push(args)}};
+const view={s:10}, st={single:true,cur:'In1.Cu'}, worldTf=()=>{};
+const vis = new Map([['F.Cu',false],['In1.Cu',true],['B.Cu',false]]);
+const S = {layers:['F.Cu','In1.Cu','B.Cu'].map(id=>({id,kind:'copper'})),
+  proposals:{schema:'fenolite.view_proposals.v0',proposals:[{ends:[],candidates:[{id:'c-one',
+    polylines:[{layer:'F.Cu',width:0.25,points:[[1,2],[3,4]]}],
+    vias:[{at:[3,4],diameter:0.6,drill:0.3,layers:['F.Cu','B.Cu']}]}]}]}};
+"""
+        + drawing
+        + """
+drawProposals(); const visible = circles.length; vis.set('In1.Cu',false); drawProposals();
+console.log(JSON.stringify({visible,hidden:circles.length-visible,lines:lines.length}));
+"""
+    )
+    done = subprocess.run([node, "-e", script], capture_output=True, text=True, timeout=30, check=False)
+    assert done.returncode == 0, done.stderr
+    assert json.loads(done.stdout) == {"visible": 2, "hidden": 0, "lines": 0}

@@ -14,8 +14,11 @@ passes the reply in. Standard library only.
 
 from __future__ import annotations
 
+import copy
+import re
+from collections import Counter
 from collections.abc import Mapping
-from typing import Any, cast
+from typing import Any, TypedDict, cast
 
 from fenolite.core.errors import FormatError
 
@@ -24,6 +27,52 @@ BOX_MARGIN_UM = 2_000
 """How far a proposal's box reaches beyond its ends and candidates, in micrometres (decision 6's 2 mm)."""
 
 Json = dict[str, Any]
+
+
+class SceneLine(TypedDict):
+    layer: str
+    width: int
+    points: list[list[int]]
+
+
+class SceneVia(TypedDict, total=False):
+    at: list[int]
+    diameter: int
+    drill: int
+    layers: list[str]
+
+
+class SceneEnd(TypedDict, total=False):
+    kind: str
+    name: str
+    at: list[int]
+    layers: list[str]
+
+
+class SceneCandidate(TypedDict, total=False):
+    id: str
+    source: str
+    relaxed: list[str]
+    polylines: list[SceneLine]
+    vias: list[SceneVia]
+    facts: Json
+    rejected: bool
+    locked: bool
+    bundle: str
+    tool: Json
+    unknown_geometry: bool
+
+
+def _array(value: Any) -> list[Any]:
+    return cast("list[Any]", value) if isinstance(value, list) else []
+
+
+def _objects(value: Any) -> list[Json]:
+    return [cast(Json, item) for item in _array(value) if isinstance(item, dict)]
+
+
+def _texts(value: Any) -> list[str]:
+    return [item for item in _array(value) if isinstance(item, str)]
 
 
 def read_reply(data: Any, *, name: str = "") -> Json:
@@ -44,48 +93,96 @@ def read_reply(data: Any, *, name: str = "") -> Json:
     return reply
 
 
-def _um(value: Any) -> int:
-    return round(int(value) / 1000)
+def _um(value: int) -> int:
+    quotient, remainder = divmod(value, 1000)
+    return quotient + int(remainder > 500 or (remainder == 500 and quotient % 2 != 0))
 
 
 def _point(raw: Any) -> list[int] | None:
     if isinstance(raw, list) and len(cast("list[Any]", raw)) == 2:
         x, y = cast("list[Any]", raw)
-        if isinstance(x, int) and isinstance(y, int):
-            return [_um(x), _um(y)]
+        if type(x) is int and type(y) is int:
+            point = [_um(x), _um(y)]
+            if all(abs(value) <= 2**53 - 1 for value in point):
+                return point
     return None
 
 
-def _candidate(raw: Mapping[str, Any]) -> tuple[Json, list[list[int]]]:
-    polylines: list[Json] = []
-    vias: list[Json] = []
+def _size(value: Any) -> int | None:
+    return _um(value) if type(value) is int and value > 0 else None
+
+
+def _candidate(raw: Mapping[str, Any]) -> tuple[SceneCandidate, list[list[int]]]:
+    polylines: list[SceneLine] = []
+    vias: list[SceneVia] = []
     points: list[list[int]] = []
-    for item in cast("list[Any]", raw.get("geometry") or []):
+    unknown = False
+    for item in _array(raw.get("geometry")):
         if not isinstance(item, dict):
+            unknown = True
             continue
         part = cast("Json", item)
         if part.get("kind") == "track":
-            line = [p for p in (_point(q) for q in cast("list[Any]", part.get("points") or [])) if p]
-            polylines.append({"layer": part.get("layer"), "width": _um(part.get("width", 0)), "points": line})
-            points += line
-        elif part.get("kind") == "via":
-            at = _point(part.get("at"))
-            if at is None:
+            given = _array(part.get("points"))
+            line = [_point(q) for q in given]
+            width = _size(part.get("width"))
+            layer = part.get("layer")
+            if len(line) < 2 or any(p is None for p in line) or not width or not isinstance(layer, str):
+                unknown = True
                 continue
-            vias.append(
-                {"at": at, "diameter": _um(part.get("diameter", 0)), "layers": list(part.get("layers") or [])}
-            )
+            valid = cast("list[list[int]]", line)
+            polylines.append({"layer": layer, "width": width, "points": valid})
+            points += valid
+        elif part.get("kind") == "via":
+            at, diameter = _point(part.get("at")), _size(part.get("diameter"))
+            layers = _texts(part.get("layers"))
+            if at is None or not diameter or not layers:
+                unknown = True
+                continue
+            via: SceneVia = {"at": at, "diameter": diameter, "layers": layers}
+            if drill := _size(part.get("drill")):
+                via["drill"] = drill
+            vias.append(via)
             points.append(at)
-    entry: Json = {
-        "id": raw.get("id"),
-        "source": raw.get("source"),
-        "relaxed": list(cast("list[Any]", raw.get("relaxed") or [])),
+        else:
+            unknown = True
+    entry: SceneCandidate = {
+        "relaxed": _texts(raw.get("relaxed")),
         "polylines": polylines,
         "vias": vias,
-        "facts": raw.get("facts"),
         "rejected": bool(raw.get("rejected")),
     }
-    return {key: value for key, value in entry.items() if value is not None}, points
+    if isinstance(raw.get("id"), str):
+        entry["id"] = raw["id"]
+    if isinstance(raw.get("source"), str):
+        entry["source"] = raw["source"]
+    if isinstance(raw.get("facts"), dict):
+        entry["facts"] = copy.deepcopy(raw["facts"])
+    if isinstance(raw.get("bundle"), str):
+        entry["bundle"] = raw["bundle"]
+    if isinstance(raw.get("tool"), dict):
+        entry["tool"] = copy.deepcopy(raw["tool"])
+    if type(raw.get("locked")) is bool:
+        entry["locked"] = raw["locked"]
+    if unknown:
+        entry["unknown_geometry"] = True
+    return entry, points
+
+
+def _ends(raw: Any) -> list[SceneEnd]:
+    ends: list[SceneEnd] = []
+    for value in _array(raw):
+        if not isinstance(value, dict):
+            continue
+        given = cast(Json, value)
+        end: SceneEnd = {"layers": _texts(given.get("layers"))}
+        for key in ("kind", "name"):
+            if isinstance(given.get(key), str):
+                end[key] = given[key]
+        if at := _point(given.get("at")):
+            end["at"] = at
+        ends.append(end)
+    return ends
 
 
 def _box(points: list[list[int]]) -> list[int] | None:
@@ -109,9 +206,9 @@ def overlay(reply: Mapping[str, Any], scene: Mapping[str, Any]) -> Json:
         if not isinstance(raw, dict):
             continue
         proposal = cast("Json", raw)
-        ends = [cast("Json", e) for e in cast("list[Any]", proposal.get("ends") or []) if isinstance(e, dict)]
-        points = [p for p in (_point(e.get("at")) for e in ends) if p]
-        candidates: list[Json] = []
+        ends = _ends(proposal.get("ends"))
+        points = [end["at"] for end in ends if "at" in end]
+        candidates: list[SceneCandidate] = []
         for item in cast("list[Any]", proposal.get("candidates") or []):
             if isinstance(item, dict):
                 entry, drawn = _candidate(cast("Json", item))
@@ -129,6 +226,11 @@ def overlay(reply: Mapping[str, Any], scene: Mapping[str, Any]) -> Json:
             "region": proposal.get("region"),
             "candidates": candidates,
         }
+        for key in ("id", "kind", "net", "subject", "reason", "region"):
+            if not isinstance(entry.get(key), str):
+                entry.pop(key, None)
+        if "ends" in proposal:
+            entry["ends"] = ends
         proposals.append({key: value for key, value in entry.items() if value is not None})
     evidence = cast("Json", reply.get("evidence") or {})
     source = cast("Json", reply.get("input") or {})
@@ -146,23 +248,104 @@ def overlay(reply: Mapping[str, Any], scene: Mapping[str, Any]) -> Json:
         "locked": list(cast("list[Any]", result.get("locked") or [])),
         "counts": {"proposals": len(proposals), "candidates": count},
     }
+    for key in ("bundles", "role_fields", "external", "controls"):
+        if key in result:
+            data[key] = copy.deepcopy(result[key])
     return {key: value for key, value in data.items() if value is not None}
 
 
+WRITABLE_FAMILIES = frozenset(
+    {
+        "shape",
+        "z-shape",
+        "via-l",
+        "fanout",
+        "role",
+        "search",
+        "external:kicadroutingtools",
+        "external:freerouting",
+    }
+)
+
+
+def _units(data: Mapping[str, Any]) -> tuple[dict[str, tuple[str, ...]], set[str]]:
+    rows = [(p, c) for p in _objects(data.get("proposals")) for c in _objects(p.get("candidates"))]
+    bundles = _objects(data.get("bundles"))
+    owned = {str(c["id"]) for _, c in rows if c.get("id") and c.get("bundle")}
+    claims: Counter[str] = Counter()
+    for bundle in bundles:
+        for member in _texts(bundle.get("members")):
+            owned.add(member)
+            claims[member] += 1
+    controls = data.get("controls")
+    if not isinstance(controls, dict):
+        return {}, owned
+    controls = cast(Json, controls)
+    if controls.get("schema") != "fenolite.proposal_controls.v0":
+        return {}, owned
+    if "negotiate=on" not in _texts(controls.get("router_options")):
+        return {}, owned
+    by_id = {str(c.get("id")): (p, c) for p, c in rows}
+    counts = Counter(str(c.get("id")) for _, c in rows)
+    bundle_ids = Counter(str(b.get("id")) for b in bundles)
+    valid: dict[str, tuple[str, ...]] = {}
+    for bundle in bundles:
+        ident, fingerprint = bundle.get("id"), bundle.get("fingerprint")
+        members = _texts(bundle.get("members"))
+        if not isinstance(bundle.get("members"), list) or len(members) != len(bundle["members"]):
+            continue
+        if (
+            not isinstance(ident, str)
+            or re.fullmatch(r"b-[0-9a-f]{16}", ident) is None
+            or bundle_ids[ident] != 1
+            or not isinstance(fingerprint, str)
+            or re.fullmatch(r"[0-9a-f]{64}", fingerprint) is None
+            or len(members) < 2
+            or len(set(members)) != len(members)
+        ):
+            continue
+        if any(
+            re.fullmatch(r"c-[0-9a-f]{16}", member) is None or counts[member] != 1 or claims[member] != 1
+            for member in members
+        ):
+            continue
+        declared = {str(c.get("id")) for _, c in rows if c.get("bundle") == ident}
+        if declared != set(members):
+            continue
+        if any(by_id[member][1].get("source") not in WRITABLE_FAMILIES for member in members):
+            continue
+        subjects = [by_id[member][0].get("subject") for member in members]
+        if any(not isinstance(subject, str) for subject in subjects):
+            continue
+        if len(set(subjects)) != len(subjects) or subjects != bundle.get("subjects"):
+            continue
+        valid[ident] = tuple(members)
+    return valid, owned
+
+
+def bundle_units(data: Mapping[str, Any]) -> dict[str, tuple[str, ...]]:
+    """Complete, unambiguous bundle units; malformed membership never falls back to member writes."""
+    return _units(data)[0]
+
+
 def ids_of(data: Mapping[str, Any] | None) -> tuple[frozenset[str], frozenset[str]]:
-    """The candidate ids and the proposal ids of ``scene.proposals`` (the route actions of the page)."""
+    """Writable units and independent proposal IDs; bound members cannot be accepted or rejected alone."""
     if not data:
         return frozenset(), frozenset()
-    proposals = [
-        cast("Json", p) for p in cast("list[Any]", data.get("proposals") or []) if isinstance(p, dict)
-    ]
+    proposals = _objects(data.get("proposals"))
+    bundles, owned = _units(data)
     candidates = {
-        str(cast("Json", c).get("id"))
+        str(c["id"])
         for p in proposals
-        for c in cast("list[Any]", p.get("candidates") or [])
-        if isinstance(c, dict) and cast("Json", c).get("id")
+        for c in _objects(p.get("candidates"))
+        if c.get("id") and c.get("id") not in owned and c.get("source") in WRITABLE_FAMILIES
     }
-    return frozenset(candidates), frozenset(str(p["id"]) for p in proposals if p.get("id"))
+    proposal_ids = {
+        str(p["id"])
+        for p in proposals
+        if p.get("id") and not any(c.get("id") in owned for c in _objects(p.get("candidates")))
+    }
+    return frozenset(candidates | set(bundles)), frozenset(proposal_ids)
 
 
 def summary(data: Mapping[str, Any]) -> Json:
@@ -176,4 +359,4 @@ def summary(data: Mapping[str, Any]) -> Json:
     }
 
 
-__all__ = ["SCHEMA", "ids_of", "overlay", "read_reply", "summary"]
+__all__ = ["SCHEMA", "bundle_units", "ids_of", "overlay", "read_reply", "summary"]

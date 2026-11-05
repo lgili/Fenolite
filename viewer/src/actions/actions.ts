@@ -16,6 +16,7 @@ import { DOC, S, st } from "../core/state";
 import { MIL_MM, UNIT } from "../core/units";
 import { actClose, actDialog, actRender } from "../dialogs/plan-review";
 import { buildDiffList } from "../panels/changes";
+import { buildProposals } from "../panels/proposals";
 import { buildReceipts } from "../panels/receipts";
 import { markStale, runCall, RUNS } from "../review/runs";
 import { refreshInspector } from "../panels/inspector";
@@ -67,7 +68,8 @@ function actNudge(box) {   // arrow keys in the move form shift the part by one 
     f.value = `${(+v[1] + m[1] * step * (e.shiftKey ? 10 : 1)).toFixed(v[2] === "mm" ? 3 : 1)}${v[2]}`;
   });
 }
-export function buildActionPanel(retry = false) {   // retry: the Project review was opened, a failed read of the offer is tried again
+export function buildActionPanel(retry = false) {
+  buildProposals();   // retry: the Project review was opened, a failed read of the offer is tried again
   const panel = $("actionPanel"); if (!panel) return;
   if (LIVE && DOC && (ACTS.doc !== DOC.id || (retry && ACTS.failed))) { ACTS.doc = DOC.id; actionsLoad(); }
   panel.innerHTML = ""; panel.hidden = !ACTS.enabled || !DOC || ACTS.doc !== DOC.id; if (panel.hidden) return;

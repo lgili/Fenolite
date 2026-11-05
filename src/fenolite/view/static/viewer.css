@@ -3039,6 +3039,81 @@ table.planFiles td {
   grid-template-columns: 20px 12px minmax(0, 1fr) 0 24px;
 }
 
+/* src/styles/proposals.css */
+.proposalSubject {
+  margin: 10px 0;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+.proposalSubject h3 {
+  font-size: 13px;
+  margin: 5px 0;
+}
+.proposalSubject p {
+  overflow-wrap: anywhere;
+}
+.proposalCandidate {
+  margin: 9px 0;
+  padding: 9px;
+  border: 1px dashed var(--info);
+  border-radius: 4px;
+}
+.proposalControls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.proposalControls label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.proposalCandidate dl {
+  margin: 8px 0;
+}
+.proposalCandidate dl > div {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 5px 0;
+}
+.proposalCandidate dt {
+  font-weight: 600;
+}
+.proposalCandidate dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.proposalCandidate pre {
+  max-height: 180px;
+  overflow: auto;
+  font-size: 11px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.proposalDecision {
+  display: grid;
+  gap: 8px;
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+}
+.proposalDecision button {
+  justify-self: start;
+}
+.proposalBundle {
+  border: 1px solid var(--info);
+  border-radius: 4px;
+  padding: 9px;
+  margin: 10px 0;
+  overflow-wrap: anywhere;
+}
+.proposalBundle h3 {
+  font-size: 13px;
+  margin-top: 0;
+}
+
 /* src/styles/responsive.css */
 @media (max-width: 760px) {
   #app {

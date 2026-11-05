@@ -10,6 +10,7 @@ import { drawMarks } from "../panels/marks";
 import { HL_ALPHA } from "../panels/review";
 import { refreshStatus } from "../panels/status-bar";
 import { drawCheck } from "../review/check";
+import { drawProposals } from "../proposals/draw";
 import { drawRoles, paintRoleCopper } from "../roles/draw";
 import { drawSch } from "../sch/draw";
 import { cache, compCache, netCache, qCache, selCache, textCache } from "./cache";
@@ -98,6 +99,6 @@ export function draw() {
   if (VARIANT && S.variants) { worldTf(); ctx.globalAlpha = 0.6; ctx.fillStyle = (S.theme || {}).board || "#050505";
     for (const c of S.comps) if (c.bbox && notFitted(c.ref)) { const b = c.bbox; ctx.fillRect(b[0], b[1], b[2] - b[0], b[3] - b[1]); }
     drawVariantMarks(S.comps.map(c => [c.ref, c.bbox])); }
-  drawDiff(); drawOverlays(); drawCheck(); drawRoles(); drawEdge(); drawMarks(); drawMeasure(); linkLater();
+  drawDiff(); drawOverlays(); drawCheck(); drawRoles(); drawProposals(); drawEdge(); drawMarks(); drawMeasure(); linkLater();
   $("zoomv").textContent = `Zoom ${view.s.toFixed(1)} px/mm`; refreshStatus();
 }

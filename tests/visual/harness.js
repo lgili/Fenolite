@@ -40,6 +40,10 @@ async function compare(page, shot, ref) {
       await page.waitForFunction(() => typeof linkReady !== "undefined" && linkReady && typeof S !== "undefined" && S, null, { timeout: 60000 });
       let result = null;
       if (job.script) result = await page.evaluate(`(async () => { ${job.script} })()`);
+      if (job.keys) {
+        for (const key of job.keys) await page.locator(key.selector).press(key.key);
+        if (job.afterKeysScript) result = await page.evaluate(`(async () => { ${job.afterKeysScript} })()`);
+      }
       if (job.reloadScript) {   // c0300: what a page keeps across a reload (localStorage of the same context)
         await page.reload();
         await page.waitForFunction(() => typeof linkReady !== "undefined" && linkReady && typeof S !== "undefined" && S, null, { timeout: 60000 });

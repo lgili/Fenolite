@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 Fenolite contributors
+import { proposalsToMM } from "../proposals";
 import { MM } from "../core/state";
 import { checkToMM } from "../review/check";
 import { rolesToMM } from "../roles/roles";
@@ -22,7 +23,7 @@ export function diffToMM(sc) {   // c0184: the changes of --compare, in micromet
 }
 export function toMM(scene) {
   decodeV1(scene);
-  if (scene.mm) return scene; scene.mm = true; diffToMM(scene); checkToMM(scene); rolesToMM(scene);
+  if (scene.mm) return scene; scene.mm = true; diffToMM(scene); checkToMM(scene); rolesToMM(scene); proposalsToMM(scene);
   for (const p of scene.pads || []) { p.x *= MM; p.y *= MM; }
   const f = v => v * MM;
   for (const pr of scene.prims) primToMM(pr, f);

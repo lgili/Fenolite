@@ -399,9 +399,21 @@ scene carries `proposals` (`fenolite.view_proposals.v0`): each proposal with its
 alternatives, each candidate with its polylines, vias and facts as the reply gives them, and the locked
 decisions. No score is added: the facts are the reply's. A served page can run `proposals` and, with
 `--allow-actions`, plan **route-accept** and **route-reject** through the same plan, confirm and undo as the
-other actions. Drawing the candidates (dashed in their layer colour, locked ones solid, a comparison table
-of the facts without a default sort) is the work of the next viewer change; this change fixes the data and
-the actions.
+other actions. The Route proposals panel draws dashed cyan tracks and layer-filtered vias above
+committed copper; squares mark endpoints, including unresolved subjects. Toggle alternatives separately,
+use keyboard Focus / cross-probe, and compare their measured facts in generation order. Measurement
+remains available. Unknown families retain safe geometry/text; absent facts read unknown. Locked and
+rejected choices, relaxations and tool provenance remain inspectable. Nothing is selected for acceptance.
+
+Static exported pages are read-only. Served decision buttons first open the existing reviewed plan;
+only its explicit confirmation writes staged bytes. Changed inputs require a fresh review. A project
+write invalidates displayed decisions, even when a rejection changed only the decision record; run
+proposals again to refresh. Structured regeneration controls are validated by the server, never
+executed as command text. Unsupported tool configurations or unknown families are inspection-only.
+
+Atomic alternatives list every member, including hidden overlays. Inspect whole bundle frames the
+complete unit. Accept/reject uses only its `b-...` ID; individual members and their parent proposal IDs
+cannot be used to bypass atomic selection. Missing or ambiguous bundle metadata permits inspection only.
 
 ```sh
 fenolite view build/board.kicad_pcb --proposals run --export proposals.html --confirm   # a page with the data

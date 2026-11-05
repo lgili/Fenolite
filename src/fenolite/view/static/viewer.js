@@ -379,6 +379,77 @@ const st = { edge: false, epick: [], eres: null, marking: false, checks: true, s
     } })(), diff: true, single: false, measure: false, mpts: [], selNet: -1, selComp: -1, selOv: -1, opac: 0.6, version: null, mode3d: false, cur: null,
     ovOff: new Set(), ovOpen: new Set() };
 const vis = new Map();
+// ---- proposals.ts
+const PROPOSALS = { data: null, hidden: new Set(), focused: "" };
+function proposalScene(scene) {
+    return scene && !scene.kind && scene.proposals?.schema === "fenolite.view_proposals.v0" ? scene.proposals : null;
+}
+function proposalsToMM(scene) {
+    const data = proposalScene(scene);
+    if (!data || data.mm)
+        return;
+    data.mm = true;
+    const point = p => p.map(v => v * 0.001);
+    for (const subject of data.proposals || []) {
+        if (subject.box)
+            subject.box = point(subject.box);
+        for (const end of subject.ends || [])
+            if (end.at)
+                end.at = point(end.at);
+        for (const candidate of subject.candidates || []) {
+            for (const line of candidate.polylines || []) {
+                line.width *= 0.001;
+                line.points = line.points.map(point);
+            }
+            for (const via of candidate.vias || []) {
+                via.at = point(via.at);
+                via.diameter *= 0.001;
+                if (via.drill != null)
+                    via.drill *= 0.001;
+            }
+        }
+    }
+}
+function proposalFacts(candidate) {
+    const f = candidate.facts || {}, text = v => v == null ? "unknown" : typeof v === "object" ? JSON.stringify(v) : String(v);
+    return [["Length (nm)", text(f.length)], ["Vias", text(f.vias)], ["Layers", text(f.layers)],
+        ["Open connections", text(f.open)], ["Copper findings", text(f.copper)],
+        ["Role findings", text(f.roles)], ["Not measured", text(f.not_evaluated)],
+        ["Role/reference bounds", text(f.role_fields)]];
+}
+const PROPOSAL_WRITABLE_FAMILIES = new Set(["shape", "z-shape", "via-l", "fanout", "role", "search", "external:kicadroutingtools", "external:freerouting"]);
+function proposalBundleModels(data) {
+    const rows = (data.proposals || []).flatMap(subject => (subject.candidates || []).map(candidate => ({ subject, candidate })));
+    const bundles = Array.isArray(data.bundles) ? data.bundles.filter(b => b && typeof b === "object") : [];
+    const counts = new Map(), claims = new Map(), ids = new Map();
+    for (const { candidate } of rows)
+        counts.set(candidate.id, (counts.get(candidate.id) || 0) + 1);
+    for (const bundle of bundles) {
+        ids.set(bundle.id, (ids.get(bundle.id) || 0) + 1);
+        if (Array.isArray(bundle.members))
+            for (const member of bundle.members)
+                claims.set(member, (claims.get(member) || 0) + 1);
+    }
+    return bundles.map(bundle => {
+        const names = Array.isArray(bundle.members) ? bundle.members : [];
+        const members = names.map(id => rows.find(row => row.candidate.id === id)).filter(Boolean);
+        const declared = rows.filter(row => row.candidate.bundle === bundle.id);
+        const subjects = members.map(row => row.subject.subject);
+        const valid = /^b-[0-9a-f]{16}$/.test(bundle.id) && ids.get(bundle.id) === 1 &&
+            /^[0-9a-f]{64}$/.test(bundle.fingerprint || "") && names.length >= 2 &&
+            new Set(names).size === names.length && members.length === names.length &&
+            names.every(id => /^c-[0-9a-f]{16}$/.test(id) && counts.get(id) === 1 && claims.get(id) === 1) &&
+            members.every(row => row.candidate.bundle === bundle.id && PROPOSAL_WRITABLE_FAMILIES.has(row.candidate.source)) &&
+            declared.length === names.length && new Set(subjects).size === subjects.length &&
+            JSON.stringify(subjects) === JSON.stringify(bundle.subjects) &&
+            data.controls?.schema === "fenolite.proposal_controls.v0" &&
+            Array.isArray(data.controls.router_options) && data.controls.router_options.includes("negotiate=on");
+        const display = { ...bundle,
+            id: typeof bundle.id === "string" ? bundle.id : "unknown bundle",
+            fingerprint: typeof bundle.fingerprint === "string" ? bundle.fingerprint : "unknown" };
+        return { bundle: display, members, valid, reason: valid ? "" : "Incomplete or ambiguous bundle metadata: inspection only." };
+    });
+}
 // ---- core/theme.ts
 // The interface theme (c0300, design decision 1): "system" follows prefers-color-scheme, "dark" and "light" are
 // the user's choice, kept in localStorage under fenolite.view.theme and written to html[data-theme]. Only the
@@ -657,6 +728,7 @@ function toMM(scene) {
     diffToMM(scene);
     checkToMM(scene);
     rolesToMM(scene);
+    proposalsToMM(scene);
     for (const p of scene.pads || []) {
         p.x *= MM;
         p.y *= MM;
@@ -1113,6 +1185,7 @@ function draw() {
     drawOverlays();
     drawCheck();
     drawRoles();
+    drawProposals();
     drawEdge();
     drawMarks();
     drawMeasure();
@@ -1495,6 +1568,65 @@ function drawRoleFindings(R, u) {
             ctx.setLineDash([]);
         }
     }
+}
+// ---- proposals/draw.ts
+// Proposed copper is dashed, never painted into a committed-copper cache.
+function drawProposals() {
+    const data = proposalScene(S);
+    if (!data)
+        return;
+    worldTf();
+    ctx.save();
+    const u = 1 / view.s;
+    const on = layer => S.layers.some(l => l.id === layer) && vis.get(layer) !== false && (!st.single || st.cur === layer);
+    for (const subject of data.proposals || []) {
+        for (const candidate of subject.candidates || []) {
+            if (PROPOSALS.hidden.has(candidate.id || ""))
+                continue;
+            const focus = PROPOSALS.focused === candidate.id || PROPOSALS.focused === candidate.bundle;
+            ctx.globalAlpha = candidate.rejected ? 0.4 : 0.9;
+            ctx.strokeStyle = focus ? "#ffb640" : "#36bdd0";
+            ctx.setLineDash(candidate.rejected ? [2 * u, 5 * u] : [7 * u, 4 * u]);
+            for (const line of candidate.polylines || []) {
+                if (!on(line.layer) || line.points.length < 2)
+                    continue;
+                ctx.lineWidth = Math.max(line.width, (focus ? 3 : 2) * u);
+                ctx.beginPath();
+                line.points.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]));
+                ctx.stroke();
+            }
+            for (const via of candidate.vias || []) {
+                const stack = S.layers.filter(l => l.kind === "copper").map(l => l.id);
+                const a = stack.indexOf(via.layers[0]), b = stack.indexOf(via.layers[via.layers.length - 1]);
+                const span = a >= 0 && b >= a ? stack.slice(a, b + 1) : via.layers;
+                if (!span.some(on))
+                    continue;
+                ctx.lineWidth = (focus ? 3 : 2) * u;
+                ctx.beginPath();
+                ctx.arc(via.at[0], via.at[1], Math.max(via.diameter / 2, 4 * u), 0, Math.PI * 2);
+                ctx.stroke();
+                if (via.drill != null) {
+                    ctx.setLineDash([]);
+                    ctx.beginPath();
+                    ctx.arc(via.at[0], via.at[1], via.drill / 2, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+                ctx.setLineDash([7 * u, 4 * u]);
+            }
+        }
+        // Endpoints of unresolved subjects remain visible, including when every alternative is hidden.
+        ctx.globalAlpha = 1;
+        ctx.strokeStyle = subject.candidates?.length ? "#36bdd0" : "#ffb640";
+        ctx.lineWidth = 2 * u;
+        ctx.setLineDash([]);
+        for (const end of subject.ends || []) {
+            if (!end.at || !(end.layers || []).some(on))
+                continue;
+            const [x, y] = end.at;
+            ctx.strokeRect(x - 4 * u, y - 4 * u, 8 * u, 8 * u);
+        }
+    }
+    ctx.restore();
 }
 // ---- panels/messages.tsx
 // The Messages panel of `--check` (c0188), a Preact component (change c0304): the notes, then the findings
@@ -2149,6 +2281,7 @@ function actNudge(box) {
     });
 }
 function buildActionPanel(retry = false) {
+    buildProposals(); // retry: the Project review was opened, a failed read of the offer is tried again
     const panel = $("actionPanel");
     if (!panel)
         return;
@@ -4471,6 +4604,145 @@ function RoleLayers() {
                     preact.h(Icon, { name: on ? "eye" : "eyeOff", size: 14 })));
         }));
 }
+// ---- panels/proposals.tsx
+// Each decision previews through the existing action protocol; confirmation belongs to its dialog.
+function focusProposal(subject, candidate) {
+    PROPOSALS.focused = candidate?.id || "";
+    const net = S.nets.indexOf(subject.net);
+    if (net >= 0)
+        selectNetAt(net);
+    if (subject.box)
+        fit(subject.box);
+    buildProposals();
+    draw();
+}
+function proposalWriteReason(candidate) {
+    const data = proposalScene(S);
+    if (!LIVE || !ACTS.enabled || !DOC || ACTS.doc !== DOC.id)
+        return "Read-only page or actions unavailable.";
+    if (data?.stale)
+        return "Proposals predate a project write; run proposals again.";
+    if (!data?.sha256 || !S.meta?.sha256 || data.sha256 !== S.meta.sha256)
+        return "Proposals are stale or unbound; run proposals again.";
+    if (data.controls && data.controls.portable !== true)
+        return "This router/tool configuration cannot be replayed from the viewer.";
+    if (data.controls && data.controls.schema !== "fenolite.proposal_controls.v0")
+        return "Unsupported regeneration controls.";
+    if (candidate && (!candidate.id || !/^c-[0-9a-f]{16}$/.test(candidate.id)))
+        return "No writable candidate ID.";
+    if (candidate && !PROPOSAL_WRITABLE_FAMILIES.has(candidate.source || ""))
+        return "Unknown family: inspection only.";
+    if (candidate?.bundle)
+        return "Review the complete atomic bundle.";
+    if (candidate && !data.controls && (candidate.source === "search" || candidate.source?.startsWith("external:")))
+        return "Regeneration controls are missing; rerun proposals.";
+    return "";
+}
+async function reviewProposalDecision(action, id, reason, button) {
+    button.disabled = true;
+    try {
+        await actPlan(action, { candidates: [id], ...(action === "route-reject" && reason ? { reason } : {}) });
+    }
+    finally {
+        buildProposals();
+    }
+}
+function ProposalUnitDecision({ id, why, rejected = false }) {
+    if (!LIVE || !ACTS.enabled)
+        return null;
+    const reason = { current: null };
+    const busy = !!ACTS.job, accept = ACTS.offer?.["route-accept"], reject = ACTS.offer?.["route-reject"];
+    return preact.h("div", { class: "proposalDecision" },
+        why ? preact.h("p", { class: "hint" }, why) : null,
+        preact.h("button", { type: "button", class: "tb small", "data-proposal-action": "route-accept", disabled: !!why || busy || !accept?.available || rejected, onClick: e => reviewProposalDecision("route-accept", id, "", e.currentTarget) }, "Review accept plan\u2026"),
+        preact.h("label", { class: "actField" },
+            "Rejection reason (optional)",
+            preact.h("input", { ref: reason, maxlength: 300, "aria-label": `Rejection reason ${id}` })),
+        preact.h("button", { type: "button", class: "tb small", "data-proposal-action": "route-reject", disabled: !!why || busy || !reject?.available, onClick: e => reviewProposalDecision("route-reject", id, reason.current?.value.trim() || "", e.currentTarget) }, "Review reject plan\u2026"));
+}
+function ProposalDecisionButtons({ candidate }) {
+    if (candidate.bundle)
+        return preact.h("p", { class: "hint" }, "Use the complete atomic bundle controls; members cannot be decided alone.");
+    return preact.h(ProposalUnitDecision, { id: candidate.id, why: proposalWriteReason(candidate), rejected: candidate.rejected });
+}
+function ProposalBundleCards({ data }) {
+    return preact.h(preact.Fragment, null, proposalBundleModels(data).map(unit => preact.h("section", { class: "proposalBundle", key: unit.bundle.id, "data-bundle": unit.bundle.id },
+        preact.h("h3", null, "Atomic alternative"),
+        preact.h("strong", null, unit.bundle.id),
+        preact.h("p", null, `All ${unit.bundle.members?.length || 0} members are accepted or rejected together, including hidden overlays.`),
+        preact.h("p", null, unit.reason),
+        preact.h("ul", null, unit.members.map(row => preact.h("li", { key: row.candidate.id }, `${row.subject.net || "unknown net"}: ${row.candidate.id}`))),
+        preact.h("button", { type: "button", class: "tb small", disabled: !unit.members.length, onClick: () => {
+                PROPOSALS.focused = unit.bundle.id;
+                const boxes = unit.members.map(row => row.subject.box).filter(Boolean);
+                if (boxes.length)
+                    fit([Math.min(...boxes.map(b => b[0])), Math.min(...boxes.map(b => b[1])), Math.max(...boxes.map(b => b[2])), Math.max(...boxes.map(b => b[3]))]);
+                buildProposals();
+                draw();
+            } }, "Inspect whole bundle"),
+        preact.h(ProposalUnitDecision, { id: unit.bundle.id, why: proposalWriteReason() || unit.reason }),
+        preact.h("details", null,
+            preact.h("summary", null, "Bound input fingerprint"),
+            preact.h("p", null, unit.bundle.fingerprint || "unknown")))));
+}
+function ProposalCandidateCard({ candidate, subject }) {
+    const id = candidate.id || "unknown", locked = candidate.locked || PROPOSALS.data?.locked?.some(row => row.candidate === id && row.present);
+    return preact.h("article", { class: "proposalCandidate", "data-candidate": id },
+        preact.h("div", { class: "proposalControls" },
+            preact.h("label", null,
+                preact.h("input", { type: "checkbox", checked: !PROPOSALS.hidden.has(id), "aria-label": `Show candidate ${id}`, onChange: e => { const on = e.currentTarget.checked; on ? PROPOSALS.hidden.delete(id) : PROPOSALS.hidden.add(id); draw(); } }),
+                " Show"),
+            preact.h("button", { type: "button", class: "tb small", onClick: () => focusProposal(subject, candidate), "aria-label": `Focus candidate ${id}` }, "Focus / cross-probe")),
+        preact.h("strong", null, id),
+        preact.h("div", null, candidate.source || "unknown family"),
+        preact.h("p", { class: "hint" },
+            locked ? "Locked decision" : "Provisional · dashed copper",
+            candidate.rejected ? " · rejected" : ""),
+        candidate.bundle ? preact.h("p", null, `Atomic bundle: ${candidate.bundle}`) : null,
+        (candidate.relaxed || []).length ? preact.h("p", null, `Relaxations: ${candidate.relaxed.join(", ")}`) : null,
+        candidate.unknown_geometry ? preact.h("p", { class: "notes" }, "Some geometry is unknown and is not drawn.") : null,
+        preact.h("dl", null, proposalFacts(candidate).map(([label, value]) => preact.h("div", { key: label },
+            preact.h("dt", null, label),
+            preact.h("dd", null, value)))),
+        preact.h(ProposalDecisionButtons, { candidate: candidate }),
+        preact.h("details", null,
+            preact.h("summary", null, "Geometry and tool details"),
+            preact.h("pre", null, JSON.stringify({ layers: (candidate.polylines || []).map(p => p.layer), vias: candidate.vias, tool: candidate.tool ?? "unknown" }, null, 2))));
+}
+function buildProposals() {
+    const box = $("proposalList");
+    if (!box)
+        return;
+    const data = proposalScene(S);
+    showSection("proposals", !!data, data?.proposals?.length || 0, "Route proposals");
+    if (data !== PROPOSALS.data) {
+        PROPOSALS.data = data;
+        PROPOSALS.hidden.clear();
+        PROPOSALS.focused = "";
+    }
+    if (!data) {
+        preact.render(null, box);
+        return;
+    }
+    preact.render(preact.h(preact.Fragment, null,
+        preact.h("p", { class: "hint" }, "Inspect alternatives in generation order. Dashed cyan copper is provisional; squares mark endpoints. Nothing is selected for acceptance."),
+        preact.h("p", null, `Evidence: ${data.evidence?.level || "unknown"}`),
+        data.stale ? preact.h("p", { class: "notes" }, "Proposals predate a project write. Run proposals again before deciding.") : null,
+        (data.notes || []).map((note, index) => preact.h("p", { class: "notes", key: index }, note)),
+        preact.h(ProposalBundleCards, { data: data }),
+        (data.proposals || []).map(subject => preact.h("section", { class: "proposalSubject", key: subject.id, "data-proposal": subject.id },
+            preact.h("h3", null, subject.net || "unknown net"),
+            preact.h("p", null, subject.subject || subject.id || "unknown subject"),
+            preact.h("button", { type: "button", class: "tb small", onClick: () => focusProposal(subject) }, "Focus endpoints"),
+            preact.h("p", null, (subject.ends || []).map(end => `${end.name || end.kind || "unknown"} [${end.layers.join(", ")}]`).join(" → ")),
+            subject.reason ? preact.h("p", { class: "notes" }, `Unresolved: ${subject.reason}`) : null,
+            !subject.candidates?.length ? preact.h("p", { class: "hint" }, "No candidate. This subject remains unresolved.") : null,
+            (subject.candidates || []).map(candidate => preact.h(ProposalCandidateCard, { key: candidate.id, candidate: candidate, subject: subject })))),
+        (data.locked || []).length ? preact.h("details", null,
+            preact.h("summary", null, "Locked decisions"),
+            preact.h("ul", null, data.locked.map(row => preact.h("li", { key: row.candidate }, `${row.candidate} · ${row.present ? "present" : "missing copper"}`)))) : null,
+        preact.h("p", { class: "hint" }, LIVE ? "Each decision previews a plan; only its explicit confirmation writes files." : "Read-only exported page: no project-writing controls.")), box);
+}
 // ---- board/load.ts
 function buildPanels() {
     buildFindings();
@@ -4499,6 +4771,7 @@ function loadBoard(scene, keepView) {
     buildTabs();
     buildPanels();
     buildRoles();
+    buildProposals();
     buildDiffList();
     buildMessages();
     buildVariants();
