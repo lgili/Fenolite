@@ -105,6 +105,8 @@ All notable changes to Fenolite are documented here. The format follows
 - Opt-in local external route candidates via repeatable `--propose-with` (c0368), with
   immutable semantic board-delta guards, scoped connectivity/geometry/role checks, shared
   process budgets and cancellation, tool provenance and reviewed acceptance without tool reruns.
+  A tool's KiCad child that only re-spells a modelled number of the item (KiCadRoutingTools writes
+  `106.000000`) no longer refuses its candidate as unsupported output; any other kept child still does.
   Pinned external-router/KiCad CI verification remains pending.
 
 - Opt-in bounded internal route search (c0365): `search=fallback|only` with explicit grid/state/via

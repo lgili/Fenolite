@@ -33,6 +33,7 @@ A passing focused test does not replace required exact-head CI or maintainer-onl
 - [ ] 5. Run supported pinned external tools on authored fixtures in CI, with DRC and unchanged-input assertions.
   Proof: `uv run pytest tests/kicad/routing/test_external_candidates.py -q`.
   2026-11-03: attempted locally, exit 0 with 4 SKIPPED because both real tools are absent; this is not a passing oracle. Authored two/four-layer cases are wired into the existing pinned router CI job. Keep open: no push is authorized, so no exact-head CI is available.
+  2026-11-04: CI runs 41936811685 and 41947475460: Freerouting 2/2 passed on KiCad 9 and 10; KiCadRoutingTools 0/2, every candidate refused `external-unsupported-output` because the tool's six-decimal coordinates were kept as opaque children. Fixed (a kept child that re-spells the item's own number is accepted, anything else fails closed); locally with pinned v0.22.1 on KiCad 10.0.6, both KiCadRoutingTools cases passed. Keep open until the pinned routing jobs pass on the exact head.
 
 - [x] 6. Document every new public option, result field and finding in the user docs and tested agent guide; regenerate it and keep each page within 12000 bytes.
   Proof: `uv run python tools/gen_agent_guide.py && uv run pytest tests/unit/agent/test_pages.py -q`.

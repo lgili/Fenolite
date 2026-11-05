@@ -61,3 +61,40 @@ def test_authored_fake_checkout_uses_existing_process_adapter(tmp_path: Path, mo
     # The fake is authored in this repository; it is not a vendored external router.
     ran = Budget(5).run([sys.executable, "-c", "print('authored fake process')"], cwd=checkout)
     assert ran.returncode == 0 and ran.stdout.strip() == "authored fake process"
+
+
+def _track(*slots: tuple[str, str]):
+    from fenolite.core.coords import Point
+    from fenolite.model.base import ExtBag
+    from fenolite.model.board import Track
+
+    modeled = tuple(("slot:.:modeled", name) for name in ("width", "layer", "net_id", "native_ids"))
+    return Track(
+        id="trk-a",
+        start=Point(106_000_000, 110_800_000),
+        end=Point(124_000_000, 110_800_000),
+        width=250_000,
+        layer="F.Cu",
+        net_id="net-a",
+        ext={"kicad": ExtBag("20260206", (*slots, *modeled))},
+    )
+
+
+def test_a_respelled_modelled_number_is_not_opaque_output():
+    """KiCadRoutingTools writes ``106.000000``: the reader keeps that child, whose value the model holds."""
+    from fenolite.routing.external_candidates import _opaque
+
+    respelled = (
+        ("slot:.:opaque@20260206", "(start 106.000000 110.800000)"),
+        ("slot:.:opaque@20260206", "(end 124.000000 110.800000)"),
+    )
+    assert not _opaque(_track(*respelled))
+    # a different value, a fraction of a nanometre or any other child stays opaque: fail closed
+    for fragment in (
+        "(start 106.000001 110.800000)",
+        "(start 106.0000001 110.800000)",
+        "(start 106 110.8 0)",
+        "(tstamp 0f0f)",
+        "(locked yes)",
+    ):
+        assert _opaque(_track(("slot:.:opaque@20260206", fragment), respelled[1])), fragment

@@ -49,20 +49,33 @@ CLI/guide/workflow tests. The final complete quick gate also passed: make exit 0
 589.63 s. Exact-head full CI remains pending and is recorded as open in the change tasks. There
 is no transferable CI result for these uncommitted changes. No merge or archive is authorized.
 
+## Pinned KiCadRoutingTools refusal — 2026-11-04
+
+CI runs 41936811685 and 41947475460 (pinned KiCadRoutingTools v0.22.1, KiCad 9 and 10) returned no
+KiCadRoutingTools candidate: every proposal was refused `external-unsupported-output` with no tool error,
+while Freerouting 2.4.1 passed. Reproduced locally with the same release (macOS arm64 core): the tool
+writes `(start 106.000000 110.800000)`; the KiCad reader keeps a child it would not re-emit byte for byte
+(`kicad.board.kept-opaque`) although the model holds the same value, and the candidate check treated any kept
+child as opaque output. The check now accepts a kept child only when it re-spells the item's own
+start/end/width (track) or at/size/drill (via) to the exact nanometre; any other child, a different value or a
+fraction of a nanometre still refuses (`test_a_respelled_modelled_number_is_not_opaque_output`). Local
+result on KiCad 10.0.6: `test_external_candidates.py` 2 passed (both KiCadRoutingTools layers), 2 skipped
+(no Freerouting jar locally). Exact-head pinned CI remains the gate (`UNKNOWN` until then).
+
 ## Authored/source byte snapshot
 
-The fixtures below are Fenolite-authored; no employer or third-party circuit/parser material is
+Refreshed 2026-11-04 after the KiCadRoutingTools fix. The fixtures below are Fenolite-authored; no employer or third-party circuit/parser material is
 used. The fake checkouts/JARs are authored by tests/_fakerouter.py and tests/_fakefreerouting.py.
 No new vendor format fact is introduced; existing adapters and their registered sources are reused.
 
 | File | SHA-256 |
 |---|---|
-| `src/fenolite/routing/external_candidates.py` | `bcfcd5c0ff6d1c033f0206795812ba8eb6722837c4503a6f38cd7f5ff610826c` |
-| `src/fenolite/routing/external_delta.py` | `f5ddcfbbdf8ebf836e5492ca8abd00050f24d9029b75cfa637a46eaa071a270f` |
+| `src/fenolite/routing/external_candidates.py` | `f50b008818831b84533145dfdd87a036c5076e33cd015ec40c527839a5bf9e2e` |
+| `src/fenolite/routing/external_delta.py` | `75dc3ee84729dbaf670bd5a4dcb1008b582c23237557bf82d6db93ee20e4a682` |
 | `src/fenolite/routing/budget.py` | `b99bfcca2ab858b61a4f73dfe9727d039ff796efbbcb5cfc2ac4792bd4fead04` |
-| `src/fenolite/cli/_external_candidates.py` | `91c6ac2e15f5b39f035f06a0654f97d4ad2457c5e76d3b85a6f5cc2a63292a0a` |
-| `tests/unit/routing/test_external_candidate_contract.py` | `f466b69b9a4cc02c11696165bcf60432ce98b11b1b6a1bfd0ef19f991e1e7f6d` |
+| `src/fenolite/cli/_external_candidates.py` | `fb54aba7849d9e05b9cc86ef5553b819e57e5a4d6da2f643fa688d7ed981668c` |
+| `tests/unit/routing/test_external_candidate_contract.py` | `bf779f0f5e4512d4d2aec1f68685ae4a682058c3b1a4d8a96254f47525f96f1d` |
 | `tests/unit/routing/test_external_candidates.py` | `eae189fcbec8aa03ad426193ab694a2e1e8b891e173dc76ce650634ab571a1f6` |
 | `tests/unit/routing/test_external_candidate_budget.py` | `498df87bdf7fa9ece21bfa019bcdc65b874904be574820e209c8a360c6c66607` |
-| `tests/unit/cli/test_route_propose_with.py` | `41ce3b613e6a02c9ac0283ffafc9898dc6cfe390f368dd040fd1e2d01a2a66f6` |
-| `tests/kicad/routing/test_external_candidates.py` | `56747e357f7e364fc20650fdfe3cc29717af1fa2c25e7845a43ea4b10e4a7d2a` |
+| `tests/unit/cli/test_route_propose_with.py` | `c266df0fc2086334b66df386c05542bc482f471110ced3c1a3fda9a8ec50b0d0` |
+| `tests/kicad/routing/test_external_candidates.py` | `177d98bae2fdb4e7bfdc3d6992eae631094d948e11cbc6fe90586ad1a15c695d` |

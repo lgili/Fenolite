@@ -8,6 +8,7 @@ is supplied by the CLI's explicit allowlist of existing subprocess adapters (c03
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Literal, cast
@@ -92,14 +93,53 @@ class MissingTool(ValueError):
         super().__init__(status.reason or f"{router} is unavailable")
 
 
+_SPELLING = re.compile(r"\((start|end|at|width|size|drill) ((?:-?\d+(?:\.\d+)? ?){1,2})\)")
+"""A KiCad child that only spells a modelled number of the item, e.g. ``(start 106.000000 110.800000)``."""
+
+
+def _mm_nm(text: str) -> int | None:
+    """Exact nanometres of a decimal millimetre literal, or ``None`` when it is not a whole nanometre."""
+    from decimal import Decimal
+
+    value = Decimal(text) * 1_000_000
+    return int(value) if value == value.to_integral_value() else None
+
+
+def _respelled(item: Track | Via, fragment: str) -> bool:
+    """True when an opaque KiCad slot only re-spells a value the item models, digit for digit.
+
+    The KiCad reader keeps a modelled child whose text the writer would not reproduce byte for byte
+    (``kicad.board.kept-opaque``), so a tool that writes ``106.000000`` leaves a slot whose value is
+    already in the model. Any other content, or a value that differs from the model, stays opaque.
+    """
+    match = _SPELLING.fullmatch(fragment.strip())
+    if match is None:
+        return False
+    head, numbers = match.group(1), tuple(_mm_nm(n) for n in match.group(2).split())
+    if isinstance(item, Track):
+        expected: dict[str, tuple[int, ...]] = {
+            "start": (item.start.x, item.start.y),
+            "end": (item.end.x, item.end.y),
+            "width": (item.width,),
+        }
+    else:
+        at = (item.position.x, item.position.y)
+        expected = {"at": at, "size": (item.diameter,), "drill": (item.drill,)}
+    return head in expected and numbers == expected[head]
+
+
 def _opaque(item: Track | Via) -> bool:
     from dataclasses import fields
 
     modeled = {field.name for field in fields(item)}
+
+    def kept(key: str, value: str) -> bool:
+        if key == "slot:.:modeled":
+            return value in modeled
+        return key.startswith("slot:.:opaque") and _respelled(item, value)
+
     return any(
-        backend != "kicad"
-        or bag.min_version is not None
-        or any(key != "slot:.:modeled" or value not in modeled for key, value in bag.payload)
+        backend != "kicad" or not all(kept(key, value) for key, value in bag.payload)
         for backend, bag in item.ext.items()
     )
 
