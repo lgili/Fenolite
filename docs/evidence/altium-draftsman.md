@@ -460,6 +460,79 @@ The coordinator has already treated gate G2 as failed and moved the native docum
 FP2 and FP5 observations are recorded for that change. No native file, capture or saved document enters the
 repository.
 
+### 2026-11-05, actual `AD 24.5.2.23`, round FPC (source S-1606)
+
+A Claude agent ran round FPC (c0388 task 1.1) at the maintainer's request of 2026-11-05, relayed by the
+coordinator. It used Altium Designer 24.5.2.23 (Trial) in the maintainer's Parallels Windows VM. This is
+not the maintainer's own review. The kit `c0388-FPC-2026-11-05b` (`SHA256SUMS` `22b1f53c…`, 52 sums OK)
+was copied to a VM work folder. Every probe was opened with File » Open, as a free document. Menu
+commands, clicks and keys went through Windows UI Automation. The canvas was read from captures, which
+were deleted after viewing. Each `Error` window was closed with Close, or with Esc where a crash-report
+form showed only "Send and Close". No report was sent. After the run, every kit file in the VM still
+matches `SHA256SUMS`.
+
+Input digests:
+
+| file | SHA-256 |
+|---|---|
+| `FPC1.PCBDwf` | `e2288fa8…` |
+| `FPC2.PCBDwf`, `FPC3.DwfDot` | `af63d652…` |
+| `FPC4.PCBDwf` | `0bfbf9d5…` |
+| `FPC5.PCBDwf` | `dbe8fb49…` |
+| `FPC6.PCBDwf` | `5867a1d2…` |
+| `FPC7.PCBDwf` | `75127eae…` |
+| `FPC8.PCBDwf` | `a6dcea46…` |
+| `FPC9.PCBDwf` | `b164e433…` |
+| `FPC10.PCBDwf` | `9bb3d929…` |
+| `FPC11.PCBDwf` | `b0370626…` |
+| `blink_routed.PcbDoc` | `6691042b…` |
+| `status.json` | `a9386503…` |
+
+| probe | observed |
+|---|---|
+| FPC1 | **Opens with no message**, not marked modified. It shows `FENOLITE-1` on the sheet. Its Save As copy is `f85d5bdf…` |
+| FPC2 | **Opens with no message.** It shows one small empty view frame and `FENOLITE-1`. Tools » Import Changes From Board shows no message, and the frame stays empty: no outline and no parts. **Not as expected** |
+| FPC3 | The kit folder was set as the Local Templates folder, then restored (see below). File » New » Draftsman Document lists `[Default]` and `FPC3`. The agent chose `FPC3` with project `blink_routed.PrjPcb` and document `blink_routed.PcbDoc`, then OK. A "Draftsman" progress window ("Retrieving board data", "Retrieving layer Bottom Layer") is followed by an `Error` window: `Object reference not set to an instance of an object at 00007FF7F92133CD., Base Address: 00007FF7F9100000.` The new document shows a sheet with `FENOLITE-1` only and no board view. No further message appeared within 150 s. It was closed without saving. **Not as expected** |
+| FPC4 | **Does not open**: `Error`, `Object reference not set to an instance of an object at 00007FF7F9176CD2., Base Address: 00007FF7F9100000.` |
+| FPC5 | **Opens with no message**; `FENOLITE-1`, drawn larger |
+| FPC6 | **Opens with no message**; `FENOLITE-1` |
+| FPC7, FPC8, FPC9, FPC11 | **Do not open**: each shows the same `Error`, `Object reference not set to an instance of an object at 00007FF7F9177D48., Base Address: 00007FF7F9100000.` No document opens, so Import Changes and Save As were not reached |
+| FPC10 | **Opens with no message.** It shows an empty view frame, the title `Bill Of Materials` with no row, and the title block `Assembly drawing, bottom side`. After Import Changes From Board there is no message and the drawing is unchanged. The table does not list `D1`. Its Save As copy is `cc326f17…` |
+| D01 to D32 | 28 open with no message and show an empty sheet; D08 (no `DocumentId`) is marked modified at once. **Refused:** D01 (`ArrowStyles`), D14 (`FillStyles`) and D23 (`LineStyles`) with `Value cannot be null. Parameter name: source` (the S-1575 error of FP3), and D09 (`DocumentOptions`) with FPC4's error at `…76CD2` |
+
+The saved copies were decoded with Fenolite's Draftsman reader, outside the repository. The answers to
+the questions of `expected.md` are:
+
+1. `BoardSourceName` (FPC7, FPC8): no answer, because neither probe opens. In FPC10's saved copy, both
+   items (the assembly view and the BOM) hold `blink_routed.PcbDoc` after Import Changes. The member keeps
+   the namespace `...Serialization.V1.Document.Page.Item.Board`. In the probe the BOM had it empty and the
+   view had no member.
+2. Note entry ids (FPC7, FPC9): no answer, because neither probe opens.
+3. Style tables: FPC1, FPC4 and FPC7 as built all write `<LineStyles/>` and `<ArrowStyles/>` empty.
+   FPC1's saved copy keeps both empty. FPC4 does not open, so it has no saved copy. FPC10's saved copy has
+   one `LineStyleData` (`Id` 1, `Thickness` 0.7559, `ThicknessPresetId` 1, `DashPatternPresetId` 0), an
+   empty `ArrowStyles` and `FontStyles` 1 to 3.
+4. `ViewSideV2` (FPC10): the table lists no row. In the saved copy the BOM holds `ViewSide` `All` and
+   `ViewSideV2` 0, so Altium rewrote the written `Bottom`. The bottom assembly view holds `ViewSide`
+   `Bottom` with a new `ViewSideV2` 1.
+5. Dimension snaps (FPC7, FPC11): no answer, because neither probe opens.
+
+Agent reading, `INFERRED`: all four refused writer probes hold `LinearDimension` items with
+`ArrowStyleId` 1 while `ArrowStyles` is empty. FPC10 has no dimension and opens, even though it refers
+to `LineStyleId` 2 with an empty `LineStyles`. FPC4 lacks `DocumentOptions`, as D09 does, and both fail
+at the same address. The run does not test either reading.
+
+By the rule of this round, G2 passes when FPC1 or FPC4 opens and FPC2 fills its view. FPC1 opens, but
+FPC2 does not fill its view. FPC3 does not give a document with the current board. The decision on G2
+is left to the coordinator. `H-A-DWF-MINIMAL`, `H-A-DWF-IMPORT` and `H-A-DWF-TEMPLATE` keep their levels,
+because this was an agent run.
+
+The template folder was changed only for the session, as for FP5 (S-1589). Preferences » Data
+Management » Templates, Local Templates folder, was the default `Altium\AD22\Templates` folder under the
+Windows public documents folder. It was set to the VM probe folder for FPC3 and then set back to the
+default with OK. Afterwards the New Draftsman Document dialog listed only the built-in templates again.
+No native file, capture or saved document enters the repository.
+
 ## Approved pending-native scope — 2026-11-03
 
 The maintainer explicitly authorized the pending Altium validations on the

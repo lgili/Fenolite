@@ -20,6 +20,15 @@
     `~/fenolite-altium-checks/claude-2026-11-05/c0388-FPC-2026-11-05b` (SHA256SUMS 22b1f53c…); the first kit
     is kept, and round FPC runs from the new one only. Proof: `uv run pytest
     tests/unit/backends/altium/test_part_f.py -k "writer_probes or fpc_correction_kit" -q`.
+  - 2026-11-05, S-1606: a Claude agent ran round FPC from `c0388-FPC-2026-11-05b` (Altium 24.5.2.23, Trial;
+    `docs/evidence/altium-draftsman.md`, "Reports"). FPC1, FPC5, FPC6 and FPC10 open with no message. FPC2
+    opens, but Import Changes leaves its view empty. FPC3, offered through a session-only template folder
+    (restored), gives `FENOLITE-1` with no board view after an `Object reference not set` error. FPC4, FPC7,
+    FPC8, FPC9 and FPC11 do not open. FPC10's BOM lists no row; its saved copy holds `ViewSide` `All` with
+    `ViewSideV2` 0 and `BoardSourceName` `blink_routed.PcbDoc`. The drop series refuses D01, D09, D14 and D23
+    (`ArrowStyles`, `DocumentOptions`, `FillStyles`, `LineStyles`). By the round's rule G2 does not pass
+    (FPC2 does not fill its view); the decision is left to the coordinator. The note ids, the snaps and
+    FPC7/FPC8's `BoardSourceName` stay unanswered, because those probes do not open. Left open.
 
 ## 2. Carried from c0172 (unchanged)
 
