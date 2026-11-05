@@ -113,14 +113,20 @@ def test_baseline_layers(item) -> None:
     assert dict(counts) == BASELINE[item.id]
 
 
-CONVERTED_LOSSES = {
+CONVERTED_LOSSES = {  # footprint-text: a footprint's own text is reported lost (c0409)
     "altium-third-party-pcbdoc-01": {"body": 247, "rule": 1, "model": 166},
-    "altium-third-party-pcbdoc-02": {"body": 42, "rule": 1, "text": 1, "model": 18},
-    "altium-third-party-pcbdoc-03": {"body": 50, "rule": 2, "schematic": 1, "model": 27},
-    "altium-third-party-pcbdoc-04": {"body": 33, "rule": 1, "model": 2},
+    "altium-third-party-pcbdoc-02": {"body": 42, "rule": 1, "text": 1, "model": 18, "footprint-text": 4},
+    "altium-third-party-pcbdoc-03": {
+        "body": 50,
+        "rule": 2,
+        "schematic": 1,
+        "model": 27,
+        "footprint-text": 46,
+    },
+    "altium-third-party-pcbdoc-04": {"body": 33, "rule": 1, "model": 2, "footprint-text": 3},
     "altium-third-party-pcbdoc-05": {"body": 23, "rule": 1},
-    "altium-third-party-pcbdoc-06": {"body": 27, "rule": 1, "model": 19},
-    "altium-third-party-pcbdoc-07": {"body": 24, "model": 3},
+    "altium-third-party-pcbdoc-06": {"body": 27, "rule": 1, "model": 19, "footprint-text": 25},
+    "altium-third-party-pcbdoc-07": {"body": 24, "model": 3, "footprint-text": 12},
     "altium-third-party-pcbdoc-08": {"body": 1298, "text": 298, "graphic": 1000, "model": 52},
 }
 """The losses per kind, measured on 2026-10-15; on 2026-10-16 (change c0170) the slots of the pads of

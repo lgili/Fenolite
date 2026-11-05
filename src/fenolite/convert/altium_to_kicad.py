@@ -33,9 +33,16 @@ class Ledger:
         self.lost[kind][reason].append(ident)
 
     def change(self, kind: str, ident: str, reason: str) -> None:
-        for ids in self.changed[kind].values():
+        """An entity is counted once per kind: a second change of ``ident`` joins its earlier reason, so
+        neither fact is lost (an arc outline flattened and then a mixed pad connection, change c0409)."""
+        for earlier, ids in self.changed[kind].items():
             if ident in ids:
                 ids.remove(ident)
+                if reason not in earlier.split("; "):
+                    reason = f"{earlier}; {reason}"
+                else:
+                    reason = earlier
+                break
         self.changed[kind][reason].append(ident)
 
 
