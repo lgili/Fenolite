@@ -141,7 +141,9 @@ report.
 of the kit and give it the focus, open `kit_script.pas`, run File » Run Script and choose `FenoliteKitRun`;
 do that once per sample project. For the project in focus the script compiles it, writes the messages to
 `results/<sample>/messages.txt` and adds one line to `results/script.log`: the step and `done`, or the
-step and an error text. It writes nothing outside `results/`. Nothing in Fenolite starts Altium or the
+step and an error text. The first line creates the log (`Rewrite` when `FileExists` says it is missing)
+and every later line adds to it (`Append`): no exception chooses between the two, because Altium stopped
+on the error of `Append` on the missing log in run `2026-11-05-e28d0bb1`. It writes nothing outside `results/`. Nothing in Fenolite starts Altium or the
 script.
 
 The names and signatures of the script's calls were read from a text rendering of each documentation
@@ -175,13 +177,14 @@ third-party script was used. Every routine, method and property it uses:
 | `DM_ProjectFileName` | the project's file name, which names the sample | S-0504 |
 | `DM_ProjectFullPath` | the project's path, from which the kit's folder follows | S-0504 |
 | `AssignFile` | names a text file | S-0501 |
-| `Append` | opens `results/script.log` to add a line | S-0501 |
+| `Append` | opens `results/script.log` to add a line when the file exists | S-0501 |
 | `Rewrite` | creates a text file | S-0501 |
 | `Writeln` | writes a line | S-0501 |
 | `CloseFile` | closes the file | S-0501 |
 | `Copy` | a part of a string | S-0501 |
 | `Length` | the length of a string | S-0501 |
 | `UpperCase` | compares the project's file name without regard to case | S-0501 |
+| `FileExists` | tells whether `results/script.log` exists, so that the first line creates it with `Rewrite` and every later line adds to it with `Append` (change c0389) | S-1591 |
 
 Its keywords (`And`, `Begin`, `Do`, `Else`, `End`, `Except`, `Function`, `If`, `Nil`, `Not`, `Procedure`, `Result`, `Then`, `Try`, `Var`, `While`) are those of the keywords page (S-0502).
 

@@ -794,6 +794,55 @@ Its digests are `written/panel.PcbDoc` `75bb8545…`, `board/board.PcbDoc` `fd47
 agent run. `EMBEDDED_ARRAYS` stays `False`: Q8 did not pass and Q9 passed only in part. The saved files
 and outputs stay in `c0173-QB2-native/`, outside the repository.
 
+### 2026-11-05, actual `AD24.5.2.23`, Part Q
+
+Source S-1593. A Claude agent ran this round at the maintainer's request of 2026-11-05, under the maintainer's
+delegation of 2026-11-04, in the maintainer's Windows VM. It is not the maintainer's own review.
+`Client.GetProductVersion` gives 24.5.2.23 (Trial licence). The agent worked on a fresh VM copy of the
+S-1576 saved folder (`panel-a.PcbDoc` `83999080…`, `board.PcbDoc` `fd478b3a…`). Phase B used the kit
+built at `1169f10d`. Its bytes match the S-1585 kit (`written/panel.PcbDoc` `75bb8545…`,
+`flat/panel.PcbDoc` `ab1e0159…`). The View Configuration panel was floating over the Projects panel, so
+the agent moved it into the document area by its window handle before clicking. During the first try
+of Q3, Altium showed two "Runtime error 216" boxes and an access violation, then exited. The agent
+restarted Altium (no licence prompt or other prompt) and redid Q3 from the unchanged copy; nothing of
+the first try was saved.
+
+| date | version | case | file (SHA-256) | step | expected | observed |
+|---|---|---|---|---|---|---|
+| 2026-11-05 | AD 24.5 | Q3 | `panel-layers.PcbDoc` `d875c453…` (162304 bytes) | View Configuration, right-click a mechanical layer, Add Mechanical Layer twice; Layer Type V Cut, then Route Tool Path; Place » Line on each; Save As | it saves; note the layer numbers and names Altium gives | as expected. Each Add Mechanical Layer opens "Edit Layer" with the next free number and a Layer Type list: N/A, Assembly Notes, Board, Dimensions, Fab Notes, V Cut, Route Tool Path, Sheet, Board Shape. Picking a type replaces the name. Mechanical 2 became `V Cut` (layer 58, `Kind` 25) and Mechanical 3 became `Route Tool Path` (layer 59, `Kind` 28). A third Add Mechanical Layer no longer offers V Cut or Route Tool Path (cancelled). One line on each layer; the save showed no message |
+| 2026-11-05 | AD 24.5 | Q6 | the eleven saved panels of S-1576 and Q3, with the kit's `board/` files | copy of the folder without `History` and `Project Outputs`, zip; the kit privacy scan before anything else reads it | the scan runs before anything is read | as expected. The phase A folder has no `kit.json`, so `fenolite kit verify` refuses it (`FEN-3001`, S-1576). The agent ran the scan that `kit verify` runs (`privacy_scan`) on the zip's 18 members first. It finds 22 strings, a VM home folder and an absolute path in each panel, and none in the kit's own files. The folder stays outside the repository. Only digests and the facts in this section were read from it |
+
+In `panel-layers.PcbDoc` the type is stored twice:
+
+- `Board6` holds `LAYER58MECHKIND=VCut` and `LAYER59MECHKIND=RouteToolPath`, the same in the key families
+  `LAYER_V8_12…`/`LAYER_V8_13…` and `V9_CACHE_LAYER70…`/`V9_CACHE_LAYER71…`, beside the new names and
+  `MECHENABLED=TRUE`. `ROUTETOOLPATHLAYER=MECHANICAL3` is added, and no V Cut counterpart key is.
+- `LayerKindMapping/Data` grows from the 20-byte form (value 0, count 0) to 36 bytes: the `1.0` string, the
+  32-bit value `0x7984CB1F` and two 8-byte entries, (58, 25) and (59, 28). Each entry is a layer number
+  and its `Kind`.
+
+**Q8 again, and the Q9 options.** On the phase B kit the agent moved the same free Top track of
+`board/board.PcbDoc` by +2 mm in X (10.8 → 12.8 mm) and saved it (`d89bdeb0…`).
+
+- Back in `panel.PcbDoc`, the array's child board still lists the old place, as in S-1585. No menu item of
+  Edit, View, Design, Tools or Place refreshes an array.
+- The agent closed Altium with File » Exit (no prompt) and started it again. Opening `panel.PcbDoc` alone
+  then shows the move: the child board lists the track at 12.8–20 mm, and a capture of the document
+  area showed all four copies with the moved track (capture deleted after viewing).
+- So the copies follow a saved change only after Altium restarts. Reopening the panel within one session
+  is not enough. The child board's path reads `written\../board/board.PcbDoc`.
+
+For Q9 the agent turned on NC Drill Setup's "Generate separate NC Drill files for plated & non-plated
+holes". NC Drill then writes `panel-Plated.TXT` and `panel-NonPlated.TXT`. With `V-Cut` ticked in Gerber
+Setup, Gerber writes it as `panel.GM2`. Saved as `panel-q9opts.PcbDoc` (`6bfa6477…`), the document has no
+changed `Board6` key for either option; Altium's resave adds only its usual records. So these choices
+are not stored in the PCB document, and a written panel cannot make them its defaults. Q9 as written
+(defaults) stays partial.
+
+`H-A-PANEL-RECORD`, `H-A-PANEL-LAYERKIND` and `H-A-PANEL-KIT` keep their levels. `EMBEDDED_ARRAYS` stays
+`False`: Q9 with defaults gives one drill file and no `V-Cut` Gerber, and Q8 needs a restart. The saved files
+and outputs stay in the agent's folder `claude-2026-11-05/rounds/`, outside the repository.
+
 ### 2026-11-04, actual `AD24.5.2.23`, Part T
 
 Source S-1571: [T1–T6 report](altium-part-t-convert-2026-11-04.md) and
