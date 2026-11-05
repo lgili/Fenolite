@@ -122,3 +122,50 @@ def test_outline_arc_off_its_circle_is_a_closed_edge_in_kicad(tmp_path) -> None:
     source_rings = frame.board_edges(design)
     assert source_rings is not None
     assert compare_rings(source_rings, rings, conversion.report) == ()
+
+
+def test_embedded_array_copies_load_and_check_in_kicad(tmp_path) -> None:
+    """change c0386 task 2.2: a panel that places 2 x 2 copies of an authored board as an Embedded Board
+    Array converts with the copies placed; the converted panel loads, and KiCad's DRC finds per kind four
+    times what it finds on the converted board alone: no copy shorts or crowds another."""
+    from collections import Counter
+    from pathlib import Path
+
+    from _panels import build_board
+
+    from fenolite.convert import convert_project
+    from fenolite.convert.sources import read_source
+    from fenolite.dsl import Panel, mm, to_model
+    from fenolite.panel import build as panel_build
+    from fenolite.panel.altium import embedded_files
+    from fenolite.panel.layout import layout
+
+    board = build_board(tmp_path / "src", "altium")
+    panel = Panel("panel", board=board.name)
+    panel.grid(2, 2, gap=mm(2))
+    panel.separate("tabs", between="columns")
+    model = to_model(panel)
+    design, _ = panel_build.read_source(board)
+    files, issues = embedded_files(model, layout(model, design), design, board.name)
+    assert files and not [i for i in issues if i.severity == "error"], issues
+    for name, data in files.items():
+        (board.parent / name).write_bytes(data)
+    cli = runner()
+
+    def drc(source: Path) -> Counter[str]:
+        folder = tmp_path / source.stem
+        conversion = convert_project(
+            read_source(source), to="kicad", kicad_version=cli.major(), allow_lossy=True
+        )
+        for name, data in conversion.files.items():
+            (folder / name).parent.mkdir(parents=True, exist_ok=True)
+            (folder / name).write_bytes(data)
+        files = {name: folder / name for name in conversion.files if name != conversion.read_back}
+        assert cli.load_board_svg(folder / conversion.read_back, files=files).ok
+        run = cli.drc(folder / conversion.read_back, files=files)
+        assert run.report is not None, run.run.stderr
+        return Counter(v.type for v in run.report.violations)
+
+    alone, copies = drc(board), drc(board.parent / "panel.PcbDoc")
+    assert copies == Counter({kind: 4 * count for kind, count in alone.items()})
+    assert not copies["shorting_items"] and not copies["clearance"]

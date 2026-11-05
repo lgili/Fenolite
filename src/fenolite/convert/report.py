@@ -128,6 +128,31 @@ EMBEDDED_BOARD_ABSOLUTE = (
     "converted"
 )
 SCHEMATIC_REFUSED = "the schematic generator refused the imported circuit"
+EMBEDDED_BOARD_MIRRORED = (
+    "the board places another PCB document in a mirrored Embedded Board Array (the item names the array and "
+    "its document), and which copper side a mirrored copy takes is not measured: its copies are not converted"
+)
+EMBEDDED_BOARD_ANGLE = (
+    "the board places another PCB document in an Embedded Board Array turned by an angle other than 0 or 90 "
+    "degrees (the item names the array and its document), which is not measured: its copies are not converted"
+)
+EMBEDDED_BOARD_ORIGIN = (
+    "the board places another PCB document in an Embedded Board Array (the item names the array and its "
+    "document) whose origin is not at the lower-left corner of its shape, which is not measured: its copies "
+    "are not converted"
+)
+EMBEDDED_BOARD_CUTOUT = (
+    "the board places another PCB document in an Embedded Board Array (the item names the array and its "
+    "document) that has board cut-outs, which a copy does not carry yet: its copies are not converted"
+)
+EMBEDDED_BOARD_LAYERS = (
+    "the board places another PCB document in an Embedded Board Array (the item names the array and its "
+    "document) that has copper layers the board does not: its copies are not converted"
+)
+EMBEDDED_BOARD_PLACED = (
+    "the copies of an Embedded Board Array (the item names the array and its document) are written at the "
+    "places Altium gives them (S-1592), each copy's designators suffixed _B<k> and its nets prefixed B<k>/"
+)
 REFUSE_REASONS: Mapping[str, frozenset[str]] = MappingProxyType(
     {
         "cutout": frozenset({OVERLAP_NO_UNION, OVERLAP_NOT_ONE_RING}),
@@ -137,6 +162,11 @@ REFUSE_REASONS: Mapping[str, frozenset[str]] = MappingProxyType(
                 EMBEDDED_BOARD_MISSING,
                 EMBEDDED_BOARD_UNREADABLE,
                 EMBEDDED_BOARD_ABSOLUTE,
+                EMBEDDED_BOARD_MIRRORED,
+                EMBEDDED_BOARD_ANGLE,
+                EMBEDDED_BOARD_ORIGIN,
+                EMBEDDED_BOARD_CUTOUT,
+                EMBEDDED_BOARD_LAYERS,
             }
         ),
         "schematic": frozenset({SCHEMATIC_REFUSED}),  # change c0372

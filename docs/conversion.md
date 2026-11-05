@@ -147,12 +147,18 @@ The vocabulary is closed (`fenolite.convert.report.KINDS`), one table for every 
 - **Embedded boards and shared footprints (Altium to KiCad).** `embedded-board`: a PCB document whose
   `EmbeddedBoards6` storage holds records places other PCB documents. Each array is one item named
   `<document>#<n>:<referenced document> <columns>x<rows>` (the document's name alone when the records do
-  not read); where the copies lie is not measured, so their components and copper are not converted. Each
-  item is `lost` with a reason of `report.REFUSE_REASONS`: the conversion (and `import --to python` of
-  the project) exits 7 without `--allow-lossy` (change c0374). The referenced document is looked for at its
-  `DOCUMENTPATH` relative to the board's document, either separator; the item's reason says whether it
-  reads, is missing, does not read as a PCB document, or is stored as an absolute path, which is not
-  followed and is named by its file name only (change c0386). `shared-footprint`: each footprint of a
+  not read). The referenced document is looked for at its `DOCUMENTPATH` relative to the board's document,
+  either separator. An array whose placement is measured (S-1592: unmirrored, `ROTATION` 0 or 90, the
+  referenced board's origin within 1 µm of its shape's lower-left corner, no board cut-outs, no copper layer
+  the board lacks) is `changed`: each copy's components, copper, texts and holes join the board at the
+  places Altium gives them (`convert.arrays`), each copy's designators suffixed `_B<k>`, its nets prefixed
+  `B<k>/` and its parts in the generated sheet `B<k>`, with `k` counting the copies of all arrays from 1;
+  the copies' board shapes are left out and the board keeps its own rules (change c0386). Every other array
+  is `lost` with a reason of `report.REFUSE_REASONS` that names why: a document that is missing, does not
+  read, or is stored as an absolute path (not followed, named by its file name only), a mirrored array,
+  another angle, an origin away from the corner, cut-outs or copper layers; the conversion (and `import --to
+  python` of the project) then exits 7 without `--allow-lossy` (changes c0374, c0386). `shared-footprint`:
+  each footprint of a
   source component that several footprints link, `changed`; it explains the `ref-ambiguous` of that
   reference (change c0371). With a written schematic, the board comparison covers placed components and
   the schematic comparison the others (change c0371).
