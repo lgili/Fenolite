@@ -224,6 +224,32 @@ does not rewrite model/JSON values or fold absent/None/false/zero presence;
 generic leaves and noncyclic sweeps/ranges retain their existing semantics. `where` is
 `board:<layer>:<points or text>`, `board:outline:<ring>` or `<REF>:<layer>:<points>`.
 
+## Pairing across representations
+
+One design held by two backends states some things in two forms (change c0421, `pairing.py`). Each rule
+below pairs two forms only when they describe the same thing exactly or within the length tolerance, and
+every other difference of the pair is still compared; each has an authored negative case in
+`tests/unit/checks/equivalence/test_c0421_pairing.py`.
+
+| Rule | Always | Only with `across` |
+|---|---|---|
+| Rules (level 6) | a rule named `fenolite_<p>_<slug>` that matches nothing by identity pairs with the rule of that kind, priority `p` and slugged name; name and priority are not compared | |
+| Layers (6 and 7) | a layer pairs with the other side's layer whose user name is its name (`layer_aliases`; `User.<n>` named `Mech.<k>`), and level 7 compares the items of both under one name; a passed keep-out layer is not `layer-missing` | a non-copper layer one side declares and does not use (pads count on copper) is not missing; mechanical and user are one kind; only the copper order is compared |
+| Declared limits (6) | a rule on one side only marked `kept_record=1` (a record the other format cannot hold, kept by the conversion, c0424) is listed under `excluded` as `declared-limit`, not `rule-missing` | |
+| Stack-up (6) | | a silkscreen, paste or mask layer is compared only when both stack-ups state that kind; names match without letter case |
+| Net classes (6) | | a class on one side only without nets, and a field one side leaves unset, are not differences |
+| Keep-out drawings (7) | a graphic on a passed keep-out layer is the rule area of its outline (filled) or its band (stroke, `geometry.bands`) on every copper layer, stating `no_tracks`, `no_vias`, `no_pads` and `no_copper_pour` | |
+| `Edge.Cuts` (7) | lines and arcs left unmatched that close a ring end to end match polygons and rectangles of the other side as rings | |
+| Mounting holes (1 to 7) | a board-only footprint without reference holding one NPTH pad is a board hole when the other side holds that unplated hole (position, drill, slot) | |
+| Fields (7) | | a hidden field on one side only, or one the other side's component holds as a parameter of that name (and value), is not `field-pose` |
+| Straight arcs (strict 5) | an arc left unmatched whose ends are a track's and whose mid lies within the length tolerance of the chord is that track, compared by the track rule | |
+
+`equivalent` passes `across` for sides of two backends without the triangle, and completes each side first
+(`api/_cross_backend.py`): a KiCad side gets its project's net classes, its `.kicad_dru` rules and its
+footprint graphics and texts; an Altium side gets the arc-vertex zone outlines and the zone connection and
+clearance its rules govern, as `convert` writes them, and names its keep-out layer. Two sides of one backend
+are compared as read, and the native project context (c0352) runs only between two KiCad sides.
+
 ## Level 8: presentation
 
 Both sides are drawn by the viewer's scene builders, the board with its zones by outline only

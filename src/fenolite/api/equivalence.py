@@ -18,7 +18,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Literal
 
-from fenolite.api import _native_rules
+from fenolite.api import _cross_backend, _native_rules
 from fenolite.api._drawn import DRAWN_EVIDENCE, read_drawn_side, root_schematic, schematic_level
 from fenolite.api.sides import (
     DEFAULT_TIMEOUT,
@@ -374,7 +374,17 @@ def equivalent(
             (*difference_issues(report), *side_a.issues, *side_b.issues),
             Evidence.combine(side_a.evidence, side_b.evidence, DRAWN_EVIDENCE),
         )
-    highest = max_level(side_a.design, side_b.design)
+    # Across backends each side is completed with what it keeps outside its design (change c0421); the
+    # triangle compares KiCad's own import under its exclusion profile and stays as read.
+    keepout_layers: tuple[frozenset[str], frozenset[str]] = (frozenset(), frozenset())
+    compared_a, compared_b = side_a, side_b
+    across = against is None and side_a.backend != side_b.backend
+    if against is None:
+        given_a = None if isinstance(a, Design) else Path(a)
+        given_b = None if b is None or isinstance(b, Design) else Path(b)
+        completed = _cross_backend.complete(side_a, side_b, paths=(given_a, given_b))
+        compared_a, compared_b, keepout_layers = completed.a, completed.b, completed.keepout_layers
+    highest = max_level(compared_a.design, compared_b.design)
     run = highest if level is None else level
     assert isinstance(run, int)
     if run == PRESENTATION_LEVEL:
@@ -390,14 +400,16 @@ def equivalent(
         )
     try:
         report = compare_designs(
-            side_a.design,
-            side_b.design,
+            compared_a.design,
+            compared_b.design,
             level=run,
             tolerances=chosen,
             frame=chosen_frame,
             ignore_refs=tuple(ignore_refs),
             rules=applied.rules if applied else (),
             strict=strict,
+            keepout_layers=keepout_layers,
+            across=across,
         )
     except ValueError as error:
         raise SideUsageError(str(error), where="level") from None

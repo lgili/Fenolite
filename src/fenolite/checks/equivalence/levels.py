@@ -13,13 +13,14 @@ pure: it reads no file and runs no tool.
 from __future__ import annotations
 
 from collections import defaultdict
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import replace
 from fnmatch import fnmatchcase
 
 from fenolite.backends.base import PadAssignment, PadNetList
 from fenolite.checks import assignment_compare
 from fenolite.checks.equivalence import norm
+from fenolite.checks.equivalence import pairing as forms
 from fenolite.checks.equivalence.exclusions import Rule, apply_rules
 from fenolite.checks.equivalence.model import (
     EXACT,
@@ -467,12 +468,18 @@ def compare_designs(
     ignore_refs: Sequence[str] = (),
     rules: Sequence[Rule] = (),
     strict: bool = False,
+    keepout_layers: tuple[Collection[str], Collection[str]] = ((), ()),
+    across: bool = False,
 ) -> EquivalenceReport:
     """Run the levels 1 to ``level`` in order and apply ``rules`` to each; with ``strict`` level 5 also runs
-    the item rule of ``strict.py``. ``ValueError`` for a level outside ``LEVELS``, or above what both sides
-    hold (the message names the side without footprints, or without copper when only level 5 is out of
-    reach). Levels 6 and 7 need a footprint on both sides; they run level 5 only when both sides hold
-    copper."""
+    the item rule of ``strict.py``. Before level 1 a board-only one-pad NPTH footprint that a free hole of
+    the other side matches is taken as that hole; layers pair by user name for levels 6 and 7, and
+    ``keepout_layers`` names each side's layers whose drawings level 7 compares with rule areas; ``across``
+    says the sides come from two backends, so what one backend always declares and the other leaves out
+    is not a difference (``rules.level_rules``, ``shapes.level_geometry``; change c0421, ``pairing.py``).
+    ``ValueError`` for a level outside ``LEVELS``, or above what both sides hold (the message names the
+    side without footprints, or without copper when only level 5 is out of reach). Levels 6 and 7 need a
+    footprint on both sides; they run level 5 only when both sides hold copper."""
     if type(level) is not int or level not in LEVELS:
         raise ValueError(f"level is one of {', '.join(map(str, LEVELS))}, got {level!r}")
     highest = max_level(a, b)
@@ -491,7 +498,9 @@ def compare_designs(
             f"level {level} needs {needs} on both sides, and side {bare} holds none; "
             f"the highest level available is {highest}"
         )
+    a, b = forms.mounting_holes(a, b, tolerances)
     a, b = paired_references(a, b, ignore_refs=ignore_refs)
+    aliases = forms.layer_aliases(a.board, b.board) if a.board is not None and b.board is not None else {}
     first, refs = level_components(a, b, ignore_refs=ignore_refs)
     results = [first]
     shift = Point(0, 0)
@@ -517,9 +526,15 @@ def compare_designs(
                 )
             results.append(routed)
         if level >= 6:
-            results.append(level_rules(a, b, tolerances))
+            results.append(
+                level_rules(a, b, tolerances, aliases=aliases, across=across, keepout_layers=keepout_layers)
+            )
         if level >= 7:
-            results.append(level_geometry(a, b, pairs, tolerances))
+            results.append(
+                level_geometry(
+                    a, b, pairs, tolerances, aliases=aliases, keepout_layers=keepout_layers, across=across
+                )
+            )
     return EquivalenceReport(
         levels=tuple(apply_rules(result, rules) for result in results),
         tolerances=tolerances,

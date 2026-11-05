@@ -204,13 +204,14 @@ def augment(
     """Append scoped native evidence/differences without replacing canonical comparisons."""
     if not any(level.level == 6 for level in report.levels):
         return report
+    if a.backend != "kicad" or b.backend != "kicad":
+        # Canonical Design sides never acquire an undeclared native floor property, and a KiCad side's
+        # native binding check must not refuse a comparison with another backend (change c0421).
+        return report
     ca, cb = context(a), context(b)
     if ca is None and cb is None:
         return report
     if ca is None or cb is None:
-        # Canonical Design sides never acquire an undeclared native floor property.
-        if a.backend != "kicad" or b.backend != "kicad":
-            return report
         raise FormatError("native project context is missing on one side; complete native rules are unjudged")
     extra = apply_rules(compare(ca, cb), rules)
     return replace(

@@ -18,10 +18,10 @@ fields. Points compare with the length tolerance per coordinate.
 from __future__ import annotations
 
 from collections import defaultdict
-from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass
+from collections.abc import Callable, Collection, Mapping, Sequence
+from dataclasses import dataclass, replace
 
-from fenolite.checks.equivalence import norm
+from fenolite.checks.equivalence import norm, pairing
 from fenolite.checks.equivalence.model import EXACT, Difference, LevelResult, Tolerances
 from fenolite.checks.equivalence.rules import Leaf, field_differences, fields
 from fenolite.core.coords import Point
@@ -167,6 +167,9 @@ class Shape:
     key: Key
     where: str
     value: Mapping[str, Leaf] | None = None
+    partial: bool = False
+    """True for an item that states only some of the fields of its kind (a keep-out drawing standing for a
+    rule area, change c0421): a pair with it compares only the fields it states."""
 
 
 def match(
@@ -270,6 +273,83 @@ def _keepouts(keepouts: Sequence[Keepout], prefix: str) -> list[Shape]:
     return shapes
 
 
+DRAWN_KEEPOUT: Mapping[str, Leaf] = {
+    "no_tracks": True,
+    "no_vias": True,
+    "no_pads": True,
+    "no_copper_pour": True,
+}
+"""What a drawing of a keep-out layer keeps out, on every copper layer (change c0421; S-1710, c0410)."""
+
+
+def _drawn_keepouts(
+    drawn: Sequence[tuple[Graphic, tuple[Point, ...]]], copper: Sequence[str], prefix: str
+) -> list[Shape]:
+    """A rule-area shape per ring of a keep-out drawing (``pairing.split_keepout_drawings``): keyed as
+    ``_keepouts`` keys a rule area, on every copper layer, stating only ``DRAWN_KEEPOUT``."""
+    layers = ",".join(sorted(copper))
+    shapes: list[Shape] = []
+    for _, points in drawn:
+        edges = ring(points)
+        shapes.append(Shape((layers, tuple(edges)), f"{prefix}:{layers}:{ring_text(edges)}", DRAWN_KEEPOUT,
+                            partial=True))  # fmt: skip
+    return shapes
+
+
+def _renamed(board: Board, names: Mapping[str, str]) -> Board:
+    """``board`` with the layer names of its level-7 items mapped by ``names`` (layer aliases, c0421)."""
+    if not names:
+        return board
+
+    def one(name: str) -> str:
+        return names.get(name, name)
+
+    def many(layers: Sequence[str]) -> tuple[str, ...]:
+        return tuple(one(name) for name in layers)
+
+    def graphics(items: Sequence[Graphic]) -> tuple[Graphic, ...]:
+        return tuple(replace(g, layer=one(g.layer)) for g in items)
+
+    def texts(items: Sequence[Text]) -> tuple[Text, ...]:
+        return tuple(replace(t, layer=one(t.layer)) for t in items)
+
+    def keepouts(items: Sequence[Keepout]) -> tuple[Keepout, ...]:
+        return tuple(replace(k, layers=many(k.layers)) for k in items)
+
+    footprints = tuple(_renamed_footprint(fp, names) for fp in board.footprints)
+    return replace(
+        board,
+        layers=tuple(replace(layer, name=one(layer.name)) for layer in board.layers),
+        graphics=graphics(board.graphics),
+        texts=texts(board.texts),
+        keepouts=keepouts(board.keepouts),
+        zones=tuple(replace(z, layers=many(z.layers)) for z in board.zones),
+        dimensions=tuple(replace(d, layer=one(d.layer)) for d in board.dimensions),
+        footprints=footprints,
+    )
+
+
+def _renamed_footprint(footprint: FootprintInstance, names: Mapping[str, str]) -> FootprintInstance:
+    """``footprint`` with the layers of its graphics, texts, rule areas and fields mapped by ``names``."""
+    if not names:
+        return footprint
+
+    def one(name: str) -> str:
+        return names.get(name, name)
+
+    return replace(
+        footprint,
+        graphics=tuple(replace(g, layer=one(g.layer)) for g in footprint.graphics),
+        texts=tuple(replace(t, layer=one(t.layer)) for t in footprint.texts),
+        keepouts=tuple(replace(k, layers=tuple(one(n) for n in k.layers)) for k in footprint.keepouts),
+        fields=tuple(replace(f, layer=one(f.layer)) for f in footprint.fields),
+    )
+
+
+def _copper(board: Board) -> list[str]:
+    return [layer.name for layer in board.layers if layer.kind == "copper"]
+
+
 def _graphics(graphics: Sequence[Graphic], prefix: str) -> list[Shape]:
     """Graphics keyed by layer, kind, normalised geometry and fill; the width is compared once matched
     (``graphic-field``, change c0281), so a stroke drawn wider is one difference, not two missing items."""
@@ -280,6 +360,44 @@ def _graphics(graphics: Sequence[Graphic], prefix: str) -> list[Shape]:
         value: dict[str, Leaf] = {"width": graphic.width}
         shapes.append(Shape(key, f"{prefix}:{graphic.layer}:{geometry_text(found)}", value))
     return shapes
+
+
+def _board_graphics(
+    a: Sequence[Graphic], b: Sequence[Graphic], tolerances: Tolerances, compare: Compare
+) -> tuple[list[Difference], int]:
+    """The board graphics matched as items; then the ``Edge.Cuts`` drawings left on each side, chained into
+    closed rings (``pairing.edge_rings``), matched as rings by their normalised edges (change c0421). A
+    ring left over is one ``graphic-missing``; a drawing of no closed ring stays an item."""
+    shapes_a, shapes_b = _graphics(a, "board"), _graphics(b, "board")
+    pairs, only_a, only_b = match(shapes_a, shapes_b, tolerances)
+    found: list[Difference] = []
+    for one, other in pairs:
+        found += compare(one, other)
+    by_shape_a = {id(shape): graphic for shape, graphic in zip(shapes_a, a, strict=True)}
+    by_shape_b = {id(shape): graphic for shape, graphic in zip(shapes_b, b, strict=True)}
+    left_a = [by_shape_a[id(shape)] for shape in only_a]
+    left_b = [by_shape_b[id(shape)] for shape in only_b]
+
+    def rings(graphics: Sequence[Graphic]) -> tuple[list[Shape], list[Graphic]]:
+        closed, rest = pairing.edge_rings(graphics)
+        shapes: list[Shape] = []
+        for points, mids in closed:
+            edges = ring(points, mids)
+            shapes.append(
+                Shape(("edge-ring", tuple(edges)), f"board:{pairing.EDGE_LAYER}:{ring_text(edges)}")
+            )
+        return shapes, rest
+
+    rings_a, rest_a = rings(left_a)
+    rings_b, rest_b = rings(left_b)
+    ring_pairs, ring_a, ring_b = match(rings_a, rings_b, tolerances)
+    found += [Difference(LEVEL, "graphic-missing", s.where, "graphic", s.where, "") for s in ring_a]
+    found += [Difference(LEVEL, "graphic-missing", s.where, "graphic", "", s.where) for s in ring_b]
+    found += [Difference(LEVEL, "graphic-missing", s.where, "graphic", s.where, "")
+              for s in _graphics(rest_a, "board")]  # fmt: skip
+    found += [Difference(LEVEL, "graphic-missing", s.where, "graphic", "", s.where)
+              for s in _graphics(rest_b, "board")]  # fmt: skip
+    return found, len(pairs) + len(ring_pairs)
 
 
 def _texts(texts: Sequence[Text], prefix: str) -> list[Shape]:
@@ -341,14 +459,32 @@ def _dimensions(board: Board) -> list[Shape]:
 
 
 def _field_pose(
-    ref: str, one: FootprintInstance, other: FootprintInstance, tolerances: Tolerances
+    ref: str,
+    one: FootprintInstance,
+    other: FootprintInstance,
+    tolerances: Tolerances,
+    across: bool = False,
+    parameters: tuple[Mapping[str, str], Mapping[str, str]] = ({}, {}),
 ) -> list[Difference]:
+    """The fields of a footprint pair by name. ``across`` (sides of two backends, change c0421): a hidden
+    field on one side only is not a difference (one backend declares every footprint's reference and value,
+    hidden where the other holds none), nor is a field on one side only that the other side's component
+    holds as a parameter of that name, with the value its own component holds if it holds one (``parameters``:
+    each side's component properties; one backend places every parameter as a field, the other keeps it on
+    the component)."""
     held_a = {f.name: f for f in one.fields if f.name not in LENS_FIELDS}
     held_b = {f.name: f for f in other.fields if f.name not in LENS_FIELDS}
     found: list[Difference] = []
     for name in sorted(set(held_a) | set(held_b)):
         where = f"{ref}:{name}"
         if name not in held_a or name not in held_b:
+            if across and not (held_a.get(name) or held_b[name]).visible:
+                continue
+            mine, theirs = (
+                (parameters[0], parameters[1]) if name in held_a else (parameters[1], parameters[0])
+            )
+            if across and name in theirs and theirs[name] == mine.get(name):
+                continue
             found.append(
                 Difference(
                     LEVEL,
@@ -371,31 +507,52 @@ FootprintPair = tuple[str, FootprintInstance, FootprintInstance]
 
 
 def level_geometry(
-    a: Design, b: Design, pairs: Sequence[FootprintPair], tolerances: Tolerances = EXACT
+    a: Design,
+    b: Design,
+    pairs: Sequence[FootprintPair],
+    tolerances: Tolerances = EXACT,
+    *,
+    aliases: Mapping[str, str] | None = None,
+    keepout_layers: tuple[Collection[str], Collection[str]] = ((), ()),
+    across: bool = False,
 ) -> LevelResult:
-    """Level 7 over the boards of ``a`` and ``b`` and the footprint pairs of level 3."""
+    """Level 7 over the boards of ``a`` and ``b`` and the footprint pairs of level 3. ``aliases`` maps side
+    ``b``'s name of a layer paired by user name to side ``a``'s; ``keepout_layers`` names each side's
+    layers whose drawings are keep-outs, compared with rule areas, and ``across`` marks sides of two backends
+    (``_field_pose``; change c0421)."""
     assert a.board is not None and b.board is not None
-    board_a, board_b = a.board, b.board
+    names = aliases or {}
+    board_a, board_b = a.board, _renamed(b.board, names)
+    keep_a, keep_b = keepout_layers
+    keep_b = [names.get(name, name) for name in keep_b]
     found: list[Difference] = []
     counts: dict[str, int] = {}
 
     def fields_of(kind: str) -> Compare:
         def compare(one: Shape, other: Shape) -> list[Difference]:
-            return field_differences(kind, one.where, one.value or {}, other.value or {}, tolerances, LEVEL)
+            mine, theirs = dict(one.value or {}), dict(other.value or {})
+            if one.partial or other.partial:
+                stated = set(mine if one.partial else theirs)
+                mine = {k: v for k, v in mine.items() if k in stated}
+                theirs = {k: v for k, v in theirs.items() if k in stated}
+            return field_differences(kind, one.where, mine, theirs, tolerances, LEVEL)
 
         return compare
 
     zone_field, keepout_field = fields_of("zone-field"), fields_of("keepout-field")
     graphic_field = fields_of("graphic-field")
+    graphics_a, drawn_a = pairing.split_keepout_drawings(board_a.graphics, keep_a)
+    graphics_b, drawn_b = pairing.split_keepout_drawings(board_b.graphics, keep_b)
+    keepouts_a = _keepouts(board_a.keepouts, "board") + _drawn_keepouts(drawn_a, _copper(board_a), "board")
+    keepouts_b = _keepouts(board_b.keepouts, "board") + _drawn_keepouts(drawn_b, _copper(board_b), "board")
     board_items: tuple[tuple[str, tuple[list[Difference], int]], ...] = (
         ("outline", _compare_set("outline-missing", "ring", _outline(board_a.outline),
                                  _outline(board_b.outline), tolerances)),
         ("zones", _compare_set("zone-missing", "zone", _zones(a, board_a), _zones(b, board_b), tolerances,
                                zone_field)),
-        ("keepouts", _compare_set("keepout-missing", "keepout", _keepouts(board_a.keepouts, "board"),
-                                  _keepouts(board_b.keepouts, "board"), tolerances, keepout_field)),
-        ("graphics", _compare_set("graphic-missing", "graphic", _graphics(board_a.graphics, "board"),
-                                  _graphics(board_b.graphics, "board"), tolerances, graphic_field)),
+        ("keepouts", _compare_set("keepout-missing", "keepout", keepouts_a, keepouts_b, tolerances,
+                                  keepout_field)),
+        ("graphics", _board_graphics(graphics_a, graphics_b, tolerances, graphic_field)),
         ("texts", _text_pairs("text-field", _texts(board_a.texts, "board"), _texts(board_b.texts, "board"),
                               tolerances)),
         ("holes", _compare_set("hole-missing", "hole", _holes(board_a), _holes(board_b), tolerances)),
@@ -406,22 +563,24 @@ def level_geometry(
         found += differences
         counts[name] = compared
     footprint_items = 0
-    for ref, one, other in pairs:
+    copper_a, copper_b = _copper(board_a), _copper(board_b)
+    props_a = {component.id: component.properties for component in a.circuit.components}
+    props_b = {component.id: component.properties for component in b.circuit.components}
+    for ref, one, held in pairs:
+        other = _renamed_footprint(held, names)
+        own_a, fp_drawn_a = pairing.split_keepout_drawings(one.graphics, keep_a)
+        own_b, fp_drawn_b = pairing.split_keepout_drawings(other.graphics, keep_b)
         differences, compared = _compare_set(
-            "graphic-missing",
-            "graphic",
-            _graphics(one.graphics, ref),
-            _graphics(other.graphics, ref),
-            tolerances,
+            "graphic-missing", "graphic", _graphics(own_a, ref), _graphics(own_b, ref), tolerances,
             graphic_field,
-        )
+        )  # fmt: skip
         found += differences
         footprint_items += compared
         differences, compared = _compare_set(
             "keepout-missing",
             "keepout",
-            _keepouts(one.keepouts, ref),
-            _keepouts(other.keepouts, ref),
+            _keepouts(one.keepouts, ref) + _drawn_keepouts(fp_drawn_a, copper_a, ref),
+            _keepouts(other.keepouts, ref) + _drawn_keepouts(fp_drawn_b, copper_b, ref),
             tolerances,
             keepout_field,
         )
@@ -432,7 +591,8 @@ def level_geometry(
         )
         found += differences
         footprint_items += compared
-        found += _field_pose(ref, one, other, tolerances)
+        parameters = (props_a.get(one.component_id, {}), props_b.get(held.component_id, {}))
+        found += _field_pose(ref, one, other, tolerances, across, parameters)
         footprint_items += len({f.name for f in one.fields} & {f.name for f in other.fields} - LENS_FIELDS)
     counts["footprint_items"] = footprint_items
     ordered = tuple(sorted(found, key=lambda d: (d.where, d.kind, d.field, d.a, d.b)))

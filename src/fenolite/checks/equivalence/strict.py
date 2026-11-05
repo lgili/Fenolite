@@ -301,20 +301,70 @@ def _ordered(found: Sequence[Difference]) -> tuple[Difference, ...]:
     return tuple(sorted(found, key=lambda d: (d.where, d.kind, d.field, d.a, d.b)))
 
 
+def _straight(arc: Item, track: Item, tolerances: Tolerances) -> bool:
+    """Whether ``arc`` draws ``track`` (change c0421): one span, the track's ends the arc's ends within the
+    length tolerance (either way round), and the arc's mid within the length tolerance of their chord, so an
+    arc whose three points lie on one line is the track it draws (as the importer takes it, c0375) and an
+    arc shorter than the tolerance written as a track pairs with it. Integers only."""
+    if arc.span != track.span or len(arc.points) != 3 or len(track.points) != 2:
+        return False
+    start, mid, end = arc.points
+    if not _near(Item("track", arc.span, (start, end), None, ""), track, tolerances):
+        return False
+    dx, dy = end.x - start.x, end.y - start.y
+    chord = dx * dx + dy * dy
+    if chord == 0:
+        return False
+    cross = (mid.x - start.x) * dy - (mid.y - start.y) * dx
+    return cross * cross <= tolerances.length_nm * tolerances.length_nm * chord
+
+
+def _arcs_as_tracks(
+    arcs: list[Item], tracks: list[Item], tolerances: Tolerances
+) -> tuple[list[tuple[Item, Item]], list[Item], list[Item]]:
+    """Each arc left unmatched paired with the first track left unmatched that it draws (``_straight``);
+    the pairs, then the arcs and the tracks still unmatched."""
+    taken = [False] * len(tracks)
+    pairs: list[tuple[Item, Item]] = []
+    left: list[Item] = []
+    for arc in arcs:
+        index = next(
+            (k for k, t in enumerate(tracks) if not taken[k] and _straight(arc, t, tolerances)), None
+        )
+        if index is None:
+            left.append(arc)
+        else:
+            taken[index] = True
+            pairs.append((arc, tracks[index]))
+    return pairs, left, [track for k, track in enumerate(tracks) if not taken[k]]
+
+
 def compare_strict(a: Design, b: Design, pairing: NetPairing, tolerances: Tolerances = EXACT) -> StrictResult:
-    """The strict rule over the boards of ``a`` and ``b``: every track, arc and via matched and compared."""
+    """The strict rule over the boards of ``a`` and ``b``: every track, arc and via matched and compared. An
+    arc of one side left unmatched that draws a track of the other side left unmatched is that track: the
+    pair is compared by the track rule and counted with the tracks (change c0421)."""
     items_a, items_b = items(a), items(b)
     paired = dict(pairing.pairs)
     differences: list[Difference] = []
     notices: list[Difference] = []
     summary: dict[str, dict[str, int]] = {}
+    matched: dict[str, tuple[list[Pair], list[Item], list[Item]]] = {}
     for kind in ("track", "arc", "via"):
         rule = STRICT_RULE[kind]
 
         def same(one: Item, other: Item, rule: tuple[tuple[str, Judge], ...] = rule) -> bool:
             return all(judge(one, other, tolerances, paired) is None for _, judge in rule)
 
-        pairs, only_a, only_b = match(items_a[kind], items_b[kind], tolerances, same)
+        matched[kind] = match(items_a[kind], items_b[kind], tolerances, same)
+    track_pairs, tracks_a, tracks_b = matched["track"]
+    arc_pairs, arcs_a, arcs_b = matched["arc"]
+    drawn_ab, arcs_a, tracks_b = _arcs_as_tracks(arcs_a, tracks_b, tolerances)
+    drawn_ba, arcs_b, tracks_a = _arcs_as_tracks(arcs_b, tracks_a, tolerances)
+    drawn = [*drawn_ab, *((track, arc) for arc, track in drawn_ba)]
+    matched["track"] = ([*track_pairs, *drawn], tracks_a, tracks_b)
+    matched["arc"] = (arc_pairs, arcs_a, arcs_b)
+    for kind in ("track", "arc", "via"):
+        pairs, only_a, only_b = matched[kind]
         missing = f"{kind}-missing"
         for item in only_a:
             differences.append(Difference(LEVEL, missing, item.where(), _FIELD[missing], item.where(), ""))
