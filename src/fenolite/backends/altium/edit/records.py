@@ -123,17 +123,26 @@ def prefix_of(raw: bytes) -> tuple[int, int, int, int]:
     return body[0], net, polygon, component
 
 
-LONG_LAYER: Mapping[int, tuple[int, int]] = {TRACK: (45, 41), ARC: (56, 52), FILL: (50, 42)}
+LONG_LAYER: Mapping[int, tuple[int, int]] = {
+    TRACK: (45, 41),
+    ARC: (56, 52),
+    FILL: (50, 42),
+    PAD: (170, 114),
+    TEXT: (232, 226),
+}
 """Per primitive type, the shortest saved long form and the offset of its 32-bit long layer id in the
-geometry subrecord (``pcb-records.md``, "Long forms of the eight public documents"; ``pcb-copper.md``)."""
-SHORT_FORM: Mapping[int, int] = {TRACK: 36, ARC: 47}
-"""The short forms that hold no long layer id: the track and the arc that Fenolite writes."""
+geometry subrecord (``pcb-records.md``, "Long forms of the eight public documents"; ``pcb-copper.md``):
+a pad's at 114 of its fifth subrecord and a text's at 226 (change c0430)."""
+SHORT_FORM: Mapping[int, int] = {TRACK: 36, ARC: 47, PAD: 114, TEXT: 137}
+"""The short forms that hold no long layer id: the track, the arc, the pad and the text that Fenolite
+writes."""
 
 
 def long_layer_offset(raw: bytes) -> int | None:
-    """The offset of the long layer id in ``raw``'s geometry subrecord; ``None`` for a short track or arc,
-    which holds none, and for every other type. ``RecordError`` for a track, an arc or a fill whose length
-    is neither a short form nor a long form with a recorded offset (a fill of 46 bytes, for one)."""
+    """The offset of the long layer id in ``raw``'s geometry subrecord; ``None`` for a short track, arc, pad
+    or text, which holds none, and for every other type. ``RecordError`` for a track, an arc, a fill, a pad
+    or a text whose length is neither a short form nor a long form with a recorded offset (a fill of 46
+    bytes, for one)."""
     kind, subs = split(raw)
     if kind not in LONG_LAYER:
         return None

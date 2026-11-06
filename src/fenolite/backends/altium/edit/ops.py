@@ -22,6 +22,7 @@ every component index, J13), the session does the smaller change (it appends) an
 from __future__ import annotations
 
 import math
+import re
 import secrets
 import string
 from collections.abc import Callable, Mapping
@@ -381,7 +382,7 @@ def move_primitives(
     layers: Mapping[int, int] | None = None,
 ) -> None:  # fmt: skip
     """Every primitive of component ``index`` moved by ``move``, turned by ``turn``, mirrored, and put on
-    the other layer of its pair in ``layers``."""
+    the other layer of its pair in ``layers``, which maps long layer ids (``flip_layers``)."""
     for storage, positions in component_primitives(state, index).items():
         for position in positions:
             raw = state.get(storage)[position]
@@ -389,9 +390,9 @@ def move_primitives(
             if storage.endswith("ComponentBodies6"):
                 new = _body_model_keys(new, move, turn)
             if layers:
-                layer = rec.prefix_of(new)[0]
-                if layer in layers:
-                    new = relayer(new, layers[layer], strict=False)
+                held = layer_of(new)
+                if held is not None and held in layers:
+                    new = relayer_long(new, layers[held], strict=False)
             if new[0] == PAD and mirror:
                 new = _swap_pad_sides(new)
             state.replace(storage, position, new)
@@ -573,7 +574,41 @@ def flip(state: State, item: Component, old_side: str) -> None:
     held = float((record.get("ROTATION") or "0").strip())
     changes = {"LAYER": "BOTTOM" if side == "TOP" else "TOP", "ROTATION": rotation_text((-held) % 360)}
     state.replace("Components6", index, rec.set_property(record.raw, changes))
-    move_primitives(state, index, rec.mirror_x(float(x)), mirror=True, layers=FLIP_PAIRS)
+    move_primitives(state, index, rec.mirror_x(float(x)), mirror=True, layers=flip_layers(state))
+
+
+MECHPAIR_KEY = re.compile(r"MECHPAIR(\d+)L([12])")
+MECHANICAL_NAME = re.compile(r"MECHANICAL(\d+)")
+
+
+def mechanical_pairs(state: State) -> tuple[tuple[int, int], ...]:
+    """The mechanical layer pairs the board declares, by layer number: each ``MECHPAIR<i>L1`` and
+    ``MECHPAIR<i>L2`` of ``Board6`` that names ``MECHANICAL<n>`` (``pcb-document.md``, "Mechanical layer
+    pairs"). A board without those keys pairs no mechanical layer."""
+    named: dict[str, dict[str, int]] = {}
+    for key, value in state.properties("Board6")[0].fields:
+        found, layer = MECHPAIR_KEY.fullmatch(key.upper()), MECHANICAL_NAME.fullmatch(value.strip().upper())
+        if found is not None and layer is not None:
+            named.setdefault(found.group(1), {})[found.group(2)] = int(layer.group(1))
+    return tuple(
+        (pair["1"], pair["2"])
+        for _, pair in sorted(named.items(), key=lambda item: int(item[0]))
+        if "1" in pair and "2" in pair and pair["1"] != pair["2"]
+    )
+
+
+def flip_layers(state: State) -> dict[int, int]:
+    """The other-side layer of each layer a flip moves, by long layer id: the top and bottom copper, overlay
+    and the rest of ``FLIP_PAIRS`` that is not mechanical, Multi-Layer onto itself, and the mechanical pairs
+    the board declares (``mechanical_pairs``). A mechanical layer of no declared pair stays where it is, as
+    Altium Designer's own flip leaves it (S-1892, case J9)."""
+    layers = {
+        long_id(a): long_id(b) for a, b in FLIP_PAIRS.items() if not MECHANICAL_FIRST <= a <= MECHANICAL_LAST
+    }
+    for a, b in mechanical_pairs(state):
+        layers[MECHANICAL_LONG + a] = MECHANICAL_LONG + b
+        layers[MECHANICAL_LONG + b] = MECHANICAL_LONG + a
+    return layers
 
 
 def set_property(state: State, item: Item, key: str, value: object, old: object) -> None:
@@ -689,9 +724,11 @@ def _carry(template: bytes, source: Primitive) -> bytes:
 
 def relayer(raw: bytes, layer: int, *, strict: bool = True) -> bytes:
     """``raw`` on ``layer``: its layer byte, a region's or body's ``V7_LAYER``, and the long layer id of a
-    saved long track, arc or fill, which Altium shows the primitive on (S-1588, case J23: a track whose
-    layer byte alone was changed stayed on its old layer). A form whose long layer id no row records
-    (``rec.long_layer_offset``) raises ``RecordError`` when ``strict``, else keeps its other bytes."""
+    saved long track, arc, fill, pad or text, which Altium shows the primitive on (S-1588, case J23: a track
+    whose layer byte alone was changed stayed on its old layer; S-1890, case J9: a flipped component's
+    designator and comment whose layer byte alone was changed stayed on Top Overlay). A form whose long
+    layer id no row records (``rec.long_layer_offset``) raises ``RecordError`` when ``strict``, else keeps
+    its other bytes."""
     moved = rec.set_prefix(raw, layer=layer)
     if moved[0] in (REGION, rec.BODY):
         moved = rec.set_region_keys(moved, {"V7_LAYER": v7_layer(layer)})
@@ -702,6 +739,77 @@ def relayer(raw: bytes, layer: int, *, strict: bool = True) -> bytes:
             raise
         return moved
     return moved if offset is None else rec.patch(moved, offset, "<I", long_id(layer))
+
+
+MECHANICAL_FIRST, MECHANICAL_LAST = 57, 72
+"""The layer bytes of Mechanical 1 to 16; Mechanical 17 to 32 hold 72 and only their long layer id."""
+MECHANICAL_LONG = long_id(MECHANICAL_FIRST) - 1
+"""The long layer id of Mechanical ``n`` is this plus ``n`` (``pcb-library.md``, "Long layer ids")."""
+
+
+def _byte_of(long: int) -> int | None:
+    """The layer byte of the long layer id ``long``: Mechanical 17 to 32 take 72 (S-1654)."""
+    if MECHANICAL_LONG < long <= MECHANICAL_LONG + 32:
+        return min(MECHANICAL_FIRST - 1 + long - MECHANICAL_LONG, MECHANICAL_LAST)
+    return _BYTES.get(long)
+
+
+def _long_ids() -> dict[int, int]:
+    found: dict[int, int] = {}
+    for layer in range(1, 83):
+        try:
+            found[long_id(layer)] = layer
+        except ValueError:
+            continue
+    return found
+
+
+_BYTES = _long_ids()
+
+
+def layer_of(raw: bytes) -> int | None:
+    """The long layer id of the layer ``raw`` lies on: the id its form holds, else that of its layer byte;
+    ``None`` for a byte without a long id or a form no row records."""
+    try:
+        offset = rec.long_layer_offset(raw)
+    except rec.RecordError:
+        offset = None
+    if offset is not None:
+        (value,) = rec.unpack(raw, offset, "<I")
+        assert isinstance(value, int)
+        return value
+    try:
+        return long_id(rec.prefix_of(raw)[0])
+    except ValueError:
+        return None
+
+
+def relayer_long(raw: bytes, long: int, *, strict: bool = True) -> bytes:
+    """``raw`` on the layer of the long layer id ``long``: ``relayer`` onto its layer byte, then, for
+    Mechanical 17 to 32, the long id and a region's or body's ``V7_LAYER`` of that layer itself. A form
+    that holds neither cannot name Mechanical 17 to 32: ``RecordError`` when ``strict``, else ``raw``
+    unchanged."""
+    layer = _byte_of(long)
+    if layer is None:
+        raise rec.RecordError(f"the long layer id {long:#x} has no layer byte")
+    moved = relayer(raw, layer, strict=strict)
+    if long == long_id(layer):
+        return moved
+    if moved[0] in (REGION, rec.BODY):
+        moved = rec.set_region_keys(moved, {"V7_LAYER": f"MECHANICAL{long - MECHANICAL_LONG}"})
+    try:
+        offset = rec.long_layer_offset(moved)
+    except rec.RecordError:
+        offset = None
+    if offset is not None:
+        return rec.patch(moved, offset, "<I", long)
+    if moved[0] in (REGION, rec.BODY):
+        return moved
+    if strict:
+        raise rec.RecordError(
+            f"a type {raw[0]} record of this form cannot lie on Mechanical {long - MECHANICAL_LONG}"
+        )
+    return raw
 
 
 def on_layer(raw: bytes, layer: int) -> bool:
@@ -719,9 +827,9 @@ def on_layer(raw: bytes, layer: int) -> bool:
 
 def remap_layer(state: State, old: str, new: str) -> None:
     """Every primitive on the layer ``old`` (``on_layer``) moves to ``new``: its layer byte, a region's or
-    body's ``V7_LAYER`` and a long track's, arc's or fill's long layer id together (``relayer``,
+    body's ``V7_LAYER`` and a long track's, arc's, fill's or text's long layer id together (``relayer``,
     ``H-A-EDIT-LAYER``). Copper layers are not remapped: a polygon's pour and the pads' stacks would need a
-    change of their own. A text keeps any layer field other than its layer byte: no row records one."""
+    change of their own."""
     view = View(state)
     a, b = view.layer_id(old), view.layer_id(new)
     _assert(
