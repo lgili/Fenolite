@@ -726,7 +726,38 @@ def guarded(
     server's, its ``Origin`` (when sent) the same, it carries ``header: 1`` (and every ``extra`` header with
     its value), it is JSON and its body is 1 to ``limit`` bytes; :class:`Refused` (403 or 413) otherwise. A
     page of another site cannot send a custom header without a preflight, which this server never answers,
-    and the ``Host`` check stops a name that resolves to this address (DNS rebinding)."""
+    and the ``Host`` check stops a name that resolves to this address (DNS rebinding).
+
+    A refused request's body, when it states a length of at most ``DRAIN_LIMIT``, is read and dropped first:
+    closing a socket with unread data resets the connection on some systems (Windows), and the client then
+    sees an abort instead of the refusal."""
+    try:
+        return _guarded(handler, header, limit, extra)
+    except Refused:
+        _drain(handler)
+        raise
+
+
+DRAIN_LIMIT = 1 << 20
+"""The largest refused body this server reads and drops before it answers (see :func:`guarded`)."""
+DRAIN_SECONDS = 5.0
+"""How long the drain of a refused body may wait for its bytes."""
+
+
+def _drain(handler: BaseHTTPRequestHandler) -> None:
+    try:
+        length = int(handler.headers.get("Content-Length") or 0)
+    except ValueError:
+        return
+    if 0 < length <= DRAIN_LIMIT:
+        try:
+            handler.connection.settimeout(DRAIN_SECONDS)  # a body shorter than its length never blocks long
+            handler.rfile.read(length)
+        except OSError:
+            pass
+
+
+def _guarded(handler: BaseHTTPRequestHandler, header: str, limit: int, extra: dict[str, str] | None) -> bytes:
     if not own_host(handler):
         raise Refused(403, "accepted from this server's own page only")
     if handler.headers.get(header) != "1" or not str(handler.headers.get("Content-Type", "")).startswith(

@@ -576,3 +576,32 @@ def test_action_guard_needs_the_token_and_one_job_at_a_time(tmp_path: Path) -> N
         assert _call(port, "/action/plan", SILK | {"options": {"no_backup": True}}, signed)[0] == 400
     finally:
         stop.set()
+
+
+def test_a_refused_body_is_read_before_the_answer() -> None:
+    """An unread body makes the close a reset on Windows, and the client sees an abort instead of 413."""
+    import io
+    from email.message import Message
+
+    class _Socket:
+        def settimeout(self, seconds: float) -> None:
+            self.seconds = seconds
+
+    class _Handler:
+        def __init__(self, body: bytes, headers: dict[str, str]) -> None:
+            self.headers = Message()
+            for name, value in headers.items():
+                self.headers[name] = value
+            self.rfile = io.BytesIO(body)
+            self.connection = _Socket()
+            self.server = type("_Server", (), {"server_address": ("127.0.0.1", 1)})()
+
+    body = b"x" * (17 * 1024)
+    handler = _Handler(body, {"Host": "127.0.0.1:1", "Content-Length": str(len(body))})
+    with pytest.raises(server.Refused):
+        server.guarded(handler, "X-Fenolite-Run", 16 * 1024)  # type: ignore[arg-type]
+    assert handler.rfile.read() == b""
+    huge = _Handler(b"y", {"Host": "127.0.0.1:1", "Content-Length": str(server.DRAIN_LIMIT + 1)})
+    with pytest.raises(server.Refused):
+        server.guarded(huge, "X-Fenolite-Run", 16 * 1024)  # type: ignore[arg-type]
+    assert huge.rfile.read() == b"y"
