@@ -37,7 +37,9 @@ Rules for every task:
 - [ ] 3.3 `unshaped-copper` and `unshaped-pad` shaped through the writer's text and pad geometry (c0460).
   `threshold` and `pour-over` read every documented value. Proof:
   `uv run pytest tests/unit/backends/altium/test_pour_inputs.py tests/unit/backends/altium/test_pour_refusal.py -q -n 0`.
-- [ ] 3.4 `shelved` and `plane-layer` counted as `exact`. Proof: the same files.
+  Done: `threshold` and `pour-over` read every documented value (test in `test_pour_refusal.py`). Open:
+  the text and pad shapes wait for c0460, which is not on `cac/lote-29`.
+- [x] 3.4 `shelved` and `plane-layer` counted as `exact`. Proof: the same files.
 
 ## 4. The Repour oracle
 

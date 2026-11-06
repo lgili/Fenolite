@@ -176,7 +176,8 @@ def test_pour_census(item: CorpusItem) -> None:
     """Scenario "Census counts are pinned": every polygon is poured or refused with a reason of
     ``pour.REASONS``, and each poured one is compared by M1 to M4 with the regions the document holds. A
     failed comparison is listed (``-rA``) with its polygon and its places; it fails nothing, since a saved
-    pour may be stale, or poured by another version or with AdvancedPour."""
+    pour may be stale, or poured by another version or with AdvancedPour. A shelved polygon and one on a
+    plane are Altium's own outcome and count under ``exact`` (change c0463)."""
     import importlib.util
 
     if importlib.util.find_spec("pyclipper") is None:
@@ -191,7 +192,8 @@ def test_pour_census(item: CorpusItem) -> None:
     for polygon in result.polygons:
         if not polygon.poured:
             assert polygon.reason in REASONS, (item.id, polygon.reason)
-            refused[polygon.reason] = refused.get(polygon.reason, 0) + 1
+            key = "exact" if polygon.exact else polygon.reason  # change c0463, D4
+            refused[key] = refused.get(key, 0) + 1
     found = compare_computed(reading, result)
     failed = {f"{v.layer} {v.name}": v.failed for v in found.polygons if not v.passed}
     for verdict in found.polygons:

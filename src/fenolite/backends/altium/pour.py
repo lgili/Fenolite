@@ -112,6 +112,10 @@ REASONS: Mapping[str, str] = {
     "copper-check": "the copper check finds a short or a clearance below the rule on the computed pour",
 }
 """Why a polygon keeps its outline only (``altium.zone-unpoured``), a closed list."""
+EXACT: Final = frozenset({"shelved", "plane-layer"})
+"""The reasons that are Altium's own outcome, not a refusal (change c0463, D4): Altium shows a shelved
+polygon with no copper, and an internal plane is no polygon pour (``pcb-copper.md``). A census counts them
+under ``exact``, and no later polygon depends on them."""
 
 HYPOTHESES: tuple[str, ...] = (
     "H-A-POUR-OPEN",
@@ -209,6 +213,11 @@ class PolygonPour:
     @property
     def poured(self) -> bool:
         return not self.reason
+
+    @property
+    def exact(self) -> bool:
+        """Whether the polygon pours no copper because Altium pours none either (``EXACT``)."""
+        return self.reason in EXACT
 
 
 @dataclass(frozen=True, slots=True)
@@ -1145,7 +1154,8 @@ def pour_reading(
             pieces, reason = _pour(polygon, state, context)
         if reason:
             pieces = ()
-            state.refused.append(polygon)
+            if reason not in EXACT:  # no copper in Altium either: nothing of a neighbour depends on it
+                state.refused.append(polygon)
         else:
             state.poured.append((polygon, pieces))
         out[polygon.index] = PolygonPour(

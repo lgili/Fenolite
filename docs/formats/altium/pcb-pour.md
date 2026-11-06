@@ -117,5 +117,11 @@ before the change, and their saved regions.
   saved pours of rows -02 and -07 show (S-2222). A ring that touches itself at a vertex is poured as the
   boolean backend's normal form gives it, one piece per loop; no source shows Altium's fill of such a ring
   (S-2222), so this rests on `H-A-POUR-REGION`. A ring that crosses itself still refuses `outline`.
+- **Exact non-pours** (change c0463). `shelved` and `plane-layer` are Altium's own outcome, not refusals:
+  Altium shows a shelved polygon with no copper (I1), and an internal plane is no polygon pour. They pour no
+  copper, a census counts them under `exact`, and no later polygon of the layer is held back by them
+  (`pour.EXACT`). Every value of `POUROVERSTYLE`, `ARCRESOLUTION`, `AREATHRESHOLD` and
+  `NECKWIDTHTHRESHOLD` that I8, I10, I12 and I14 record reads; `threshold` and `pour-over` remain for a
+  value no source defines.
 - **Polygon Connect Style.** The records of change c0215, Decision 11: the Advanced form, one rule per
   net scoped `InNet` and one `All` rule.

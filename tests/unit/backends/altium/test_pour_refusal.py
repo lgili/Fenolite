@@ -14,7 +14,7 @@ import pytest
 from _altium_pour import Board, clearance, pad, rect, via, zone
 
 from fenolite.backends.altium import pcbdoc
-from fenolite.backends.altium.pour import REASONS, PourReading, PourResult, pour_reading
+from fenolite.backends.altium.pour import EXACT, REASONS, PourReading, PourResult, pour_reading
 from fenolite.backends.altium.read.pcb import PolygonRecord
 from fenolite.backends.altium.read.pcbprops import PropertyRecord
 from fenolite.core.coords import Point
@@ -104,6 +104,61 @@ def test_hatched_and_shelved_polygons() -> None:
     assert [p.reason for p in hatched.polygons] == ["hatched", "depends-on-refused", "", ""]
     shelved = pour_reading(_with_record(reading, 3, SHELVED="TRUE"))
     assert [p.reason for p in shelved.polygons] == ["", "", "", "shelved"]
+
+
+def test_shelved_and_plane_layer_are_exact_outcomes() -> None:
+    """Change c0463, D4: a shelved polygon and one on an internal plane pour no copper, as in Altium; they
+    are exact outcomes (``exact``), and the later polygon that overlaps them is not held back."""
+    reading = _board().base()
+    for values in ({"SHELVED": "TRUE"}, {"LAYER": "PLANE1"}):
+        result = pour_reading(_with_record(reading, 0, **values))
+        first, second, *_ = result.polygons
+        assert first.reason in EXACT and first.exact and not first.poured and first.pieces == ()
+        assert [p.reason for p in result.polygons[1:]] == ["", "", ""]
+        assert second.pieces
+    hatched = pour_reading(_with_record(reading, 0, HATCHSTYLE="45Degree")).polygons[0]
+    assert not hatched.exact
+
+
+@pytest.mark.parametrize(
+    "values",
+    [
+        {"POUROVERSTYLE": "0"},
+        {"POUROVERSTYLE": "1"},
+        {"POUROVERSTYLE": "2"},
+        {"ARCRESOLUTION": "0.5mil"},
+        {"ARCRESOLUTION": "0.0394mil"},
+        {"ARCRESOLUTION": "0.5118mil"},
+        {"ARCRESOLUTION": "0.3937mil"},
+        {"ARCRESOLUTION": "0.01mm"},
+        {"REMOVEISLANDSBYAREA": "TRUE", "AREATHRESHOLD": "250000000000.000000"},
+        {"REMOVEISLANDSBYAREA": "TRUE", "AREATHRESHOLD": "232500465000.930304"},
+        {"REMOVEISLANDSBYAREA": "TRUE", "AREATHRESHOLD": "15500031000.062008"},
+        {"REMOVENECKS": "TRUE", "NECKWIDTHTHRESHOLD": "5mil"},
+        {"REMOVENECKS": "TRUE", "NECKWIDTHTHRESHOLD": "0.127mm"},
+    ],
+    ids=lambda values: ",".join(f"{k}={v}" for k, v in values.items()),
+)
+def test_threshold_and_pour_over_read_every_documented_value(values: dict[str, str]) -> None:
+    """Change c0463, task 3.3: every value of ``POUROVERSTYLE``, ``ARCRESOLUTION``, ``AREATHRESHOLD`` and
+    ``NECKWIDTHTHRESHOLD`` that ``pcb-pour.md`` (I8, I10, I12, I14) records reads, so none refuses
+    ``threshold`` or ``pour-over``; a value no source defines still does."""
+    reading = _board().base()
+    assert set(values) <= {key for key, _ in reading.document.polygons[0].record.fields}  # the keys are set
+    assert pour_reading(_with_record(reading, 0, **values)).polygons[0].reason == ""
+
+
+@pytest.mark.parametrize(
+    ("values", "reason"),
+    [
+        ({"POUROVERSTYLE": "3"}, "pour-over"),
+        ({"ARCRESOLUTION": "0mil"}, "threshold"),
+        ({"REMOVEISLANDSBYAREA": "TRUE", "AREATHRESHOLD": "much"}, "threshold"),
+    ],
+)
+def test_undefined_threshold_and_pour_over_refuse(values: dict[str, str], reason: str) -> None:
+    reading = _board().base()
+    assert pour_reading(_with_record(reading, 0, **values)).polygons[0].reason == reason
 
 
 def test_unshaped_copper_within_reach() -> None:
