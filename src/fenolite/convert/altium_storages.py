@@ -4,10 +4,10 @@
 (change c0450; ``pcb-records.md``, "Storages through KiCad").
 
 A conversion to KiCad copies each carried storage of the source document to a board property
-``Fenolite.Altium.<storage>``. The property's value is the base64 text of the zlib-compressed bytes of the
+``Fenolite.Altium.<storage>`` with ``backends.kicad.boardcarrier`` (change c0434), whose bytes are the
 length of the ``Header`` stream (32-bit), that stream and the ``Data`` stream. KiCad keeps a board property
-on a save (S-2092). The properties go in as verbatim root items. A conversion back reads them from the
-board's root slots and writes each storage again (``pcbdoc.PcbDocSpec.kept_storages``).
+on a save (S-2092). A conversion back reads them with ``boardcarrier.carried`` and writes each storage again
+(``pcbdoc.PcbDocSpec.kept_storages``).
 
 The component classes of ``Classes6`` travel as ``Classes6.Component``: the records of ``KIND=1`` that are
 no super class. Storages that name primitives by index (``PrimitiveGuids``, the saved violations) are not
@@ -16,21 +16,18 @@ carried: the round trip renumbers the primitives. Each one that holds a record i
 
 from __future__ import annotations
 
-import base64
 import re
 import struct
-import zlib
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
+from fenolite.backends.kicad.boardcarrier import PREFIX
 from fenolite.core.evidence import Evidence, Level
 
 EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-A-CONV-STORAGE",))
 """The claim of the carried storages: written back byte for byte, they open in Altium as in the source
 (``docs/hypotheses.md``; settled by the kit request of c0450 task 4.2)."""
-PREFIX = "Fenolite.Altium."
-"""The name prefix of a board property that carries a storage."""
 CARRIED: tuple[str, ...] = ("BoardRegions", "CustomMaskShapes", "EmbeddedFonts6", "UnionNames")
 """The storages copied whole."""
 CLASSES = "Classes6"
@@ -52,18 +49,14 @@ class Storage:
     data: bytes
 
 
-def encode(storage: Storage) -> str:
-    """The property value of ``storage``."""
-    packed = struct.pack("<I", len(storage.header)) + storage.header + storage.data
-    return base64.b64encode(zlib.compress(packed, 9)).decode("ascii")
+def packed(storage: Storage) -> bytes:
+    """The carried bytes of ``storage``: the length of its ``Header`` stream (32-bit), that stream and its
+    ``Data`` stream (``boardcarrier.with_carried`` packs them)."""
+    return struct.pack("<I", len(storage.header)) + storage.header + storage.data
 
 
-def decode(value: str) -> Storage | None:
-    """The storage of a property value, or ``None`` when the value is not one ``encode`` gives."""
-    try:
-        packed = zlib.decompress(base64.b64decode(value.encode("ascii"), validate=True))
-    except (ValueError, zlib.error):
-        return None
+def unpacked(packed: bytes) -> Storage | None:
+    """The storage of carried bytes, or ``None`` when they are not bytes ``packed`` gives."""
     if len(packed) < 4:
         return None
     (length,) = struct.unpack_from("<I", packed)
@@ -145,20 +138,19 @@ def found_in(path: Path) -> Found:
     return Found(carried, bound)
 
 
-def property_text(name: str, storage: Storage) -> str:
-    """The root ``(property …)`` item of a carried storage."""
-    return f'(property "{name}" "{encode(storage)}")'
+def items(found: Found) -> dict[str, bytes]:
+    """The carried storages of ``found`` as ``boardcarrier.with_carried`` items, by property name."""
+    return {name: packed(storage) for name, storage in found.carried.items()}
 
 
-def from_properties(properties: Sequence[tuple[str, str]]) -> dict[str, Storage]:
-    """The storages that the board properties ``properties`` (name, value) carry, by storage name
-    (``Classes6.Component`` for the component classes); a property whose value does not decode is left
-    out."""
+def from_carried(carried: Mapping[str, bytes]) -> dict[str, Storage]:
+    """The storages among a board's carried properties (``boardcarrier.carried``), by storage name
+    (``Classes6.Component`` for the component classes). Only the names a conversion carries count, so the
+    rule records of ``Rules6`` (change c0434) are not a storage; bytes that do not unpack are left out."""
+    names = {PREFIX + name for name in (*CARRIED, COMPONENT_CLASSES)}
     found: dict[str, Storage] = {}
-    for name, value in properties:
-        if not name.startswith(PREFIX):
-            continue
-        storage = decode(value)
+    for name, data in carried.items():
+        storage = unpacked(data) if name in names else None
         if storage is not None:
             found[name.removeprefix(PREFIX)] = storage
     return found
@@ -174,11 +166,11 @@ __all__ = [
     "Found",
     "Storage",
     "component_classes",
-    "decode",
-    "encode",
     "fields",
     "found_in",
-    "from_properties",
-    "property_text",
+    "from_carried",
+    "items",
+    "packed",
     "records",
+    "unpacked",
 ]

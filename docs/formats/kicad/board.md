@@ -70,7 +70,6 @@ never taken from KiCad's writer code.
 | A `uuid` is a version 4 UUID meant to be globally unique | S-0001 | INFERRED | H-K-PCB-UUID |
 | `pcb upgrade --force` re-saves its input in place, in the current format; it exists in 10.0 only | S-0022, S-0037 | KICAD-VERIFIED (10.0.x) | H-K-FMT-RESAVE |
 | A 10.0.6 re-save keeps the uuid of every item it keeps; it removes teardrop zones and a footprint's `Footprint` property, and replaces `fp_text` items by properties with new uuids | S-0020, S-0022 | KICAD-VERIFIED (10.0.x) | H-K-UUID-KEEP-2 |
-| A board-level `(property "name" "value")` is a root child after `setup`; a 10.0.6 re-save writes the board properties sorted by name and keeps each value byte for byte, the four `Fenolite.Altium.*` properties of a conversion of public row `-01` among them (the largest 698 048 characters, a 2.3 MB board). Board properties are KiCad's text variables (change c0450) | S-2092 | KICAD-VERIFIED (10.0.x) | H-K-PCB-PROPERTY |
 | A root `group` lists its members by uuid in a `members` child; a board whose footprint uuids and group members were changed together loads on 9.0.9 and 10.0.6 with an unchanged DRC report, and a 10.0.6 re-save keeps the group, its uuid and its members, written sorted by uuid | S-0020, S-0022, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-LENS-RENAME |
 | `pcb export pos --format csv --units mm` prints `Ref,Val,Package,PosX,PosY,Rot,Side` with 6 decimals of mm; without `--use-drill-file-origin`, `PosX` is the stored x and `PosY` minus the stored y; bottom X is not negated without `--bottom-negate-x` | S-0020, S-0022, S-0037 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-PCB-POS |
 | `pcb export pos` prints `Rot` as the stored footprint angle modulo 360° on both sides, 270° as `-90.000000` (the 21 corpus demos on 10.0.6; a bottom footprint at 30° on 9.0.9 and 10.0.6) | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-PCB-POS |
@@ -1119,10 +1118,12 @@ A conversion from Altium keeps the data the way back needs in root properties of
 | fact | source | label | hypothesis |
 |---|---|---|---|
 | A root `(property "NAME" "VALUE")` written after `setup` loads; `pcb upgrade --force` keeps it after `setup`, with its value, also a value of 80 kB | S-0020 | KICAD-VERIFIED (10.0.6) | H-K-FENOLITE-PROPS |
+| A 10.0.6 re-save writes the board properties sorted by name and keeps each value byte for byte, the four `Fenolite.Altium.*` storage properties of a conversion of public row `-01` among them (the largest 698 048 characters, a 2.3 MB board; change c0450) | S-2092 | KICAD-VERIFIED (10.0.6) | H-K-FENOLITE-PROPS |
 
 `with_carried` writes every `Fenolite.Altium.*` property in name order right after `setup` and changes no
 other byte; `carried` reads them back. Change c0434 writes `Fenolite.Altium.Rules6`
-(`docs/formats/altium/rule-file.md`, "Records through KiCad").
+(`docs/formats/altium/rule-file.md`, "Records through KiCad"), change c0450 the storages of the source
+document (`docs/formats/altium/pcb-records.md`, "Through KiCad").
 
 ## Authored native TAB value observations
 

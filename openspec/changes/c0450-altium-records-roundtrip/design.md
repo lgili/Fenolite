@@ -35,8 +35,10 @@ any string value on a save, a 200 KB one included (S-2092). The values are compr
 library). On row `-01` the `EmbeddedFonts6` storage gives a property of 698 048 characters, and the KiCad
 board is 2.3 MB; KiCad 10.0.6 saves it back with the four properties unchanged (task 2.1).
 
-The writer of a created board writes `Board.ext["kicad"]` root slots named `property` after `setup`. The
-reader keeps unknown root children in those slots, so the conversion to Altium finds them again.
+The properties are written and read with `backends.kicad.boardcarrier` (change c0434): the conversion to
+KiCad gives the storages and the rule records of `Fenolite.Altium.Rules6` to one `with_carried` call, and
+the conversion to Altium reads them with `carried`. The bytes a storage property carries are the length of
+`Header` (32-bit), `Header` and `Data`; `boardcarrier` packs them as base64 of zlib (level 9).
 
 ## Index-bound storages
 

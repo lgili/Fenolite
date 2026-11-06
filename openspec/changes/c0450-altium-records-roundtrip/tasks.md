@@ -13,6 +13,9 @@
   index-bound ones lost; `uv run pytest tests/unit/convert/test_altium_storages.py -k kicad`.
 - [x] 2.2 The conversion to Altium writes the carried storages back;
   `uv run pytest tests/unit/convert/test_altium_storages.py`.
+- [x] 2.3 The storages travel with `backends.kicad.boardcarrier` (c0434): one `with_carried` call with the
+  rule records, read back with `carried`; `uv run pytest tests/unit/convert/test_altium_storages.py
+  tests/unit/convert/test_rule_carrier_c0434.py`.
 
 ## 3. Flagged keep-out strokes
 

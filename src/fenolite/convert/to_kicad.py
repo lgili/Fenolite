@@ -60,7 +60,6 @@ from fenolite.model.board import (
     Hole,
     ModelRef,
     OutlineArc,
-    VerbatimItem,
 )
 from fenolite.model.circuit import Component
 from fenolite.model.design import Design
@@ -544,7 +543,7 @@ def write_altium(source: SourceProject, options: Options) -> Written:
     name = options.name or source.name
     design = prepare(source, name, options.kicad_version, ledger)
     assert design.board is not None
-    design = _carried_storages(source, design, ledger, counts)  # change c0450
+    carried_storages = _carried_storages(source, design, ledger, counts)  # change c0450
     # the holes join the prepared board as placed footprints, which ``prepare`` would derive and clean
     assert design.board is not None
     design, holes, plated = generated_holes(
@@ -592,12 +591,15 @@ def write_altium(source: SourceProject, options: Options) -> Written:
     if records:
         counts["rule"] = counts.get("rule", 0) + records
     carried = _carried_rules(source, design, texts.get(f"{name}.kicad_dru"))
+    board_items = dict(carried_storages)
     if carried:  # change c0434: every rule record travels in the board, for the way back
-        from fenolite.backends.kicad.boardcarrier import with_carried
         from fenolite.convert import rulecarrier
 
-        payload = rulecarrier.carrier_text(carried).encode("utf-8")
-        texts[f"{name}.kicad_pcb"] = with_carried(texts[f"{name}.kicad_pcb"], {rulecarrier.PROPERTY: payload})
+        board_items[rulecarrier.PROPERTY] = rulecarrier.carrier_text(carried).encode("utf-8")
+    if board_items:  # changes c0434 and c0450: one write of every carried board property
+        from fenolite.backends.kicad.boardcarrier import with_carried
+
+        texts[f"{name}.kicad_pcb"] = with_carried(texts[f"{name}.kicad_pcb"], board_items)
     report = ConversionReport.of(
         source=counts,
         changed={
@@ -620,9 +622,9 @@ def write_altium(source: SourceProject, options: Options) -> Written:
 
 def _carried_storages(
     source: SourceProject, design: Design, ledger: Ledger, counts: dict[str, int]
-) -> Design:
-    """``design`` whose board holds a verbatim root ``(property …)`` per carried storage of the source's PCB
-    document (change c0450, ``convert.altium_storages``); each index-bound storage that holds a record is
+) -> dict[str, bytes]:
+    """The carried storages of the source's PCB document as ``boardcarrier.with_carried`` items, by property
+    name (change c0450, ``convert.altium_storages``); each index-bound storage that holds a record is
     counted lost under ``altium-storage``. A document that cannot be read carries nothing."""
     from fenolite.convert import altium_storages as storages
     from fenolite.convert.altium_to_kicad import board_document
@@ -631,26 +633,17 @@ def _carried_storages(
     board = design.board
     path = board_document(source, source.design)
     if board is None or path is None:
-        return design
+        return {}
     try:
         found = storages.found_in(path)
     except (OSError, FenoliteError):
-        return design
+        return {}
     if not found.carried and not found.index_bound:
-        return design
+        return {}
     counts[storages.KIND] = len(found.carried) + len(found.index_bound)
     for name in found.index_bound:
         ledger.drop(storages.KIND, name, storages.INDEX_BOUND_REASON)
-    items = tuple(
-        VerbatimItem(
-            id=derived_id("vbt", "altium-storage", name),
-            key=name,
-            text=storages.property_text(name, storage),
-        )
-        for name, storage in found.carried.items()
-    )
-    board = dataclasses.replace(board, verbatim=(*board.verbatim, *items))
-    return dataclasses.replace(design, board=board)
+    return storages.items(found)
 
 
 def _placed_models(source: SourceProject, design: Design, name: str, copied: Copies | None = None) -> Placed:

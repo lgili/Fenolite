@@ -189,25 +189,20 @@ def with_mask_margin(design: Design, source: SourceProject) -> Design:
     return dataclasses.replace(design, board=dataclasses.replace(board, mask_margin=margin))
 
 
-def _carried_storages(design: Design) -> dict[str, tuple[bytes, bytes]]:
-    """The Altium storages a conversion to KiCad carried in the board's root ``(property …)`` items (change
-    c0450, ``convert.altium_storages``), by storage name: the ``Header`` and ``Data`` streams."""
-    from fenolite.backends.kicad import slots as slotlib
-    from fenolite.backends.kicad.sexpr import Node
-    from fenolite.backends.kicad.slots import Opaque
+def _carried_storages(source: SourceProject) -> dict[str, tuple[bytes, bytes]]:
+    """The Altium storages a conversion to KiCad carried in the board's properties (change c0450,
+    ``convert.altium_storages``, read with ``boardcarrier.carried``), by storage name: the ``Header`` and
+    ``Data`` streams. Nothing for a board that does not read."""
+    from fenolite.backends.kicad.boardcarrier import carried as board_carried
     from fenolite.convert import altium_storages as storages
 
-    board = design.board
-    bag = board.ext.get("kicad") if board is not None else None
-    properties: list[tuple[str, str]] = []
-    for slot in slotlib.from_ext(bag) if bag is not None else ():
-        if not isinstance(slot, Opaque):
-            continue
-        child = slotlib.opaque_child(slot)
-        if isinstance(child, Node) and child.name == "property" and len(child.atoms()) == 2:
-            name, value = (atom.value for atom in child.atoms())
-            properties.append((name, value))
-    return {name: (s.header, s.data) for name, s in storages.from_properties(properties).items()}
+    if source.path.suffix != ".kicad_pcb":
+        return {}
+    try:
+        found = board_carried(source.path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, FormatError):
+        return {}
+    return {name: (s.header, s.data) for name, s in storages.from_carried(found).items()}
 
 
 def write(source: SourceProject, options: Options) -> Written:
@@ -244,7 +239,7 @@ def write(source: SourceProject, options: Options) -> Written:
             source_rules=carried.records,
             parameters=altium_strings.project_parameter_pairs(design),
             models=models,
-            storages=_carried_storages(design),  # change c0450
+            storages=_carried_storages(source),  # change c0450
         )
     except CompoundTooLarge as error:
         raise TargetLimitError(
