@@ -54,7 +54,7 @@ Write the Altium PCB library (`.PcbLib`) and PCB document (`.PcbDoc`) from the m
 ### Requirement: Footprint pad records
 `pcbrecords.pad_record(...)` SHALL write one pad as the six subrecords of record type 2 (S-0150, S-0160, S-0161, S-0143).
 - Subrecord 1 MUST hold the pad number as a short string, its length exactly 1 + the text's length. Subrecords 2 to 4 MUST hold the bytes `00`, the short string `|&|0` and `00` (S-0150).
-- Subrecord 5 MUST be 114 bytes: the prefix; x, y; top, middle and bottom size equal to the pad size; hole size (the drill, 0 for SMD); top, middle and bottom shape; rotation; plated (1 only for `thru_hole`); pad mode 0; the values S-0150 writes at offsets 63 to 85; mask expansions 0; paste mode 0 and solder mode 1; the int32 at 106 and the bytes 110 to 113 zero.
+- Subrecord 5 MUST be 114 bytes: the prefix; x, y; top, middle and bottom size equal to the pad size; hole size (the drill, 0 for SMD); top, middle and bottom shape; rotation; plated (1 only for `thru_hole`); pad mode 0; the values S-0150 writes at offsets 63 to 85; for a pad without its own margins the mask expansions 0, paste mode 0 and solder mode 1, and for a pad with `Pad.mask_margin` solder mode 2 with the margin as the solder-mask expansion, with `Pad.paste_margin` paste mode 2 with the margin as the paste expansion (change c0440; a connector pad keeps modes 0); the int32 at 106 and the bytes 110 to 113 zero.
 - Shapes: `circle` and `oval` MUST be shape 1 (round; an oval has unequal sizes), `rect` shape 2, `roundrect` shape 1 with subrecord 6.
 - Subrecord 6 MUST be empty, except for a `roundrect` pad: 596 bytes, every inner size equal to the pad size, every inner shape 1, hole shape 0, no slot, zero offsets, the rounded-rectangle flag 1, every alternate shape 9 and every corner percentage `round(200 · ratio)` clamped to 0 … 100, where `ratio` is the pad's corner ratio (`H-A-PCB-PAD`).
 - The pad rotation MUST be the pad angle in degrees; KiCad's and Altium's positive angles both turn counter-clockwise on screen (`H-G-ROT-DIR`).
@@ -66,6 +66,11 @@ Write the Altium PCB library (`.PcbLib`) and PCB document (`.PcbDoc`) from the m
 #### Scenario: Through-hole pads
 - **WHEN** the mini LED footprint's pads are written
 - **THEN** both are on layer 74 with hole size 354331 and plated 1, pad `1` has shape 2 and pad `2` shape 1, and both have an empty subrecord 6
+
+#### Scenario: A pad's own margin is a manual expansion
+- **GIVEN** the KiCad board converted from `tests/data/altium/blink`, whose pads are given a `solder_mask_margin` of 0.05 mm, the first of 0
+- **WHEN** `uv run pytest tests/unit/convert/test_pad_mask_c0440.py` converts it to Altium and back to KiCad
+- **THEN** each written pad holds solder mode 2 with the expansion 19685 or 0, and the KiCad board read again holds the same margins
 
 ### Requirement: Footprint line and arc records
 Footprint graphics SHALL be written as tracks (type 4) and arcs (type 1) (S-0150, S-0160).
@@ -336,11 +341,12 @@ Each component record SHALL link to the schematic, and each pad SHALL carry its 
 - **THEN** `write_pcbdoc` raises `ValueError` naming the track's id and `In1.Cu`
 
 ### Requirement: Via records
-`pcbrecords.via_record(x, y, diameter, hole, *, net=NO_INDEX, start=1, end=32, locked=False)` SHALL write one via as record type 3 with one subrecord of 321 bytes, the form Altium saves (S-0150, S-0160, S-0173, S-0172, S-0174, S-0175, S-0176; `H-A-PCB-CU-VIA`).
+`pcbrecords.via_record(x, y, diameter, hole, *, net=NO_INDEX, start=1, end=32, locked=False, tented_top=False, tented_bottom=False, mask=None)` SHALL write one via as record type 3 with one subrecord of 321 bytes, the form Altium saves (S-0150, S-0160, S-0173, S-0172, S-0174, S-0175, S-0176; `H-A-PCB-CU-VIA`).
 - The subrecord MUST start with the common prefix on layer 74 with flags `0C 00`, or `08 00` for a locked via when `via` is in `LOCK_WRITTEN` ("PCB units and record framing", "Locked copper records"), polygon and component `0xFFFF`; then x at 13, y at 17, the diameter at 21, the hole at 25, the start layer at 29 and the end layer at 30: 1 and 32 for a through via, the ids of the two copper layers of its span for a blind or buried via (change c0085, "Blind and buried via records").
-- The later fields MUST follow the rows of `pcb-copper.md`, "Via": thermal-relief air gap 10 mil at 32, 4 conductors at 36, conductor width 10 mil at 38, 20 mil at 42 and at 46, solder-mask expansion 4 mil at 54 and at 242, stack mode 0 at 74, thirty-two diameters at 75, the 16-bit 15 and the 32-bit 259 at 203, `2A` at 254, `0x7FFFFFFF` at 291 and at 295, the entry size 30 at 304, 9 at 308 and 1 at 320; every other byte 0.
+- The later fields MUST follow the rows of `pcb-copper.md`, "Via": thermal-relief air gap 10 mil at 32, 4 conductors at 36, conductor width 10 mil at 38, 20 mil at 42 and at 46, solder-mask expansion 4 mil at 54 and at 242 (`mask` in binary units when it is not `None`, change c0445), stack mode 0 at 74, thirty-two diameters at 75, the 16-bit 15 and the 32-bit 259 at 203, `2A` at 254, `0x7FFFFFFF` at 291 and at 295, the entry size 30 at 304, 9 at 308 and 1 at 320; every other byte 0.
 - `pcbdoc.write_pcbdoc` MUST write each `model.board.Via` of `PcbDocSpec.vias` in `Vias6`, sorted by net name, position, diameter and then entity id, at its converted position, with its net's index and its `locked`. It MUST raise `ValueError` for a via whose `via_type` is `micro`, whose `layers` are not two different copper layers of the board, or whose drill is not below its diameter. With `PcbDocSpec.allow_full_drill` (change c0128; `False` by default, and no build sets it) a via whose drill equals its diameter MUST be written instead: the hole at 25 holds the value of the diameter at 21, and every other byte is that of any via. A drill above the diameter and a drill of 0 or less MUST be refused in both cases.
 - Vias MUST NOT be listed in `UniqueIDPrimitiveInformation`.
+- With `mask` not `None` (change c0445), the subrecord MUST hold `mask` at 54 and at 242 and the manual solder-mask cache state 2 at 66, as a tented side does (c0112). `pcbdoc.write_pcbdoc` MUST pass `PcbDocSpec.via_mask` (nanometres, `None` by default) converted to binary units to every via. `lower.from_design` MUST set it to `Board.mask_margin` for a write of a model (no build options) and to `None` for a build (S-2042, S-2043; the opening Altium gives is `INFERRED`).
 
 #### Scenario: Via bytes
 - **WHEN** `via_record(393701, 393701, 236220, 118110, net=2)` runs
@@ -362,6 +368,10 @@ Each component record SHALL link to the schematic, and each pad SHALL carry its 
 #### Scenario: Locked via bytes
 - **WHEN** `via_record(393701, 393701, 236220, 118110, net=2, locked=True)` runs with `via` in `LOCK_WRITTEN`
 - **THEN** bytes 0 to 4 of the subrecord are `4A 08 00 02 00`, and every other byte equals that of the unlocked record
+
+#### Scenario: A via with its own mask expansion
+- **WHEN** `via_record(0, 0, 200000, 100000, mask=-40000)` runs
+- **THEN** its subrecord holds the 32-bit value -40000 at 54 and at 242 and the byte 2 at 66, while the record written without `mask` holds 40000 at 54 and 0 at 66
 
 ### Requirement: Polygon pour records
 `pcbdoc.write_pcbdoc` SHALL write each `model.board.Zone` of `PcbDocSpec.zones` as one `Polygons6` property record per zone layer, with or without poured copper by its pour mode ("Polygon pour modes"; S-0160, S-0172, S-0174, S-0175, S-0176, S-0195, S-0196, S-0833; `H-A-PCB-CU-REPOUR`).
@@ -402,7 +412,9 @@ Each component record SHALL link to the schematic, and each pad SHALL carry its 
 - **THEN** it holds one record with `NAME=PWR`, `KIND=0`, `M0=GND`, `M1=VIN` and no `M2`
 
 ### Requirement: Design rule records
-`pcbdoc.write_pcbdoc` SHALL write `Rules6` with the lowered rules of the design (`PcbDocSpec.design_rules`, the records of `rulemap.lower`; "Rule lowering table", "Scoped rule records") and with Clearance, Width and Routing Via Style rules from the net classes (S-0160, S-0161, S-0172, S-0174, S-0175, S-0176; `H-A-PCB-CU-RULES`). The rules of the net classes and the `All` defaults MUST be written only when the spec holds a track, an arc, a via, a zone or a net class; the rules of the design are written whenever the spec holds them. With neither, and with `PcbDocSpec.rules` off, `Rules6` MUST be empty.
+`pcbdoc.write_pcbdoc` SHALL write `Rules6` with the lowered rules of the design (`PcbDocSpec.design_rules`, the records of `rulemap.lower`; "Rule lowering table", "Scoped rule records") and with Clearance, Width and Routing Via Style rules from the net classes (S-0160, S-0161, S-0172, S-0174, S-0175, S-0176; `H-A-PCB-CU-RULES`). The rules of the net classes and the `All` defaults MUST be written only when the spec holds a track, an arc, a via, a zone or a net class, and only for the kinds of `PcbDocSpec.class_kinds`; the rules of the design are written whenever the spec holds them. With neither, and with `PcbDocSpec.rules` off, `Rules6` MUST be empty.
+- A build (`lower.from_design` with `options`, change c0126), whose net classes the user wrote, MUST set `class_kinds` to Clearance, Width and RoutingVias. A write of a model (`lower.write_design`, a conversion, `AltiumBackend.write`) MUST write the records of the design's rules, the rules a source record or the user gave, and of the c0038 rules only those KiCad checks (change c0434): `class_kinds` MUST be Clearance alone, and empty when a Clearance record of the design has the scopes `All` and `All`, which overrides every class clearance as an unconditioned KiCad rule does. A class's track width and via size MUST NOT be written as rules: KiCad does not check them, a KiCad project gives every class a value, and a board converted from Altium gets KiCad's defaults there. Each written net class with a value that is left out MUST be counted `changed` under `netclass`.
+- A rule of the design that gives fewer limits than its record holds MUST stay refused (`value-unsupported`, "Rule lowering table"): no limit is invented for a board or class minimum.
 - Each rule MUST be a 16-bit rule-kind number (0 Clearance, 2 Width, 11 RoutingVias, 42 HoleSize, 63 BoardOutlineClearance, 52 HoleToHoleClearance, 19 MinimumAnnularRing), then one property block with, in this order: the seven common keys with `LAYER=TOP`, `RULEKIND`, `NETSCOPE` (`DifferentNets` for Clearance and BoardOutlineClearance, `AnyNet` otherwise), `LAYERKIND=SameLayer`, `SCOPE1EXPRESSION`, `SCOPE2EXPRESSION` (`All`, or the second scope of a Clearance rule of the design), `NAME`, `ENABLED=TRUE`, `PRIORITY`, `COMMENT` (empty), `UNIQUEID` = `project.unique_id("pcbdoc:<filename>:rule:<name>")`, `DEFINEDBYLOGICALDOCUMENT=FALSE`, then the kind's keys.
 - Kind keys: Clearance `GAP`, `GENERICCLEARANCE`, `IGNOREPADTOPADCLEARANCEINFOOTPRINT=FALSE`, `OBJECTCLEARANCES` (empty); Width `MAXLIMIT`, `MINLIMIT`, `PREFEREDWIDTH`; RoutingVias `HOLEWIDTH`, `WIDTH`, `VIASTYLE=Through Hole`, `MINHOLEWIDTH`, `MINWIDTH`, `MAXHOLEWIDTH`, `MAXWIDTH`; HoleSize `ABSOLUTEVALUES=TRUE`, `MAXLIMIT`, `MINLIMIT`, `MAXPERCENT=80.000`, `MINPERCENT=20.000`; BoardOutlineClearance the keys of Clearance; HoleToHoleClearance `GAP`, `ALLOWSTACKEDMICROVIAS=FALSE`; MinimumAnnularRing `MINIMUMRING`; lengths as mil text.
 - Per kind, one rule `<Kind>_<class>` with `SCOPE1EXPRESSION=InNetClass('<class>')` MUST be written for each class that holds the kind's value (clearance; track width; via diameter and drill), in class-name order with `PRIORITY` from 1, then one rule named `Clearance`, `Width` or `RoutingVias` with `SCOPE1EXPRESSION=All` and the next priority. The rules of one kind are written together, in the order of `rulemap.KIND_ORDER`: Clearance, Width, RoutingVias, HoleSize, BoardOutlineClearance, HoleToHoleClearance, MinimumAnnularRing.
@@ -423,6 +435,16 @@ Each component record SHALL link to the schematic, and each pad SHALL carry its 
 - **GIVEN** the blink sample with a `clearance` rule of 0.15 mm for all objects and an `edge_clearance` rule of 0.5 mm
 - **WHEN** `Rules6` is read
 - **THEN** it holds, in this order, `Clearance` (`GAP=5.9055mil`, priority 1), `Clearance_PWR` (priority 2), `Width_PWR`, `Width`, `RoutingVias` and `BoardOutlineClearance` (kind 63, `GAP=19.685mil`, priority 1), and no second rule with the scope `All` of the kind Clearance
+
+#### Scenario: A conversion writes only the rules of its source
+- **GIVEN** the public document `altium-third-party-pcbdoc-08` converted to KiCad, whose project holds 14 net classes with KiCad's default values and whose rules file holds 8 rules
+- **WHEN** the project is converted back to Altium with `--altium-pour outline`
+- **THEN** the written document holds no rule scoped `InNetClass(...)` and no `All` default, 4 Clearance and 1 Width record as the source, the Width limits equal to the source's, no more records of a kind than the source holds; the 14 net classes are counted `changed` under `netclass`
+
+#### Scenario: A KiCad board without a rules file keeps its class clearances
+- **GIVEN** a model with a net class that holds a clearance, a track width and a via size, and no rule of its own
+- **WHEN** `lower.from_design` lowers it without options
+- **THEN** `class_kinds` is Clearance alone: the class's Clearance record and the `All` Clearance are written, no class Width or Routing Via Style record, and the class is counted `changed`; with a clearance rule on every object `class_kinds` is empty
 
 ### Requirement: Copper records read back
 `tests/_altium_pcb_read.py` SHALL read the copper of a PCB document as test code written from `docs/formats/altium/pcb-copper.md`, without importing the writer. This requirement extends c0035's "PCB files read back".
@@ -583,7 +605,7 @@ Board texts SHALL be written as stroke text records with their string, layer, po
 - **THEN** the text record returns that string, on the top overlay, at the same place within 2 nm
 
 ### Requirement: Board graphics and keep-out records
-Board graphics on the non-copper layers of the board layer map SHALL be written as track, arc and region records without a net. Board graphics on a signal layer of the written stack SHALL be written as copper records on that layer with the net index of their net (change c0412). Keep-outs SHALL be written as region records with the keep-out flag and the restriction set of the model, on the Keep-Out layer when they name every copper layer of the board, else one per copper layer.
+Board graphics on the non-copper layers of the board layer map SHALL be written as track, arc and region records without a net. Board graphics on a signal layer of the written stack SHALL be written as copper records on that layer with the net index of their net (change c0412). Keep-outs SHALL be written as region records with the keep-out flag and the restriction set of the model, on the Keep-Out layer when they name every copper layer of the board, else one per copper layer, except a rule area of poured copper alone, which is a polygon cut-out ("Rule areas of poured copper alone").
 - A filled rectangle or polygon on a signal layer MUST be one region record with `KIND=0`, its layer's id and its net's index in the common prefix (`0xFFFF` for a shape without a net), in `Regions6` and in `ShapeBasedRegions6`. A drawn line, arc, circle, rectangle or polygon outline on a signal layer MUST be tracks and arcs of its width with that net. No fill record is written: `docs/formats/altium` records no field after offset 37 of a fill, whose saved lengths are 46 and 50.
 - A shape on an internal plane, a filled circle, a shape that `pcbdoc.graphic_problem` refuses, and a shape whose net no net record holds MUST give `altium.not-lowered` with the kind `copper-shape` and `where` `graphic/<id>`; `copper-shape` stays a loss kind, which `FEN-7001` refuses without `--allow-lossy`.
 - A keep-out record MUST hold its restrictions value in two keys, `KEEPOUTRESTRICTIONS` (the key saved documents hold) and after it `KEEPOUTRESTRIC` (the key KiCad's importer reads; not a key Altium writes), both with the same value (the maintainer's decision of 2026-10-06), so that KiCad imports the keep-out with exactly the restrictions written. That Altium accepts the pair stays `INFERRED` until step X11 of Part X.
@@ -652,15 +674,15 @@ The writer SHALL return, per kind of model item (footprint, pad, track, arc, via
 - **THEN** for each kind, written plus not lowered equals the number of items in the model, and each not-lowered item has an issue
 
 ### Requirement: Imported boards are written from the model
-`backends.altium.lower.from_design(design, *, issues, options=None, corner_ratios=None, rewrite=False, bodies="off")` SHALL return the inputs of the PCB and schematic writers (`AltiumInputs`) from a `Design`: footprints with their pads, graphics, fields and texts taken from the board's footprint instances (no library is read), placements, copper, zones, free items, rules, the stack and the classes.
+`backends.altium.lower.from_design(design, *, issues, options=None, corner_ratios=None, rewrite=False, full_drill=False, bodies="off")` SHALL return the inputs of the PCB and schematic writers (`AltiumInputs`) from a `Design`: footprints with their pads, graphics, fields and texts taken from the board's footprint instances (no library is read), placements, copper, zones, free items, rules, the stack and the classes.
 - A footprint instance MUST be written as a component with its own pads: its footprint definition holds exactly the pads of the instance that the pad record can hold. Its graphics, its fields `Reference` and `Value` and its texts are written as "Footprint items of a written component" says. An instance that holds none (a model stored before change c0126, a design read from KiCad without the projection) is written with its pads alone, as before. The definition holds no body: the bodies of an instance are written into the document (change c0121), not into a library.
 - A footprint without a reference and a footprint link whose one pad stands alone (the import's reading of a free pad) MUST be written as a free pad, with its net.
 - Native ids of the model that are Altium unique ids MUST be reused: the record's `UNIQUEID` is the id of `fp:<id>`, and `SOURCEUNIQUEID` and the unique id of the schematic part are the last part of `cmp:<source unique id>` (`project.native_unique_id`) when one component alone holds it; the instances of a repeated sheet share that id and get derived ones.
-- A board read from an Altium document (`"altium" in board.native_ids`) MUST be written in the document's own frame (`pcbdoc.Frame.document()`: Y negated, nothing moved) with the origin that the import kept, so every coordinate keeps its units; any other board is written in the frame of a build.
+- A board read from an Altium document (`"altium" in board.native_ids`) MUST be written in the document's own frame (`pcbdoc.Frame.document()`: Y negated, nothing moved) with the origin that the import kept, so every coordinate keeps its units; a board of a build is written in the frame of a build (`pcbdoc.Frame.of`), and any other board (a conversion; change c0441) in that frame with its corner moved out to a multiple of 254 nm (`pcbdoc.Frame.on_units`), so every point moves by whole document units and a coordinate that was a unit stays one.
 - An `Arc` of the board, and a graphic of kind `arc`, whose `altium` bag holds the pair `arc` (`altium-import`, "Extension bags"; change c0127) MUST be written with the centre, the radius and the two angles of that pair when the pair still says the entity's three points. `lower.kept_arc(entity, points, frame)` decides: it converts the pair as the import does (`adapter.units.arc_points`) and returns the record's geometry (`pcbrecords.ArcGeometry`) when each of the three points it gives lies within `lower.ARC_TOLERANCE` (2 nm per axis, the length tolerance of the written scope) of the entity's point in the frame of the written document; `from_design` puts it into `PcbDocSpec.arc_records` under the entity's id. It returns `None`, and the arc is written from its three points as an arc without the pair is, with no issue, when the pair is stale or unusable: a point lies further away (the arc was moved or reshaped in the model, or the board is written in another frame than the document's), the pair does not parse into three integers of 32 bits and two doubles, the radius is 0 or less, an angle is not finite, or the angles make a full turn. An arc that is written from its kept record MUST NOT be refused because its three points lie on one line: the record holds its circle.
-- `rewrite=True` (change c0128) says that `design` is the reading of an Altium document and that the write gives that document back. A via whose drill equals its diameter MUST then be written (`PcbDocSpec.allow_full_drill`): a document that Altium saved holds such vias (`pcb-copper.md`, "Via"; `H-A-PCBX-VIA-FULL`). Without `rewrite` such a via is left out and counted, as before: a design from a script, from a KiCad board or from any other source is written with the rule of a build. `rewrite=True` for a design whose board was not read from an Altium document (`"altium"` is no key of `board.native_ids`) MUST raise `ValueError`; a design without a board takes the argument without effect. The argument changes nothing else: the frame, the kept arc records and every other item are written the same with and without it; component bodies are written by `bodies` alone, in a rewrite as in any other write.
-- The outline MUST be `Board.outline`, else the first closed ring of the `Edge.Cuts` graphics (an arc gives its start, middle and end), else the box of the board's items; each approximation is counted under `outline`.
-- An item that the writers do not carry MUST be left out, counted per kind in `AltiumInputs.not_lowered` with its id, and reported once per kind with `altium.not-lowered`: a pad with a per-layer padstack, a custom or trapezoid shape, a slot, no copper layer, no number, or a rounded rectangle without a known corner ratio; a track or arc on a layer that is no signal layer of the written stack; an arc whose three points lie on one line and that is not written from a kept record; a via that `pcbdoc.via_span` refuses or whose drill is not below its diameter (in a rewrite: is above its diameter), or is 0 or less; a zone without an outline in the model; a text, graphic or keep-out that `pcbdoc` refuses or whose layer has no layer in the document; a shape on a copper layer that "Board graphics and keep-out records" does not write (`copper-shape`: a shape on a plane, a filled circle, a shape that `pcbdoc.graphic_problem` refuses; change c0412); the poured copper of a zone (`zone-fill`: a polygon is written unpoured); a component body that "Component bodies are reported" does not write, which is every body when `from_design` is called without `bodies="extruded"` (change c0121); a graphic or a text of a footprint that the records do not carry (`footprint-graphic`, `footprint-copper`, `footprint-text`); a rule that `rulemap.lower` does not write; a net or net class whose name no record holds; an internal plane without a net of the document (`plane`); stack-up values that do not fit (`stackup`); and of the circuit (change c0083), each as an info: the pin-to-pad map of a component (`pin-pad-map`: `Component.pin_pad_map` with the bag key `pin_pads`), a module (`module`: the generated schematic is one sheet) and the channel of a repeated sheet (`channel`: the bag keys `sheet_symbol` and `channel_index` of a module).
+- `rewrite=True` (change c0128) says that `design` is the reading of an Altium document and that the write gives that document back. A via whose drill equals its diameter MUST then be written (`PcbDocSpec.allow_full_drill`): a document that Altium saved holds such vias (`pcb-copper.md`, "Via"; `H-A-PCBX-VIA-FULL`). `full_drill=True` (change c0441) writes such a via too, without the rest of a rewrite: a conversion to Altium sets it, since the via may come from a saved document through KiCad. Without either such a via is left out and counted, as before: a design from a script or a build is written with the rule of a build. `rewrite=True` for a design whose board was not read from an Altium document (`"altium"` is no key of `board.native_ids`) MUST raise `ValueError`; a design without a board takes the argument without effect. The argument changes nothing else: the frame, the kept arc records and every other item are written the same with and without it; component bodies are written by `bodies` alone, in a rewrite as in any other write.
+- The outline MUST be `Board.outline`, else the first closed ring of the `Edge.Cuts` graphics, else the box of the board's items; each approximation is counted under `outline`. An arc of the ring (`Outline.arcs`, or an `Edge.Cuts` arc) MUST be written as one arc vertex (change c0441; `PcbDocSpec.outline_arcs`, "Board outline arcs"), not as two straight edges through its mid; an arc whose three points lie on one line is a straight edge.
+- An item that the writers do not carry MUST be left out, counted per kind in `AltiumInputs.not_lowered` with its id, and reported once per kind with `altium.not-lowered`: a pad with a per-layer padstack, a custom or trapezoid shape, a slot, no copper layer, no number, or a rounded rectangle without a known corner ratio; a track or arc on a layer that is no signal layer of the written stack; an arc whose three points lie on one line and that is not written from a kept record; a via that `pcbdoc.via_span` refuses or whose drill is not below its diameter (in a rewrite or with `full_drill`: is above its diameter), or is 0 or less; a zone without an outline in the model; a text, graphic or keep-out that `pcbdoc` refuses or whose layer has no layer in the document; a shape on a copper layer that "Board graphics and keep-out records" does not write (`copper-shape`: a shape on a plane, a filled circle, a shape that `pcbdoc.graphic_problem` refuses; change c0412); the poured copper of a zone (`zone-fill`: a polygon is written unpoured); a component body that "Component bodies are reported" does not write, which is every body when `from_design` is called without `bodies="extruded"` (change c0121); a graphic or a text of a footprint that the records do not carry (`footprint-graphic`, `footprint-copper`, `footprint-text`); a rule that `rulemap.lower` does not write; a net or net class whose name no record holds; an internal plane without a net of the document (`plane`); stack-up values that do not fit (`stackup`); and of the circuit (change c0083), each as an info: the pin-to-pad map of a component (`pin-pad-map`: `Component.pin_pad_map` with the bag key `pin_pads`), a module (`module`: the generated schematic is one sheet) and the channel of a repeated sheet (`channel`: the bag keys `sheet_symbol` and `channel_index` of a module).
 - `AltiumInputs.written` MUST count the model items that the PCB document holds, per kind of `lower.KINDS`, which are the kinds of `lens.altium_copper.KINDS`.
 - The schematic's design (`lower.schematic_design`) MUST give every component with a reference a symbol link, a value and pins, so that the schematic writer can generate a sheet from the circuit; a part of a link that no record holds is replaced by a generic one.
 
@@ -691,6 +713,11 @@ The writer SHALL return, per kind of model item (footprint, pad, track, arc, via
 #### Scenario: Counted once per kind
 - **WHEN** `from_design` runs on the model of `tests/data/altium/board6/board6.PcbDoc`
 - **THEN** `counts()` is 1 graphic (the one on the keep-out layer), the one issue is an `altium.not-lowered` info for `graphic`, and `written` counts 27 under `footprint-graphic`
+
+#### Scenario: Full drill in a conversion
+- **GIVEN** the authored `routed` sample moved by 1 mm, its first via with a hole equal to its diameter, written as an Altium document
+- **WHEN** `uv run pytest tests/unit/convert/test_round_trip_shape.py -k vias` converts it to KiCad and back to Altium
+- **THEN** no via and no pad is lost, the via comes back with its full hole, every rounded-rectangle pad keeps its corner ratio, and every pad and via is its source moved by one translation, to the nanometre
 
 ### Requirement: Writer options for a model that was read
 `backends.altium.pcbdoc` SHALL take what a model that was read needs, each with a default that keeps the bytes of every build.
@@ -888,12 +915,17 @@ A pad whose per-layer stack gives every copper layer a circle, an oval, a rectan
 - **AND** the reader maps the twenty-nine extended entries to Mid-Layer 2 through 30, including when the board chain skips Mid-Layer 1
 
 ### Requirement: Connector and free pads
-A pad of kind `connect` SHALL be written as a surface pad whose paste and solder-mask expansions remove both openings. A pad without a number inside a footprint SHALL be written as a pad of that footprint with an empty designator when `pcb-library.md` holds a row with a public source that allows it, and otherwise as a free pad at its board position, counted `changed` under `pad` with that reason.
+A pad of kind `connect` SHALL be written as a surface pad whose paste and solder-mask expansions remove both openings. A pad without a number inside a footprint SHALL be written as a pad of that footprint with an empty designator, in the PCB document and in the derived library, as documents saved by Altium hold component pads without a name (`pcb-records.md`, "Pad": census of S-0172, S-0200, S-0601). Each such pad MUST be its own record with its own net, so several pads without a number in one footprint stay distinct; a pad that a writer cannot hold MUST be counted `lost` under `pad` with its reason.
 
 #### Scenario: Connector pad
 - **GIVEN** a footprint with one `connect` pad
 - **WHEN** the board is written and read back
 - **THEN** the pad is a surface pad on its copper layer with no paste and no mask opening, and the report has no lost `pad`
+
+#### Scenario: Two pads without a number
+- **GIVEN** a KiCad footprint with pads `1` and `2`, a surface pad without a number on the net of pad `1` and a non-plated hole pad without a number
+- **WHEN** it is converted to Altium with `allow_lossy=True` and the PCB document and the derived library are read back
+- **THEN** the row `pad` has `written` equal to `source` and no `changed` or `lost` item, the footprint read back holds four pads, two of them without a number at their own places, the surface one on its net, the library footprint holds four pads, and the comparison of the conversion holds no `pad-missing` and no `ref-ambiguous`
 
 ### Requirement: Mechanical layers of KiCad drawings
 `lower.KICAD_MECHANICAL` SHALL map `User.1` to `User.8` to Mechanical 1 to 8, `Dwgs.User` to Mechanical 9, `Cmts.User` to Mechanical 10, and `Eco1.User` and `Eco2.User` to Mechanical 11 and 12; the fabrication and courtyard layers keep Mechanical 13 to 16. A user layer whose KiCad user name is `Mech.<n>` or `Mechanical <n>`, n from 1 to 16, SHALL be written on Mechanical n instead, whatever its number (change c0412).
@@ -1022,4 +1054,177 @@ With the pour mode `computed` and at least one polygon, `pcbdoc.write_pcbdoc` SH
 - **GIVEN** two `GND` zones, the first of priority 1 with `thermal` and the second of priority 0 with `solid`
 - **WHEN** the document is written with `pour="computed"`
 - **THEN** the `GND` rule is Relief Connect, and one `altium.not-lowered` names the second zone
+
+### Requirement: Kept rule records written back
+The PCB document of a board that was read SHALL hold its kept rule records again.
+- `pcbdoc.rule_records` MUST write each `kept_rule` record after the records it writes itself, with the record's kind number and keys.
+- A kept record of a kind that the document already writes MUST take the next priorities of that kind, in its original priority order. Otherwise it MUST keep its own priority.
+- A kept record whose name is already written MUST get the suffix `_kept`.
+- A kept Plane Connect or Plane Clearance record MUST replace the default plane rule of its kind.
+
+#### Scenario: Kept records survive a write
+- **GIVEN** the imported document of "Rule records the writer cannot rebuild are kept"
+- **WHEN** `uv run pytest tests/unit/backends/altium/test_kept_rules.py -k written` writes it and reads the written document back
+- **THEN** the read-back holds the disabled width with `ENABLED=FALSE` and the Routing Topology record with its keys
+
+### Requirement: Copper of a net-tie footprint
+
+The Altium writer SHALL write each copper graphic of a footprint instance with net-tie groups as a primitive
+of its component on the graphic's signal layer, without a net: a line as a track, an arc or a circle as an
+arc, a filled rectangle or polygon as a region, a rectangle or polygon outline as tracks. It SHALL count each
+under `footprint-copper` as written. A copper graphic of a footprint without net-tie groups, one on an
+internal plane, and one that `pcbdoc.graphic_problem` refuses SHALL stay a `footprint-copper` loss.
+
+#### Scenario: A net tie keeps its copper
+
+- **GIVEN** the authored board `net_tie_copper.kicad_pcb`, whose net tie `NT1` holds an F.Cu line from pad 1
+  (net `A`) to pad 2 (net `B`)
+- **WHEN** it is converted to Altium without `--allow-lossy`
+- **THEN** the conversion succeeds with no `footprint-copper` loss and nothing unexplained
+- **AND** the PcbDoc holds one track on the top layer with the component's index and no net, and the
+  component record holds `COMPONENTKIND=4`
+
+#### Scenario: Copper no record holds stays refused
+
+- **GIVEN** the same board with a filled circle on F.Cu in place of the line
+- **WHEN** it is converted to Altium
+- **THEN** the conversion is refused for a `footprint-copper` loss, and with `--allow-lossy` the
+  `net-tie-copper` difference it causes is explained by that row
+
+### Requirement: Source rule records written back
+`PcbDocSpec.source_rules` SHALL hold the rule records of the Altium document a conversion started from (change c0434), each its kind number and its keys from `RULEKIND` on; it is empty for every build. With records there, `rule_records` SHALL write:
+- first each record as it is, in its order, after the common keys;
+- then each lowered rule of `spec.design_rules` with the next priority of its kind and a name not yet written (`_2`, `_3`…);
+- then the kept records (change c0424).
+- No rule of a net class and no `All` default MUST be written. The Plane Connect and Plane Clearance rules of c0389 are written only for a kind that no record holds. The Polygon Connect Style records lowered from the zones MUST NOT be written when a record is of that kind.
+
+#### Scenario: Records and one lowered rule
+- **GIVEN** a spec whose `source_rules` hold a Width named `Signal Width` of priority 3 and whose design rules lower to one Width named `Signal Width`
+- **WHEN** `write_pcbdoc` runs
+- **THEN** `Rules6` holds the record as given, then a Width named `Signal Width_2` of priority 4, and no other Width, Clearance or Routing Via Style record
+
+### Requirement: Straight arcs and generated holes in a written document
+The Altium lowering SHALL write an arc whose middle point lies on the segment between its two distinct ends
+as the track from start to end with the arc's width, layer, net and lock, counted `changed` under `arc`
+(`ARC_STRAIGHT`), and SHALL NOT leave it out. It SHALL write a footprint of the generated hole library
+(`Fenolite_Holes`) without a reference and with one unplated pad as a free pad at the pad's board position,
+counted `changed` under `footprint`, and SHALL NOT write a component for it (change c0435).
+
+#### Scenario: A flat arc
+- **WHEN** `uv run pytest tests/unit/backends/altium/test_straight_arc.py -q` writes the committed two-layer board whose first track is replaced by an arc through its middle
+- **THEN** the write reports no loss, counts the arc changed, the read-back document holds one arc fewer and a track in its place, and `equivalent` reports no `equiv.route-length`
+
+#### Scenario: Flow B with free holes
+- **WHEN** `uv run pytest tests/unit/convert/test_flow_b_fidelity.py -k equivalent -q` converts an authored Altium document with two free holes to KiCad and back
+- **THEN** the result holds the two free holes and no component for them, and `equivalent` of source and result exits 0
+
+### Requirement: Rule areas of poured copper alone
+A rule area that restricts poured copper and nothing else (no tracks, vias, pads or footprints), on the board or in a footprint, SHALL be written as a polygon cut-out: a region record with `KIND=1` and without the keep-out flag or restriction keys, on Multi-Layer (`V7_LAYER=MULTILAYER`) when it lies on every copper layer, else one per copper layer it names, owned by its component when it belongs to a footprint. This is the form of the cut-outs of documents saved by Altium (`pcb-records.md`, "Regions and keep-outs") and the form the import reads as such a rule area, so a document read and written again keeps each cut-out a cut-out instead of turning it into a keep-out that Altium's clearance rules check against every track, pad and via.
+
+#### Scenario: Cut-outs stay cut-outs
+- **GIVEN** a two-layer board with pour-only rule areas on both copper layers, on `F.Cu` and on `B.Cu`, a rule area that forbids tracks on both layers, and a pour-only rule area on `*.Cu` in a footprint
+- **WHEN** the PCB document is written and read back
+- **THEN** it holds free cut-out regions on Multi-Layer, Top and Bottom, one cut-out region of the component on Multi-Layer and one keep-out region (on the Keep-Out layer, for the track rule area), and the import reads the pour-only rule areas again with their layers and the footprint's area in its footprint
+
+#### Scenario: The authored cut-out board
+- **GIVEN** the authored board `polygon_cutouts.kicad_pcb`
+- **WHEN** it is converted to Altium
+- **THEN** its pour-only areas give two `KIND=1` regions (one on Top for the area on `F.Cu`, one on Multi-Layer for the area on both copper layers) with no keep-out flag and no net, its area that forbids tracks too is a keep-out region of restrictions 6, and the reading holds the two pour-only rule areas on their layers
+
+### Requirement: Board outline arcs
+`pcbdoc.board_record(..., arcs=...)` SHALL write vertex k of the outline whose index `PcbDocSpec.outline_arcs` holds as an arc vertex: `KIND<k>=1`, `CX<k>`, `CY<k>` and `R<k>` the circle through vertex k, the next point (the arc's mid, which is no vertex) and the point after it, in the document's frame, and `SA<k>`, `EA<k>` the start and end angle of the counter-clockwise sweep between the two ends that holds the mid (`docboard.OutlineArc`). The closing vertex MUST repeat vertex 0 with `KIND=0`. Three points on one line MUST give a straight edge.
+
+#### Scenario: An arc of the edges
+- **GIVEN** a KiCad board whose `Edge.Cuts` ring has three lines and an arc from (60, 40) mm through (30, 50) mm to (0, 40) mm
+- **WHEN** `uv run pytest tests/unit/convert/test_convert_slots.py -k board_ring` converts it to Altium
+- **THEN** nothing is counted under `outline`, the written outline has four vertices, one an arc vertex of radius 50 mm sweeping 73.74 degrees
+
+### Requirement: Keep-out lines of the Keep-Out layer
+
+The writer SHALL write a rule area whose name carries a stroke (`Altium.KeepOut/<kind>/<numbers>`, change
+c0442) as that stroke when the area is intact. Intact means three things:
+
+- its outline is the band of the stroke within 10 nm;
+- it forbids tracks, vias, pads and poured copper;
+- it does not forbid footprints.
+
+The stroke SHALL be a track or an arc on the Keep-Out layer without the keep-out flag, free for a board's
+area and owned by its component for a footprint's, with the stroke's width. The two rings of a circle
+SHALL give one full arc, and only when both are intact. Each such area SHALL be counted written under
+`keep-out`. A marked area that is not intact SHALL be written as any rule area is.
+
+#### Scenario: A keep-out line comes back as a line
+
+- **GIVEN** a board whose Keep-Out layer holds a line, an arc and a circle without a keep-out record, and a
+  footprint holding such a line, converted into rule areas
+- **WHEN** the board is written as a PCB document
+- **THEN** the Keep-Out layer holds one free track, two free arcs and one track of the component, none with
+  the keep-out flag, and no keep-out region for them
+
+#### Scenario: An edited keep-out line stays an area
+
+- **GIVEN** those rule areas, the line's no longer forbidding vias and the arc's moved by 1 mm
+- **WHEN** the board is written
+- **THEN** both are written as keep-out regions and only the circle comes back as an arc
+
+### Requirement: Board cut-outs of a footprint
+
+The writer SHALL write each closed `Edge.Cuts` outline of a footprint (a polygon of three vertices or more,
+or a rectangle with an area) as one board cut-out region of its component: `KIND=0`, `ISBOARDCUTOUT=TRUE`,
+the Keep-Out layer, no keep-out flag, the component's index. A board cut-out ring of the written outline
+that is such an outline within 10 nm SHALL NOT be written again as a free cut-out. A line, an arc or a
+circle of a footprint's edge SHALL be counted lost under `footprint-graphic`.
+
+#### Scenario: A cut-out of a component comes back as one
+
+- **GIVEN** a board whose footprint holds a closed `Edge.Cuts` outline, and an outline whose cut-outs hold
+  that ring and another one
+- **WHEN** the board is written
+- **THEN** the document holds one board cut-out region of the component and one free one
+
+### Requirement: Free pads of a converted board
+`lower.converted_free_pad(fp, ref)` SHALL say whether a footprint is the form a free pad takes through an
+Altium → KiCad conversion (change c0447): no reference, exactly one pad, and a link whose item name (after
+its last `:`) starts with `fenolite.core.libnames.FREE_PAD_PREFIX` (`FREE_`). `from_design` MUST write
+such a footprint as a free pad with its net, as it writes the import's reading of one, and count it
+changed under `footprint` with `lower.FREE_PAD_REASON`. A footprint with a reference MUST be written as a
+component whatever its link.
+
+#### Scenario: A converted free pad
+- **GIVEN** a design with a footprint `p:FREE_fp_1` holding one pad of net `N` and no component, and a
+  footprint `p:FREE_fp_2` of component `R9`
+- **WHEN** `uv run pytest tests/unit/backends/altium/test_lower_free_pads.py -n 0 -q` runs `from_design`
+- **THEN** the first is one free pad of net `N` and no component, counted changed with `FREE_PAD_REASON`;
+  the second is the component `R9`
+
+### Requirement: Empty texts of a component
+The PCB document writer SHALL write the comment text record of a component whose model holds a placed
+`Value` field (`PlacedComponent.comment_place`) also when the comment is empty, with that place and its
+shown flag, as a saved document holds it (change c0451; four records of `altium-third-party-pcbdoc-01`). A
+component without a placed field and without a comment MUST get no comment record, as before. A text of a
+footprint without characters MUST be written (`pcbdoc.text_problem_of(text, footprint=True)` is `None` for
+it); a board text without characters MUST stay refused.
+
+#### Scenario: Empty value and empty text
+- **GIVEN** the authored `routed` sample whose component `R1` has an empty value and a hidden `Value` field,
+  and whose footprint `U1` holds a text without characters on `F.SilkS`
+- **WHEN** `uv run pytest tests/unit/backends/altium/test_lower_empty_texts.py -n 0 -q` writes it with
+  `lower.write_design(..., rewrite=True)` and reads it back
+- **THEN** `R1` holds a hidden `Value` field at its place, `U1` holds the empty text, and a board text
+  without characters is counted under `text` as not written
+
+### Requirement: Derived libraries named by the source
+`lower.derived_library` SHALL put the derived footprint of a footprint whose link names an Altium library
+(`project.is_altium_footprint`: its library part ends with `.PcbLib`) into a library of that file name, and
+every other derived footprint into `<name>.PcbLib`, one definition per file and pattern; each component
+links the file of its footprint (`footprint_library`, and the schematic part's footprint link).
+`lower.write_design` and `project.write_project(..., extra_footprints=...)` MUST write each such file and
+list it in the project file (change c0451). A design without such a link writes `<name>.PcbLib` alone, as
+before.
+
+#### Scenario: A source library comes back as a file
+- **GIVEN** the KiCad project of the conversion of the authored `routed` sample whose `D1` links `Lib_A`
+- **WHEN** `uv run pytest tests/unit/convert/test_round_trip_texts.py -n 0 -q -k links` converts it to Altium
+- **THEN** the written project holds `Lib_A.PcbLib` with `Mini_LED_THT_3mm` and `Sym_A.SchLib`, the project
+  file lists both, and `D1` links them
 

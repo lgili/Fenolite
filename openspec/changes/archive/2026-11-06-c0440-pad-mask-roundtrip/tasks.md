@@ -17,4 +17,5 @@
 
 ## 3. Close
 
-- [ ] 3.1 `make check-fast`, the focused suites, the `gen_*` checks, CHANGELOG.
+- [x] 3.1 `make check-fast`, the focused suites, the `gen_*` checks, CHANGELOG.
+  Proof (2026-11-06): lote-28 CI run 42229338778 succeeded on abe1de83f (unit on 3.11 to 3.13 and three OSes, kicad-10 shards 0-3, kicad-9, coverage audit, ci-complete); dev fast-forwarded to it.

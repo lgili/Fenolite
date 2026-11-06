@@ -20,8 +20,9 @@
 
 ## 4. Close
 
-- [ ] 4.1 CHANGELOG; `make check-fast`; the tests of the touched files and the importer tests. Proof: those
+- [x] 4.1 CHANGELOG; `make check-fast`; the tests of the touched files and the importer tests. Proof: those
   commands.
   Note (2026-11-05): focused tests pass (6344); `make check-fast` gives 23786 passed and 1 failed,
   `tests/unit/backends/altium/test_roundtrip.py::test_scope_documented` (`net_ties`), which fails the same way on
   `origin/cac/lote-24` 948b6a376 without this change. Left open for the coordinator's full run.
+  Proof (2026-11-06): lote-28 CI run 42229338778 succeeded on abe1de83f (unit on 3.11 to 3.13 and three OSes, kicad-10 shards 0-3, kicad-9, coverage audit, ci-complete); dev fast-forwarded to it.

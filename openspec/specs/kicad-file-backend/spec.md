@@ -2675,3 +2675,35 @@ A KiCad panel board SHALL hold every item of each copy moved exactly, nets renam
 - **WHEN** the same panel script is written twice with the same `--seed` and `--timestamp`
 - **THEN** every file keeps its bytes
 
+### Requirement: Net-tie groups of a created footprint
+`write_board` SHALL write the `net_ties` of a footprint it creates whole (one without slots, such as a converted Altium footprint) as one `net_tie_pad_groups` child after `attr`, one string per group with its numbers joined by `", "`, instead of refusing them; the projection rules for a read footprint are unchanged (change c0420, N1).
+
+#### Scenario: A created net tie
+- **WHEN** `uv run pytest tests/kicad/convert/test_a2k_load.py -k net_tie -q` writes a converted footprint with the group `("1", "2")`
+- **THEN** the board holds `(net_tie_pad_groups "1, 2")` after the footprint's `attr`, and `read_board` gives the footprint that group
+
+### Requirement: Corner ratio of a created board pad
+The KiCad board writer SHALL write the `roundrect_rratio` of every created board pad of shape `roundrect`
+whose `Pad.corner_ratio` is set (change c0441), not only beside a chamfer: read back, the pad holds the same
+ratio. A pad read or embedded keeps its shape children in its slots, as before.
+
+#### Scenario: Rounded pads converted from Altium
+- **GIVEN** the authored Altium `routed` sample, whose rounded-rectangle pads have the corner ratio 0.25
+- **WHEN** `uv run pytest tests/unit/convert/test_round_trip_shape.py -k vias` converts it to KiCad and back
+- **THEN** every rounded-rectangle pad of the round trip has the corner ratio of its source, and no pad is
+  lost
+
+### Requirement: Board mask margin in a written board
+The KiCad board writer SHALL write `Board.mask_margin` as `(setup (pad_to_mask_clearance M))` of a board that it writes from the model. With the field `None` or 0 it SHALL write `0`, as before (S-2042; `H-K-VIAPROT-MASK`). A board read from a file keeps its own setup child.
+- KiCad opens an untented via by this value: the opening is the via's diameter plus twice the margin, a negative margin included. A `solder_mask_expansion` rule in the rules file does not change it (KiCad 10.0.6, S-2042).
+
+#### Scenario: A negative margin
+- **GIVEN** a model board with `mask_margin=-101_600`
+- **WHEN** `uv run pytest tests/unit/convert/test_via_mask_c0445.py -k kicad_board` writes it
+- **THEN** its setup holds `(pad_to_mask_clearance -0.1016)`
+
+#### Scenario: The opening KiCad plots
+- **GIVEN** the via bench with one untented via, written with `mask_margin` `None`, 50 000 and -101 600 nm, and once with a rules file whose `solder_mask_expansion` rule selects vias
+- **WHEN** `uv run pytest tests/kicad/vias/test_via_mask_margin_oracle.py` plots `F.Mask` with `kicad-cli pcb export gerbers` 10
+- **THEN** the via's flash is a circle of its diameter, its diameter plus 0.1 mm, and its diameter minus 0.2032 mm, and the rule leaves it at its diameter
+

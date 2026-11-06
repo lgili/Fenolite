@@ -34,6 +34,7 @@
 
 ## 5. Hand-over
 
-- [ ] 5.1 CHANGELOG, `docs/altium.md`, the agent guide line for `convert.kept`; `make check-fast`,
+- [x] 5.1 CHANGELOG, `docs/altium.md`, the agent guide line for `convert.kept`; `make check-fast`,
   `tools/model_review.py --check`, the tests that consume the report, and the unit suite on Python 3.11,
   through `fenolite-heavy`. Proof: those commands.
+  Proof (2026-11-06): lote-28 CI run 42229338778 succeeded on abe1de83f (unit on 3.11 to 3.13 and three OSes, kicad-10 shards 0-3, kicad-9, coverage audit, ci-complete); dev fast-forwarded to it.

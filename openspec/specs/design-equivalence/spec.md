@@ -57,6 +57,7 @@ Every difference SHALL be a `Difference(level, kind, where, field, a, b)`, whose
 | 3 | `pad-position` | `position` | the footprint-local positions differ beyond the tolerance |
 | 3 | `pad-rotation` | `rotation` | the footprint-relative rotations differ beyond the tolerance |
 | 3 | `pad-copper` | `layers` | the copper spans differ |
+| 3 | `pad-mask` | `mask_margin` | the solder-mask expansions differ beyond the tolerance (change c0440) |
 | 4 | `side` | `side` | `FootprintInstance.side` differs |
 | 4 | `position` | `position` | the positions differ beyond the tolerance, in the chosen frame |
 | 4 | `rotation` | `rotation` | the rotations differ beyond the tolerance |
@@ -120,6 +121,11 @@ Every difference SHALL be a `Difference(level, kind, where, field, a, b)`, whose
 - **GIVEN** two designs with differences on `R2`, `R10` and `C1`
 - **WHEN** `compare_designs` runs twice, the second time with the footprints of both designs in reverse order
 - **THEN** both reports are equal, and the level-1 differences come in the order `C1`, `R10`, `R2`
+
+#### Scenario: Pad mask expansion
+- **GIVEN** the pads of the KiCad board above written to Altium with their own margins, and the original `blink.PcbDoc`, whose pads follow the rules of a document without a `SolderMaskExpansion` rule
+- **WHEN** `uv run pytest tests/unit/convert/test_pad_mask_c0440.py` runs level 3 of `equivalent`
+- **THEN** the written document and the KiCad board give no `pad-mask` difference, and the original and the written document give one per pad, with `a` = `rules`: a pad's expansion is its own margin, else its Altium manual value (`none` for mode 0), else the expansion of its side's first enabled `SolderMaskExpansion` rule of scope `All`; a KiCad pad without a margin follows the board's setting, which agrees with any value
 
 ### Requirement: Tolerances and normalisation
 `Tolerances(length_nm=0, angle_udeg=0, length_ppm=0)` SHALL hold three non-negative integers; a negative value or a non-integer MUST raise `ValueError`. The rules of `norm.py` MUST be these, in integer arithmetic only:
@@ -919,4 +925,225 @@ Level 3 SHALL compare the length and the axis of each pad's slot hole, read by i
 - **GIVEN** an authored PcbLib with slot pads in both orders of the two numbers and on turned pads
 - **WHEN** it is upgraded by `kicad-cli fp upgrade` 10.0.6 and imported by Fenolite
 - **THEN** every slot KiCad encodes has the same length, width and axis on both sides
+
+### Requirement: Cross-backend side completion
+When the two sides of `equivalent` come from different backends and no triangle is asked for, the API SHALL
+complete each read design before comparing. A KiCad side with a traced project SHALL carry the project's net
+classes and memberships, the custom rules of `<stem>.kicad_dru`, and its footprint graphics and texts as
+model entities. An Altium side SHALL carry the flattened outline of each zone whose polygon has an arc vertex,
+and the connection, thermal settings and clearance that its Polygon Connect Style and clearance rules govern;
+a zone that no polygon record outlines MUST stay as read. The keep-out layers of each side SHALL be passed to
+the comparison. Sides of one backend MUST be compared as read. The native project rule context SHALL run only
+when both sides are KiCad.
+
+#### Scenario: KiCad project completed
+- **GIVEN** a KiCad project with net classes and a `.kicad_dru`, compared with a side of another backend
+- **WHEN** the sides are completed
+- **THEN** the KiCad design holds the project's classes and the file's rules, and compared with a KiCad side
+  it stays as read
+
+#### Scenario: Native context does not refuse another backend
+- **GIVEN** a KiCad side whose traced project changed after it was read
+- **WHEN** the native rule context runs against a side of another backend
+- **THEN** the report is returned unchanged, and two such KiCad sides still refuse
+
+### Requirement: Across-backend comparison
+`compare_designs` SHALL take an `across` flag, which `equivalent` sets for sides of two backends. With it
+level 6 MUST NOT report: a net class on one side only that holds no net; a net class field that one side
+leaves unset; a stack-up layer of kind silkscreen, solder paste or solder mask that the other stack-up does
+not state; the letter case of a stack-up layer name; a non-copper layer on one side only that no item of that side uses (a pad counted on its copper
+layers); the kind of a paired mechanical and user layer; the order of non-copper layers. With it level 7 MUST
+NOT report a hidden footprint field on one side only, nor a field on one side only that the other side's
+component holds as a parameter of that name (with the value the field's own component holds, if any). Without the flag each of these MUST be reported as
+before. A net class that holds nets, a field both sides state, a dielectric or copper stack-up layer of another
+name, a used or copper layer, the copper order, a visible field that names no parameter, and a field whose
+parameter value differs MUST still be reported with the flag.
+
+#### Scenario: Unstated against stated
+- **GIVEN** side `b` with an extra unused user layer, an extra member-less class, a class field side `a`
+  leaves unset, mask stack-up layers side `a` does not state, and a hidden extra footprint field
+- **WHEN** levels 6 and 7 run with `across`
+- **THEN** nothing of these is reported, and without `across` each is reported
+
+#### Scenario: Real differences across backends
+- **GIVEN** with `across` a used extra layer, a copper layer on one side only, a class with nets on one side
+  only, a class field both sides state differently, a missing dielectric, swapped copper layers and a visible
+  extra field
+- **WHEN** levels 6 and 7 run
+- **THEN** each is reported
+
+### Requirement: Level 6 rule pairing
+Level 6 SHALL identify a rule by its name, by `<name>:<kind>` when one name holds several kinds, and by a
+repeat number. A rule named `fenolite_<p>_<slug>`, optionally followed by a repeat or layer suffix, that no
+rule of the other side matches by identity SHALL pair with an unmatched rule of the other side of the same
+kind, priority `p` and slugged name `<slug>`, preferring the one whose other fields are equal. Such a pair MUST
+compare every field except `name` and `priority`. A written name whose priority, slug or kind matches no rule
+MUST stay `rule-missing`.
+
+#### Scenario: Written names pair
+- **GIVEN** side `a` with rule `GND Clearance` (priority 3) and side `b` with `fenolite_3_gnd_clearance` of
+  the same kind
+- **WHEN** level 6 runs
+- **THEN** no `rule-missing` is reported, and another minimum on side `b` gives one `rule-field`
+
+#### Scenario: Declared format limit
+- **GIVEN** side `a` with a rule marked `kept_record=1` that side `b` does not hold
+- **WHEN** level 6 runs
+- **THEN** it is listed under `excluded` with rule id `declared-limit` and the comparison is equivalent; an
+  unmarked rule stays `rule-missing`
+
+#### Scenario: Wrong written priority
+- **GIVEN** side `b` names the rule `fenolite_4_gnd_clearance` with priority 4
+- **WHEN** level 6 runs
+- **THEN** one `rule-missing` is reported on each side
+
+### Requirement: Level 6 layer aliases and keep-out layers
+A layer with no same-named layer on the other side SHALL pair with a layer of the other side whose user name
+is its name, and level 7 SHALL compare the items of the pair under one name. A keep-out layer passed for a
+side and held by that side only MUST NOT give `layer-missing`. A user name that names another layer MUST NOT
+pair.
+
+#### Scenario: Mechanical layer under a user name
+- **GIVEN** side `a` with layer `Mech.1` holding a line and side `b` with `User.1` named `Mech.1` holding the
+  same line
+- **WHEN** levels 6 and 7 run
+- **THEN** no `layer-missing` and no `graphic-missing` is reported, and a user name `Mech.2` reports both
+  layers and both lines
+
+### Requirement: Level 7 representation pairing
+Level 7 SHALL pair, given the keep-out layers of a side, each graphic on such a layer with rule areas of the
+other side by the area it keeps out (a filled shape's outline, a stroke's band of its width) on every copper
+layer, comparing what the drawing keeps out. It SHALL compare the board's `Edge.Cuts` lines, arcs, polygons
+and rectangles left unmatched as items that form closed rings as rings. Before level 1 it SHALL take a
+board-only footprint with no reference and exactly one NPTH pad as a board hole when the other side holds an
+unplated board hole at the pad's board position with its drill. A differing band, ring, position, drill or
+reference MUST stay a difference.
+
+#### Scenario: Keep-out band
+- **GIVEN** side `a` with a 0.5 mm keep-out line and side `b` with the rule area of its band on both copper
+  layers
+- **WHEN** level 7 runs
+- **THEN** no `keepout-missing` or `graphic-missing` is reported; a band of another width reports
+  `keepout-missing` on both sides, and a rule area that allows vias reports one `keepout-field`
+
+#### Scenario: Outline as segments and as a polygon
+- **GIVEN** a closed outline drawn as four lines on side `a` and as one polygon on side `b`
+- **WHEN** level 7 runs
+- **THEN** nothing is reported, and moving one polygon vertex reports one `graphic-missing` per side
+
+#### Scenario: Mounting hole footprint
+- **GIVEN** a board hole on side `a` and a board-only footprint with one NPTH pad of the same drill at the
+  same place on side `b`
+- **WHEN** levels 1 to 7 run
+- **THEN** nothing is reported, and another drill or a reference keeps the footprint and reports
+  `hole-missing`
+
+### Requirement: Strict level 5 straight arcs
+The strict rule SHALL pair an arc of one side left unmatched with a track of the other side left unmatched
+when both lie on one copper span, the track's ends are the arc's ends within the length tolerance, and the
+arc's mid lies within the length tolerance of their chord; the pair SHALL be compared by the track rule and
+counted with the tracks. An arc whose mid lies farther from the chord MUST stay `arc-missing` with the track
+`track-missing`.
+
+#### Scenario: Sub-micron arc written as a track
+- **GIVEN** a track on side `a` and on side `b` an arc between the same ends whose mid lies 300 nm off the
+  chord
+- **WHEN** strict level 5 runs with a 1000 nm length tolerance
+- **THEN** no `arc-missing` or `track-missing` is reported; without the tolerance, or with the mid 2000 nm
+  off the chord, both are reported
+
+### Requirement: Copper of a net-tie footprint
+
+Level 3 SHALL compare the copper of each footprint pair where a side has net-tie groups: the graphics on the
+board's copper layers, in the footprint's frame, as segments, regions and arcs, the layer named by its role
+(`top`, `inner<k>`, `bottom`), and the primitives of its custom pads that have no number and no net, placed by
+the pad's position and rotation (how KiCad's importer holds a copper region of a component). Each piece that no piece of the other side matches within the length tolerance
+SHALL be one difference of kind `net-tie-copper` (field `copper`) at the reference, with the piece's text on
+its side and `""` on the other. A footprint that is a net tie on neither side SHALL compare no copper.
+
+| level | kind | field | when |
+|---|---|---|---|
+| 3 | `net-tie-copper` | `copper` | a piece of copper of a net-tie footprint is on one side only |
+
+#### Scenario: An open net tie is a difference
+
+- **GIVEN** the conversion of `net_tie_copper.kicad_pcb` and its reading with the tie's line removed
+- **WHEN** the two are compared at level 3
+- **THEN** there is exactly one `net-tie-copper` difference, at `NT1`, whose side `a` names a `top segment`
+  of width 300000 nm and whose side `b` is empty
+
+#### Scenario: A moved tie line
+
+- **GIVEN** the reading with the tie's line moved by 0.1 mm
+- **WHEN** it is compared with the conversion at level 3
+- **THEN** there are two `net-tie-copper` differences, one per side, and none when neither footprint is a
+  net tie
+
+#### Scenario: Tie copper held by an unnumbered pad
+
+- **GIVEN** the reading with the tie's line replaced by a custom pad without a number or a net, turned by 90
+  degrees, whose segment primitive draws the same line
+- **WHEN** it is compared with the conversion at level 3
+- **THEN** there is no `net-tie-copper` difference, and two, one per side, when the primitive is 0.1 mm longer
+
+### Requirement: Footprint names after the library rewrite
+Level 3 of `equivalent` SHALL NOT report `footprint-name` for two names that are equal once each is
+rewritten by `core.libnames.library_name(name, allow_space=True)`, the rewrite the Altium to KiCad
+conversion gives the entries of its derived library (change c0435).
+
+#### Scenario: A slash
+- **WHEN** `uv run pytest tests/unit/convert/test_flow_b_fidelity.py -k library_rewrite -q` compares names
+- **THEN** `R/0603` and `R_0603` are the same name, and `R_0603` and `R_0805`, or `R/0603` and `R_0603_2`, are not
+
+### Requirement: Copper without a net
+
+Level 5 SHALL compare the copper without a net of both sides: tracks, arcs and graphics on copper layers
+(a footprint's own graphics and zone fills left out; a KiCad graphic's net read from its KiCad slot). Each
+piece that one side holds and no piece of the other matches within the length tolerance SHALL be one
+difference of kind `copper-no-net` (field `copper`) at `(no net):<span>`.
+
+| level | kind | field | when |
+|---|---|---|---|
+| 5 | `copper-no-net` | `copper` | a piece of copper without a net is on one side only |
+
+#### Scenario: A cut-out written as copper
+
+- **GIVEN** the reading of the converted `polygon_cutouts.kicad_pcb`, and the same reading with one F.Cu
+  cut-out replaced by a filled polygon of no net
+- **WHEN** the two are compared at level 5
+- **THEN** they are not equivalent, with one `copper-no-net` difference at `(no net):top`
+
+### Requirement: Level 7 board shape in the relative frame
+With `frame` `relative`, level 7 SHALL move every point of side b's board shape (the outline rings,
+cut-outs and slots, and the `Edge.Cuts` drawings and the rings they chain into) by minus the translation
+that level 4 removed, before matching (change c0441); the location texts keep each side's own coordinates.
+Every other item of level 7 keeps the absolute frame. With `frame` `absolute` the translation is (0, 0) and
+nothing moves.
+
+#### Scenario: A board moved whole
+- **GIVEN** the authored `routed` sample with one corner rounded, and a copy whose footprints and edges are
+  moved by (1.27 mm, -2.54 mm)
+- **WHEN** `uv run pytest tests/unit/convert/test_round_trip_shape.py -k level_7` compares them at level 7
+- **THEN** in the relative frame the translation is (1.27 mm, -2.54 mm) and no `Edge.Cuts` difference is
+  reported; in the absolute frame the ring of the edges is missing on each side
+
+#### Scenario: A flattened arc
+- **GIVEN** an Altium document with a rounded corner, taken to KiCad and back with its outline arcs written
+  as straight edges
+- **WHEN** `equivalent` compares the two documents at level 7 in the relative frame
+- **THEN** differences of the `Edge.Cuts` drawings are reported; with the arc written as an arc vertex none is
+
+### Requirement: Form of a drawn keep-out
+
+When both sides of a pair of matched rule areas are drawings of a keep-out layer, level 7 SHALL also
+compare their `form`: `stroke` for a track, an arc, a circle or an outline drawn with a width, and `area`
+for a filled shape or an outline of width 0. A difference SHALL be one `keepout-field` difference with
+field `form`. A drawing against a rule area SHALL compare no form.
+
+#### Scenario: A keep-out line written as a region is reported
+
+- **GIVEN** a board whose Keep-Out layer draws a line, and the same board drawing in its place the filled
+  ring that the line's band covers
+- **WHEN** the two are compared at level 7 with the Keep-Out layer named a keep-out layer on both sides
+- **THEN** there is one `keepout-field` difference, on `form`
 

@@ -34,6 +34,8 @@
 
 - [x] 4.1 Hand-offs: the level 7 pairing of footprint graphics, mechanical layers and board holes to c0421;
   B8 and the footprint texts to c0422.
-- [ ] 4.2 Focused and consumer tests, the KiCad tests on 10.0.6 and 9.0.9, `make check-fast`, schema, model
+- [x] 4.2 Focused and consumer tests, the KiCad tests on 10.0.6 and 9.0.9, `make check-fast`, schema, model
   review and evidence checks; `CHANGELOG.md`.
-- [ ] 4.3 Full CI on the batch (Master's next lote).
+  Proof (2026-11-06): lote-28 CI run 42229338778 succeeded on abe1de83f (unit on 3.11 to 3.13 and three OSes, kicad-10 shards 0-3, kicad-9, coverage audit, ci-complete); dev fast-forwarded to it.
+- [x] 4.3 Full CI on the batch (Master's next lote).
+  Proof (2026-11-06): lote-28 CI run 42229338778 succeeded on abe1de83f (unit on 3.11 to 3.13 and three OSes, kicad-10 shards 0-3, kicad-9, coverage audit, ci-complete); dev fast-forwarded to it.
