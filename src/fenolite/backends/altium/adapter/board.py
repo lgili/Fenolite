@@ -22,7 +22,7 @@ from fenolite.backends.altium.adapter.bodies import component_body
 from fenolite.backends.altium.adapter.codes import Census, issue
 from fenolite.backends.altium.adapter.context import Context
 from fenolite.backends.altium.adapter.evidence import EVIDENCE
-from fenolite.backends.altium.adapter.ids import Exact, Ids, bag
+from fenolite.backends.altium.adapter.ids import UNION_KEY, Exact, Ids, bag
 from fenolite.backends.altium.adapter.layers import MULTI, LayerMap, stackup
 from fenolite.backends.altium.adapter.pads import pad
 from fenolite.backends.altium.adapter.rules import connect_texts, import_rules
@@ -329,6 +329,9 @@ def read_board(doc: PcbDocument, *, file: str, sha256: str, ids: Ids) -> BoardIm
             pairs.append(("source_designator", record.source_designator))
         if record.source_lib_reference:
             pairs.append(("source_lib_reference", record.source_lib_reference))
+        member = dict(record.record.fields).get("UNIONINDEX", "0")
+        if member.isdigit() and 0 < int(member) < 1 << 32:  # change c0460: a union member keeps its union
+            pairs.append((UNION_KEY, member))
         footprints.append(
             FootprintInstance(
                 id=fp_id,

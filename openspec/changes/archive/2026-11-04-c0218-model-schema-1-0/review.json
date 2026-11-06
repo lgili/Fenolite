@@ -30672,6 +30672,13 @@
         "src/fenolite/silk/extents.py"
       ],
       "decision": "pending"
+    },
+    {
+      "backend": "altium",
+      "key": "union_index",
+      "declared_in": "src/fenolite/backends/altium/adapter/ids.py",
+      "readers": [],
+      "decision": "pending"
     }
   ],
   "opaque_extensions": "Keep all unknown backend fragments and backend namespaces verbatim; they have no closed key vocabulary."

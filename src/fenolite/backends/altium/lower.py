@@ -35,6 +35,7 @@ import fenolite.backends.altium.pcblib as pcblib
 import fenolite.backends.altium.pcbrecords as rec
 import fenolite.backends.altium.project as project
 import fenolite.backends.altium.rulemap as rulemap
+import fenolite.backends.altium.unions as unions
 from fenolite.backends.altium.altsym import AltiumSymbol
 from fenolite.backends.altium.ascii import text_problem
 from fenolite.backends.altium.cfb import CompoundTooLarge, name_key
@@ -1318,7 +1319,8 @@ def _footprint_items(
             return None
         mirrored = item.mirrored if isinstance(item, FootprintField) else layer in rec.BOTTOM_SIDE
         shown = item.visible if isinstance(item, FootprintField) else True
-        return pcbdoc.TextPlace(item.position, layer, height, stroke, item.rotation, shown, mirrored)
+        font = pcbdoc.text_font(item)  # change c0460
+        return pcbdoc.TextPlace(item.position, layer, height, stroke, item.rotation, shown, mirrored, font)
 
     places: dict[str, pcbdoc.TextPlace | None] = {}
     for field in fp.fields:
@@ -1516,6 +1518,7 @@ def _footprints(
                 items=own.items,
                 texts=own.texts,
                 net_tie=bool(fp.net_ties),
+                union=unions.union_of(fp),  # change c0460
             )
         )
         if fp.net_ties:
@@ -2544,6 +2547,7 @@ def derived_library(
                         height=place.height,
                         stroke=place.stroke,
                         rotation=mirror.apply_angle(place.rotation),
+                        font=place.font,
                     ),
                 )
             )

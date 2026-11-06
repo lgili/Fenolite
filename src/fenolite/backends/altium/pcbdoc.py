@@ -41,6 +41,7 @@ from typing import Final, Literal
 
 import fenolite.backends.altium.pcbrecords as rec
 import fenolite.backends.altium.rulemap as rulemap
+import fenolite.backends.altium.unions as unions
 from fenolite.backends.altium.ascii import Field, text_problem
 from fenolite.backends.altium.cfb import Entry, Storage, write_compound
 from fenolite.backends.altium.docboard import (
@@ -81,6 +82,7 @@ from fenolite.geometry.transform import FULL_TURN, Transform
 from fenolite.model.board import (
     Arc,
     ComponentBody,
+    FootprintField,
     Graphic,
     Hole,
     Keepout,
@@ -284,6 +286,7 @@ EVIDENCE = Evidence(
         "H-A-PCBX-REPOUR",
         "H-A-PCBX-STACK",
         "H-A-PCBX-TEXT",
+        "H-A-PCBX-TEXT-TT",
         "H-A-PCBX-VIA-FULL",
         "H-A-PCBX-VIASPAN",
         "H-A-SLOT-PAD",
@@ -311,12 +314,28 @@ only for a panel, never for a board, so they are not named here."""
 
 
 @dataclass(frozen=True, slots=True)
+class TextFont:
+    """The font of a TrueType text (change c0460): its ``face``, at most ``FONT_NAME_CHARS`` characters,
+    and whether it is ``bold`` and ``italic``."""
+
+    face: str
+    bold: bool = False
+    italic: bool = False
+
+
+FONT_NAME_CHARS = 31
+"""The longest font name a text record holds: 64 bytes of UTF-16LE with a terminator (``pcb-records.md``,
+"Text")."""
+
+
+@dataclass(frozen=True, slots=True)
 class TextPlace:
     """Where a text of a component is drawn (change c0126): ``position`` in the pad frame of the
     component's placement (footprint-local, no mirror), ``layer`` the Altium id of the layer it lies on,
     ``height`` and ``stroke`` in nanometres, ``rotation`` relative to the component (microdegrees),
-    ``shown`` whether the text is visible (``NAMEON`` or ``COMMENTON`` for a designator or a comment) and
-    ``mirrored`` the mirror flag of the record."""
+    ``shown`` whether the text is visible (``NAMEON`` or ``COMMENTON`` for a designator or a comment),
+    ``mirrored`` the mirror flag of the record and ``font`` its TrueType font (``None`` a stroke text,
+    change c0460)."""
 
     position: Point
     layer: int
@@ -325,6 +344,7 @@ class TextPlace:
     rotation: int = 0
     shown: bool = True
     mirrored: bool = False
+    font: TextFont | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -408,6 +428,8 @@ class PlacedComponent:
     """Whether the component is a net tie (change c0420, N1): its record holds ``COMPONENTKIND=4`` after
     ``UNIONINDEX``, where the public documents hold it (``pcb-records.md``, "Component kind"); otherwise
     the key is left out, as for most saved components."""
+    union: int = 0
+    """The union the component is a member of, its ``UNIONINDEX`` (change c0460); 0 for none."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -962,7 +984,7 @@ def _component_record(component: PlacedComponent, offset: int, frame: Frame, fil
         ("GROUPNUM", "0"),
         ("COUNT", "0"),
         ("ROTATION", angle_text(component.rotation)),
-        ("UNIONINDEX", "0"),
+        ("UNIONINDEX", str(component.union)),
         *((("COMPONENTKIND", NET_TIE_KIND),) if component.net_tie else ()),
         ("CHANNELOFFSET", str(offset)),
         ("SOURCEDESIGNATOR", component.ref),
@@ -993,12 +1015,14 @@ def text_record(
     height: int = DESIGNATOR_HEIGHT,
     stroke: int = DESIGNATOR_STROKE,
     rotation: int = 0,
+    font: TextFont | None = None,
 ) -> bytes:
     """A stroke text (type 5) in the 137-byte long form, ``at`` in nanometres in the Altium frame. A
     component's text is its designator or its comment; a ``free`` text (change c0085, ``component`` is
     ``pcbrecords.NO_INDEX``) is neither, has its own ``height`` and ``stroke`` (nanometres) and ``rotation``
     (microdegrees), and its 8-bit string is ``short_text(text)``: the text itself is the wide string at
-    ``wide_index``."""
+    ``wide_index``. A ``font`` makes it a TrueType text (change c0460): font type 1, bold, italic and the
+    font name at 43 to 109 (``pcb-records.md``, "Text")."""
     body = rec.prefix(layer, component=component)
     body += struct.pack(
         "<3iHdBi",
@@ -1011,12 +1035,32 @@ def text_record(
         rec.to_units(stroke),
     )
     flags = (0, 0) if free else (0 if designator else 1, 1 if designator else 0)
-    body += bytes((*flags, 0, 0, 0, 0))
-    body += bytes(64) + b"\0" + struct.pack("<iI", 0, wide_index) + bytes(TEXT_SIZE - 119)
+    if font is None:
+        body += bytes((*flags, 0, 0, 0, 0)) + bytes(64)
+    else:
+        if len(font.face) > FONT_NAME_CHARS:
+            raise ValueError(f"the font name {font.face!r} is longer than {FONT_NAME_CHARS} characters")
+        name = font.face.encode("utf-16-le")
+        body += (
+            bytes((*flags, 0, TRUETYPE_FONT, int(font.bold), int(font.italic))) + name + bytes(64 - len(name))
+        )
+    body += b"\0" + struct.pack("<iI", 0, wide_index) + bytes(TEXT_SIZE - 119)
     assert len(body) == TEXT_SIZE
     # a component text outside 7-bit ASCII (change c0090, a model that was read) is written like a free one
     string = short_text(text) if free or text_problem(text) is not None else rec.short_string(text)
     return bytes((rec.TEXT,)) + rec.subrecord(body) + rec.subrecord(string)
+
+
+TRUETYPE_FONT = 1
+"""The font type byte of a TrueType text (``pcb-records.md``, "Text"; 0 is a stroke text)."""
+
+
+def text_font(item: Text | FootprintField) -> TextFont | None:
+    """The TrueType font of a text or field (change c0460): its face with its bold and italic, or ``None``
+    for a stroke text (no face)."""
+    if not item.face:
+        return None
+    return TextFont(item.face, bool(item.bold), bool(item.italic))
 
 
 def short_text(text: str) -> bytes:
@@ -1034,9 +1078,14 @@ def text_problem_of(text: Text, *, footprint: bool = False) -> str | None:
     font face) that the text record of the writer does not hold."""
     if not text.text and not footprint:
         return "the text is empty"
+    # change c0460: a face makes a TrueType text, which holds bold and italic; a stroke text holds neither
     styles = [name for name in ("knockout", "bold", "italic") if getattr(text, name)]
     if text.face:
-        styles.append(f"the font face {text.face!r}")
+        styles = [name for name in styles if name == "knockout"]
+        if len(text.face) > FONT_NAME_CHARS:
+            return (
+                f"the font name {text.face!r} is longer than the {FONT_NAME_CHARS} characters of the record"
+            )
     if styles:
         return f"the text record of the writer holds no {', '.join(styles)}"
     if any(ord(ch) < 0x20 or ord(ch) == 0x7F for ch in text.text):
@@ -1427,6 +1476,7 @@ def via_records(
                 tented_top=top,
                 tented_bottom=bottom,
                 mask=expansion,
+                union=unions.union_of(via),  # change c0460
             )
         )
     return out
@@ -1579,6 +1629,7 @@ class _Free:
         net: int = rec.NO_INDEX,
         *,
         polygon_cutout: bool = False,
+        union: int = 0,
     ) -> None:
         vertices = [_units(frame(point)) for point in ring]
         for shape_based, into in ((False, self.regions), (True, self.shapes)):
@@ -1590,6 +1641,7 @@ class _Free:
                     shape_based=shape_based,
                     net=net,
                     polygon_cutout=polygon_cutout,
+                    union=union,
                 )  # fmt: skip
             )
 
@@ -1639,7 +1691,10 @@ def free_records(spec: PcbDocSpec, copper: _Copper) -> _Free:
                 a, b, turn = shape
                 out.fills.append(rec.fill_record(layer, long_id(layer), a, b, turn, net=net, keepout=byte))
                 continue
-            if byte is None:
+            member = unions.union_of(graphic)  # change c0460
+            if byte is None and member:
+                out.region(layer, ring, frame, net=net, union=member)
+            elif byte is None:
                 out.region(layer, ring, frame, net=net)
             else:  # a keep-out fill that is no rectangle stays a keep-out region with its byte (change c0455)
                 out.region(layer, ring, frame, net=net, keepout=byte)
@@ -1750,6 +1805,7 @@ def free_texts(spec: PcbDocSpec, frame: Frame, first: int) -> tuple[list[bytes],
                 height=text.size.h,
                 stroke=text.thickness,
                 rotation=text.rotation,
+                font=text_font(text),
             )
         )
         wide.append(_wide_entry(number, text.text))
@@ -2375,6 +2431,7 @@ def _write(
                         height=place.height,
                         stroke=place.stroke,
                         rotation=(place.rotation + component.rotation) % FULL_TURN,
+                        font=place.font,
                     )
                 )
             wide.append(_wide_entry(number, text))
@@ -2393,6 +2450,7 @@ def _write(
                     height=item.place.height,
                     stroke=item.place.stroke,
                     rotation=(item.place.rotation + component.rotation) % FULL_TURN,
+                    font=item.place.font,
                 )
             )
             wide.append(_wide_entry(number, item.text))
@@ -2925,4 +2983,8 @@ __all__ = [
     "ZONE_UNPOURED",
     "connect_records",
     "polygon_order",
+    "FONT_NAME_CHARS",
+    "TRUETYPE_FONT",
+    "TextFont",
+    "text_font",
 ]

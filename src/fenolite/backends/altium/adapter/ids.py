@@ -69,9 +69,14 @@ EXT_KEYS: tuple[str, ...] = (
     "cells_not_lifted",
     "kept_record",
     "stroke",
+    "union_index",
 )
 """The closed table of extension-bag keys, in bag order; each is a row of
 ``docs/formats/altium/import.md``, "Extension-bag keys"."""
+UNION_KEY = "union_index"
+"""The key of a union member's union index (change c0460, ``backends.altium.unions``)."""
+VIA_UNION_OFFSET = 70
+"""The offset of a via's union index in its subrecord (change c0460, S-2190)."""
 _ORDER = {key: position for position, key in enumerate(EXT_KEYS)}
 
 

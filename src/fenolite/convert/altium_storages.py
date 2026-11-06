@@ -47,14 +47,20 @@ UNKNOWN_FRAME_REASON = (
     "the storage may hold geometry in the source's frame, which the round trip moves, and no public source "
     "shows what it holds; it is not copied"
 )
+SMART_UNION_REASON = (
+    "the storage defines via stitching unions with placements in the source's frame, which the round trip "
+    "moves; the stitching vias stay members of their union"
+)
 FRAME_BOUND: Mapping[str, str] = {
     "BoardRegions": FRAME_BOUND_REASON,
     "CustomMaskShapes": UNKNOWN_FRAME_REASON,
+    "SmartUnions": SMART_UNION_REASON,
 }
 """The storages that hold, or may hold, the source's geometry in its frame (change c0459), each with the
 reason it is counted lost: the round trip moves the origin and writes its own layer stack, so a copy of
 ``BoardRegions`` placed the board region beside the board, and ``CustomMaskShapes`` holds data in no public
-row (S-2181), so a copy would carry bytes nobody checked."""
+row (S-2181), so a copy would carry bytes nobody checked. ``SmartUnions`` (change c0460) defines via
+stitching with ``PLACEHOLDERX`` and ``PLACEHOLDERY`` in the source's frame (S-2190)."""
 CLASSES = "Classes6"
 KEPT_CLASSES = "Classes6.Kept"
 """The carrier of the classes of ``Classes6`` that are no net class and no super class (change c0461)."""
@@ -323,6 +329,7 @@ __all__ = [
     "KEPT_CLASSES",
     "KEPT_CARRIERS",
     "KEPT_SIGNAL_CLASSES",
+    "SMART_UNION_REASON",
     "KIND",
     "PAIR_REASON",
     "PIN_PAIRS",

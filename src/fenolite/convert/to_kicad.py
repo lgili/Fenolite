@@ -632,6 +632,7 @@ def _carried_storages(
     name (change c0450, ``convert.altium_storages``); each index-bound storage that holds a record, and each
     frame-bound one that holds data (change c0459), is counted lost under ``altium-storage``. A document that
     cannot be read carries nothing."""
+    from fenolite.backends.altium import unions
     from fenolite.convert import altium_storages as storages
     from fenolite.convert.altium_to_kicad import board_document
     from fenolite.core.errors import FenoliteError
@@ -651,7 +652,11 @@ def _carried_storages(
         ledger.drop(storages.KIND, name, storages.INDEX_BOUND_REASON)
     for name in found.frame_bound:  # change c0459: a copy would lie in the source's frame
         ledger.drop(storages.KIND, name, storages.FRAME_BOUND[name])
-    return storages.items(found)
+    items = storages.items(found)
+    members = unions.members(source.design.board)
+    if storages.PREFIX + "UnionNames" in found.carried and members:  # change c0460: the union members
+        items[storages.PREFIX + unions.CARRIER] = unions.carried_map(members)
+    return items
 
 
 def _placed_models(source: SourceProject, design: Design, name: str, copied: Copies | None = None) -> Placed:

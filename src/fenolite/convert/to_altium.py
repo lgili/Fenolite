@@ -254,12 +254,34 @@ def _carried_storages(
     return {name: (s.header, s.data) for name, s in made.storages.items()}, lost
 
 
+def with_unions(source: SourceProject, design: Design) -> Design:
+    """``design`` whose items of a uuid in the union map that a conversion to KiCad carried
+    (``Fenolite.Altium.UnionMembers``, change c0460, ``backends.altium.unions``) hold their union index
+    again, so the writer writes it; ``design`` itself when the board holds no map or does not read."""
+    from fenolite.backends.altium import unions
+    from fenolite.backends.kicad.boardcarrier import PREFIX
+    from fenolite.backends.kicad.boardcarrier import carried as board_carried
+
+    board = design.board
+    if board is None or source.path.suffix != ".kicad_pcb":
+        return design
+    try:
+        found = board_carried(source.path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, FormatError):
+        return design
+    members = unions.read_map(found.get(PREFIX + unions.CARRIER, b""))
+    if not members:
+        return design
+    return dataclasses.replace(design, board=unions.restored(board, members))
+
+
 def write(source: SourceProject, options: Options) -> Written:
     """The Altium project of a KiCad source, with its report. Its copper graphics take the net their KiCad
     slot names (``fpitems.with_graphic_nets``), as a build's do: without it a netted copper shape is written
     with no net and shorts the copper it touches (changes c0439, c0441)."""
     projected = fpitems.with_footprint_items(_named(source.design, options.name)).design
     design = with_mask_margin(pads.project(fpitems.with_graphic_nets(projected)), source)
+    design = with_unions(source, design)  # change c0460: the union members of an Altium conversion
     carried = _carried(source, design)  # change c0434: the source's own rule records
     design = carried.design
     links = altium_links.symbol_links(design)  # change c0451: the source's links of an Altium conversion

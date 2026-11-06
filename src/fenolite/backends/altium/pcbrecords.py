@@ -533,6 +533,10 @@ _MIL = UNITS_PER_MIL
 _VIA_LAYERS = 32
 
 
+VIA_UNION = 70
+"""The offset of a via's union index in its subrecord (change c0460, S-2190)."""
+
+
 def via_record(
     x: int,
     y: int,
@@ -546,6 +550,7 @@ def via_record(
     tented_top: bool = False,
     tented_bottom: bool = False,
     mask: int | None = None,
+    union: int = 0,
 ) -> bytes:
     """A via (type 3): one subrecord of 321 bytes, the form Altium saves, with the fixed values of
     ``pcb-copper.md`` ("Via") and zero in every other byte; position and sizes in binary units. ``start``
@@ -554,7 +559,8 @@ def via_record(
     and 6 of the first flags byte (``pcb-copper.md``, "Flags of a via"; ``H-A-PCB-CU-VIATENT``, change
     c0112), beside the lock bit. A tented side selects manual mask cache state at byte 66. ``mask`` (binary
     units, may be negative; change c0445) is the via's own solder-mask expansion: it is written at 54 and
-    242 in place of 4 mil, with the manual cache state, so no rule overrides it."""
+    242 in place of 4 mil, with the manual cache state, so no rule overrides it. ``union`` (change c0460) is
+    the union the via is a member of, written at 70 (S-2190); 0 for none."""
     for layer in (start, end):
         layer_text(layer)
     body = bytearray(VIA_SIZE)
@@ -567,6 +573,7 @@ def via_record(
     struct.pack_into("<i", body, 54, expansion)  # solder-mask expansion
     if tented_top or tented_bottom or mask is not None:
         body[66] = 2  # manual solder-mask cache: rules otherwise override tenting and the expansion
+    struct.pack_into("<I", body, VIA_UNION, union)
     struct.pack_into(f"<{_VIA_LAYERS}i", body, 75, *[diameter] * _VIA_LAYERS)
     struct.pack_into("<Hi", body, 203, 15, 259)
     struct.pack_into("<i", body, 242, expansion)  # back solder-mask expansion
@@ -806,6 +813,7 @@ def region_record(
     board_cutout: bool = False,
     net: int = NO_INDEX,
     polygon_cutout: bool = False,
+    union: int = 0,
 ) -> bytes:
     """A region (type 11) without a polygon (``pcb-records.md``, "Regions and keep-outs"): the prefix, five
     zero bytes, the property text and the outline. ``component`` (change c0126) is the index of the component
@@ -819,7 +827,8 @@ def region_record(
     ``KEEPOUTRESTRIC``, both holding the value. ``board_cutout`` (change c0168) ends the text with
     ``ISBOARDCUTOUT=TRUE`` (``cutout_region``). ``polygon_cutout`` (change c0439) writes ``KIND=1``, a
     polygon cut-out: no polygon pours its copper there, the region is no copper itself and no keep-out, as
-    the public documents hold it (``pcb-records.md``, "Regions and keep-outs"; S-1980)."""
+    the public documents hold it (``pcb-records.md``, "Regions and keep-outs"; S-1980). ``union`` (change
+    c0460) is its ``UNIONINDEX``: the union it is a member of, 0 for none."""
     if len(vertices) < 3:
         raise ValueError("a region needs at least three vertices")
     if keepout is not None and not 0 <= keepout <= 0x1F:
@@ -831,7 +840,7 @@ def region_record(
         ("NAME", " "),
         ("KIND", "1" if polygon_cutout else "0"),
         ("SUBPOLYINDEX", "-1"),
-        ("UNIONINDEX", "0"),
+        ("UNIONINDEX", str(union)),
         ("ARCRESOLUTION", REGION_ARC_RESOLUTION),
         ("ISSHAPEBASED", "FALSE"),
         ("CAVITYHEIGHT", "0mil"),

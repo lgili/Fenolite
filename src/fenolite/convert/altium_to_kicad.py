@@ -782,6 +782,9 @@ def prepare(source: SourceProject, name: str, target: int, ledger: Ledger) -> De
     assert board is not None
     board = _marked_fills(board, _fill_ids(source.design.board))
     board = _named_strokes(board, stroke_names(source.design.board))
+    from fenolite.backends.altium import unions
+
+    board = unions.marked(board, unions.members(source.design.board))  # change c0460
     refs = {component.id: component.ref for component in design.circuit.components}
     allocated: dict[str, str] = {}
     used: set[str] = set()

@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import dataclasses
 import re
+import struct
 from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 from fractions import Fraction
@@ -35,7 +36,7 @@ from typing import Any
 from fenolite.backends.altium.adapter import units
 from fenolite.backends.altium.adapter.codes import issue
 from fenolite.backends.altium.adapter.context import Context
-from fenolite.backends.altium.adapter.ids import Exact, bag
+from fenolite.backends.altium.adapter.ids import UNION_KEY, VIA_UNION_OFFSET, Exact, bag
 from fenolite.backends.altium.adapter.layers import EDGE, MULTI
 from fenolite.backends.altium.adapter.pads import WILDCARD_ALL
 from fenolite.backends.altium.read.pcb import SPLIT_PLANE_POLYGON, PcbDocument, PolygonRecord
@@ -48,6 +49,7 @@ from fenolite.backends.altium.read.pcbprims import (
     RegionVertex,
     TextRecord,
     TrackRecord,
+    ViaRecord,
     via_pad_removed,
 )
 from fenolite.backends.altium.read.pcbstack import OutlineVertex
@@ -604,6 +606,9 @@ def vias(doc: PcbDocument, ctx: Context) -> list[Via]:
         removed = via_pad_removed(item)
         if removed:  # the model holds one diameter: the layers without a pad shape are said here alone
             pairs.append((PAD_REMOVED_KEY, ",".join(str(layer) for layer in removed)))
+        member = via_union(item)
+        if member:  # change c0460: a union member keeps its union
+            pairs.append((UNION_KEY, str(member)))
         net_id = ctx.net(item.prefix.net)
         found.append(
             Via(
@@ -1116,6 +1121,7 @@ def footprint_items(
         angle = (exact.angle("rotation", item.rotation) - rotation) % FULL_TURN
         layer = ctx.layers.name(item.prefix.layer if item.prefix.layer != MULTI else ctx.layers.chain[0])
         name = REFERENCE_FIELD if item.is_designator else VALUE_FIELD if item.is_comment else ""
+        font = truetype(item)  # change c0460: a TrueType text keeps its font
         if name and name not in fields:
             shown = name_on if name == REFERENCE_FIELD else comment_on
             fields[name] = FootprintField(
@@ -1130,6 +1136,9 @@ def footprint_items(
                 thickness=thickness,
                 visible=shown,
                 mirrored=bool(item.mirrored),
+                bold=font[1] if font else None,
+                italic=font[2] if font else None,
+                face=font[0] if font else None,
             )
         else:
             texts.append(
@@ -1145,6 +1154,9 @@ def footprint_items(
                     size=Size(height, height),
                     thickness=thickness,
                     rotation=angle,
+                    bold=font[1] if font else False,
+                    italic=font[2] if font else False,
+                    face=font[0] if font else "",
                 )
             )
         ctx.census.map("texts")
@@ -1466,19 +1478,21 @@ def shapes(
             pairs += _net_pair(ctx, item.prefix.net)
             region_net = ctx.net(item.prefix.net)  # the copper of its net (change c0376)
             copper_shapes += 1
-        found.append(
-            _graphic(
-                ctx,
-                "polygon",
-                layer,
-                points,
-                width=0,
-                filled=True,
-                locator=locator,
-                pairs=pairs,
-                net_id=region_net,
-            )  # fmt: skip
+        graphic = _graphic(
+            ctx,
+            "polygon",
+            layer,
+            points,
+            width=0,
+            filled=True,
+            locator=locator,
+            pairs=pairs,
+            net_id=region_net,
         )
+        member = region_union(item)  # change c0460: a union member keeps its union, outside its id
+        if member:
+            graphic = dataclasses.replace(graphic, ext=bag([*pairs, (UNION_KEY, str(member))]))
+        found.append(graphic)
         ctx.census.map("regions")
     ctx.census.skip("shape_regions", "shape-based-regions", len(doc.shape_regions))
     if copper_shapes:
@@ -1498,6 +1512,32 @@ def lines(text: str) -> str:
     document separates its lines with CR LF, as a Draftsman text does (``pcb-records.md``,
     ``H-A-TEXT-CRLF``), and the model, KiCad and the DSL break a line at LF."""
     return text.replace("\r\n", "\n")
+
+
+def via_union(item: ViaRecord) -> int:
+    """The union index of a via record (change c0460): the 32-bit value at offset 70 of its subrecord, 0 for
+    a via of no union or a record too short to hold it (S-2190)."""
+    body = item.raw[5:]
+    offset = VIA_UNION_OFFSET
+    return struct.unpack_from("<I", body, offset)[0] if len(body) >= offset + 4 else 0
+
+
+def region_union(item: RegionRecord) -> int:
+    """The union index of a region record (change c0460): its ``UNIONINDEX``, 0 for none."""
+    value = dict(item.properties.fields).get("UNIONINDEX", "0")
+    return int(value) if value.isdigit() and int(value) < 1 << 32 else 0
+
+
+TRUETYPE = 1
+"""The font type of a TrueType text record (``pcb-records.md``, "Text"; 0 is a stroke text)."""
+
+
+def truetype(item: TextRecord) -> tuple[str, bool, bool] | None:
+    """The font name, bold and italic of a TrueType text record (change c0460), or ``None`` for a stroke
+    text, a text of another font type, or a TrueType text that names no font."""
+    if item.font_type != TRUETYPE or not item.font_name:
+        return None
+    return item.font_name, bool(item.bold), bool(item.italic)
 
 
 def texts(doc: PcbDocument, ctx: Context, owned: Collection[int] = ()) -> list[Text]:
@@ -1521,6 +1561,7 @@ def texts(doc: PcbDocument, ctx: Context, owned: Collection[int] = ()) -> list[T
         thickness = exact.length("thickness", item.stroke_width)
         rotation = exact.angle("rotation", item.rotation)
         layer = ctx.layers.name(item.prefix.layer if item.prefix.layer != MULTI else ctx.layers.chain[0])
+        face, bold, italic = truetype(item) or ("", False, False)
         found.append(
             Text(
                 id=ctx.ids.content(
@@ -1534,6 +1575,9 @@ def texts(doc: PcbDocument, ctx: Context, owned: Collection[int] = ()) -> list[T
                 size=Size(height, height),
                 thickness=max(thickness, 0),
                 rotation=rotation,
+                bold=bold,
+                italic=italic,
+                face=face,
             )
         )
         ctx.census.map("texts")
@@ -1666,6 +1710,7 @@ def notched(
 __all__ = [
     "KEEPOUT_LAYER_ID",
     "NOTCH_LOCATOR",
+    "TRUETYPE",
     "arcs",
     "definition_graphics",
     "keepout_layer_restrictions",
@@ -1676,7 +1721,10 @@ __all__ = [
     "region_points",
     "shapes",
     "texts",
+    "region_union",
     "tracks",
+    "truetype",
+    "via_union",
     "vias",
     "zones",
 ]
