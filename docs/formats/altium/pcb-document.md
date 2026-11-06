@@ -284,7 +284,11 @@ is which values the records get.
   equal values. In every other write, and in a build, it is refused.
 - **Free pads.** A pad that belongs to no component is a pad record whose component index is the
   "none" value, like the pad that a hole is written as ("Free pads as holes"), here with its name, its
-  copper and its net.
+  copper and its net. The writer knows a free pad as the import reads it (no reference, no link, one pad)
+  and as the Altium → KiCad conversion gives it to KiCad (no reference, one pad, a link whose item name
+  starts with `FREE_`, `libnames.FREE_PAD_PREFIX`; change c0447), which is counted changed. Before
+  c0447 the second form was written as a component with designator `''`, whose Designator and Comment
+  texts lay at (-1000, -1000) mil and broke Board Outline Clearance (S-2060).
 - **Texts outside 7-bit ASCII.** A designator or a comment that the 8-bit string cannot hold is written
   as a free text is: the 8-bit string with `?` for each character outside ISO-8859-1, and the text
   itself as the wide string.

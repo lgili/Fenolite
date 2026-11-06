@@ -45,6 +45,7 @@ from fenolite.core.coords import Point
 from fenolite.core.errors import FenoliteError, Issue, Severity
 from fenolite.core.evidence import Evidence, Level
 from fenolite.core.ids import derived_id
+from fenolite.core.libnames import FREE_PAD_PREFIX
 from fenolite.geometry.rings import zone_ring
 from fenolite.geometry.transform import FULL_TURN, Transform
 from fenolite.model.board import (
@@ -782,6 +783,16 @@ def generated_hole(fp: FootprintInstance, ref: str) -> bool:
     )
 
 
+FREE_PAD_REASON = "a footprint the Altium to KiCad conversion made for a free pad is written as that free pad"
+"""The reason a footprint ``converted_free_pad`` names is counted changed (change c0447)."""
+
+
+def converted_free_pad(fp: FootprintInstance, ref: str) -> bool:
+    """Whether ``fp`` is the footprint an Altium to KiCad conversion makes for a free pad: no reference,
+    one pad, and a link whose item name starts with ``libnames.FREE_PAD_PREFIX`` (change c0447)."""
+    return not ref and len(fp.pads) == 1 and fp.lib_ref.rpartition(":")[2].startswith(FREE_PAD_PREFIX)
+
+
 CUTOUT_MERGED = "merged"
 """The reason a written cut-out region is counted changed under ``cutout`` when it is the union of
 overlapping inner rings (change c0170): one region stands for the group."""
@@ -1358,7 +1369,8 @@ def _footprints(
         component = components.get(fp.component_id)
         ref = component.ref if component is not None else ""
         generated = generated_hole(fp, ref)
-        if not ref and (not fp.lib_ref or generated) and len(fp.pads) == 1:
+        converted = converted_free_pad(fp, ref)
+        if not ref and (not fp.lib_ref or generated or converted) and len(fp.pads) == 1:
             pad = fp.pads[0]
             extras = _extras(pad, ratios)
             problem = _pad_problem(pad, extras, unnamed=True)
@@ -1375,6 +1387,8 @@ def _footprints(
             account.wrote("pad")
             if generated:
                 account.change("footprint", fp.id, HOLE_FOOTPRINT_REASON)
+            elif converted:
+                account.change("footprint", fp.id, FREE_PAD_REASON)
             skip_bodies(fp, "a free pad is no component, and a body is written with a component")
             continue
         if not _field_ok(ref):
@@ -2727,12 +2741,14 @@ __all__ = [
     "MORE_KINDS",
     "DNP_KIND",
     "DNP_REASON",
+    "FREE_PAD_REASON",
     "NET_TIE_KIND",
     "NET_TIE_REASON",
     "SEVERITY_KIND",
     "NOT_LOWERED",
     "PLACEMENT_RULE_KIND",
     "AltiumInputs",
+    "converted_free_pad",
     "copper_shape_problem",
     "LossyWriteError",
     "LowerOptions",

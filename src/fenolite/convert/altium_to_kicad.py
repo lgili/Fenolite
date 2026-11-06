@@ -16,7 +16,7 @@ from fenolite.convert.report import SCHEMATIC_REFUSED
 from fenolite.convert.sources import SourceProject
 from fenolite.core.errors import Issue
 from fenolite.core.ids import derived_id
-from fenolite.core.libnames import library_name
+from fenolite.core.libnames import FREE_PAD_PREFIX, library_name
 from fenolite.model.base import ExtBag
 from fenolite.model.board import FootprintInstance, Layer, Pad
 from fenolite.model.circuit import Component, Net, PinRef
@@ -570,7 +570,7 @@ def prepare(source: SourceProject, name: str, target: int, ledger: Ledger) -> De
     footprints: list[FootprintInstance] = []
     links: dict[str, str] = {}
     for fp in sorted(board.footprints, key=lambda f: (refs.get(f.component_id, ""), f.id)):
-        raw = fp.lib_ref or f"FREE_{fp.id}"
+        raw = fp.lib_ref or f"{FREE_PAD_PREFIX}{fp.id}"
         if raw not in allocated:
             candidate = _name(raw.rsplit(":", 1)[-1], allow_space=True)
             base = candidate

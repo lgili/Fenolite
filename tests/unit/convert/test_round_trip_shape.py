@@ -25,7 +25,8 @@ from fenolite.convert import convert_project
 from fenolite.convert.sources import SourceProject, read_source
 from fenolite.core.coords import Point
 from fenolite.core.ids import derived_id
-from fenolite.model.board import Graphic
+from fenolite.core.libnames import FREE_PAD_PREFIX
+from fenolite.model.board import FootprintInstance, Graphic
 from fenolite.model.design import Design
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -180,6 +181,50 @@ def test_a_region_of_a_net_keeps_its_net(tmp_path: Path) -> None:
     names = {n.id: n.name for n in back.design.circuit.nets}
     copper = [g for g in back.design.board.graphics if g.layer == "F.Cu" and g.kind == "polygon"]
     assert [names.get(g.net_id or "") for g in copper] == [net.name]
+
+
+def test_a_free_pad_comes_back_free(tmp_path: Path) -> None:
+    """Scenario "A free pad comes back free" (change c0447): the KiCad footprint the conversion makes for a
+    free pad is linked ``routed:FREE_…``; the Altium write knows it by that link and writes a free pad, so
+    the round trip holds the source's components and one free pad, at its moved place, with its net."""
+    sample = _source(tmp_path)
+    design = sample.design
+    assert design.board is not None
+    names = {n.id: n.name for n in design.circuit.nets}
+    source = next(fp for fp in design.board.footprints if any(p.net_id for p in fp.pads))
+    pad = next(p for p in source.pads if p.net_id)
+    free = FootprintInstance(
+        id=derived_id("fp", "c0447", "free"),
+        component_id="",
+        lib_ref="",
+        position=Point(source.position.x + 3_000_000, source.position.y),
+        pads=(dataclasses.replace(pad, id=derived_id("pad", "c0447", "free"), position=Point(0, 0)),),
+    )
+    board = dataclasses.replace(design.board, footprints=(*design.board.footprints, free))
+    document = _rewritten(dataclasses.replace(design, board=board), tmp_path / "src-free")
+    start = read_source(document)
+    assert start.design.board is not None
+    (free_a,) = [fp for fp in start.design.board.footprints if not fp.lib_ref]
+    _, back = _round_trip(start, tmp_path)
+    kicad = read_source(next((tmp_path / "kicad").glob("*.kicad_pro"))).design
+    assert kicad.board is not None
+    assert [fp.lib_ref.startswith(f"routed:{FREE_PAD_PREFIX}") for fp in kicad.board.footprints].count(
+        True
+    ) == 1
+    assert back.design.board is not None
+    linked = sorted(fp.lib_ref.rpartition(":")[2] for fp in back.design.board.footprints if fp.lib_ref)
+    assert linked == sorted(
+        fp.lib_ref.rpartition(":")[2] for fp in start.design.board.footprints if fp.lib_ref
+    )
+    (free_b,) = [fp for fp in back.design.board.footprints if not fp.lib_ref]
+    back_names = {n.id: n.name for n in back.design.circuit.nets}
+    assert back_names[free_b.pads[0].net_id or ""] == names[pad.net_id or ""]
+    pads_a = {(p.ref, p.number): p.position for p in board_pads(start.design) if p.ref}
+    pads_b = {(p.ref, p.number): p.position for p in board_pads(back.design) if p.ref}
+    (dx, dy), _ = Counter((pads_b[k].x - pads_a[k].x, pads_b[k].y - pads_a[k].y) for k in pads_a).most_common(
+        1
+    )[0]
+    assert free_b.position == Point(free_a.position.x + dx, free_a.position.y + dy)
 
 
 def test_a_rounded_corner_comes_back_as_an_arc(tmp_path: Path) -> None:
