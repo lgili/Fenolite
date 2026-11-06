@@ -167,7 +167,11 @@ def transform(
 ) -> bytes:
     """``raw`` with every point moved by ``move`` (document units), its angles turned by ``turn`` degrees,
     and, with ``mirror``, mirrored in X before the turn (``move`` then holds the mirror). ``shape_based``
-    says that a region or body is of the form of ``ShapeBasedRegions6`` (the storage, not a key, says it)."""
+    says that a region or body is of the form of ``ShapeBasedRegions6`` (the storage, not a key, says it).
+
+    A mirrored angle ``a`` reads ``−a``, but a pad's reads ``180 − a``: the same shape, since a pad's shape
+    is symmetric under a half turn, in the frame Altium gives a part on the other side (change c0453,
+    ``pcb-document.md``, "Frame of a bottom part")."""
     kind, subs = split(raw)
     body = bytearray(subs[_geometry(kind)])
 
@@ -176,9 +180,9 @@ def transform(
         nx, ny = move(x, y)
         struct.pack_into("<2i", body, offset, _round(nx), _round(ny))
 
-    def angle(offset: int) -> None:
+    def angle(offset: int, *, mirrored_from: float = 0.0) -> None:
         (value,) = struct.unpack_from("<d", body, offset)
-        value = -value if mirror else value
+        value = mirrored_from - value if mirror else value
         struct.pack_into("<d", body, offset, (value + turn) % 360.0)
 
     if kind == TRACK:
@@ -200,7 +204,7 @@ def transform(
         angle(29)
     elif kind == PAD:
         point(13)
-        angle(52)
+        angle(52, mirrored_from=180.0)
     elif kind == TEXT:
         point(13)
         angle(27)

@@ -361,34 +361,47 @@ def component_primitives(state: State, index: int) -> dict[str, list[int]]:
     return out
 
 
-def _body_model_keys(raw: bytes, move: rec.Transform, turn: float) -> bytes:
-    """A body with its ``MODEL.2D.X``/``Y`` moved and ``MODEL.3D.ROTZ`` turned, where it holds them."""
+def _turned(keys: Mapping[str, str], key: str, turn: float) -> dict[str, str]:
+    """``{key: its angle turned by turn}``, empty when the body holds no such angle."""
+    try:
+        return {key: f"{(float(keys[key]) + turn) % 360:.3f}"} if key in keys else {}
+    except ValueError:
+        return {}
+
+
+def _body_model_keys(raw: bytes, move: rec.Transform, turn: float, flip_turn: float | None = None) -> bytes:
+    """A body with its ``MODEL.2D.X``/``Y`` moved and ``MODEL.3D.ROTZ`` turned, where it holds them. With
+    ``flip_turn`` (a flip, the change of its component's ``ROTATION``), ``BODYPROJECTION`` changes side and
+    ``MODEL.3D.ROTZ`` and ``MODEL.2D.ROTATION`` turn by ``flip_turn``, keeping their rotation relative to the
+    component (change c0453, ``pcb-document.md``, "Frame of a bottom part")."""
     keys = rec.region_keys(raw)
     x, y = parse_mil(keys.get("MODEL.2D.X")), parse_mil(keys.get("MODEL.2D.Y"))
     changes: dict[str, str] = {}
     if x is not None and y is not None:
         nx, ny = move(float(x), float(y))
         changes["MODEL.2D.X"], changes["MODEL.2D.Y"] = mil_text(round(nx)), mil_text(round(ny))
-    if turn and "MODEL.3D.ROTZ" in keys:
-        try:
-            changes["MODEL.3D.ROTZ"] = f"{(float(keys['MODEL.3D.ROTZ']) + turn) % 360:.3f}"
-        except ValueError:
-            pass
+    if turn:
+        changes |= _turned(keys, "MODEL.3D.ROTZ", turn)
+    if flip_turn is not None:
+        if "BODYPROJECTION" in keys:
+            changes["BODYPROJECTION"] = "0" if keys["BODYPROJECTION"].strip() == "1" else "1"
+        changes |= _turned(keys, "MODEL.3D.ROTZ", flip_turn) | _turned(keys, "MODEL.2D.ROTATION", flip_turn)
     return rec.set_region_keys(raw, changes) if changes else raw
 
 
 def move_primitives(
     state: State, index: int, move: rec.Transform, *, turn: float = 0.0, mirror: bool = False,
-    layers: Mapping[int, int] | None = None,
+    layers: Mapping[int, int] | None = None, flip_turn: float | None = None,
 ) -> None:  # fmt: skip
     """Every primitive of component ``index`` moved by ``move``, turned by ``turn``, mirrored, and put on
-    the other layer of its pair in ``layers``, which maps long layer ids (``flip_layers``)."""
+    the other layer of its pair in ``layers``, which maps long layer ids (``flip_layers``). ``flip_turn`` is
+    a flip's change of the component's ``ROTATION``, which its bodies follow (``_body_model_keys``)."""
     for storage, positions in component_primitives(state, index).items():
         for position in positions:
             raw = state.get(storage)[position]
             new = rec.transform(raw, move, turn=turn, mirror=mirror, shape_based=storage in SHAPE_BASED)
             if storage.endswith("ComponentBodies6"):
-                new = _body_model_keys(new, move, turn)
+                new = _body_model_keys(new, move, turn, flip_turn)
             if layers:
                 held = layer_of(new)
                 if held is not None and held in layers:
@@ -572,9 +585,13 @@ def flip(state: State, item: Component, old_side: str) -> None:
     _expect(f"the side of {item.designator}", side, old_side.upper(), "Components6")
     x, _y = _component_xy(record)
     held = float((record.get("ROTATION") or "0").strip())
-    changes = {"LAYER": "BOTTOM" if side == "TOP" else "TOP", "ROTATION": rotation_text((-held) % 360)}
+    # The mirror in X about the origin is Altium's frame of the other side, the footprint mirrored in Y and
+    # turned by 180 - R (change c0453, ``pcb-document.md``, "Frame of a bottom part").
+    rotation = (180.0 - held) % 360
+    changes = {"LAYER": "BOTTOM" if side == "TOP" else "TOP", "ROTATION": rotation_text(rotation)}
     state.replace("Components6", index, rec.set_property(record.raw, changes))
-    move_primitives(state, index, rec.mirror_x(float(x)), mirror=True, layers=flip_layers(state))
+    mirror = rec.mirror_x(float(x))
+    move_primitives(state, index, mirror, mirror=True, layers=flip_layers(state), flip_turn=rotation - held)
 
 
 MECHPAIR_KEY = re.compile(r"MECHPAIR(\d+)L([12])")
