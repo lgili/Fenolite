@@ -501,9 +501,7 @@ the script's rules that the PCB document holds (`kind`, `selector`, `rule`: the 
 and those it does not (`kind`, `selector`, `reason`: `no-counterpart`, `scope-unsupported`,
 `value-unsupported`, `unit-loss`, or `no-document` when no PCB document is planned). Each rule of
 `not_lowered` gives one `altium.not-lowered` **warning** with `where` `design-rules/<kind>`; no issue
-has the `where` `design-rules` alone (`docs/altium.md`, "Rules"). Since change c0434, `changed`
-(`kind`, `selector`, `detail`) is present when a written rule differs from the script's, such as a
-minimum whose other limits are written open.
+has the `where` `design-rules` alone (`docs/altium.md`, "Rules").
 
 `source` is `script` when the script declares copper intents (`Design.track`, `Design.via`,
 `Design.stitch`) and `--copper-from` is absent: the intents are resolved by the KiCad build of the
@@ -4586,7 +4584,7 @@ or none, with a `.bak` copy of each file it overwrites unless `--no-backup` is g
 | 4 | `FEN-4001` | neither `--dry-run` nor `--confirm` |
 | 5 | `FEN-5001` | a `convert.unexplained` error; nothing is planned |
 | 6 | `FEN-6001` | `--altium-pour computed`, the default included, without the `geo` extra (change c0436); the hint names the extra and `--altium-pour outline`; nothing is planned |
-| 7 | `FEN-7001` | a loss of a `refuse` kind without `--allow-lossy` (the issues name every kind that consent would lose, and the message the refused kinds and the others; change c0434), a document too large for the Altium writer, or a schematic symbol pin off Altium's 10-mil grid (the message names the pin) |
+| 7 | `FEN-7001` | a loss of a `refuse` kind without `--allow-lossy` (the issues name each kind), a document too large for the Altium writer, or a schematic symbol pin off Altium's 10-mil grid (the message names the pin) |
 
 ## panel
 

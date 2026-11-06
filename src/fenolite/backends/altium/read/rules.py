@@ -190,10 +190,9 @@ WRITTEN_KINDS = frozenset(
         "MinimumAnnularRing",
     }
 )  # fmt: skip
-"""The Altium kinds the writer rebuilds from neutral rules: those of ``rulemap.KIND_ORDER`` but
-``rulemap.KEPT_WHEN_READ``, named here so that the import, which may not import the writer, tells which
-records to keep (change c0424; a test holds the two equal). The kinds of change c0434 stay kept: their
-records hold more than the neutral rule."""
+"""The Altium kinds the writer rebuilds from neutral rules: those of ``rulemap.KIND_ORDER``, named here so
+that the import, which may not import the writer, tells which records to keep (change c0424; a test holds
+the two equal)."""
 NET_SCOPE_FREE = frozenset({"SilkToSilkClearance", "ComponentClearance", "DiffPairsRouting", "RoutingLayers"})
 """The kinds of change c0424 that map with either value of ``NET_SCOPES``: silkscreen and component
 bodies hold no net, a pair rule selects pairs, and a routing layer rule limits one track
@@ -272,10 +271,10 @@ RULE_KIND_MAP: dict[str, KindMap] = {
             NeutralLimits("diff_pair_uncoupled", None, None, "MAXUNCOUPLEDLENGTH"),
         ),
         "AnyNet",
-        (  # read and never written (change c0434): no neutral rule holds an impedance profile
-            Condition("IMPEDANCEPROFILEDRIVEN", read_only=True),
-            Condition("IMPEDANCEPROFILEID", read_only=True),
-            Condition("IMPEDANCEPROFILEVALUE", read_only=True),
+        (
+            Condition("IMPEDANCEPROFILEDRIVEN"),
+            Condition("IMPEDANCEPROFILEID"),
+            Condition("IMPEDANCEPROFILEVALUE"),
         ),
         patterns=(r"[A-Z0-9]+_(?:MIN|MAX|PREF)WIDTH",),
         pair_scope=True,

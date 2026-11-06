@@ -109,9 +109,8 @@ def test_a_report_loss_warns_without_refusing(monkeypatch: pytest.MonkeyPatch, k
 
 
 def test_a_refuse_loss_still_refuses(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Negative case: a ``refuse`` loss refuses without ``allow_lossy``; the refusal names the refused
-    kinds and lists every loss that consent would accept, the ``report`` ones too (change c0434); with
-    consent, every lost kind warns."""
+    """Negative case: a ``refuse`` loss refuses without ``allow_lossy``, with only the refused kinds; with
+    it, every lost kind warns, the ``report`` ones too."""
     extra = ConversionReport.of(
         source={"pad": 1, "rule": 1},
         lost={"pad": {"authored loss": ["pad/1"]}, "rule": {"authored loss": ["rule/1"]}},
@@ -119,9 +118,7 @@ def test_a_refuse_loss_still_refuses(monkeypatch: pytest.MonkeyPatch) -> None:
     _with_rows(monkeypatch, extra)
     with pytest.raises(LossyConversionError) as refused:
         convert_project(TWO_LAYER, to="altium", pour="outline")
-    assert [found.where for found in refused.value.issues] == ["pad", "rule"]
-    assert refused.value.refused == ("pad",)
-    assert str(refused.value).endswith("(pad); --allow-lossy also loses items of rule")
+    assert [found.where for found in refused.value.issues] == ["pad"]
     conversion = convert_project(TWO_LAYER, to="altium", pour="outline", allow_lossy=True)
     lossy = [found.where for found in conversion.issues if found.code == "convert.lossy"]
     assert lossy == ["pad", "rule"] == [row.kind for row in conversion.report.rows if row.lost]

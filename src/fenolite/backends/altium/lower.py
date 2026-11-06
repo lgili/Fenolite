@@ -266,21 +266,14 @@ def curve_error_issue(board: Board | None) -> Issue | None:
 
 class LossyWriteError(FenoliteError):
     """A write of a model would leave out items of ``LOSS_KINDS`` and ``allow_lossy`` was not given;
-    ``issues`` holds one ``altium.not-lowered`` per kind: those of ``LOSS_KINDS``, then those of the other
-    kinds that ``allow_lossy`` would leave out with them (``also``, change c0434), so a consent covers every
-    loss it was shown."""
+    ``issues`` holds one ``altium.not-lowered`` per kind."""
 
     cli_code = "FEN-7001"
 
-    def __init__(self, issues: Sequence[Issue], also: Sequence[Issue] = ()) -> None:
-        self.issues = (*issues, *also)
-        kinds = ", ".join(found.where for found in issues)
-        more = (
-            f"; --allow-lossy also leaves out items of {', '.join(found.where for found in also)}"
-            if also
-            else ""
-        )
-        super().__init__(f"the Altium documents would not hold every item of the model ({kinds}){more}")
+    def __init__(self, issues: Sequence[Issue]) -> None:
+        self.issues = tuple(issues)
+        kinds = ", ".join(found.where for found in self.issues)
+        super().__init__(f"the Altium documents would not hold every item of the model ({kinds})")
 
 
 def refuse_bom_only(design: Design) -> None:
@@ -1929,8 +1922,6 @@ def _document(
     account.wrote("rule", sum(len(record.rules) for record in lowered.records))
     for item in lowered.not_lowered:
         account.skip("rule", item.rule.id, f"{item.kind} ({item.selector}): {item.reason}")
-    for changed in lowered.changed:  # written in another form (change c0434)
-        account.change("rule", changed.rule.id, f"{changed.kind} ({changed.selector}): {changed.detail}")
     names = tuple(sorted(nets))
     if options is not None:
         # a build names every net of its circuit, in the circuit's order (change c0126)
@@ -2024,8 +2015,7 @@ def write_design(
         inputs, library = derived_library(design, inputs)
     lost = [found for found in issues if found.where in LOSS_KINDS]
     if lost and not allow_lossy:
-        also = [found for found in issues if found.code == NOT_LOWERED and found.where not in LOSS_KINDS]
-        raise LossyWriteError(lost, also)
+        raise LossyWriteError(lost)
     name = inputs.name
     files: dict[str, bytes] = {}
     mode: PourMode = pour or "computed"

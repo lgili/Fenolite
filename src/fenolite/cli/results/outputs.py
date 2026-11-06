@@ -57,13 +57,6 @@ class ExportPreset:
 
 
 @dataclass(frozen=True, kw_only=True)
-class ExportRulesChangedItem:
-    detail: str
-    kind: str
-    selector: str
-
-
-@dataclass(frozen=True, kw_only=True)
 class ExportRulesNotLoweredItem:
     kind: str
     reason: str
@@ -79,7 +72,6 @@ class ExportRulesWrittenItem:
 
 @dataclass(frozen=True, kw_only=True)
 class ExportRules:
-    changed: list[ExportRulesChangedItem] = field(metadata={"optional": True})
     not_lowered: list[ExportRulesNotLoweredItem]
     written: list[ExportRulesWrittenItem]
 

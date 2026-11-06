@@ -127,9 +127,7 @@ def test_edge_clearance_reaches_the_board() -> None:
 
 
 def test_a_kind_without_a_counterpart() -> None:
-    """Scenario "A kind without a counterpart": one warning per rule, with the selector and the reason.
-    Since change c0434 a minimum track width is written open and a silkscreen clearance as Silk To Silk
-    Clearance, both under ``changed``."""
+    """Scenario "A kind without a counterpart": one warning per rule, with the selector and the reason."""
     design = blink()
     design.rules.minimum(edge_clearance=mm(0.5))
     design.rules.rule("silk", "silk_clearance", min=mm(0.15))
@@ -138,22 +136,20 @@ def test_a_kind_without_a_counterpart() -> None:
     output = built(design)
     found = not_lowered(output)
     assert [(where, severity) for where, severity, _message in found] == [
-        ("design-rules/creepage", "warning")
+        ("design-rules/track_width", "warning"),
+        ("design-rules/silk_clearance", "warning"),
+        ("design-rules/creepage", "warning"),
     ]
-    assert "'hv' (netclass PWR)" in found[0][2] and "no-counterpart" in found[0][2]
+    assert "'min_track_width' (all)" in found[0][2] and "value-unsupported" in found[0][2]
+    assert "'hv' (netclass PWR)" in found[2][2] and "no-counterpart" in found[2][2]
     assert summary(output)["not_lowered"] == [
+        {"kind": "track_width", "selector": "all", "reason": "value-unsupported"},
+        {"kind": "silk_clearance", "selector": "all", "reason": "no-counterpart"},
         {"kind": "creepage", "selector": "netclass PWR", "reason": "no-counterpart"},
     ]
-    assert sorted(item["kind"] for item in summary(output)["written"]) == [
-        "edge_clearance",
-        "silk_clearance",
-        "track_width",
-    ]
-    changed = {item["kind"]: item["detail"] for item in summary(output)["changed"]}
-    assert set(changed) == {"track_width", "silk_clearance"} and "written open" in changed["track_width"]
+    assert [item["kind"] for item in summary(output)["written"]] == ["edge_clearance"]
     header, _rules = read_back(output)
-    names = [name for _kind, name, _priority, _first, _second in header]
-    assert {"BoardOutlineClearance", "SilkToSilkClearance", "Width"} <= set(names)
+    assert [name for _kind, name, _priority, _first, _second in header] == [*C0038, "BoardOutlineClearance"]
 
 
 def test_class_rule_above_the_general_rule() -> None:
@@ -221,19 +217,10 @@ def test_readback() -> None:
     output = built(design)
     header, rules = read_back(output)
     lowered = lowered_of(design)
-    assert {
-        rule.kind for rule in lowered
-    } == {  # the kinds of c0434: tests/unit/backends/altium/test_rulemap_c0434.py
-        row.neutral for row in rulemap.TABLE if row.exact and row.altium not in rulemap.KEPT_WHEN_READ
-    }
+    assert {rule.kind for rule in lowered} == {row.neutral for row in rulemap.TABLE if row.exact}
     names = {item["rule"] for item in summary(output)["written"]}
     read = [rule for rule in rules if rule.name in names]
-    changed = {item.rule.id for item in rulemap.lower(to_model(design).rules.rules).changed}  # type: ignore[union-attr]
-    unchanged = {rule.kind for rule in lowered if rule.id not in changed}
-    assert rulemap.same_rules(  # a changed rule reads back with what its record holds (change c0434)
-        [rule for rule in read if rule.kind in unchanged],
-        [rule for rule in lowered if rule.id not in changed],
-    )
+    assert rulemap.same_rules(read, lowered)
     assert not_lowered(output) == [] and summary(output)["not_lowered"] == []
     assert [kind for kind, *_rest in header] == sorted(
         (kind for kind, *_rest in header), key=rulemap.KIND_ORDER.index
@@ -507,10 +494,9 @@ def pair_design(*, pair_content: bool = True, document: bool = True) -> Design:
 
 @pytest.mark.parametrize("document", [True, False])
 def test_pair_rules_in_an_altium_build(document: bool) -> None:
-    """Scenario "Pair rules in an Altium build": nothing raises, each pair or length rule is named with a
-    reason (``scope-unsupported`` for the gap and the uncoupled length of one named pair since change c0434,
-    ``no-counterpart`` for the others), the pair clearance rule with ``scope-unsupported``, and the class
-    pair values in one info, with and without a PCB document."""
+    """Scenario "Pair rules in an Altium build": nothing raises, each pair or length rule is named with
+    ``no-counterpart``, the pair clearance rule with ``scope-unsupported``, and the class pair values in
+    one info, with and without a PCB document."""
     output = built(pair_design(document=document), document=document)
     values = [i for i in output.issues if i.code == "altium.not-lowered" and i.where == "pair-values"]
     assert [(i.severity, "USB" in i.message, "PWR" in i.message) for i in values] == [("info", True, False)]
@@ -519,12 +505,9 @@ def test_pair_rules_in_an_altium_build(document: bool) -> None:
     if not document:  # no document: every rule is named with that reason, the pair rules included
         reasons = {entry["kind"]: entry["reason"] for entry in summary(output)["not_lowered"]}
         assert reasons.pop("clearance") in ("no-document", "scope-unsupported")
-        assert reasons == {
-            "diff_pair_gap": "scope-unsupported",
-            "diff_pair_uncoupled": "scope-unsupported",
-            "diff_pair_skew": "no-counterpart",
-            "length": "no-counterpart",
-        }
+        assert reasons == dict.fromkeys(
+            ("diff_pair_gap", "diff_pair_uncoupled", "diff_pair_skew", "length"), "no-counterpart"
+        )
         return
     found = not_lowered(output)
     assert [(where, severity) for where, severity, _message in found] == [
@@ -534,19 +517,13 @@ def test_pair_rules_in_an_altium_build(document: bool) -> None:
         ("design-rules/diff_pair_skew", "warning"),
         ("design-rules/length", "warning"),
     ]
-    reasons = [
-        "scope-unsupported",
-        "scope-unsupported",
-        "scope-unsupported",
-        "no-counterpart",
-        "no-counterpart",
-    ]
+    reasons = ["no-counterpart", "scope-unsupported", "no-counterpart", "no-counterpart", "no-counterpart"]
     for (_where, _severity, message), reason in zip(found, reasons, strict=True):
         assert reason in message and "diff_pair USB_" in message
     assert [(entry["kind"], entry["reason"]) for entry in summary(output)["not_lowered"]] == [
-        ("diff_pair_gap", "scope-unsupported"),
+        ("diff_pair_gap", "no-counterpart"),
         ("clearance", "scope-unsupported"),
-        ("diff_pair_uncoupled", "scope-unsupported"),
+        ("diff_pair_uncoupled", "no-counterpart"),
         ("diff_pair_skew", "no-counterpart"),
         ("length", "no-counterpart"),
     ]
@@ -624,7 +601,7 @@ def test_impedance_pair_target_in_an_altium_build() -> None:
     assert [i for i in output.issues if i.code == "altium.not-lowered" and i.where == "impedance"]
     found = not_lowered(output)
     assert ("design-rules/track_width", "warning") in [(w, s) for w, s, _ in found]
-    assert any(w == "design-rules/diff_pair_gap" and "scope-unsupported" in m for w, _, m in found)
+    assert any(w == "design-rules/diff_pair_gap" and "no-counterpart" in m for w, _, m in found)
 
 
 def test_impedance_layer_refuses_an_altium_build() -> None:

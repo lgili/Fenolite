@@ -82,28 +82,17 @@ def read_file(data: bytes) -> list[Rule]:
     return list(mapping.ruleset.rules)
 
 
-def reads_as_written(read: list[Rule], lowered: rulemap.Lowered) -> bool:
-    """Whether every written rule that is not changed reads back, in order, within 2 nm: a changed rule
-    (change c0434) reads back with the limits its record holds, and a record may give more rules."""
-    changed = {item.rule.id for item in lowered.changed}
-    rest = iter(read)
-    return all(
-        any(rulemap.same_rule(found, rule) for found in rest)
-        for rule in lowered.written
-        if rule.id not in changed
-    )
-
-
 def test_readback_of_a_rule_of_every_kind() -> None:
     """Scenario "Written file reads back", on one rule of every ``exact`` kind."""
     rules = rules_of(with_rules(altium_blink()))
     data = rulemap.write_rule_file(rules, name="blink")
     lowered = rulemap.lower(rules)
-    exact = {row.neutral for row in rulemap.TABLE if row.exact and row.altium not in rulemap.KEPT_WHEN_READ}
-    assert {rule.kind for rule in lowered.written} == exact | {"silk_clearance"}
-    assert reads_as_written(read_file(data), lowered)
-    assert lowered.not_lowered == ()  # a minimum width and a silkscreen clearance are written since c0434
-    assert sorted(item.kind for item in lowered.changed) == ["silk_clearance", "track_width"]
+    assert {rule.kind for rule in lowered.written} == {row.neutral for row in rulemap.TABLE if row.exact}
+    assert rulemap.same_rules(read_file(data), lowered.written)
+    assert [(item.kind, item.reason) for item in lowered.not_lowered] == [
+        ("track_width", "value-unsupported"),
+        ("silk_clearance", "no-counterpart"),
+    ]
 
 
 @pytest.mark.parametrize("script", SCRIPTS)
@@ -117,7 +106,7 @@ def test_readback_of_every_example_script(script: str) -> None:
     if not lowered.records:
         assert data == b""
         return
-    assert reads_as_written(read_file(data), lowered)
+    assert rulemap.same_rules(read_file(data), lowered.written)
 
 
 def test_some_example_holds_rules() -> None:
@@ -183,8 +172,10 @@ def test_rule_file_from_a_built_project() -> None:
     text = kicad.files["blink.kicad_dru"].decode("utf-8")
     exported = altium_rul.export_rules(read_rules(text).rules, stem="blink")
     assert exported.path == "blink.RUL" and exported.evidence == rulemap.EVIDENCE
-    assert exported.not_lowered == ()  # written since change c0434, in another form
-    assert sorted(item["kind"] for item in exported.changed) == ["silk_clearance", "track_width"]
+    assert [(item["kind"], item["reason"]) for item in exported.not_lowered] == [
+        ("track_width", "value-unsupported"),
+        ("silk_clearance", "no-counterpart"),
+    ]
     from_file = read_file(exported.data)
     design = with_rules(altium_blink(), vias=False)
     with tempfile.TemporaryDirectory() as folder:

@@ -22,7 +22,6 @@ from fenolite.core.coords import Point, Size
 from fenolite.core.errors import Issue
 from fenolite.model.board import Board, FootprintInstance, Graphic, Text
 from fenolite.model.design import Design, DesignHeader
-from fenolite.model.rules import Rule, RuleSet, Selector
 
 ROOT = Path(__file__).resolve().parents[4]
 SAMPLES = ROOT / "tests" / "data" / "altium"
@@ -94,28 +93,6 @@ def test_bottom_footprint_keeps_its_layers_and_points(tmp_path: Path) -> None:
             )
             for b in theirs.graphics
         ), a.id
-
-
-def test_the_refusal_lists_every_loss() -> None:
-    """Change c0434: the refusal of a write with a refused loss also lists the losses that consent would
-    accept with it (here a creepage rule, which no record holds), so a consent covers what it was shown."""
-    first = _read(SAMPLES / "blink" / "blink.PcbDoc")
-    r1 = _footprint(first, "R1")
-    line = Graphic(
-        id="gfx_copper", kind="line", layer="F.Cu", points=(Point(0, 0), Point(MM, 0)), width=200_000
-    )
-    design = _with_footprint(first, dataclasses.replace(r1, graphics=(*r1.graphics, line)))
-    creepage = Rule(
-        id="rul_creepage", name="creepage", kind="creepage", selector_a=Selector("all"), min=4 * MM
-    )
-    rules = design.rules or RuleSet(id="rules")
-    design = dataclasses.replace(design, rules=dataclasses.replace(rules, rules=(*rules.rules, creepage)))
-    with pytest.raises(lower.LossyWriteError) as refused:
-        AltiumBackend().write(design)
-    wheres = [found.where for found in refused.value.issues]
-    assert wheres[0] == "footprint-copper" and "rule" in wheres[1:]
-    assert "(footprint-copper); --allow-lossy also leaves out items of" in str(refused.value)
-    assert "rule" in str(refused.value).split("also leaves out items of", 1)[1]
 
 
 def test_copper_inside_a_footprint_needs_allow_lossy(tmp_path: Path) -> None:

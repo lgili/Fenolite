@@ -15,7 +15,7 @@ from hypothesis import strategies as st
 from fenolite.backends.altium import rulemap
 from fenolite.backends.altium.read.rules import PENDING_KINDS, RULE_KIND_MAP
 from fenolite.backends.altium.read.scope import parse_scope
-from fenolite.backends.altium.rulemap import NOT_LOWERED_REASONS, TABLE, lift, lower, same_rule, same_rules
+from fenolite.backends.altium.rulemap import NOT_LOWERED_REASONS, TABLE, lift, lower, same_rules
 from fenolite.model.rules import NO_NET, Rule, RuleKind, Selector
 
 PAGE = Path(__file__).resolve().parents[4] / "docs" / "formats" / "altium" / "pcb-copper.md"
@@ -115,8 +115,7 @@ def test_single_scopes_are_written_exactly() -> None:
     lowered = lower(one_of_each())
     assert lowered.not_lowered == ()
     assert [(r.kind, r.name, r.scope1, r.scope2, r.priority) for r in lowered.records] == [
-        (kind, kind, "All", "All", 1)
-        for kind in rulemap.KIND_ORDER[:7]  # the kinds of c0434 apart
+        (kind, kind, "All", "All", 1) for kind in rulemap.KIND_ORDER
     ]
     keys = {record.kind: dict(record.keys) for record in lowered.records}
     assert keys["Clearance"] == {
@@ -168,26 +167,26 @@ def test_a_rule_with_no_counterpart() -> None:
     """Scenario "A rule with no counterpart"."""
     rules = [
         rule("creepage", Selector("netclass", "HV"), between=ALL, min=4 * MM),
-        rule("silk_clearance", min=150_000),  # written since c0434
-        rule("courtyard_clearance", Selector("ref", "U1"), min=250_000),  # written since c0434
+        rule("silk_clearance", min=150_000),
+        rule("courtyard_clearance", Selector("ref", "U1"), min=250_000),
         rule("hole_clearance", min=250_000),
         rule("clearance", min=200_000),
     ]
     lowered = lower(rules)
-    assert [record.kind for record in lowered.records] == [
-        "Clearance",
-        "ComponentClearance",
-        "SilkToSilkClearance",
-    ]
+    assert [record.kind for record in lowered.records] == ["Clearance"]
     assert [(item.kind, item.selector, item.reason) for item in lowered.not_lowered] == [
         ("creepage", "netclass HV", "no-counterpart"),
+        ("silk_clearance", "all", "no-counterpart"),
+        ("courtyard_clearance", "ref U1", "no-counterpart"),
         ("hole_clearance", "all", "no-counterpart"),
     ]
     assert all(item.detail for item in lowered.not_lowered)
 
 
 def test_values_are_exact_or_refused() -> None:
-    cases = [  # a rule with fewer limits than its record is written open since c0434 (test_rulemap_c0434)
+    cases = [
+        rule("track_width", min=200_000),  # the record holds three limits
+        rule("hole_size", min=300_000),
         rule("clearance", min=200_000, max=MM),
         rule("clearance", min=1, name="tiny"),  # below the PCB unit
         rule("edge_clearance", min=300_000, severity="warning"),
@@ -198,8 +197,8 @@ def test_values_are_exact_or_refused() -> None:
     lowered = lower(cases)
     assert lowered.records == ()
     assert [item.reason for item in lowered.not_lowered] == ["value-unsupported"] * len(cases)
-    assert "Clearance holds no max" in lowered.not_lowered[0].detail
-    assert "via_drill" in lowered.not_lowered[3].detail and "via_diameter" in lowered.not_lowered[4].detail
+    assert "min, opt, max" in lowered.not_lowered[0].detail and "no opt, max" in lowered.not_lowered[0].detail
+    assert "via_drill" in lowered.not_lowered[5].detail and "via_diameter" in lowered.not_lowered[6].detail
     zero = lower([rule("edge_clearance", min=0)])
     assert dict(zero.records[0].keys)["GAP"] == "0mil"
 
@@ -423,8 +422,8 @@ LIMIT_CASES = (
     # (rules, written kinds, refused names): each limit combination the forwarded report names
     ([rule("track_width", min=MM, opt=MM, max=2 * MM, name="w_all")], ["Width"], []),
     ([rule("track_width", PWR, min=MM, opt=MM, max=2 * MM, name="w_class")], ["Width"], []),
-    ([rule("track_width", min=MM, name="w_min")], ["Width"], []),  # c0434: written open
-    ([rule("track_width", min=MM, max=2 * MM, name="w_min_max")], ["Width"], []),
+    ([rule("track_width", min=MM, name="w_min")], [], ["w_min"]),
+    ([rule("track_width", min=MM, max=2 * MM, name="w_min_max")], [], ["w_min_max"]),
     (
         [
             rule("via_diameter", min=MM, opt=MM, max=2 * MM, name="v_all"),
@@ -437,15 +436,7 @@ LIMIT_CASES = (
     ([rule("via_diameter", PWR, min=MM, opt=MM, max=2 * MM, name="v_class")], [], ["v_class"]),
     ([rule("via_diameter", min=MM, name="v_min")], [], ["v_min"]),
     ([rule("hole_size", min=MM // 4, max=6 * MM, name="h_min_max")], ["HoleSize"], []),
-    ([rule("hole_size", min=MM // 4, name="h_min")], ["HoleSize"], []),  # c0434: written open
-    (  # c0434: the KiCad form of a via rule, its drill a hole_size rule on vias
-        [
-            rule("via_diameter", min=MM, name="v_kicad"),
-            rule("hole_size", Selector("item_kind", "via"), min=MM // 2, name="h_via"),
-        ],
-        ["RoutingVias", "HoleSize"],
-        [],
-    ),
+    ([rule("hole_size", min=MM // 4, name="h_min")], [], ["h_min"]),
 )
 
 
@@ -453,16 +444,17 @@ def test_limit_combinations_written_or_reported() -> None:
     """Change c0412: a Width record holds the minimum, the preferred width and the maximum, a Routing Via
     Style record the diameter and the hole limits, a Hole Size record both limits, and no record read leaves
     one out (``pcb-copper.md``, ``H-A-RULE-KINDS``). A combination with every limit of its record is
-    written, scoped ``All`` or by a class. Since change c0434 a missing limit is written open and a
-    via_diameter rule takes the hole of a hole_size rule on its vias; a via rule without any hole is a
-    ``value-unsupported`` loss whose reason names the missing partner rule."""
+    written, scoped ``All`` or by a class; any other is a ``value-unsupported`` loss whose reason names the
+    missing limit or the missing partner rule."""
     for rules, kinds, refused in LIMIT_CASES:
         lowered = lower(rules)
         assert [record.kind for record in lowered.records] == kinds
         found = [(item.rule.name, item.reason) for item in lowered.not_lowered]
         assert found == [(name, "value-unsupported") for name in refused], rules
         for item in lowered.not_lowered:
-            assert "has the same selector" in item.detail
+            assert (
+                "no record read leaves a limit out" in item.detail or "has the same selector" in item.detail
+            )
 
 
 def test_priority_class_rule_above_the_general_rule() -> None:
@@ -572,14 +564,7 @@ def test_roundtrip_of_generated_rule_sets(rules: list[Rule]) -> None:
     lowered = lower(rules)
     lifted, opaque = lift(lowered.records)
     assert opaque == {}
-    changed = {item.rule.id for item in lowered.changed}
-    assert changed <= {r.id for r in lowered.written}
-    for record in lowered.records:  # a changed rule reads back with the limits its record holds (c0434)
-        read, _ = lift([record])
-        by_kind = {r.kind: r for r in read}
-        for written in record.rules:
-            assert written.kind in by_kind
-            assert written.id in changed or same_rule(by_kind[written.kind], written)
+    assert same_rules(lifted, lowered.written)
     assert {r.id for r in lowered.written} | {item.rule.id for item in lowered.not_lowered} == {
         r.id for r in rules
     }
@@ -597,8 +582,6 @@ def test_roundtrip_of_generated_rule_sets(rules: list[Rule]) -> None:
 # -- the pair and length kinds (change c0104)
 
 PAIR_KINDS = ("diff_pair_gap", "diff_pair_uncoupled", "skew", "diff_pair_skew", "length")
-UNWRITTEN_PAIR_KINDS = PAIR_KINDS[2:]
-"""The pair and length kinds without a record: Differential Pairs Routing holds the first two since c0434."""
 USB_PAIR = Selector("diff_pair", "USB_")
 
 
@@ -614,24 +597,18 @@ def test_pair_and_length_rules_are_named_not_written() -> None:
     lowered = lower(rules)
     assert lowered.records == () and lowered.written == ()
     assert [(item.kind, item.selector, item.reason) for item in lowered.not_lowered] == [
-        ("diff_pair_gap", "diff_pair USB_", "scope-unsupported"),  # one named pair: c0434
-        ("diff_pair_uncoupled", "diff_pair USB_", "scope-unsupported"),
-        *((kind, "diff_pair USB_", "no-counterpart") for kind in UNWRITTEN_PAIR_KINDS),
+        (kind, "diff_pair USB_", "no-counterpart") for kind in PAIR_KINDS
     ]
     assert all(item.detail for item in lowered.not_lowered)
 
 
 def test_pair_rows_name_no_kind_number_and_no_key() -> None:
-    """The five rows come after ``no_tracks`` in the model's order; the last three are ``no-counterpart``
-    with a note that says the record is in no recorded public source, and none names an Altium kind, a
-    number or a key. The first two are Differential Pairs Routing since change c0434."""
+    """The five rows come after ``no_tracks`` in the model's order, each ``no-counterpart`` with a note that
+    says the record is in no recorded public source; none names an Altium kind, a number or a key."""
     rows = TABLE[-5:]
     assert tuple(row.neutral for row in rows) == PAIR_KINDS == get_args(RuleKind)[-5:]
     assert TABLE[-6].neutral == "no_tracks"
-    assert [(row.status, row.altium, row.number) for row in rows[:2]] == [
-        ("exact", "DiffPairsRouting", 51)
-    ] * 2
-    for row in rows[2:]:
+    for row in rows:
         assert (row.status, row.altium, row.number, row.limits, row.fields) == (
             "no-counterpart",
             "",

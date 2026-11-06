@@ -57,23 +57,16 @@ def profiles_text() -> str:
 
 class LossyConversionError(FenoliteError):
     """A conversion would lose items of a ``refuse`` kind and ``allow_lossy`` was not given: ``issues``
-    holds one ``convert.lossy`` per kind with lost items, in report order, with the kind as ``where`` and
-    the counts per reason: the ``refuse`` kinds, which ``refused`` names, and the ``report`` kinds that
-    ``allow_lossy`` would lose with them (change c0434), so a consent covers every loss it was shown."""
+    holds one ``convert.lossy`` per such kind, with the kind as ``where`` and the counts per reason."""
 
     cli_code = "FEN-7001"
 
     def __init__(self, issues: tuple[Issue, ...], report: ConversionReport) -> None:
         self.issues = issues
         self.report = report
-        self.refused = tuple(found.where for found in issues if found.where in report.refused)
-        others = [found.where for found in issues if found.where not in report.refused]
-        self.hint = (
-            "re-run with --allow-lossy to accept every loss that 'issues' lists; result.report of that run "
-            "lists it"
-        )
-        also = f"; --allow-lossy also loses items of {', '.join(others)}" if others else ""
-        super().__init__(f"the conversion would lose items of the source ({', '.join(self.refused)}){also}")
+        self.hint = "re-run with --allow-lossy to accept the loss; result.report of that run lists it"
+        kinds = ", ".join(found.where for found in issues)
+        super().__init__(f"the conversion would lose items of the source ({kinds})")
 
 
 @dataclass(frozen=True, slots=True)
@@ -205,8 +198,9 @@ def convert_project(
         raise _no_board(read)
     written = direction.write(read, Options(kicad_version=kicad_version, bodies=bodies, name=name, pour=pour))
     report = written.report
-    if report.refused and not allow_lossy:  # every loss is listed, not only the refused ones (c0434)
-        raise LossyConversionError(tuple(lossy_issue(row) for row in report.rows if row.lost), report)
+    refused = tuple(lossy_issue(row) for row in report.rows if row.kind in report.refused)
+    if refused and not allow_lossy:
+        raise LossyConversionError(refused, report)
     return Conversion(
         files=written.files,
         report=report,
