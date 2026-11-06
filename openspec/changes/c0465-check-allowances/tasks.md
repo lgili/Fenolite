@@ -39,7 +39,7 @@ Rules for every task:
 
 ## 4. KiCad
 
-- [ ] 4.1 Lowering (design D6): defaults written as nothing, an `all`/`all` allowance as
+- [x] 4.1 Lowering (design D6): defaults written as nothing, an `all`/`all` allowance as
   `rule_severities.shorting_items`, the rest as `rules.kind-unchecked`. Proof:
   `uv run pytest tests/unit/backends/kicad/test_rule_allowances_c0465.py -q -n 0`.
 - [ ] 4.2 Probe `dru-short-allow` on 9.0.9 and 10.0.6 (S-2244): two overlapping tracks of nets `A` and `B`,

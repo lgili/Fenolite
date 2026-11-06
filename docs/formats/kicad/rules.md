@@ -242,6 +242,24 @@ inside an outline whatever their net.
 - KiCad reports a violation of the rule as `items_not_allowed`.
 - `fenolite route` reads these rules to choose the layers a net may use (`docs/routing.md`).
 
+### Short and antenna allowances (c0465)
+
+KiCad's custom rules have no constraint for a short between two nets and none for the length of a dangling
+track (S-2242), so `short` and `antenna` hold no major in `KIND_SUPPORT`. What KiCad can say exactly is
+written; the rest is a loss.
+
+- A `short` rule of severity `error` and an `antenna` rule of `max` 0 write nothing and give no issue:
+  they are KiCad's default.
+- The rule set's only `short` rule, of severity `ignore` or `warning`, with both sides `all` and no layer,
+  writes nothing in the rules file and sets `rule_severities.shorting_items` in the project file to its
+  severity (`rulemap.board_short`). An explicit severity of `kicad.drc.shorting-items` that differs makes
+  it a loss.
+- Every other `short` or `antenna` rule gives `rules.kind-unchecked` (error, droppable), or with
+  `allow_lossy` `rules.dropped-for-target`. Whether a negative `clearance` minimum on 10.0 silences
+  `shorting_items` for a net pair is probe `dru-short-allow` (`H-K-SHORT-ALLOW`).
+- A board read back holds no rule of either kind; `rule_severities.shorting_items` reads as a check
+  severity (c0114).
+
 ### Layers and names
 
 - An empty `Rule.layers` writes no layer clause; one layer writes `(layer "<name>")`; several layers

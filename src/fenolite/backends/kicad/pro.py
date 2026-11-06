@@ -36,6 +36,7 @@ from fenolite.backends.kicad.lowering import (
 )
 from fenolite.backends.kicad.pcb import source_info, stored_net_name
 from fenolite.backends.kicad.proerrors import ISSUE_CODES, project_issue
+from fenolite.backends.kicad.rulemap import SHORTING_CODE, board_short
 from fenolite.backends.kicad.sexpr import parse
 from fenolite.backends.kicad.tuning import TuningProfile, lift_profiles, read_profiles
 from fenolite.backends.kicad.versions import (
@@ -808,13 +809,17 @@ def _text(value: Any) -> str:
 def _write_severities(
     data: JsonObject, design: Design, *, target: int, allow_lossy: bool, issues: list[Issue]
 ) -> None:
-    """The check severities of ``RuleSet.severities`` (change c0114; project.md, "Check severities").
+    """The check severities of ``RuleSet.severities`` (change c0114; project.md, "Check severities"), with
+    ``shorting_items`` of the rule ``rulemap.board_short`` gives (change c0465).
 
     Each ``kicad.drc.<suffix>`` code sets its key of ``rule_severities`` when the key is one of
     ``SEVERITY_KEYS[target]``; every other member keeps its value and its position. A code whose key is
     not one of them is refused (``kicad.project.unknown-check``), or dropped with ``allow_lossy``: KiCad
     ignores an unknown key without a message, so a misspelt code would do nothing."""
-    severities = design.rules.severities if design.rules is not None else {}
+    severities = dict(design.rules.severities) if design.rules is not None else {}
+    allowance = board_short(design.rules)
+    if allowance is not None:  # change c0465: a board-wide short rule is KiCad's own check severity
+        severities[SHORTING_CODE] = allowance.severity
     if not severities:
         return
     known: dict[str, str] = {}

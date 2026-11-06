@@ -395,6 +395,8 @@ def write_rules(
     notes: list[Issue] = []
 
     def model(rule: Rule) -> None:
+        if rulemap.written_as_nothing(rule, ruleset):  # change c0465: KiCad's default, or the project file
+            return
         if target not in rulemap.KIND_SUPPORT[rule.kind]:
             unchecked = f"KiCad {target}.0 does not check {rule.kind} rules"
             if allow_lossy:

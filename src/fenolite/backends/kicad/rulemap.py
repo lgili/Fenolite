@@ -29,6 +29,7 @@ from fenolite.model.rules import (
     NO_NET,
     Rule,
     RuleKind,
+    RuleSet,
     RuleSeverity,
     Selector,
     SelectorOp,
@@ -224,6 +225,38 @@ length kinds hold the majors whose ``dru-kind-<kind>`` probe is recorded ``prese
 dangling track (S-2242), so ``short`` and ``antenna`` (change c0465) hold no major: their defaults and a
 board-wide allowance are written by ``lower_rules`` as design D6 of c0465 says. A modelled rule of a kind
 outside its entry gives ``rules.kind-unchecked``."""
+SHORTING_CODE = "kicad.drc.shorting-items"
+"""The finding code of KiCad's check of a short, whose project severity is ``shorting_items``."""
+
+
+def board_short(rules: RuleSet | None) -> Rule | None:
+    """The ``short`` rule that KiCad writes exactly as the project severity ``shorting_items`` (design D6 of
+    change c0465): the rule set's only ``short`` rule, of severity ``ignore`` or ``warning``, whose two sides
+    are ``all`` and which names no layer, when ``RuleSet.severities`` gives ``shorting_items`` no other
+    level. ``None`` otherwise."""
+    if rules is None:
+        return None
+    shorts = [rule for rule in rules.rules if rule.kind == "short"]
+    if len(shorts) != 1:
+        return None
+    (rule,) = shorts
+    sides = (rule.selector_a.op, rule.selector_b.op if rule.selector_b is not None else "")
+    if rule.severity == "error" or sides != ("all", "all") or rule.layers:
+        return None
+    if rules.severities.get(SHORTING_CODE, rule.severity) != rule.severity:
+        return None
+    return rule
+
+
+def written_as_nothing(rule: Rule, rules: RuleSet | None) -> bool:
+    """Whether ``rule`` writes no custom rule and is no loss (design D6 of change c0465): a ``short`` rule of
+    severity ``error`` and an ``antenna`` rule of ``max`` 0 are KiCad's default, and ``board_short`` is
+    written into the project file."""
+    if rule.kind == "short":
+        return rule.severity == "error" or board_short(rules) is rule
+    return rule.kind == "antenna" and rule.max == 0
+
+
 KIND_UNCHECKED_CODE = "rules.kind-unchecked"
 RULE_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
     {
@@ -823,7 +856,7 @@ def _outside_kind(
 
 def normal_form(rule: Rule) -> Rule:
     """What lifting gives back: ``via_drill`` as ``hole_size`` on vias, flattened selectors, no
-    ``all`` B side."""
+    ``all`` B side (a ``short`` rule keeps its B side, which it needs: change c0465)."""
     selector_a = _flatten(rule.selector_a)
     kind: RuleKind = rule.kind
     if kind == "via_drill":
@@ -832,7 +865,7 @@ def normal_form(rule: Rule) -> Rule:
         selector_a = via if selector_a.op == "all" else _flatten(Selector("and", items=(via, selector_a)))
     selector_b = rule.selector_b
     if selector_b is not None:
-        selector_b = None if selector_b.op == "all" else _flatten(selector_b)
+        selector_b = None if selector_b.op == "all" and kind != "short" else _flatten(selector_b)
     return dataclasses.replace(rule, kind=kind, selector_a=selector_a, selector_b=selector_b)
 
 
@@ -853,6 +886,9 @@ __all__ = [
     "KIND_MAP",
     "KIND_SELECTORS",
     "KIND_SUPPORT",
+    "SHORTING_CODE",
+    "board_short",
+    "written_as_nothing",
     "KIND_UNCHECKED_CODE",
     "LIMITS",
     "LIMIT_ORDER",
