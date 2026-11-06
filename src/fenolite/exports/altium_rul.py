@@ -24,13 +24,15 @@ SUFFIX = ".RUL"
 class RuleFileExport:
     """The file of one export: its name, its bytes (empty when no rule is written), the rules written and
     the rules that are not, each as ``{kind, selector}`` (the first with ``rule``, the record's name; the
-    second with ``reason``), and the evidence."""
+    second with ``reason``), the evidence, and the rules written in another form (change c0434), each with
+    ``detail``."""
 
     path: str
     data: bytes
     written: tuple[dict[str, str], ...]
     not_lowered: tuple[dict[str, str], ...]
     evidence: Evidence
+    changed: tuple[dict[str, str], ...] = ()
 
 
 def export_rules(rules: Sequence[Rule], *, stem: str) -> RuleFileExport:
@@ -46,8 +48,11 @@ def export_rules(rules: Sequence[Rule], *, stem: str) -> RuleFileExport:
     refused = tuple(
         {"kind": item.kind, "selector": item.selector, "reason": item.reason} for item in lowered.not_lowered
     )
+    changed = tuple(
+        {"kind": item.kind, "selector": item.selector, "detail": item.detail} for item in lowered.changed
+    )
     data = rulemap.write_rule_file(rules, name=stem)
-    return RuleFileExport(f"{stem}{SUFFIX}", data, written, refused, rulemap.EVIDENCE)
+    return RuleFileExport(f"{stem}{SUFFIX}", data, written, refused, rulemap.EVIDENCE, changed)
 
 
 __all__ = ["KIND", "SUFFIX", "RuleFileExport", "export_rules"]

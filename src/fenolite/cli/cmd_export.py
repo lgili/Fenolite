@@ -417,7 +417,12 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         result["rules"] = (
             None
             if rule_file is None
-            else {"written": list(rule_file.written), "not_lowered": list(rule_file.not_lowered)}
+            else {
+                "written": list(rule_file.written),
+                "not_lowered": list(rule_file.not_lowered),
+                # the rules written in another form (change c0434), when there is one
+                **({"changed": list(rule_file.changed)} if rule_file.changed else {}),
+            }
         )
     fabrication = [kind for kind in kinds if kind in FAB_KINDS]
     documents = [kind for kind in kinds if kind in DOCUMENT_KINDS]

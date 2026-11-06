@@ -123,6 +123,6 @@ def test_a_board_without_kept_records_holds_neither_key(tmp_path: Path) -> None:
 def test_the_import_knows_the_kinds_the_writer_rebuilds() -> None:
     """The import may not import the writer: ``read.rules.WRITTEN_KINDS`` names its kinds."""
     from fenolite.backends.altium.read.rules import WRITTEN_KINDS
-    from fenolite.backends.altium.rulemap import KIND_ORDER
+    from fenolite.backends.altium.rulemap import KEPT_WHEN_READ, KIND_ORDER
 
-    assert set(KIND_ORDER) == WRITTEN_KINDS
+    assert set(KIND_ORDER) - KEPT_WHEN_READ == WRITTEN_KINDS

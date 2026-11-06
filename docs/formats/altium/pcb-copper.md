@@ -191,6 +191,9 @@ Part U of `docs/evidence/altium-pcb.md`.
 | The clearance of a hole is a row of the object matrix of Clearance (`ClearanceObj_Hole` in `OBJECTCLEARANCES`); the numbers of that text carry no unit and no permitted source explains them. There is no rule kind for the clearance between a hole and copper alone | S-0462, S-0176 | INFERRED | H-A-RULE-KINDS |
 | Scopes seen in the records of the lowered kinds: `All`, `InNet('<net>')` and `InNetClass('<class>')` as the first scope with `All` as the second; a Clearance record also holds a query as its second scope (layer and polygon queries in the records read, never a net). The rule that applies is the first one, by priority, whose scopes match | S-0286, S-0296, S-0172, S-0174, S-0175, S-0176, S-0187, S-0200 | INFERRED | H-A-RULE-SCOPE |
 | Priorities count from 1 within one rule kind: in the eight documents and the rule file every kind has its own run 1, 2, … without a gap | S-0286, S-0297, S-0172, S-0174, S-0175, S-0176, S-0187, S-0188, S-0199, S-0200 | INFERRED | H-A-RULE-PRIORITY |
+| A Component Clearance record has the kind number 24, `RULEKIND=ComponentClearance`, `NETSCOPE=AnyNet` and the keys `GAP`, `COLLISIONCHECKMODE`, `VERTICALGAP`, `SHOWDISTANCES` in this order (eleven records) | S-1838, S-1930 | INFERRED | H-A-RULE-OPEN-LIMIT |
+| A Silk To Silk Clearance record has the kind number 55, `RULEKIND=SilkToSilkClearance`, `NETSCOPE=AnyNet` and the one key `SILKTOSILKCLEARANCE` | S-1838, S-1930 | INFERRED | H-A-RULE-OPEN-LIMIT |
+| A Differential Pairs Routing record has the kind number 51, `RULEKIND=DiffPairsRouting`, `NETSCOPE=AnyNet` and the keys `MAXLIMIT`, `MINLIMIT`, `MOSTFREQGAP`, the per-layer widths and `MAXUNCOUPLEDLENGTH` | S-1838, S-1930 | INFERRED | H-A-RULE-OPEN-LIMIT |
 
 ### Slots and cut-outs against the rules (change c0168)
 
@@ -205,8 +208,7 @@ what kit cases S2 and S5 of Part S (`docs/evidence/altium-pcb.md`) show in Altiu
 ### The lowering table
 
 `rulemap.TABLE`, one row per neutral rule kind. An `exact` row is written and read back; every other row
-names why the kind is not written. A dash is a limit the kind does not hold; a rule must give exactly the
-limits of its row.
+names why the kind is not written. A dash is a limit the kind does not hold; a rule gives no other limit.
 
 | neutral kind | Altium kind | number | min | opt | max | status |
 |---|---|---|---|---|---|---|
@@ -219,15 +221,39 @@ limits of its row.
 | `hole_to_hole` | `HoleToHoleClearance` | 52 | `GAP` | — | — | exact |
 | `hole_clearance` | — | — | — | — | — | no-counterpart |
 | `annular_width` | `MinimumAnnularRing` | 19 | `MINIMUMRING` | — | — | exact |
-| `courtyard_clearance` | — | — | — | — | — | no-counterpart |
-| `silk_clearance` | — | — | — | — | — | no-counterpart |
+| `courtyard_clearance` | `ComponentClearance` | 24 | `GAP` | — | — | exact |
+| `silk_clearance` | `SilkToSilkClearance` | 55 | `SILKTOSILKCLEARANCE` | — | — | exact |
 | `creepage` | — | — | — | — | — | no-counterpart |
 | `no_tracks` | — | — | — | — | — | no-counterpart |
-| `diff_pair_gap` | — | — | — | — | — | no-counterpart |
-| `diff_pair_uncoupled` | — | — | — | — | — | no-counterpart |
+| `diff_pair_gap` | `DiffPairsRouting` | 51 | `MINLIMIT` | `MOSTFREQGAP` | `MAXLIMIT` | exact |
+| `diff_pair_uncoupled` | `DiffPairsRouting` | 51 | — | — | `MAXUNCOUPLEDLENGTH` | exact |
 | `skew` | — | — | — | — | — | no-counterpart |
 | `diff_pair_skew` | — | — | — | — | — | no-counterpart |
 | `length` | — | — | — | — | — | no-counterpart |
+
+Change c0434 writes the rules whose limits a record holds more of, and four kinds of change c0424's
+reader. Every record read holds all its limits (the row "no record read leaves a limit out" above), so a
+limit of the row that a rule does not give is written open and the rule is counted changed
+(`rulemap.Changed`, `convert.changed`): a missing minimum 0, a missing preferred value the rule's minimum
+(its maximum without one), a missing maximum 100 mm (`rulemap.OPEN_MAX`), the largest maximum of a public
+record. A `via_diameter` rule without a `via_drill` rule of its selector, the form a KiCad rule set gives
+(its drill is a `hole_size` rule on vias), takes the hole limits of the governing `hole_size` rule on the
+vias of its selector, of its selector, on every via or on every hole, in this order, with its minimum as the
+preferred hole. A `diff_pair_gap` rule without a `diff_pair_uncoupled` rule takes an open uncoupled
+length. A Differential Pairs Routing record is scoped `All` for `diff_pair *` and with the other scope for
+`diff_pair *` joined to one with `and`; its per-layer width keys take the limits of the governing
+`track_width` rule on every object, or 0, 0.25 mm and 100 mm without one. A Component Clearance record
+holds the vertical gap equal to the gap and the check mode 3, and a Silk To Silk Clearance record the
+neutral silkscreen clearance; both rules are counted changed, with the rows above as the reason.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| The largest maximum of a Width, Routing Via Style or Hole Size record of the public documents and rule file is 3937.0079 mil (`MAXWIDTH` and `MAXHOLEWIDTH` of one Routing Via Style record); a Hole Size record holds 1968.5039 mil | S-1930 | INFERRED | H-A-RULE-OPEN-LIMIT |
+| Every Component Clearance record read (eleven) holds `COLLISIONCHECKMODE=3`; nine hold `VERTICALGAP` equal to `GAP`, one 100000 mil and one twice the gap | S-1930 | INFERRED | H-A-RULE-OPEN-LIMIT |
+| A Differential Pairs Routing record of the export form holds `MAXLIMIT`, `MINLIMIT`, `MOSTFREQGAP`, then `<LAYER>_MINWIDTH`, `_MAXWIDTH` and `_PREFWIDTH` for `TOPLAYER`, `MIDLAYER1` to `MIDLAYER30` and `BOTTOMLAYER`, then `MAXUNCOUPLEDLENGTH` | S-0297, S-1930 | INFERRED | H-A-RULE-OPEN-LIMIT |
+
+No Altium run has read a record of change c0434 (`H-A-RULE-OPEN-LIMIT`): Fenolite's reader reads every
+one back.
 
 The row of `no_tracks` (change c0107): Altium's Routing Layers rule says which signal layers may be used for
 routing, with one switch per layer, and is the nearest counterpart in meaning (S-0660, `INFERRED`). Its

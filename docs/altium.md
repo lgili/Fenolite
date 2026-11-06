@@ -132,10 +132,11 @@ fenolite build design.py --out build/myboard --target altium --altium-format asc
   the paths keeps the ids, so Altium keeps the links between schematic and PCB components.
 - **Differential pairs** (change c0104). An Altium build keeps the pair content of a design in
   `.fenolite/` and writes none of it, because no public source recorded in `docs/formats/altium/` states
-  the pair record or the records of the pair and length rules. Each part is named: a rule of kind
-  `diff_pair_gap`, `diff_pair_uncoupled`, `skew`, `diff_pair_skew` or `length` gives one
-  `altium.not-lowered` warning at `design-rules/<kind>` with the reason `no-counterpart` (the record is
-  not known, which is not a statement that Altium has no such rule); a rule of a written kind that
+  the pair record or the records of the length rules. Each part is named: a rule of kind `skew`,
+  `diff_pair_skew` or `length` gives one `altium.not-lowered` warning at `design-rules/<kind>` with the reason `no-counterpart` (the record is
+  not known, which is not a statement that Altium has no such rule); since change c0434 a
+  `diff_pair_gap` rule on every pair or on the pairs of a net class is written as a Differential Pairs
+  Routing record ("Rules"), and one on a named pair is `scope-unsupported`; a rule of a written kind that
   selects a pair, such as the clearance rule of `design.rules.pair(…, clearance=…)`, gives the reason
   `scope-unsupported`; the net classes that hold a pair width, gap or via gap are named in one info at
   `pair-values`, with and without a PCB document; and a `diff_pair` or `usb2` interface stays in the
@@ -705,27 +706,30 @@ a board that the script forbids.
 | neutral kind | Altium rule | limits the rule must give | written |
 |---|---|---|---|
 | `clearance` | Clearance | `min` | yes |
-| `track_width` | Width | `min`, `opt` and `max` | yes |
-| `via_diameter` | Routing Via Style | `min`, `opt` and `max`, with a `via_drill` rule of the same selector | yes |
-| `via_drill` | Routing Via Style | `min`, `opt` and `max`, with a `via_diameter` rule of the same selector | yes |
-| `hole_size` | Hole Size | `min` and `max` | yes |
+| `track_width` | Width | `min`, `opt` or `max`; a missing one is written open (c0434) | yes |
+| `via_diameter` | Routing Via Style | `min`, `opt` or `max`, with a `via_drill` rule of the same selector, else the hole limits of the `hole_size` rule that governs its vias (c0434) | yes |
+| `via_drill` | Routing Via Style | `min`, `opt` or `max`, with a `via_diameter` rule of the same selector | yes |
+| `hole_size` | Hole Size | `min` or `max`; a missing one is written open (c0434) | yes |
 | `edge_clearance` | Board Outline Clearance | `min` | yes |
 | `hole_to_hole` | Hole To Hole Clearance | `min` | yes |
 | `annular_width` | Minimum Annular Ring | `min` | yes |
 | `hole_clearance` | none | | no (`no-counterpart`) |
-| `courtyard_clearance` | none (Component Clearance measures bodies, with a vertical clearance) | | no (`no-counterpart`) |
-| `silk_clearance` | none (Altium splits it into two narrower rules) | | no (`no-counterpart`) |
+| `courtyard_clearance` | Component Clearance (measures bodies, with a vertical clearance: the gap is written to both; c0434) | `min` | yes, counted changed |
+| `silk_clearance` | Silk To Silk Clearance (Altium's silk to solder mask part is not written; c0434) | `min` | yes, counted changed |
+| `diff_pair_gap` | Differential Pairs Routing, with the `diff_pair_uncoupled` rule of its selector and the widths of the general `track_width` rule (c0434) | `min`, `opt` or `max` | yes, on every pair or the pairs of a net class |
+| `diff_pair_uncoupled` | Differential Pairs Routing, with the `diff_pair_gap` rule of its selector | `max` | yes, with its gap rule; alone `value-unsupported` |
 | `creepage` | none (the record of Altium's Creepage Distance is in no public file) | | no (`no-counterpart`) |
 
-- **Limits.** Altium's Width, Routing Via Style and Hole Size records hold every limit, so a rule must
-  give them all: `design.rules.minimum(track_width=…)`, which gives a minimum only, is reported
-  (`value-unsupported`); write `design.rules.rule("w", "track_width", min=…, opt=…, max=…)` to get a
+- **Limits.** Altium's Width, Routing Via Style and Hole Size records hold every limit. Since change
+  c0434 a limit the rule does not give is written open (minimum 0, preferred the rule's minimum, else its
+  maximum, maximum 100 mm), so `design.rules.minimum(track_width=…)` gives a Width rule, listed under
+  `result.rules.changed`; write `design.rules.rule("w", "track_width", min=…, opt=…, max=…)` for an exact
   Width rule. A severity other than `error` is `value-unsupported` too: a rule record is enabled or not.
 - **Scopes.** All objects, a net (`InNet('<net>')`), a net class (`InNetClass('<class>')`), a component
   (`InComponent('<ref>')`), an item kind (`IsTrack`, `IsVia`, `IsPad`, and `InPolygon` for `zone`, the
   copper of a pour), and their combinations with `And`, `Or` and `Not`, nested operators in parentheses
   (change c0412); a `clearance` rule takes a second scope from `between`. A glob, an `area`, `layer` or
-  `diff_pair` leaf, another item kind and a rule with `layers` are `scope-unsupported`: that rule is
+  `diff_pair` leaf (but every pair of a pair rule, change c0434), another item kind and a rule with `layers` are `scope-unsupported`: that rule is
   reported and the others of its kind are written. The import reads `InPolygon` and `InPoly` back as
   `item_kind zone`.
 - **What is read and not written (change c0125).** The import of a PCB document also maps a Clearance
@@ -755,7 +759,9 @@ a board that the script forbids.
   `design-rules/<kind>` and a message that holds the rule's name, its selector and the reason
   (`no-counterpart`, `scope-unsupported`, `value-unsupported`, or `no-document` when the build plans no
   PCB document). `result.rules` holds `written` (`kind`, `selector`, `rule`: the Altium rule's name)
-  and `not_lowered` (`kind`, `selector`, `reason`). The rules stay in `.fenolite/rules.json`, and
+  and `not_lowered` (`kind`, `selector`, `reason`); since change c0434 it also holds `changed` (`kind`,
+  `selector`, `detail`) when a written rule differs from the model's, for example a limit the rule does
+  not give, written open. The rules stay in `.fenolite/rules.json`, and
   `result.pcb` counts them under `rule`: those the document holds and those it does not ("Copper").
 - **Stacks.** A rule record holds no layer and no layer count: the same records are written for every
   stack of "Copper" (2 to 32 layers, planes, blind and buried vias). A Routing Via Style rule is written
@@ -1715,7 +1721,7 @@ An Altium build keeps the impedance targets of a design (`docs/impedance.md`) in
 impedance profile. One `altium.not-lowered` info at `impedance` names the targets and the number of
 rules derived from them. Those rules are rules of the design like any other: each `track_width` rule of a
 target carries a layer and is reported with `scope-unsupported`, each `diff_pair_gap` rule with
-`no-counterpart`, one warning at `design-rules/<kind>` and one entry of `result.rules.not_lowered` each.
+`scope-unsupported` too (it names one pair; `no-counterpart` before change c0434), one warning at `design-rules/<kind>` and one entry of `result.rules.not_lowered` each.
 Every planned file outside `.fenolite/` equals the file of the same design without the targets. A trace on
 a layer the board does not have gives `build.impedance-layer`, which refuses the build as in KiCad.
 

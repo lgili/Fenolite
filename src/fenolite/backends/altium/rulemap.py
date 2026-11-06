@@ -12,8 +12,9 @@ disagree. A rule that is not written is named with one reason of ``NOT_LOWERED_R
 
 from __future__ import annotations
 
+import dataclasses
 from collections import Counter
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import Literal, get_args
 
@@ -33,6 +34,7 @@ EVIDENCE = Evidence(
         "H-A-RULE-CLEARANCE-FORMS",
         "H-A-RULE-FILE",
         "H-A-RULE-KINDS",
+        "H-A-RULE-OPEN-LIMIT",
         "H-A-RULE-PRIORITY",
         "H-A-RULE-READBACK",
         "H-A-RULE-SCOPE",
@@ -93,9 +95,18 @@ class RuleRow:
 _CLEARANCE_KEYS = ("GAP", "GENERICCLEARANCE", "IGNOREPADTOPADCLEARANCEINFOOTPRINT", "OBJECTCLEARANCES")
 _VIA_KEYS = ("HOLEWIDTH", "WIDTH", "VIASTYLE", "MINHOLEWIDTH", "MINWIDTH", "MAXHOLEWIDTH", "MAXWIDTH")
 _ALL_LIMITS = ("min", "opt", "max")
+PAIR_LAYERS: tuple[str, ...] = ("TOPLAYER", *(f"MIDLAYER{n}" for n in range(1, 31)), "BOTTOMLAYER")
+"""The layer prefixes of the per-layer width keys of a Differential Pairs Routing record, in the order of
+the public records (S-0297, S-1930): ``<LAYER>_MINWIDTH``, ``_MAXWIDTH`` and ``_PREFWIDTH`` per layer."""
+PAIR_WIDTH_KEYS: tuple[str, ...] = tuple(
+    f"{layer}_{limit}WIDTH" for layer in PAIR_LAYERS for limit in ("MIN", "MAX", "PREF")
+)
+_PAIR_KEYS = ("MAXLIMIT", "MINLIMIT", "MOSTFREQGAP", *PAIR_WIDTH_KEYS, "MAXUNCOUPLEDLENGTH")
+OPEN_MAX = 100_000_000
+"""The maximum written for a limit that a rule does not give (change c0434): 100 mm, the largest maximum of
+a public record (``MAXWIDTH`` and ``MAXHOLEWIDTH`` 3937.0079 mil, S-1930). A missing minimum is written 0,
+a missing preferred value as the rule's minimum (its maximum when it has none)."""
 _PAIR_KINDS: tuple[tuple[RuleKind, str], ...] = (
-    ("diff_pair_gap", "the gap of a differential pair"),
-    ("diff_pair_uncoupled", "the uncoupled length of a differential pair"),
     ("skew", "the length match of a group of nets"),
     ("diff_pair_skew", "the length match within a differential pair"),
     ("length", "the length of a net"),
@@ -144,15 +155,25 @@ TABLE: tuple[RuleRow, ...] = (
     RuleRow("annular_width", EXACT, "MinimumAnnularRing", 19, ("min",), ("MINIMUMRING",)),
     RuleRow(
         "courtyard_clearance",
-        "no-counterpart",
-        note="Component Clearance measures component bodies or selection areas, with a vertical clearance "
-        "and a check mode; it is not a clearance between courtyards",
+        EXACT,
+        "ComponentClearance",
+        24,
+        ("min",),
+        ("GAP", "COLLISIONCHECKMODE", "VERTICALGAP", "SHOWDISTANCES"),
+        scopes=(*_UNARY, "pair"),
+        note="Component Clearance measures component bodies or selection areas, not courtyards; written "
+        "with the vertical gap equal to the gap and the check mode 3 of every public record",
     ),
     RuleRow(
         "silk_clearance",
-        "no-counterpart",
-        note="Altium splits the constraint into Silk To Solder Mask Clearance and Silk To Silk Clearance, "
-        "each narrower than the neutral rule",
+        EXACT,
+        "SilkToSilkClearance",
+        55,
+        ("min",),
+        ("SILKTOSILKCLEARANCE",),
+        scopes=(*_UNARY, "pair"),
+        note="written as Silk To Silk Clearance; the clearance of silkscreen to solder mask, which Altium "
+        "holds in another kind, is not written",
     ),
     RuleRow(
         "creepage",
@@ -165,6 +186,24 @@ TABLE: tuple[RuleRow, ...] = (
         note="Altium's Routing Layers rule, which names the layers a scope may be routed on, is the nearest "
         "counterpart; its record (kind number, constraint keys) is in no public file read under the "
         "sources register",
+    ),
+    RuleRow(
+        "diff_pair_gap",
+        EXACT,
+        "DiffPairsRouting",
+        51,
+        _ALL_LIMITS,
+        _PAIR_KEYS,
+        note="one record with the diff_pair_uncoupled rule of the same selector",
+    ),
+    RuleRow(
+        "diff_pair_uncoupled",
+        EXACT,
+        "DiffPairsRouting",
+        51,
+        ("max",),
+        _PAIR_KEYS,
+        note="one record with the diff_pair_gap rule of the same selector",
     ),
     *(
         RuleRow(
@@ -186,8 +225,16 @@ KIND_ORDER: tuple[str, ...] = (
     "BoardOutlineClearance",
     "HoleToHoleClearance",
     "MinimumAnnularRing",
+    "ComponentClearance",
+    "SilkToSilkClearance",
+    "DiffPairsRouting",
 )
-"""The Altium kinds in the order their rules are written: the three kinds of change c0038 first."""
+"""The Altium kinds in the order their rules are written: the three kinds of change c0038 first, the last
+three those of change c0434."""
+KEPT_WHEN_READ: frozenset[str] = frozenset({"ComponentClearance", "SilkToSilkClearance", "DiffPairsRouting"})
+"""The kinds of change c0434, which the writer writes in another form than the record it reads: a record of
+them read from a PCB document is kept and written back as it was read (``adapter.rules.kept_indexes``), and
+a neutral rule of them, a KiCad board's say, gets a record of its own."""
 _ROWS: dict[str, RuleRow] = {row.neutral: row for row in TABLE}
 _FIXED: dict[str, str] = {
     "IGNOREPADTOPADCLEARANCEINFOOTPRINT": "FALSE",
@@ -197,6 +244,8 @@ _FIXED: dict[str, str] = {
     "MAXPERCENT": "80.000",
     "MINPERCENT": "20.000",
     "ALLOWSTACKEDMICROVIAS": "FALSE",
+    "COLLISIONCHECKMODE": "3",
+    "SHOWDISTANCES": "FALSE",
 }
 """Constraint keys with one written value (``pcb-copper.md``, "Rule kinds lowered")."""
 _LENGTH_KEYS: dict[tuple[str, str], tuple[str, ...]] = {
@@ -215,9 +264,23 @@ _LENGTH_KEYS: dict[tuple[str, str], tuple[str, ...]] = {
     ("hole_size", "max"): ("MAXLIMIT",),
     ("hole_to_hole", "min"): ("GAP",),
     ("annular_width", "min"): ("MINIMUMRING",),
+    ("courtyard_clearance", "min"): ("GAP", "VERTICALGAP"),
+    ("silk_clearance", "min"): ("SILKTOSILKCLEARANCE",),
+    ("diff_pair_gap", "min"): ("MINLIMIT",),
+    ("diff_pair_gap", "opt"): ("MOSTFREQGAP",),
+    ("diff_pair_gap", "max"): ("MAXLIMIT",),
+    ("diff_pair_uncoupled", "max"): ("MAXUNCOUPLEDLENGTH",),
 }
 """(neutral kind, limit) → the keys that hold the limit."""
-_VIA_PARTNER: dict[str, RuleKind] = {"via_diameter": "via_drill", "via_drill": "via_diameter"}
+_PARTNER: dict[str, RuleKind] = {
+    "via_diameter": "via_drill",
+    "via_drill": "via_diameter",
+    "diff_pair_gap": "diff_pair_uncoupled",
+    "diff_pair_uncoupled": "diff_pair_gap",
+}
+"""The kinds whose rules of one selector share one record: a Routing Via Style holds the diameter and the
+hole, a Differential Pairs Routing the gap and the uncoupled length."""
+PAIRS = Selector("diff_pair", "*")
 
 
 def row_of(kind: str) -> RuleRow:
@@ -275,12 +338,29 @@ class NotLowered:
 
 
 @dataclass(frozen=True, slots=True)
+class Changed:
+    """A rule that is written in another form (change c0434): the rule, its selector as text and why its
+    record says more, or other, than the rule: a limit written open, the hole of a via taken from a
+    hole_size rule, or a kind that Altium measures otherwise."""
+
+    rule: Rule
+    selector: str
+    detail: str
+
+    @property
+    def kind(self) -> RuleKind:
+        return self.rule.kind
+
+
+@dataclass(frozen=True, slots=True)
 class Lowered:
     """The records of the rules that are written, grouped by Altium kind in ``KIND_ORDER`` and within a
     kind from the most governing rule to the least, and the rules that are not written, in rule order."""
 
     records: tuple[LoweredRule, ...]
     not_lowered: tuple[NotLowered, ...]
+    changed: tuple[Changed, ...] = ()
+    """The rules that are written in another form (change c0434), in rule order."""
 
     @property
     def written(self) -> tuple[Rule, ...]:
@@ -376,9 +456,42 @@ def scope_of(selector: Selector | None, row: RuleRow) -> tuple[str, str]:
     return text, name
 
 
-def _lengths(rule: Rule, row: RuleRow) -> dict[str, str]:
-    """The length keys of ``rule`` as mil text. Refused: a severity other than ``error``, a limit the row
-    does not take, a missing limit, and a positive value below the PCB unit or outside its range."""
+def _filled(given: dict[str, int | None], limits: Sequence[str]) -> dict[str, int]:
+    """The limits ``limits`` of ``given``, each one that is missing written open (``OPEN_MAX``)."""
+    known = [value for value in given.values() if value is not None]
+    low = given.get("min")
+    high = given.get("max")
+    values: dict[str, int] = {}
+    for name in limits:
+        value = given.get(name)
+        if value is None:
+            if name == "min":
+                value = 0
+            elif name == "max":
+                value = max([OPEN_MAX, *known])
+            else:
+                value = low if low is not None else high if high is not None else 0
+        values[name] = value
+    return values
+
+
+def _mil(name: str, value: int) -> str:
+    """``value`` as mil text; refused below the PCB unit, negative or outside its range."""
+    try:
+        units = rec.to_units(value)
+    except ValueError as error:
+        raise _Refused("value-unsupported", str(error)) from error
+    if value < 0 or (value > 0 and units == 0):
+        raise _Refused(
+            "value-unsupported", f"{name} of {value} nm is below the PCB unit of 2.54 nm or negative"
+        )
+    return rec.mil_text(units)
+
+
+def _lengths(rule: Rule, row: RuleRow) -> tuple[dict[str, str], tuple[str, ...]]:
+    """The length keys of ``rule`` as mil text and the limits of the row that the rule does not give,
+    which are written open (``_filled``; change c0434). Refused: a severity other than ``error``, a limit
+    the row does not take, no limit at all, and a value below the PCB unit or outside its range."""
     if rule.severity != "error":
         raise _Refused(
             "value-unsupported",
@@ -388,28 +501,18 @@ def _lengths(rule: Rule, row: RuleRow) -> dict[str, str]:
     extra = [name for name, value in given.items() if value is not None and name not in row.limits]
     if extra:
         raise _Refused("value-unsupported", f"{row.altium} holds no {', '.join(extra)}")
-    missing = [name for name in row.limits if given[name] is None]
-    if missing:
-        raise _Refused(
-            "value-unsupported",
-            f"{row.altium} holds {', '.join(row.limits)} and the rule gives no {', '.join(missing)}; "
-            "no record read leaves a limit out, so writing one would add a bound the rule does not hold",
-        )
-    found: dict[str, str] = {}
+    missing = tuple(name for name in row.limits if given[name] is None)
+    if len(missing) == len(row.limits):
+        raise _Refused("value-unsupported", f"the rule gives none of {', '.join(row.limits)}")
     for name in row.limits:
         value = given[name]
-        assert value is not None
-        try:
-            units = rec.to_units(value)
-        except ValueError as error:
-            raise _Refused("value-unsupported", str(error)) from error
-        if value < 0 or (value > 0 and units == 0):
-            raise _Refused(
-                "value-unsupported", f"{name} of {value} nm is below the PCB unit of 2.54 nm or negative"
-            )
+        if value is not None:
+            _mil(name, value)
+    found: dict[str, str] = {}
+    for name, value in _filled(given, row.limits).items():
         for key in _LENGTH_KEYS[(rule.kind, name)]:
-            found[key] = rec.mil_text(units)
-    return found
+            found[key] = _mil(name, value)
+    return found, missing
 
 
 @dataclass(frozen=True, slots=True)
@@ -420,6 +523,24 @@ class _Draft:
     name: str
     lengths: dict[str, str]
     rules: tuple[Rule, ...]
+    notes: dict[str, tuple[str, ...]]
+    """Rule id → why its record says more, or other, than the rule (``Changed``)."""
+
+
+def _unpaired(selector: Selector | None) -> Selector | None:
+    """The scope of a Differential Pairs Routing record for a pair rule's ``selector``: every pair
+    (``diff_pair *``) is ``All``, and ``diff_pair *`` joined with ``and`` to a scope is that scope; the
+    reader narrows the scope to the pairs again (``read.rules._pairs``)."""
+    if selector is None or selector.op == "all" or selector == PAIRS:
+        return None
+    if selector.op == "and" and PAIRS in selector.items:
+        rest = tuple(item for item in selector.items if item != PAIRS)
+        return rest[0] if len(rest) == 1 else Selector("and", items=rest)
+    raise _Refused(
+        "scope-unsupported",
+        f"the selector {selector_text(selector)} names no differential pairs as diff_pair *, alone or with "
+        "and: a Differential Pairs Routing record selects every pair of its scope",
+    )
 
 
 def _draft(rule: Rule, row: RuleRow) -> _Draft:
@@ -429,14 +550,102 @@ def _draft(rule: Rule, row: RuleRow) -> _Draft:
             f"the layers {', '.join(rule.layers)}: a layer condition is read from a PCB document "
             "with its board's layers and is not written",
         )
-    scope1, name1 = scope_of(rule.selector_a, row)
+    first = _unpaired(rule.selector_a) if row.altium == "DiffPairsRouting" else rule.selector_a
+    scope1, name1 = scope_of(first, row)
     scope2, name2 = ALL_SCOPE, ""
     if rule.selector_b is not None and rule.selector_b.op != "all":
         if "pair" not in row.scopes:
             raise _Refused("scope-unsupported", f"{row.altium} takes no second selector")
         scope2, name2 = scope_of(rule.selector_b, row)
     parts = [row.altium, *([name1] if name1 else []), *(["to", name2] if name2 else [])]
-    return _Draft(row, scope1, scope2, "_".join(parts), _lengths(rule, row), (rule,))
+    lengths, missing = _lengths(rule, row)
+    notes: list[str] = []
+    if missing:
+        notes.append(
+            f"{row.altium} holds {', '.join(row.limits)}; the {', '.join(missing)} the rule does not give "
+            "is written open (min 0, preferred as the rule's limit, max 100 mm)"
+        )
+    if rule.kind in _CHANGED_KINDS:
+        notes.append(row.note)
+    return _Draft(row, scope1, scope2, "_".join(parts), lengths, (rule,), {rule.id: tuple(notes)})
+
+
+_CHANGED_KINDS = frozenset({"courtyard_clearance", "silk_clearance"})
+"""The kinds whose Altium record measures otherwise than the rule (change c0434): every rule of them is
+written and counted changed, with its row's note."""
+_VIA = Selector("item_kind", "via")
+
+
+def _plain(selector: Selector | None) -> Selector:
+    return Selector("all") if selector is None else selector
+
+
+def _hole_rule(diameter: Rule, rules: Sequence[Rule]) -> Rule | None:
+    """The hole_size rule whose limits a Routing Via Style record of the via_diameter rule ``diameter``
+    takes when no via_drill rule has its selector (change c0434): a KiCad rule set holds the drill of a via
+    as a hole_size rule on vias (``backends.kicad.rulemap``). In this order: a rule on the vias of the
+    same selector, a rule of the same selector, a rule on every via, a rule on every hole; the most
+    governing of each."""
+    scope = _plain(diameter.selector_a)
+    holes = [
+        rule
+        for rule in governing_order(rules)
+        if rule.kind == "hole_size" and not rule.layers and rule.severity == "error"
+        and (rule.selector_b is None or rule.selector_b.op == "all")
+    ]  # fmt: skip
+
+    def on_vias(rule: Rule, of: Selector) -> bool:
+        selector = _plain(rule.selector_a)
+        if of.op == "all":
+            return selector == _VIA
+        return selector.op == "and" and set(selector.items) == {_VIA, of}
+
+    tests: tuple[Callable[[Rule], bool], ...] = (
+        lambda hole: on_vias(hole, scope),
+        lambda hole: _plain(hole.selector_a) == scope,
+        lambda hole: on_vias(hole, Selector("all")),
+        lambda hole: _plain(hole.selector_a).op == "all",
+    )
+    for test in tests:
+        for rule in holes:
+            if test(rule):
+                return rule
+    return None
+
+
+def _hole_keys(hole: Rule) -> dict[str, str]:
+    values = _filled({"min": hole.min, "opt": None, "max": hole.max}, _ALL_LIMITS)
+    names = {"min": "MINHOLEWIDTH", "opt": "HOLEWIDTH", "max": "MAXHOLEWIDTH"}
+    return {names[name]: _mil(name, value) for name, value in values.items()}
+
+
+def _pair_widths(rules: Sequence[Rule]) -> tuple[dict[str, str], str]:
+    """The per-layer width keys of a Differential Pairs Routing record and where they come from: the limits
+    of the most governing track_width rule on every object, written open where it gives none, or open with
+    Fenolite's default preferred width of 0.25 mm (``pcb-copper.md``, "Rules") without one."""
+    for rule in governing_order(rules):
+        if (
+            rule.kind == "track_width" and not rule.layers and rule.severity == "error"
+            and _plain(rule.selector_a).op == "all"
+        ):  # fmt: skip
+            values = _filled({"min": rule.min, "opt": rule.opt, "max": rule.max}, _ALL_LIMITS)
+            source = "those of the track_width rule (all)"
+            break
+    else:
+        values = {"min": 0, "opt": 250_000, "max": OPEN_MAX}
+        source = "open, with the preferred width 0.25 mm: no track_width rule holds every object"
+    try:
+        text = {name: _mil(name, value) for name, value in values.items()}
+    except _Refused:  # the rule's own limits are refused with it; the widths are written open
+        values = {"min": 0, "opt": 250_000, "max": OPEN_MAX}
+        text = {name: _mil(name, value) for name, value in values.items()}
+        source = "open, with the preferred width 0.25 mm: the track_width rule (all) is not written"
+    keys = {
+        f"{layer}_{suffix}WIDTH": text[name]
+        for layer in PAIR_LAYERS
+        for suffix, name in (("MIN", "min"), ("MAX", "max"), ("PREF", "opt"))
+    }
+    return keys, f"the per-layer track widths of the record are {source}"
 
 
 def governing_order(rules: Sequence[Rule]) -> tuple[Rule, ...]:
@@ -454,14 +663,20 @@ def _kept(rule: Rule) -> bool:
 
 
 def lower(rules: Sequence[Rule]) -> Lowered:
-    """The rule records of ``rules`` and the rules that are not written, each with one reason.
+    """The rule records of ``rules``, the rules that are not written, each with one reason, and the rules
+    that are written in another form.
 
-    A rule is written only when its row is ``exact``, its selectors are scopes of the row, its severity is
-    ``error`` and it gives exactly the limits of the row; nothing is approximated. A ``via_diameter`` and
-    a ``via_drill`` rule of the same selector share one Routing Via Style record; either one alone is not
-    written. Names come from the kind and the scope (``Width``, ``Width_PWR``, ``Clearance_net_A_to_B``);
-    a repeated name gets ``_2``, ``_3``… A rule of a kept record (the pair ``kept_record`` of an imported
-    rule, change c0424) is left out without a reason: the record is written back as it was read."""
+    A rule is written when its row is ``exact``, its selectors are scopes of the row and its severity is
+    ``error``. A limit of the row that the rule does not give is written open (min 0, the preferred value
+    as the rule's limit, max ``OPEN_MAX``) and the rule is counted changed (change c0434). A
+    ``via_diameter`` and a ``via_drill`` rule of the same selector share one Routing Via Style record, a
+    ``diff_pair_gap`` and a ``diff_pair_uncoupled`` rule one Differential Pairs Routing record. A
+    ``via_diameter`` rule alone takes the hole limits of a hole_size rule (``_hole_rule``), a
+    ``diff_pair_gap`` rule alone an open uncoupled length; a ``via_drill`` or ``diff_pair_uncoupled`` rule
+    alone is not written. Names come from the kind and the scope (``Width``, ``Width_PWR``,
+    ``Clearance_net_A_to_B``); a repeated name gets ``_2``, ``_3``… A rule of a kept record (the pair
+    ``kept_record`` of an imported rule, change c0424) is left out without a reason: the record is written
+    back as it was read."""
     rules = [rule for rule in rules if not _kept(rule)]
     refused: dict[str, NotLowered] = {}
     drafts: list[_Draft] = []
@@ -480,7 +695,7 @@ def lower(rules: Sequence[Rule]) -> Lowered:
         except _Refused as refusal:
             refuse(rule, refusal.reason, refusal.detail)
             continue
-        partner = _VIA_PARTNER.get(rule.kind)
+        partner = _PARTNER.get(rule.kind)
         if partner is None:
             drafts.append(draft)
             continue
@@ -492,19 +707,53 @@ def lower(rules: Sequence[Rule]) -> Lowered:
         index = queue.pop(0)
         first = drafts[index]
         drafts[index] = _Draft(
-            row, first.scope1, first.scope2, first.name, first.lengths | draft.lengths, (*first.rules, rule)
+            row,
+            first.scope1,
+            first.scope2,
+            first.name,
+            first.lengths | draft.lengths,
+            (*first.rules, rule),
+            first.notes | draft.notes,
         )
     alone = {index for queue in waiting.values() for index in queue}
     for index in sorted(alone):
-        rule = drafts[index].rules[0]
-        refuse(
-            rule,
-            "value-unsupported",
-            f"a Routing Via Style rule holds the diameter and the hole; no {_VIA_PARTNER[rule.kind]} rule "
-            "has the same selector",
-        )
-    kept = [draft for index, draft in enumerate(drafts) if index not in alone]
+        draft = drafts[index]
+        rule = draft.rules[0]
+        notes = draft.notes[rule.id]
+        if rule.kind == "via_diameter" and (hole := _hole_rule(rule, rules)) is not None:
+            try:
+                keys = _hole_keys(hole)
+            except _Refused as refusal:
+                refuse(rule, refusal.reason, refusal.detail)
+                continue
+            note = (
+                f"a Routing Via Style rule holds the hole too: written with the limits of the hole_size rule "
+                f"({rule_selector(hole)}), its preferred hole its min"
+            )
+            drafts[index] = dataclasses.replace(
+                draft, lengths=draft.lengths | keys, notes={rule.id: (*notes, note)}
+            )
+            continue
+        if rule.kind == "diff_pair_gap":
+            note = "a Differential Pairs Routing rule holds the uncoupled length too: written open (100 mm)"
+            uncoupled = {"MAXUNCOUPLEDLENGTH": rec.mil_text(rec.to_units(OPEN_MAX))}
+            drafts[index] = dataclasses.replace(
+                draft, lengths=draft.lengths | uncoupled, notes={rule.id: (*notes, note)}
+            )
+            continue
+        what = {
+            "via_diameter": "a Routing Via Style rule holds the diameter and the hole; no via_drill rule has "
+            "the same selector, and no hole_size rule applies to its vias",
+            "via_drill": "a Routing Via Style rule holds the diameter and the hole; no via_diameter rule has "
+            "the same selector",
+            "diff_pair_uncoupled": "a Differential Pairs Routing rule holds the gap and the uncoupled "
+            "length; no diff_pair_gap rule has the same selector",
+        }[rule.kind]
+        refuse(rule, "value-unsupported", what)
+    kept = [draft for draft in drafts if rule_ids(draft) - set(refused)]
+    widths, width_note = _pair_widths(rules)
     records: list[LoweredRule] = []
+    changed: dict[str, Changed] = {}
     used: set[str] = set()
     for kind in KIND_ORDER:
         of_kind = [draft for draft in kept if draft.row.altium == kind]
@@ -514,8 +763,15 @@ def lower(rules: Sequence[Rule]) -> Lowered:
                 count += 1
                 name = f"{draft.name}_{count}"
             used.add(name)
-            keys = tuple((key, draft.lengths.get(key, _FIXED.get(key, ""))) for key in draft.row.fields)
+            lengths = draft.lengths | widths if kind == "DiffPairsRouting" else draft.lengths
+            keys = tuple((key, lengths.get(key, _FIXED.get(key, ""))) for key in draft.row.fields)
             ordered = tuple(sorted(draft.rules, key=lambda r: r.kind))
+            for rule in ordered:
+                notes = draft.notes.get(rule.id, ())
+                if rule.kind == "diff_pair_gap":
+                    notes = (*notes, width_note)
+                if notes:
+                    changed[rule.id] = Changed(rule, rule_selector(rule), "; ".join(notes))
             records.append(
                 LoweredRule(
                     draft.row.number,
@@ -529,7 +785,15 @@ def lower(rules: Sequence[Rule]) -> Lowered:
                     ordered,
                 )
             )
-    return Lowered(tuple(records), tuple(refused[rule.id] for rule in rules if rule.id in refused))
+    return Lowered(
+        tuple(records),
+        tuple(refused[rule.id] for rule in rules if rule.id in refused),
+        tuple(changed[rule.id] for rule in rules if rule.id in changed),
+    )
+
+
+def rule_ids(draft: _Draft) -> set[str]:
+    return {rule.id for rule in draft.rules}
 
 
 def lift(
@@ -608,6 +872,11 @@ assert {row.altium for row in TABLE if row.exact} == set(KIND_ORDER) <= set(RULE
 
 __all__ = [
     "ALL_SCOPE",
+    "KEPT_WHEN_READ",
+    "OPEN_MAX",
+    "PAIR_LAYERS",
+    "PAIR_WIDTH_KEYS",
+    "Changed",
     "EVIDENCE",
     "EXACT",
     "KIND_ORDER",

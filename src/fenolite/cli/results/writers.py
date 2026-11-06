@@ -497,6 +497,13 @@ class BuildRoleCopper:
 
 
 @dataclass(frozen=True, kw_only=True)
+class BuildRulesChangedItem:
+    detail: str
+    kind: str
+    selector: str
+
+
+@dataclass(frozen=True, kw_only=True)
 class BuildRulesNotLoweredItem:
     kind: str
     reason: str
@@ -512,6 +519,7 @@ class BuildRulesWrittenItem:
 
 @dataclass(frozen=True, kw_only=True)
 class BuildRules:
+    changed: list[BuildRulesChangedItem] = field(metadata={"optional": True})
     not_lowered: list[BuildRulesNotLoweredItem]
     written: list[BuildRulesWrittenItem]
 

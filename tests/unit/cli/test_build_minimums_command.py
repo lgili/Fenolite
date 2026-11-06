@@ -92,10 +92,9 @@ def test_altium_target_reports_the_minimums(tmp_path: Path, monkeypatch: pytest.
     issues = env["issues"]
     assert not [i for i in issues if i.get("where") == "design-rules"]  # type: ignore[union-attr]
     found = [i for i in issues if str(i.get("where")).startswith("design-rules/")]  # type: ignore[union-attr]
-    assert {i["code"] for i in found} == {"altium.not-lowered"} and found
     rules = env["result"]["rules"]  # type: ignore[index]
-    assert [i["where"] for i in found] == [f"design-rules/{r['kind']}" for r in rules["not_lowered"]]
-    assert {r["kind"] for r in rules["written"]} | {r["kind"] for r in rules["not_lowered"]} == {
-        "clearance",
-        "track_width",
-    }
+    # since change c0434 a width minimum is written, its missing limits open, and listed as changed
+    assert found == [] and rules["not_lowered"] == []
+    assert {r["kind"] for r in rules["written"]} == {"clearance", "track_width"}
+    assert {c["kind"] for c in rules["changed"]} == {"track_width"}
+    assert all("written open" in c["detail"] for c in rules["changed"])

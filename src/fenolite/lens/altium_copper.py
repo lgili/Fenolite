@@ -892,10 +892,11 @@ def lowered_rules(design: Design) -> rulemap.Lowered:
 
 
 def rules_report(design: Design, *, document: str | None) -> tuple[dict[str, object], list[Issue]]:
-    """The ``rules`` object of the build's summary and one ``altium.not-lowered`` warning per rule of
-    ``design`` that is not written, with ``where`` ``design-rules/<kind>`` (capability altium-build, "Rules
-    in an Altium build"). ``document`` is the PCB document's name, or ``None`` when none is planned: then no
-    rule is written and each one is reported with the reason ``no-document``."""
+    """The ``rules`` object of the build's summary (``written``, ``not_lowered`` and, since change c0434,
+    ``changed``: the rules written in another form, when there is one) and one ``altium.not-lowered``
+    warning per rule of ``design`` that is not written, with ``where`` ``design-rules/<kind>`` (capability
+    altium-build, "Rules in an Altium build"). ``document`` is the PCB document's name, or ``None`` when
+    none is planned: then no rule is written and each one is reported with the reason ``no-document``."""
     lowered = lowered_rules(design)
     written = [
         {"kind": rule.kind, "selector": rulemap.rule_selector(rule), "rule": record.name}
@@ -924,7 +925,14 @@ def rules_report(design: Design, *, document: str | None) -> tuple[dict[str, obj
         {"kind": kind, "selector": selector, "reason": reason}
         for _name, kind, selector, reason, _detail in refused
     ]
-    return {"written": written, "not_lowered": not_lowered}, issues
+    changed = [  # written in another form (change c0434): an open limit, a hole of a hole rule, a kind
+        {"kind": item.kind, "selector": item.selector, "detail": item.detail}
+        for item in (lowered.changed if document is not None else ())
+    ]
+    report: dict[str, object] = {"written": written, "not_lowered": not_lowered}
+    if changed:  # the key is left out when no rule is changed, as before change c0434
+        report["changed"] = changed
+    return report, issues
 
 
 def outline_corner(board: Board | None) -> Point:

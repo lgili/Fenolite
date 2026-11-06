@@ -2088,6 +2088,12 @@
     "BuildRules": {
       "type": "object",
       "properties": {
+        "changed": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BuildRulesChangedItem"
+          }
+        },
         "not_lowered": {
           "type": "array",
           "items": {
@@ -2105,6 +2111,26 @@
       "required": [
         "not_lowered",
         "written"
+      ]
+    },
+    "BuildRulesChangedItem": {
+      "type": "object",
+      "properties": {
+        "detail": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "selector": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "detail",
+        "kind",
+        "selector"
       ]
     },
     "BuildRulesNotLoweredItem": {
