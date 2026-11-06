@@ -60,10 +60,10 @@ def read_back(
 ) -> tuple[list[tuple[str, str, int, str, str]], list[Rule]]:
     """The rule records of the built document as (kind, name, priority, scope1, scope2), and the neutral
     rules they map to; every record must map but the plane rules of a document with a plane (change c0389),
-    which the model has no counterpart of."""
+    which the internal planes' part reads (change c0462)."""
     document = read_pcbdoc(output.files[name], file=name)
     mapping = map_rules([r.fields for r in document.rules], origin=name)
-    assert all(u.kind in PLANE_KINDS and u.reason == "no-counterpart" for u in mapping.unmapped), (
+    assert all(u.kind in PLANE_KINDS and u.reason == "read-elsewhere" for u in mapping.unmapped), (
         mapping.unmapped
     )
     rules = [r for r in document.rules if r.rule_kind not in PLANE_KINDS]

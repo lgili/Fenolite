@@ -215,7 +215,9 @@ WRITTEN_KINDS = frozenset(
 """The Altium kinds the writer rebuilds from neutral rules: those of ``rulemap.KIND_ORDER``, named here so
 that the import, which may not import the writer, tells which records to keep (change c0424; a test holds
 the two equal)."""
-NET_SCOPE_FREE = frozenset({"SilkToSilkClearance", "ComponentClearance", "DiffPairsRouting", "RoutingLayers"})
+NET_SCOPE_FREE = frozenset(
+    {"SilkToSilkClearance", "ComponentClearance", "DiffPairsRouting", "RoutingLayers", "MatchedLengths"}
+)
 """The kinds of change c0424 that map with either value of ``NET_SCOPES``: silkscreen and component
 bodies hold no net, a pair rule selects pairs, and a routing layer rule limits one track
 (``H-A-RD-PRJ-NETSCOPE-ONE``, ``INFERRED``)."""
@@ -249,8 +251,8 @@ RULE_KIND_MAP: dict[str, KindMap] = {
         (NeutralLimits("track_width", "MINLIMIT", "PREFEREDWIDTH", "MAXLIMIT"),),
         "AnyNet",
         (
-            Condition("CHECKCONNECTEDCOPPER", ("FALSE",)),
-            Condition("IMPEDANCEPROFILEDRIVEN", ("FALSE", "TRUE")),
+            Condition("CHECKCONNECTEDCOPPER", ("FALSE",), read_only=True),
+            Condition("IMPEDANCEPROFILEDRIVEN", ("FALSE", "TRUE"), read_only=True),
             Condition("IMPEDANCEPROFILEID", read_only=True),
             Condition("IMPEDANCEPROFILEVALUE", read_only=True),
             Condition("MINIMP", read_only=True),
@@ -267,7 +269,7 @@ RULE_KIND_MAP: dict[str, KindMap] = {
         "AnyNet",
         (
             Condition("VIASTYLE", ("Through Hole",), required=True),
-            Condition("USEVIATEMPLATES", ("FALSE", "TRUE")),
+            Condition("USEVIATEMPLATES", ("FALSE", "TRUE"), read_only=True),
         ),
         patterns=(r"VIATEMPLATE(?:GUID|NAME)#[1-9][0-9]*",),
     ),
@@ -320,12 +322,67 @@ RULE_KIND_MAP: dict[str, KindMap] = {
         layer_values=(("GAP", "diff_pair_gap"),),
     ),
     "RoutingLayers": KindMap((), "AnyNet", patterns=(r"[A-Z][A-Z0-9 ]*_V5",)),
+    "MatchedLengths": KindMap(
+        (),
+        "DifferentNets",
+        (
+            Condition("TOLERANCE", required=True),
+            Condition("CHECKNETSINDIFFPAIR", ("FALSE", "TRUE"), required=True),
+            Condition("CHECKDIFFPAIRVSDIFFPAIR", ("FALSE", "TRUE"), required=True),
+            Condition("CHECKXSIGNALS", ("FALSE", "TRUE"), required=True),
+            Condition("CHECKOTHERS", ("FALSE", "TRUE"), required=True),
+            Condition("USEDELAYUNITS", ("FALSE", "TRUE")),
+            Condition("DELAYTOLERANCE", read_only=True),
+        ),
+    ),
 }
 """The closed table of the kinds that map (``rule-file.md``, "Rule kinds that map";
 ``H-A-RD-PRJ-RULE-MAP``; the last three kinds are those of change c0084, ``H-A-RULE-KINDS``). It holds
 every Altium kind of an ``exact`` row of ``rulemap.TABLE``. The keys of Clearance after
 ``IGNOREPADTOPADCLEARANCEINFOOTPRINT`` and its uniform matrix are those of change c0125
 (``H-A-RULE-CLEARANCE-FORMS``); the writer writes none of them."""
+PLANES = "the internal planes: a conversion to KiCad counts each plane lost with its rules (c0461)"
+READ_KINDS: dict[str, str] = {
+    "PlaneClearance": PLANES,
+    "PlaneConnect": PLANES,
+    "PolygonConnect": "`connectstyle`: each zone and pad takes the style of the record governing it (c0409)",
+    "SolderMaskExpansion": (
+        "`convert.openings`: the mask margin of each pad and via, and `Board.mask_margin` (c0440, c0445)"
+    ),
+    "PasteMaskExpansion": "`convert.openings`: the paste margin of each pad (c0440)",
+}
+"""Kinds that another part of the backend reads (``rule-file.md``, "Rule kinds and their reading"; change
+c0462, design D6): their records give no neutral rule and are reported with the reason ``read-elsewhere``."""
+CHECKED_KINDS: dict[str, str] = {
+    "ShortCircuit": "`copper.short`, and KiCad's shorting items",
+    "UnRoutedNet": "KiCad's unconnected items",
+    "NetAntennae": "KiCad's dangling tracks",
+    "UnpouredPolygon": "`zone.unfilled`",
+}
+"""Kinds whose check ``fenolite check`` performs by itself: their records are reported with the reason
+``checked``, and a record that relaxes the check gives the warning ``altium.rules.check-relaxed``."""
+CARRIED_KINDS: dict[str, str] = {
+    "AcuteAngle": "a minimum angle of track corners: the model holds no rule of corner angles",
+    "AssemblyTestPointUsage": "test point usage for assembly: no copper geometry",
+    "AssemblyTestpoint": "test point style for assembly: no copper geometry",
+    "ComponentOrientations": "allowed component rotations: no copper geometry",
+    "FabricationTestPointUsage": "test point usage for fabrication: no copper geometry",
+    "FabricationTestpoint": "test point style for fabrication: no copper geometry",
+    "FanoutControl": "guidance of the fanout router: no check",
+    "Height": "a component height range: no copper geometry",
+    "LayerPairs": "the drill pairs vias must use: the model holds no rule of drill pairs",
+    "MinimumSolderMaskSliver": "a minimum solder mask web: no copper geometry",
+    "RoutingCorners": "guidance of the router's corners: no check",
+    "RoutingPriority": "the router's order of nets: no check",
+    "RoutingTopology": "the router's order of connections: no check",
+    "SMDToCorner": "a distance from a surface pad to a track corner: the model holds no rule of it",
+    "SMDToPlane": "a distance from a surface pad to a plane connection: the model holds no rule of it",
+    "SilkToBoardRegionClearance": "a silkscreen to board region clearance: no copper geometry",
+    "SilkToSolderMaskClearance": "a silkscreen to solder mask clearance: no copper geometry",
+    "ViasUnderSMD": "whether vias may sit in surface pads: the model holds no rule of it",
+}
+"""Kinds that are carried only (change c0434), each with the reason no neutral rule takes it; reported with
+the reason ``no-counterpart``."""
 PENDING_KINDS: dict[str, RuleKind] = {}
 """Kinds with a neutral counterpart but no permitted source for their keys: reported apart. Empty since
 change c0084, which found the keys of ``BoardOutlineClearance`` in the public corpus."""
@@ -334,6 +391,8 @@ UnmappedReason = Literal[
     "summary-form",
     "malformed",
     "no-counterpart",
+    "read-elsewhere",
+    "checked",
     "no-verified-keys",
     "disabled",
     "net-scope",
@@ -343,6 +402,7 @@ UnmappedReason = Literal[
     "impedance-profile",
     "template",
     "matrix-kind",
+    "delay-units",
     "scope",
     "no-layer",
 ]
@@ -350,6 +410,8 @@ UNMAPPED_REASONS: tuple[UnmappedReason, ...] = (
     "summary-form",
     "malformed",
     "no-counterpart",
+    "read-elsewhere",
+    "checked",
     "no-verified-keys",
     "disabled",
     "net-scope",
@@ -359,6 +421,7 @@ UNMAPPED_REASONS: tuple[UnmappedReason, ...] = (
     "impedance-profile",
     "template",
     "matrix-kind",
+    "delay-units",
     "scope",
     "no-layer",
 )
@@ -763,6 +826,54 @@ def _templates(fields: Sequence[Field]) -> None:
     )
 
 
+MATCHED_GROUPS = ("CHECKNETSINDIFFPAIR", "CHECKDIFFPAIRVSDIFFPAIR", "CHECKXSIGNALS", "CHECKOTHERS")
+"""The keys of the groups a Matched Lengths record compares, in the order of the record."""
+
+
+def _matched_lengths(fields: Sequence[Field]) -> list[tuple[NeutralLimits, tuple[Nm | None, ...]]]:
+    """The neutral rule of a Matched Lengths record (``rule-file.md``, "Matched Lengths"; change c0462,
+    design D6). A net passes when its length lies between the longest length less the tolerance and the
+    longest (S-2218), which is ``skew`` with the tolerance as its maximum. The record compares the two nets
+    of each differential pair (``CHECKNETSINDIFFPAIR``: ``diff_pair_skew``) or the nets of its scope
+    (``CHECKOTHERS``: ``skew``); a record that compares pairs with pairs or xSignals, or more than one group,
+    says what no one neutral rule says (``keys``). With ``USEDELAYUNITS=TRUE`` the tolerance is a delay,
+    ``DELAYTOLERANCE``, which a length rule does not hold (``delay-units``)."""
+    if _get(fields, "USEDELAYUNITS") == "TRUE":
+        raise _Refusal(
+            "delay-units",
+            f"USEDELAYUNITS=TRUE: the tolerance is the delay DELAYTOLERANCE={_get(fields, 'DELAYTOLERANCE')}"
+            ", and a length rule holds no delay; the record holds no propagation speed to convert it",
+        )
+    text = _get(fields, "TOLERANCE")
+    tolerance = parse_length(text or "")
+    if tolerance is None:
+        raise _Refusal("value", f"TOLERANCE={text} is not a length (a decimal number and mil or mm)")
+    checked = [key for key in MATCHED_GROUPS if _get(fields, key) == "TRUE"]
+    if checked == ["CHECKNETSINDIFFPAIR"]:
+        return [(NeutralLimits("diff_pair_skew", None, None, "TOLERANCE"), (None, None, tolerance))]
+    if checked == ["CHECKOTHERS"]:
+        return [(NeutralLimits("skew", None, None, "TOLERANCE"), (None, None, tolerance))]
+    raise _Refusal(
+        "keys",
+        f"the record compares {', '.join(checked) or 'no group'}: one neutral rule compares the nets of each "
+        "differential pair (diff_pair_skew) or the nets of its scope (skew), not pairs with pairs, xSignals "
+        "or several groups at once",
+    )
+
+
+def _relaxed(fields: Sequence[Field], kind: str) -> str:
+    """What a record of ``CHECKED_KINDS`` relaxes of the check Fenolite performs, or ``""``: a Short-Circuit
+    that allows the short (S-2249), a Net Antennae with a tolerance above zero (S-2217)."""
+    if kind == "ShortCircuit" and _get(fields, "ALLOWED") == "TRUE":
+        return "ALLOWED=TRUE allows the nets of its scopes to short"
+    if kind == "NetAntennae":
+        text = _get(fields, "NETANTENNAETOLERANCE")
+        length = parse_length(text or "")
+        if length is not None and length > 0:
+            return f"NETANTENNAETOLERANCE={text} allows open stubs up to that length"
+    return ""
+
+
 def _and(selector: Selector, leaf: Selector) -> Selector:
     """``selector`` narrowed by ``leaf``: ``leaf`` alone when ``selector`` is ``all``."""
     return leaf if selector.op == "all" else Selector("and", items=(selector, leaf))
@@ -779,12 +890,26 @@ def _map_one(
     kind, name, priority = _header(fields)
     table = RULE_KIND_MAP.get(kind)
     if table is None:
+        if kind in READ_KINDS:
+            raise _Refusal("read-elsewhere", f"{kind} is read by {READ_KINDS[kind]}")
+        if kind in CHECKED_KINDS:
+            relaxed = _relaxed(fields, kind) if _get(fields, "ENABLED") == "TRUE" else ""
+            if relaxed:
+                notes.append(
+                    text_issue(
+                        "altium.rules.check-relaxed",
+                        f"the rule {name!r} of kind {kind} relaxes a check Fenolite performs: {relaxed}",
+                        f"{origin}#{index}",
+                    )
+                )
+            raise _Refusal("checked", f"fenolite check performs {kind} by itself: {CHECKED_KINDS[kind]}")
         if kind in PENDING_KINDS:
             raise _Refusal(
                 "no-verified-keys",
                 f"the model has {PENDING_KINDS[kind]}, but no permitted source gives the keys of {kind}",
             )
-        raise _Refusal("no-counterpart", f"the model has no counterpart of {kind}")
+        why = f": {CARRIED_KINDS[kind]}" if kind in CARRIED_KINDS else ""
+        raise _Refusal("no-counterpart", f"the model has no counterpart of {kind}{why}")
     enabled = _get(fields, "ENABLED")
     if enabled != "TRUE":
         raise _Refusal("disabled", f"ENABLED={enabled}: a disabled rule is skipped and the next one applies")
@@ -799,8 +924,10 @@ def _map_one(
     groups = _limits(fields, kind, table)
     per_layer, absent = _layer_values(fields, table, groups, layers)
     _templates(fields)
+    if kind == "MatchedLengths":
+        groups = _matched_lengths(fields)
     selector_a, selector_b, on_layers = _scopes(fields, table, layers, for_kind(document, kind))
-    if table.pair_scope:
+    if table.pair_scope or any(limits.kind == "diff_pair_skew" for limits, _values in groups):
         selector_a = _pairs(selector_a)
     if kind == "RoutingLayers":
         groups, on_layers = _routing_layers(fields, layers)
@@ -969,12 +1096,13 @@ def map_rules(
     for index, fields in enumerate(records):
         kind = _get(fields, "RULEKIND") or _get(fields, "RuleKind") or ""
         name = _get(fields, "NAME") or _get(fields, "RuleName") or ""
+        notes: list[Issue] = []
         try:
             if summary:
                 raise _Refusal("summary-form", "the value has no unit")
-            notes: list[Issue] = []
             mapped = _map_one(fields, index, origin, layers, notes, document)
         except _Refusal as refusal:
+            issues += notes  # a warning of a refused record (``altium.rules.check-relaxed``)
             unmapped.append(Unmapped(index, kind, name, refusal.reason, refusal.detail))
             issues.append(
                 text_issue(
@@ -1000,15 +1128,19 @@ def map_rules(
 
 
 __all__ = [
+    "CARRIED_KINDS",
     "CELL_PAIR",
+    "CHECKED_KINDS",
     "HEADER_KEYS",
     "ITEM_KINDS",
     "LAYER_PAIR",
     "LAYER_VALUE_KEY",
+    "MATCHED_GROUPS",
     "MATRIX_KINDS",
     "MATRIX_UNIT",
     "NOT_APPLYING",
     "PENDING_KINDS",
+    "READ_KINDS",
     "RULE_KIND_MAP",
     "UNJUDGED_PAIR",
     "UNMAPPED_REASONS",

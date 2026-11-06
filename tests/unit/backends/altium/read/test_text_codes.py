@@ -67,6 +67,8 @@ def _every_issue(tmp_path: Path) -> list[Issue]:
     width = [*header.items(), ("MINLIMIT", "1mil"), ("MIDLAYER5_MINWIDTH", "2mil")]
     top = CopperLayers((CopperLayer("Top Layer", "F.Cu", False, 1),))
     issues += map_rules([width], origin="o", layers=top).issues  # altium.rules.layer-absent
+    short = [*(header | {"RULEKIND": "ShortCircuit"}).items(), ("ALLOWED", "TRUE")]
+    issues += map_rules([short], origin="o").issues  # altium.rules.check-relaxed
     issues += read_annotation(b"[S]\nVersion=1\n").issues
     issues += read_stackup(b"|STACKUPVERSION=1|LAYER_V7_0COPTHICK=x|LAYER_V8_0COPTHICK=y").issues
     (tmp_path / "bad.RUL").write_bytes(b"hello")

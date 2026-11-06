@@ -104,7 +104,7 @@ def test_scope_outside_the_grammar_and_kinds_without_a_counterpart() -> None:
     assert [rule.name for rule in found.rules] == ["D"]
     assert [(i.code, i.message) for i in issues] == [
         ("altium.import.rule-unmapped", "2 rule(s) of kind Clearance are not mapped (disabled 1, scope 1)"),
-        ("altium.import.rule-unmapped", "1 rule(s) of kind PlaneClearance are not mapped (no-counterpart 1)"),
+        ("altium.import.rule-unmapped", "1 rule(s) of kind PlaneClearance are not mapped (read-elsewhere 1)"),
     ]
 
 

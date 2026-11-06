@@ -147,6 +147,82 @@ and no permitted source says whether the check tests those sizes (with a toleran
 record's own limits, or nothing. Neither reading is taken until a measurement decides it. The template keys
 of a record without `USEVIATEMPLATES=TRUE` are allowed and unused: its own limits are the rule.
 
+## Rule kinds and their reading
+
+Change c0462 (design D6). The table is closed: `tests/corpus/test_altium_rule_kinds_c0462.py` fails when a
+rule kind of a public Altium row is not in it, and `rules.RULE_KIND_MAP`, `rules.READ_KINDS`,
+`rules.CHECKED_KINDS` and `rules.CARRIED_KINDS` hold exactly its rows. A record of a kind outside every
+table is reported with `no-counterpart`.
+
+- **neutral**: the kind maps onto the neutral rules named ("Rule kinds that map").
+- **read**: another part of the backend reads the record (named); the mapper reports it with
+  `read-elsewhere`.
+- **checked**: `fenolite check` performs the check by itself (the finding named); the mapper reports the
+  record with `checked`. A record that relaxes the check gives the warning `altium.rules.check-relaxed`: a
+  Short-Circuit with `ALLOWED=TRUE` (S-2249), a Net Antennae with `NETANTENNAETOLERANCE` above zero
+  (S-2217).
+- **carried**: no neutral rule takes the kind; the record is carried (change c0434) and reported with
+  `no-counterpart`, with the reason named.
+
+| RULEKIND | reading | rules, part or reason |
+|---|---|---|
+| `AcuteAngle` | carried | a minimum angle of track corners: the model holds no rule of corner angles |
+| `AssemblyTestPointUsage` | carried | test point usage for assembly: no copper geometry |
+| `AssemblyTestpoint` | carried | test point style for assembly: no copper geometry |
+| `BoardOutlineClearance` | neutral | `edge_clearance` |
+| `Clearance` | neutral | `clearance` |
+| `ComponentClearance` | neutral | `courtyard_clearance` |
+| `ComponentOrientations` | carried | allowed component rotations: no copper geometry |
+| `DiffPairsRouting` | neutral | `diff_pair_gap`, `diff_pair_uncoupled` |
+| `FabricationTestPointUsage` | carried | test point usage for fabrication: no copper geometry |
+| `FabricationTestpoint` | carried | test point style for fabrication: no copper geometry |
+| `FanoutControl` | carried | guidance of the fanout router: no check |
+| `Height` | carried | a component height range: no copper geometry |
+| `HoleSize` | neutral | `hole_size` |
+| `HoleToHoleClearance` | neutral | `hole_to_hole` |
+| `LayerPairs` | carried | the drill pairs vias must use: the model holds no rule of drill pairs |
+| `MatchedLengths` | neutral | `skew` or `diff_pair_skew` ("Matched Lengths") |
+| `MinimumAnnularRing` | neutral | `annular_width` |
+| `MinimumSolderMaskSliver` | carried | a minimum solder mask web: no copper geometry |
+| `NetAntennae` | checked | KiCad's dangling tracks |
+| `PasteMaskExpansion` | read | `convert.openings`: the paste margin of each pad (c0440) |
+| `PlaneClearance` | read | the internal planes: a conversion to KiCad counts each plane lost with its rules (c0461) |
+| `PlaneConnect` | read | the internal planes: a conversion to KiCad counts each plane lost with its rules (c0461) |
+| `PolygonConnect` | read | `connectstyle`: each zone and pad takes the style of the record governing it (c0409) |
+| `RoutingCorners` | carried | guidance of the router's corners: no check |
+| `RoutingLayers` | neutral | `no_tracks` on the layers its keys close |
+| `RoutingPriority` | carried | the router's order of nets: no check |
+| `RoutingTopology` | carried | the router's order of connections: no check |
+| `RoutingVias` | neutral | `via_diameter`, `via_drill` |
+| `SMDToCorner` | carried | a distance from a surface pad to a track corner: the model holds no rule of it |
+| `SMDToPlane` | carried | a distance from a surface pad to a plane connection: the model holds no rule of it |
+| `ShortCircuit` | checked | `copper.short`, and KiCad's shorting items |
+| `SilkToBoardRegionClearance` | carried | a silkscreen to board region clearance: no copper geometry |
+| `SilkToSilkClearance` | neutral | `silk_clearance` |
+| `SilkToSolderMaskClearance` | carried | a silkscreen to solder mask clearance: no copper geometry |
+| `SolderMaskExpansion` | read | `convert.openings`: the mask margin of each pad and via, and `Board.mask_margin` (c0440, c0445) |
+| `UnRoutedNet` | checked | KiCad's unconnected items |
+| `UnpouredPolygon` | checked | `zone.unfilled` |
+| `ViasUnderSMD` | carried | whether vias may sit in surface pads: the model holds no rule of it |
+| `Width` | neutral | `track_width` |
+
+## Matched Lengths
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| A net of the scope passes when its length lies between the longest net's length less the tolerance and the longest length; the options group the matched lengths, match within a differential pair, and use delay units; a target length comes only from a source target of an xSignal scope | S-2218 | INFERRED | H-A-RULE-MATCHED |
+| A record holds `TOLERANCE` (a length), `CHECKNETSINDIFFPAIR`, `CHECKDIFFPAIRVSDIFFPAIR`, `CHECKXSIGNALS`, `CHECKOTHERS` (`TRUE` or `FALSE`), `USEDELAYUNITS` and `DELAYTOLERANCE` (a number, the delay); all 15 public records hold `USEDELAYUNITS=TRUE` and no target length | S-2219 | INFERRED | H-A-RULE-MATCHED |
+
+The reading (`rules._matched_lengths`):
+
+- `USEDELAYUNITS=TRUE`: the tolerance is the delay `DELAYTOLERANCE`; a length rule holds no delay and the
+  record holds no propagation speed, so the record is refused with `delay-units`.
+- Otherwise `TOLERANCE` is the maximum of one rule: `diff_pair_skew` on the scope's differential pairs when
+  only `CHECKNETSINDIFFPAIR` is `TRUE`, `skew` on the scope's nets when only `CHECKOTHERS` is `TRUE`
+  (neutral `skew` compares each net with the longest of the nets it selects). Any other set of groups
+  (pairs against pairs, xSignals, several groups at once) is refused with `keys`.
+- No record gives `length`: no public record holds a target length.
+
 ## Rule kinds seen
 
 Every rule kind that the rule files of the corpus hold (`docs/evidence/altium-project-read.md`), with the
@@ -171,7 +247,7 @@ lowered").
 | `HoleSize` | export (1) | S-0297 | yes: `hole_size` |
 | `HoleToHoleClearance` | export (1) | S-0297 | yes: `hole_to_hole` |
 | `LayerPairs` | export (1) | S-0297 | no |
-| `MatchedLengths` | export (1) | S-0297 | no |
+| `MatchedLengths` | export (1) | S-0297 | yes: `skew` or `diff_pair_skew` (change c0462) |
 | `MinimumAnnularRing` | PCB documents (4 in 3 documents) | S-0174, S-0199, S-0200 | yes: `annular_width` |
 | `MinimumSolderMaskSliver` | export (4) | S-0297 | no |
 | `NetAntennae` | export (1) | S-0297 | no |
@@ -286,7 +362,9 @@ checked in this order.
 |---|---|
 | `summary-form` | the records come from a summary-form file: its values carry no unit |
 | `malformed` | no `RULEKIND`, no `NAME`, or `PRIORITY` is not a positive integer |
-| `no-counterpart` | the kind is neither in `RULE_KIND_MAP` nor in `PENDING_KINDS` |
+| `no-counterpart` | the kind is in none of `RULE_KIND_MAP`, `PENDING_KINDS`, `READ_KINDS` or `CHECKED_KINDS` ("Rule kinds and their reading") |
+| `read-elsewhere` | the kind is in `READ_KINDS`: another part reads it |
+| `checked` | the kind is in `CHECKED_KINDS`: `fenolite check` performs it |
 | `no-verified-keys` | the kind is in `PENDING_KINDS` (empty since c0084) |
 | `disabled` | `ENABLED` is not `TRUE` |
 | `net-scope` | `NETSCOPE` differs from the table |
@@ -296,6 +374,7 @@ checked in this order.
 | `impedance-profile` | the record takes per-layer values from an impedance profile it does not hold ("Per-layer values") |
 | `template` | the record takes its via sizes from a via template the document does not hold ("Via templates") |
 | `matrix-kind` | a cell of an object matrix names an object kind no neutral kind holds ("Cells of an object matrix") |
+| `delay-units` | a Matched Lengths record gives its tolerance as a delay ("Matched Lengths") |
 | `scope` | a scope is outside the closed grammar and the two are no layer condition that maps, or `SCOPE2EXPRESSION` is not `All` for a unary kind |
 | `no-layer` | the two scopes are a layer condition for a kind of layer the board does not hold: the rule applies to no object ("Layer scopes of Clearance") |
 
@@ -466,11 +545,11 @@ with via template keys 4, BoardOutlineClearance object matrices 3, Clearance sco
 | Clearance with `NETSCOPE=AnyNet` | a neutral clearance holds between different nets; a clearance between objects of one net has no counterpart, so mapping the record would drop half of it |
 | HoleToHoleClearance with `ALLOWSTACKEDMICROVIAS=TRUE` | the neutral rule has no exception for stacked micro-vias |
 | Clearance with `IGNOREPADTOPADCLEARANCEINFOOTPRINT=TRUE`, an object matrix of differing cells | the neutral rule cannot leave out the pads of one footprint or tell the objects apart (change c0125) |
-| Width with per-layer widths or impedance keys (`FAVIMP`, `MAXIMP`, `<LAYER>_MINWIDTH`) | the neutral rule holds one width per rule, by selector, and no impedance profile |
-| RoutingVias with via template keys | no neutral form of a via template |
+| Width with per-layer widths or impedance keys (`FAVIMP`, `MAXIMP`, `<LAYER>_MINWIDTH`) | read since change c0462 ("Per-layer values"); a profile-driven record without every layer stays `impedance-profile` |
+| RoutingVias with via template keys | since change c0462 the keys alone are unused; template mode stays `template` ("Via templates") |
 | PlaneConnect, PolygonConnect | no neutral rule; the board keeps Polygon Connect Style records (change c0215) |
 | SolderMaskExpansion, PasteMaskExpansion | no neutral rule; the pad's expansion modes are `INFERRED` (`pcb-read.md`, `PadRecord`), so a pad following the rule cannot be told apart |
-| FanoutControl, ShortCircuit, UnRoutedNet, RoutingTopology, RoutingPriority, RoutingLayers, RoutingCorners, DiffPairsRouting, MatchedLengths, test point kinds, silk and mask sliver kinds, Height, LayerPairs, NetAntennae, UnpouredPolygon, ComponentClearance, PlaneClearance | no neutral rule kind holds them (`no-counterpart`) |
+| FanoutControl, ShortCircuit, UnRoutedNet, RoutingTopology, RoutingPriority, RoutingLayers, RoutingCorners, DiffPairsRouting, MatchedLengths, test point kinds, silk and mask sliver kinds, Height, LayerPairs, NetAntennae, UnpouredPolygon, ComponentClearance, PlaneClearance | no neutral rule kind holds them (`no-counterpart`); since change c0462 each kind's reading is in "Rule kinds and their reading" |
 
 ## Clearance forms that map
 

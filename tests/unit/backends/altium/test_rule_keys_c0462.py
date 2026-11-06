@@ -10,6 +10,7 @@ from collections.abc import Sequence
 from fenolite.backends.altium.adapter.rules import kept_indexes
 from fenolite.backends.altium.read.rules import (
     HEADER_KEYS,
+    MATCHED_GROUPS,
     CopperLayer,
     CopperLayers,
     Field,
@@ -267,3 +268,73 @@ def test_template_keys_without_template_mode_are_unused() -> None:
 def test_template_key_of_another_form_is_refused() -> None:
     (refused,) = mapped(record("RoutingVias", *VIA, ("VIATEMPLATESIZE#1", "16mil"))).unmapped
     assert refused.reason == "keys"
+
+
+# --- 4.4 Matched Lengths and checks Fenolite performs ------------------------------------------------
+
+
+def matched(*groups: str, delay: str = "FALSE", **header: str) -> list[Field]:
+    flags = [(key, "TRUE" if key in groups else "FALSE") for key in MATCHED_GROUPS]
+    keys = (("TOLERANCE", "2mm"), *flags, ("USEDELAYUNITS", delay), ("DELAYTOLERANCE", "0.500000"))
+    return record("MatchedLengths", *keys, NETSCOPE="DifferentNets", **header)
+
+
+def test_matched_lengths_within_pairs_is_a_pair_skew() -> None:
+    (rule,) = mapped(matched("CHECKNETSINDIFFPAIR", SCOPE1EXPRESSION="InNetClass('USB')")).ruleset.rules
+    assert (rule.kind, limits(rule)) == ("diff_pair_skew", (None, None, 2 * MM))
+    assert rule.selector_a == Selector("and", items=(Selector("diff_pair", "*"), Selector("netclass", "USB")))
+
+
+def test_matched_lengths_of_the_scope_is_a_skew() -> None:
+    (rule,) = mapped(matched("CHECKOTHERS", SCOPE1EXPRESSION="InNetClass('DDR')")).ruleset.rules
+    assert (rule.kind, rule.selector_a, limits(rule)) == (
+        "skew",
+        Selector("netclass", "DDR"),
+        (None, None, 2 * MM),
+    )
+
+
+def test_matched_lengths_in_delay_units_is_refused() -> None:
+    (refused,) = mapped(matched("CHECKOTHERS", delay="TRUE")).unmapped
+    assert refused.reason == "delay-units" and "DELAYTOLERANCE=0.500000" in refused.detail
+
+
+def test_matched_lengths_of_other_groups_is_refused() -> None:
+    for groups in (
+        ("CHECKXSIGNALS",),
+        ("CHECKDIFFPAIRVSDIFFPAIR",),
+        ("CHECKOTHERS", "CHECKNETSINDIFFPAIR"),
+        (),
+    ):
+        (refused,) = mapped(matched(*groups)).unmapped
+        assert refused.reason == "keys", groups
+
+
+def test_kinds_read_elsewhere_checked_and_carried() -> None:
+    records = [
+        record("PolygonConnect", ("CONNECTSTYLE", "Relief")),
+        record("ShortCircuit", ("ALLOWED", "FALSE")),
+        record("FanoutControl"),
+        record("SomeFutureKind"),
+    ]
+    found = [(u.kind, u.reason) for u in mapped(*records).unmapped]
+    assert found == [
+        ("PolygonConnect", "read-elsewhere"),
+        ("ShortCircuit", "checked"),
+        ("FanoutControl", "no-counterpart"),
+        ("SomeFutureKind", "no-counterpart"),
+    ]
+    assert all(issue.code == "altium.rule.unmapped" for issue in mapped(*records).issues)
+
+
+def test_a_record_that_relaxes_a_check_is_reported() -> None:
+    """Scenario: ``ALLOWED=TRUE`` on Short-Circuit, a tolerance on Net Antennae; a disabled one is silent."""
+    records = [
+        record("ShortCircuit", ("ALLOWED", "TRUE"), SCOPE2EXPRESSION="InNet('B')"),
+        record("NetAntennae", ("NETANTENNAETOLERANCE", "1mil")),
+        record("NetAntennae", ("NETANTENNAETOLERANCE", "0mil"), PRIORITY="2"),
+        record("ShortCircuit", ("ALLOWED", "TRUE"), ENABLED="FALSE", PRIORITY="2"),
+    ]
+    relaxed = [i for i in mapped(*records).issues if i.code == "altium.rules.check-relaxed"]
+    assert [(i.severity, i.where) for i in relaxed] == [("warning", "keys#0"), ("warning", "keys#1")]
+    assert "ALLOWED=TRUE" in relaxed[0].message and "NETANTENNAETOLERANCE=1mil" in relaxed[1].message

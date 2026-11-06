@@ -154,8 +154,8 @@ def test_every_other_kind_is_reported_reasons() -> None:
     mapping = map_rules(records, origin="x.RUL")
     assert mapping.ruleset.rules == () and mapping.sources == ()
     assert [(u.index, u.kind, u.reason) for u in mapping.unmapped] == [
-        (0, "ShortCircuit", "no-counterpart"),
-        (1, "PlaneConnect", "no-counterpart"),
+        (0, "ShortCircuit", "checked"),  # change c0462: fenolite check performs it
+        (1, "PlaneConnect", "read-elsewhere"),
         (2, "BoardOutlineClearance", "net-scope"),  # mapped since c0084; DifferentNets is needed
         (3, "Width", "disabled"),
         (4, "Clearance", "keys"),
@@ -163,7 +163,7 @@ def test_every_other_kind_is_reported_reasons() -> None:
     assert [(i.code, i.severity, i.where) for i in mapping.issues] == [
         ("altium.rule.unmapped", "info", f"x.RUL#{index}") for index in range(5)
     ]
-    assert "ShortCircuit" in mapping.issues[0].message and "no-counterpart" in mapping.issues[0].message
+    assert "ShortCircuit" in mapping.issues[0].message and "(checked)" in mapping.issues[0].message
 
 
 def test_kinds_of_c0084() -> None:
@@ -320,7 +320,7 @@ def test_fixture_export_records() -> None:
     rules = read_rule_file((DATA / "rules_export.RUL").read_bytes())
     mapping = map_rules([r.fields for r in rules.records], origin="rules_export.RUL")
     assert [r.kind for r in mapping.ruleset.rules] == ["clearance", "track_width"]
-    assert [(u.index, u.reason) for u in mapping.unmapped] == [(2, "no-counterpart")]
+    assert [(u.index, u.reason) for u in mapping.unmapped] == [(2, "checked")]  # a ShortCircuit (c0462)
     assert mapping.ruleset.rules[0].min == 254_000
     assert mapping.ruleset.rules[1].selector_a == Selector("netclass", "Power")
 
