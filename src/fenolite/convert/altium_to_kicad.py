@@ -748,7 +748,7 @@ class RuleSubjects:
 def source_scope(source: SourceProject, design: Design) -> Any:
     """The ``read.scope.ScopeDocument`` of the source's PCB document (change c0462), with which the scopes
     of its rule records are read; ``None`` when the document cannot be read."""
-    return RuleSubjects(design, _pcb_document(source, design)).document
+    return RuleSubjects(design, pcb_document(source, design)).document
 
 
 def pad_rules(design: Design, records: Sequence[Mapping[str, str]], subjects: RuleSubjects) -> dict[str, Any]:
@@ -937,7 +937,7 @@ def prepare(source: SourceProject, name: str, target: int, ledger: Ledger) -> De
     from fenolite.backends.kicad._fpmap import aligned_slot_pad
     from fenolite.convert import openings
 
-    document = _pcb_document(source, source.design)
+    document = pcb_document(source, source.design)
     records = (
         () if document is None else tuple({k: v or "" for k, v in record.fields} for record in document.rules)
     )
