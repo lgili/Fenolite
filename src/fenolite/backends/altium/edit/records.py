@@ -247,6 +247,33 @@ def _region_points(body: bytearray, move: Transform, *, shape_based: bool) -> No
             at += PLAIN_VERTEX
 
 
+def region_outline(raw: bytes, vertices: list[tuple[int, int]], *, shape_based: bool) -> bytes:
+    """The region ``raw`` with no hole and the outline ``vertices`` (document units, no closing vertex):
+    its head (prefix and property text) and the bytes after its rings are kept (change c0452). The plain
+    form holds each vertex as two doubles; the shape-based form as 37 bytes, none round, the first vertex
+    repeated after the last, as ``pcbrecords.region_record`` writes them."""
+    kind, subs = split(raw)
+    if kind != REGION:
+        raise RecordError(f"type {kind} is not a region")
+    body = subs[0]
+    at, stored, size = region_layout(body, shape_based=shape_based)
+    head = bytearray(body[: at - 4])
+    end = at + stored * size
+    (holes,) = struct.unpack_from("<H", body, 14)
+    for _ in range(holes):
+        (n,) = struct.unpack_from("<I", body, end)
+        end += 4 + n * PLAIN_VERTEX
+    struct.pack_into("<H", head, 14, 0)
+    out = bytes(head) + struct.pack("<I", len(vertices))
+    if shape_based:
+        out += b"".join(
+            struct.pack("<B5i2d", 0, x, y, 0, 0, 0, 0.0, 0.0) for x, y in (*vertices, vertices[0])
+        )
+    else:
+        out += b"".join(struct.pack("<2d", float(x), float(y)) for x, y in vertices)
+    return join(kind, [out + body[end:]])
+
+
 def shift(dx: int, dy: int) -> Transform:
     return lambda x, y: (x + dx, y + dy)
 
@@ -329,6 +356,33 @@ def set_property(raw: bytes, changes: Mapping[str, str], *, lead: int = 0) -> by
     return raw[:lead] + struct.pack("<I", (word & ~LENGTH_MASK) | len(payload)) + payload
 
 
+def replace_run(
+    raw: bytes, dropped: Callable[[str], bool], fields: list[tuple[str, str]], *, lead: int = 0
+) -> bytes:
+    """The property block ``raw`` with every key for which ``dropped`` (given the upper-case key) holds
+    taken out and ``fields`` written where the first of them stood, or at the end (change c0452: a
+    polygon's outline keys)."""
+    (word,) = struct.unpack_from("<I", raw, lead)
+    text, nul = property_payload(raw, lead=lead)
+    new = [_encode(key) + b"=" + _encode(value) for key, value in fields]
+    out: list[bytes] = []
+    placed = False
+    for piece in text.split(b"|"):
+        name, sep, _ = piece.partition(b"=")
+        if sep and dropped(name.decode(CODEC).upper()):
+            if not placed:
+                out += new
+                placed = True
+            continue
+        out.append(piece)
+    if not placed:
+        out += new
+    payload = b"|".join(out) + (b"\0" if nul else b"")
+    if len(payload) > LENGTH_MASK:
+        raise RecordError("the property text is longer than its length word holds")
+    return raw[:lead] + struct.pack("<I", (word & ~LENGTH_MASK) | len(payload)) + payload
+
+
 def property_block(fields: Mapping[str, str]) -> bytes:
     """A new property block of ``fields`` (``|KEY=VALUE`` each) and its NUL."""
     text = b"".join(b"|" + _encode(key) + b"=" + _encode(value) for key, value in fields.items()) + b"\0"
@@ -404,6 +458,8 @@ __all__ = [
     "property_payload",
     "quarter_turn",
     "region_keys",
+    "region_outline",
+    "replace_run",
     "set_keys",
     "set_prefix",
     "set_property",

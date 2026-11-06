@@ -254,7 +254,21 @@ def _pcb_cases(source: Path) -> dict[str, tuple[str, Any]]:
                                                            at=(_nm(32), _nm(22)))),
         "remap_layer": ("J14", lambda s: s.remap_layer("Mechanical 13", "Mechanical 15")),
         "set_rule": ("J15", lambda s: s.set_rule("Clearance", "GAP", "9.8425mil", old="7.874mil")),
+        "shapes": ("J23", lambda s: s.move(edit.Region("Mechanical 13", (_nm(30), _nm(24))), _nm(1), 0)
+                   .move(edit.Polygon("VIN"), _nm(1), 0)),
+        "create": ("J23", lambda s: s.add_arc((_nm(30), _nm(20)), _nm(2), 0, 90, width=_nm(0.2),
+                                              layer="Top Overlay")
+                   .add_region([(_nm(20), _nm(20)), (_nm(24), _nm(20)), (_nm(24), _nm(23)),
+                                (_nm(20), _nm(23))], layer="Mechanical 13")
+                   .add_polygon("AUX", [(_nm(30), _nm(10)), (_nm(38), _nm(10)), (_nm(38), _nm(4)),
+                                        (_nm(30), _nm(4))], layer="Top Layer", net="MID")),
+        "set_outline": ("J23", lambda s: s.set_outline(edit.Polygon("VIN"), VIN_NEW, old=VIN_OLD)),
     }  # fmt: skip
+
+
+VIN_OLD = [(_nm(2), _nm(28)), (_nm(8), _nm(28)), (_nm(8), _nm(22)), (_nm(2), _nm(22))]
+"""The kit's ``VIN`` polygon in the document's frame, and the outline case J23 gives it."""
+VIN_NEW = [(_nm(2), _nm(28)), (_nm(10), _nm(28)), (_nm(10), _nm(21)), (_nm(2), _nm(21))]
 
 
 def _sch_cases() -> dict[str, tuple[str, Any]]:

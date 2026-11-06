@@ -266,7 +266,7 @@ def test_part_j_names_the_cases_with_their_expected_outcomes() -> None:
         assert name in part, name
     register = _page("hypotheses.md")
     rows = re.findall(r"^\| (H-A-(?:EDIT|INTEG)-[A-Z]+) \|", register, re.M)
-    assert len(rows) == 21
+    assert len(rows) == 23
     for row in rows:
         assert f"`{row}`" in part, row
         line = next(line for line in register.splitlines() if line.startswith(f"| {row} |"))

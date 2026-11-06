@@ -111,7 +111,8 @@ off):*
 
 23. **J23** Open each PCB document of `written/`, one per operation of the session (`move`, `rotate`,
     `flip`, `set_property`, `delete`, `clone`, `add_component`, `remap_layer`, `set_rule`), each written
-    from `J01-resave.PcbDoc` with the change of the matching case of phase A; save it as
+    from `J01-resave.PcbDoc` with the change of the matching case of phase A, and `shapes`, `create` and
+    `set_outline` with the shapes of `expected-b.md` (`H-A-EDIT-SHAPE`, `H-A-EDIT-CREATE`); save it as
     `<name>-saved.PcbDoc`, close it and open the saved file. Expected: no repair message at either opening;
     the object shows as `expected-b.md` says; Fenolite's read-back of the saved file equals the written file
     outside the records that a resave rewrites (`H-A-RD-RESAVE`).
@@ -144,7 +145,7 @@ each file sent (the kit's own are in `SHA256SUMS`), and one outcome per case, in
 acceptance inventory (date, version, case, file hash, step, expected and observed outcome). J1 and J2 settle
 the observation of `H-A-EDIT-RESAVE`; J3 and J4 of `H-A-EDIT-MOVE`; J5 to J7 of `H-A-EDIT-PROPERTY`; J8 of
 `H-A-EDIT-ROTATE`; J9 of `H-A-EDIT-FLIP`; J10, J11 and J17 of `H-A-EDIT-DELETE`; J12 of `H-A-EDIT-CLONE`;
-J13 of `H-A-EDIT-ADD`; J12 and J13 of `H-A-EDIT-IDS`; J14 of `H-A-EDIT-LAYER`; J15 of `H-A-EDIT-RULE`; J18
+J13 of `H-A-EDIT-ADD`; J12 and J13 of `H-A-EDIT-IDS`; J23 of `H-A-EDIT-SHAPE` and `H-A-EDIT-CREATE`; J14 of `H-A-EDIT-LAYER`; J15 of `H-A-EDIT-RULE`; J18
 to J20 of `H-A-EDIT-SCH`; J21 of `H-A-EDIT-LIBRARY`. J23 to J25 settle `H-A-EDIT-KIT` and decide each
 operation's gate. The integrity rows are observed in phase A and settled in phase B: `H-A-INTEG-SUBPOLY` by
 J16 and J26, `H-A-INTEG-POURINDEX` by J17 and J27, `H-A-INTEG-ID` by J12, J13 and J28,

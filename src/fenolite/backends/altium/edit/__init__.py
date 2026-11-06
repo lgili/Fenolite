@@ -15,7 +15,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from pathlib import Path
 
-from fenolite.backends.altium.edit.ops import Component, Polygon, Region, Text, Track, Via
+from fenolite.backends.altium.edit.ops import Arc, Component, Fill, Polygon, Region, Text, Track, Via
 from fenolite.backends.altium.edit.schematic import SCHEMATIC_GATES, Part, SchematicSession, open_schematic
 from fenolite.backends.altium.edit.session import (
     EVIDENCE,
@@ -44,7 +44,9 @@ __all__ = [
     "OPERATIONS",
     "ROWS",
     "SCHEMATIC_GATES",
+    "Arc",
     "Component",
+    "Fill",
     "Part",
     "Polygon",
     "Receipt",

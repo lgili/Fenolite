@@ -29,6 +29,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from fractions import Fraction
 
+from fenolite.backends.altium.docboard import angle_text, name_codes
 from fenolite.backends.altium.edit import records as rec
 from fenolite.backends.altium.edit.state import PRIMITIVE_STORAGES, SHAPE_BASED, WIDE, State
 from fenolite.backends.altium.libboard import long_id
@@ -41,12 +42,14 @@ from fenolite.backends.altium.pcbrecords import (
 )
 from fenolite.backends.altium.read.pcbprims import (
     ARC,
+    FILL,
     PAD,
     REGION,
     TEXT,
     TRACK,
     VIA,
     ArcRecord,
+    FillRecord,
     PadRecord,
     Primitive,
     RawPrimitive,
@@ -61,12 +64,23 @@ from fenolite.backends.altium.read.pcbprops import PropertyRecord, parse_mil
 TOLERANCE = 2
 """Two coordinates within this many units (1/10 000 mil, 2.54 nm each) are the same: a point given in
 nanometres is rounded to a unit, and the document may hold the next unit."""
+REACH = 787
+"""0.002 mm in units: an item is the nearest record within this distance of what it states (change c0452,
+Decision 2), so a point rounded to the micrometre, as ``fenolite inspect`` shows it, names its record."""
 ID_LETTERS = string.ascii_uppercase
 ID_LENGTH = 8
 """The form of a pad's ``UNIQUEID`` in every document read: eight upper-case letters (``H-A-EDIT-IDS``)."""
 COMPONENT_STORAGES = ("Pads6", "Tracks6", "Arcs6", "Texts6", "Fills6", "Regions6", "ShapeBasedRegions6",
                       "Vias6", "ComponentBodies6", "ShapeBasedComponentBodies6")  # fmt: skip
-KIND_NAMES = {TRACK: "track", VIA: "via", ARC: "arc", PAD: "pad", TEXT: "text", REGION: "region"}
+KIND_NAMES = {
+    TRACK: "track",
+    VIA: "via",
+    ARC: "arc",
+    PAD: "pad",
+    TEXT: "text",
+    REGION: "region",
+    FILL: "fill",
+}
 
 Point = tuple[int, int]
 """A point in nanometres from the board's origin, Y up."""
@@ -93,12 +107,35 @@ def _assert(condition: bool, message: str, where: str = "") -> None:
 
 @dataclass(frozen=True, slots=True)
 class Track:
-    """A track by its two ends (either order) and its net (``None``: no net); ``layer`` narrows it."""
+    """A track by its two ends (either order) and its net (``None``: no net); ``layer`` and ``width``
+    (nanometres) narrow it."""
 
     start: Point
     end: Point
     net: str | None
     layer: str | None = None
+    width: int | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class Arc:
+    """A free arc by its centre, its radius (nanometres) and its net; ``layer`` and ``width`` narrow it."""
+
+    centre: Point
+    radius: int
+    net: str | None
+    layer: str | None = None
+    width: int | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class Fill:
+    """A free fill by two opposite corners of its rectangle (either pair) and its layer."""
+
+    corner: Point
+    opposite: Point
+    layer: str
+    net: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -132,7 +169,7 @@ class Region:
     corner: Point
 
 
-Item = Track | Via | Component | Polygon | Text | Region
+Item = Track | Arc | Fill | Via | Component | Polygon | Text | Region
 
 
 def describe(item: Item) -> str:
@@ -141,6 +178,11 @@ def describe(item: Item) -> str:
 
     if isinstance(item, Track):
         return f"the track {mm(item.start)}–{mm(item.end)} on {item.net or 'no net'}"
+    if isinstance(item, Arc):
+        radius = f"{item.radius / 1e6:g} mm"
+        return f"the arc of centre {mm(item.centre)} and radius {radius} on {item.net or 'no net'}"
+    if isinstance(item, Fill):
+        return f"the fill {mm(item.corner)}–{mm(item.opposite)} on {item.layer}"
     if isinstance(item, Via):
         return f"the via at {mm(item.at)} on {item.net or 'no net'}"
     if isinstance(item, Component):
@@ -201,46 +243,85 @@ class View:
             ]
             _assert(len(found) == 1, f"{len(found)} polygons are named {item.name!r}, not one", "Polygons6")
             return "Polygons6", found[0]
-        storage, test = self._test(item)
-        found = [i for i, p in enumerate(self.state.typed(storage)) if test(p)]
-        _assert(len(found) == 1, f"{len(found)} records match {describe(item)}, not one", f"{storage}/Data")
-        return storage, found[0]
+        storage, distance = self._distance(item)
+        held = [(d, i) for i, p in enumerate(self.state.typed(storage)) if (d := distance(p)) is not None]
+        return storage, _nearest(held, f"{describe(item)}", f"{storage}/Data")
 
-    def _test(self, item: Item) -> tuple[str, Callable[[Primitive], bool]]:
+    def _distance(self, item: Item) -> tuple[str, Callable[[Primitive], float | None]]:
+        """The storage of ``item`` and the distance of a record from what ``item`` states, in units, or
+        ``None`` for a record of another kind, net, layer, width or text."""
         if isinstance(item, Track):
             a, b = self.units(item.start), self.units(item.end)
             layer = None if item.layer is None else self.layer_id(item.layer)
-            net = self.net_index(item.net)
+            net, width = self.net_index(item.net), _width(item.width)
 
-            def track(p: Primitive) -> bool:
+            def track(p: Primitive) -> float | None:
                 if not isinstance(p, TrackRecord) or _net(p.prefix.net) != net:
-                    return False
-                if layer is not None and p.prefix.layer != layer:
-                    return False
+                    return None
+                if (layer is not None and p.prefix.layer != layer) or not _same(p.width, width):
+                    return None
                 ends = ((p.x1, p.y1), (p.x2, p.y2))
-                return (_near(ends[0], a) and _near(ends[1], b)) or (_near(ends[0], b) and _near(ends[1], a))
+                return min(max(_gap(ends[0], a), _gap(ends[1], b)), max(_gap(ends[0], b), _gap(ends[1], a)))
 
             return "Tracks6", track
+        if isinstance(item, Arc):
+            centre, radius = self.units(item.centre), to_units(item.radius)
+            layer = None if item.layer is None else self.layer_id(item.layer)
+            net, width = self.net_index(item.net), _width(item.width)
+
+            def arc(p: Primitive) -> float | None:
+                if not isinstance(p, ArcRecord) or not _free(p) or _net(p.prefix.net) != net:
+                    return None
+                if (layer is not None and p.prefix.layer != layer) or not _same(p.width, width):
+                    return None
+                return max(_gap((p.cx, p.cy), centre), abs(p.radius - radius))
+
+            return "Arcs6", arc
+        if isinstance(item, Fill):
+            box = _corners(self.units(item.corner), self.units(item.opposite))
+            layer, net = self.layer_id(item.layer), self.net_index(item.net)
+
+            def fill(p: Primitive) -> float | None:
+                if not isinstance(p, FillRecord) or not _free(p) or p.prefix.layer != layer:
+                    return None
+                if _net(p.prefix.net) != net:
+                    return None
+                held = _corners((p.x1, p.y1), (p.x2, p.y2))
+                return max(abs(u - v) for u, v in zip(held, box, strict=True))
+
+            return "Fills6", fill
         if isinstance(item, Via):
             at, net = self.units(item.at), self.net_index(item.net)
             return (
                 "Vias6",
-                lambda p: isinstance(p, ViaRecord) and _net(p.prefix.net) == net and _near((p.x, p.y), at),
+                lambda p: (
+                    _gap((p.x, p.y), at) if isinstance(p, ViaRecord) and _net(p.prefix.net) == net else None
+                ),
             )
         if isinstance(item, Text):
             wide = {index: text for index, (_, text) in self.state.wide().items()}
 
-            def text(p: Primitive) -> bool:
+            def text(p: Primitive) -> float | None:
                 if not isinstance(p, TextRecord) or p.prefix.component is not None:
-                    return False
+                    return None
                 shown = wide.get(p.wide_index, p.short_text) if p.wide_index is not None else p.short_text
-                return shown == item.text
+                return 0 if shown == item.text else None
 
             return "Texts6", text
         if isinstance(item, Region):
             layer, corner = self.layer_id(item.layer), self.units(item.corner)
             return "Regions6", lambda p: _free_region(p, layer, corner)
         raise TypeError(f"{type(item).__name__} is not an item")
+
+
+def _nearest(held: list[tuple[float, int]], what: str, where: str) -> int:
+    """The position of the nearest record within ``REACH``; a second one within ``TOLERANCE`` of its
+    distance, or none, refuses (change c0452, Decision 2)."""
+    near = sorted((d, i) for d, i in held if d <= REACH)
+    _assert(bool(near), f"0 records match {what}, not one", where)
+    ties = [i for d, i in near if d - near[0][0] <= TOLERANCE]
+    _assert(len(ties) == 1, f"{len(ties)} records match {what}, not one", where)
+    return ties[0]
 
 
 def _polygon_name(record: PropertyRecord) -> str:
@@ -253,42 +334,64 @@ def _net(index: int | None) -> int:
     return rec.NO_INDEX if index is None else index
 
 
-def _near(a: tuple[float, float], b: tuple[float, float]) -> bool:
-    return abs(a[0] - b[0]) <= TOLERANCE and abs(a[1] - b[1]) <= TOLERANCE
+def _gap(a: tuple[float, float], b: tuple[float, float]) -> float:
+    return max(abs(a[0] - b[0]), abs(a[1] - b[1]))
 
 
-def _free_region(p: Primitive, layer: int, corner: tuple[int, int]) -> bool:
+def _width(width: int | None) -> int | None:
+    return None if width is None else to_units(width)
+
+
+def _same(held: int, stated: int | None) -> bool:
+    return stated is None or abs(held - stated) <= TOLERANCE
+
+
+def _free(p: ArcRecord | FillRecord) -> bool:
+    return p.prefix.polygon is None and p.prefix.component is None
+
+
+def _corners(a: tuple[int, int], b: tuple[int, int]) -> tuple[int, int, int, int]:
+    return min(a[0], b[0]), min(a[1], b[1]), max(a[0], b[0]), max(a[1], b[1])
+
+
+def _free_region(p: Primitive, layer: int, corner: tuple[int, int]) -> float | None:
     if not isinstance(p, RegionRecord) or p.prefix.polygon is not None or p.prefix.component is not None:
-        return False
+        return None
     if p.prefix.layer != layer or not p.outline:
-        return False
-    return _near((min(v.x for v in p.outline), min(v.y for v in p.outline)), corner)
+        return None
+    return _gap((min(v.x for v in p.outline), min(v.y for v in p.outline)), corner)
 
 
-def _twins(state: State, raw: bytes, shape_based_storage: str = "ShapeBasedRegions6") -> list[int]:
-    """The records of ``ShapeBasedRegions6`` that stand for the free region ``raw`` of ``Regions6``: the
-    same layer, the same property text and the same box (phase A, J14: both change together)."""
-    found = state.typed("Regions6")
-    (region,) = [p for p in found if p.raw == raw]
+def _twins(state: State, raw: bytes) -> list[int]:
+    """The record of ``ShapeBasedRegions6`` that stands for the region ``raw`` of ``Regions6`` (phase A,
+    J14: both change together): of those with the same layer, polygon, component and property text, the
+    one whose box is nearest within ``REACH`` (change c0452, Decision 2); none when no record is. Read before
+    ``raw`` changes."""
+    found = [p for p in state.typed("Regions6") if p.raw == raw]
+    _assert(bool(found), "the region is not held by Regions6", "Regions6/Data")
+    region = found[0]
     assert isinstance(region, RegionRecord)
     box = _box(region)
-    out: list[int] = []
-    for position, other in enumerate(state.typed(shape_based_storage)):
+    held: list[tuple[float, int]] = []
+    if not state.has("ShapeBasedRegions6"):
+        return []
+    for position, other in enumerate(state.typed("ShapeBasedRegions6")):
         if (
             isinstance(other, RegionRecord)
             and other.prefix.layer == region.prefix.layer
             and other.prefix.polygon == region.prefix.polygon
             and other.prefix.component == region.prefix.component
             and other.properties.fields == region.properties.fields
-            and _box(other) == box
         ):
-            out.append(position)
-    return out
+            distance = max(abs(u - v) for u, v in zip(_box(other), box, strict=True))
+            if distance <= REACH:
+                held.append((distance, position))
+    return [min(held)[1]] if held else []
 
 
-def _box(region: RegionRecord) -> tuple[int, int, int, int]:
-    xs = [round(v.x) for v in region.outline]
-    ys = [round(v.y) for v in region.outline]
+def _box(region: RegionRecord) -> tuple[float, float, float, float]:
+    xs = [float(v.x) for v in region.outline]
+    ys = [float(v.y) for v in region.outline]
     return min(xs), min(ys), max(xs), max(ys)
 
 
@@ -325,7 +428,8 @@ def _length_text(units: int) -> str:
 
 
 def check_expect(view: View, storage: str, position: int, expect: Mapping[str, object]) -> None:
-    """The stated old values of a track or a via: ``width``, ``diameter`` (nm), ``layer`` (a name)."""
+    """The stated old values of a track, an arc, a fill or a via: ``width``, ``diameter`` (nm), ``rotation``
+    (degrees), ``layer`` (a name)."""
     item = view.state.typed(storage)[position]
     where = f"{storage}/Data#{position}"
     for key, value in expect.items():
@@ -336,6 +440,12 @@ def check_expect(view: View, storage: str, position: int, expect: Mapping[str, o
             _assert(
                 abs(item.width - stated) <= TOLERANCE,
                 f"the width is {_length_text(item.width)}, not the stated {_length_text(stated)}",
+                where,
+            )
+        elif key == "rotation" and isinstance(item, FillRecord):
+            _assert(
+                math.isclose(item.rotation % 360, float(value) % 360, abs_tol=1e-6),  # type: ignore[arg-type]
+                f"the rotation is {item.rotation:g}°, not the stated {value}°",
                 where,
             )
         elif key == "diameter" and isinstance(item, ViaRecord):
@@ -563,16 +673,96 @@ def move(state: State, item: Item, dx: int, dy: int, expect: Mapping[str, object
         state.replace("Components6", position, new)
         move_primitives(state, position, rec.shift(du, dv))
         return
-    _assert(not isinstance(item, Polygon), "a polygon is not moved by a session")
+    if isinstance(item, Polygon):
+        _assert(not expect, "no old value can be stated for a polygon move")
+        _move_polygon(state, position, du, dv)
+        return
     check_expect(view, storage, position, expect)
     raw = state.get(storage)[position]
+    twins = _twins(state, raw) if isinstance(item, Region) else []
     state.replace(storage, position, rec.transform(raw, rec.shift(du, dv)))
-    if isinstance(item, Region):
-        for twin in _twins(state, raw):
-            other = state.get("ShapeBasedRegions6")[twin]
-            state.replace(
-                "ShapeBasedRegions6", twin, rec.transform(other, rec.shift(du, dv), shape_based=True)
+    for twin in twins:
+        other = state.get("ShapeBasedRegions6")[twin]
+        state.replace("ShapeBasedRegions6", twin, rec.transform(other, rec.shift(du, dv), shape_based=True))
+
+
+OUTLINE_KEY = re.compile(r"(KIND|VX|VY|CX|CY|SA|EA|R)(\d+)")
+"""The keys of a polygon's outline in ``Polygons6``, eight per vertex (``docboard._outline``)."""
+
+
+def _outline(record: PropertyRecord) -> list[tuple[int, int, str]]:
+    """The vertices of a polygon's outline in document units with their ``KIND``, the repeated last
+    vertex included."""
+    out: list[tuple[int, int, str]] = []
+    while (x := parse_mil(record.get(f"VX{len(out)}"))) is not None:
+        y = parse_mil(record.get(f"VY{len(out)}"))
+        _assert(y is not None, f"the polygon's vertex {len(out)} holds no VY", "Polygons6")
+        assert y is not None
+        out.append((round(x), round(y), record.get(f"KIND{len(out)}") or "0"))
+    return out
+
+
+def _poured(state: State, index: int) -> dict[str, set[int]]:
+    """The positions of the primitives poured by polygon ``index``, per storage."""
+    out: dict[str, set[int]] = {}
+    for storage in PRIMITIVE_STORAGES:
+        if state.has(storage) and not storage.endswith("ComponentBodies6"):
+            found = {i for i, raw in enumerate(state.get(storage)) if rec.prefix_of(raw)[2] == index}
+            if found:
+                out[storage] = found
+    return out
+
+
+def _move_polygon(state: State, index: int, du: int, dv: int) -> None:
+    """Every vertex of the outline and the centre of every arc vertex moved, and every poured primitive
+    with them (change c0452, Decision 4)."""
+    record = state.properties("Polygons6")[index]
+    changes: dict[str, str] = {}
+    for number, (x, y, kind) in enumerate(_outline(record)):
+        changes[f"VX{number}"], changes[f"VY{number}"] = mil_text(x + du), mil_text(y + dv)
+        cx, cy = parse_mil(record.get(f"CX{number}")), parse_mil(record.get(f"CY{number}"))
+        if kind != "0" and cx is not None and cy is not None:
+            changes[f"CX{number}"], changes[f"CY{number}"] = (
+                mil_text(round(cx) + du),
+                mil_text(round(cy) + dv),
             )
+    state.replace("Polygons6", index, rec.set_property(record.raw, changes))
+    for storage, positions in _poured(state, index).items():
+        for position in positions:
+            raw = state.get(storage)[position]
+            moved = rec.transform(raw, rec.shift(du, dv), shape_based=storage in SHAPE_BASED)
+            state.replace(storage, position, moved)
+
+
+def set_outline(state: State, item: Polygon, outline: list[Point], old: list[Point]) -> None:
+    """The polygon ``item`` with the outline ``outline`` of line vertices in the place of its old one,
+    which ``old`` states vertex by vertex, and without its poured primitives (change c0452, Decision 4)."""
+    view = View(state)
+    _, index = view.find(item)
+    record = state.properties("Polygons6")[index]
+    held = _outline(record)[:-1]
+    where = f"Polygons6/Data#{index}"
+    _assert(len(held) == len(old), f"{item.name} has {len(held)} vertices, not the stated {len(old)}", where)
+    for number, ((x, y, _), point) in enumerate(zip(held, old, strict=True)):
+        _assert(
+            _gap((x, y), view.units(point)) <= REACH,
+            f"vertex {number} of {item.name} is not the stated one",
+            where,
+        )
+    state.replace("Polygons6", index, _with_outline(record.raw, [view.units(p) for p in outline]))
+    for storage, positions in _poured(state, index).items():
+        state.remove(storage, positions)
+
+
+def _with_outline(raw: bytes, vertices: list[tuple[int, int]]) -> bytes:
+    _assert(len(vertices) >= 3, "an outline needs three vertices")
+    zero = angle_text(0)
+    fields: list[tuple[str, str]] = []
+    for number, (x, y) in enumerate((*vertices, vertices[0])):
+        fields += [(f"KIND{number}", "0"), (f"VX{number}", mil_text(x)), (f"VY{number}", mil_text(y)),
+                   (f"CX{number}", "0mil"), (f"CY{number}", "0mil"), (f"SA{number}", zero),
+                   (f"EA{number}", zero), (f"R{number}", "0mil")]  # fmt: skip
+    return rec.replace_run(raw, lambda key: OUTLINE_KEY.fullmatch(key) is not None, fields)
 
 
 def rotate(state: State, item: Component, degrees: float, old_rotation: float) -> None:
@@ -666,11 +856,13 @@ def set_property(state: State, item: Item, key: str, value: object, old: object)
         _expect(key, held, str(old), where)
         state.replace(storage, position, rec.set_property(record.raw, {key: str(value)}))
         return
-    fields = {"width": (TRACK, 29), "diameter": (VIA, 21)}
-    _assert(key in fields, f"{key!r} is not a property a session sets on {describe(item)}", where)
+    fields: dict[tuple[type, str], int] = {(Track, "width"): 29, (Arc, "width"): 41, (Via, "diameter"): 21}
+    offset = fields.get((type(item), key))
+    _assert(offset is not None, f"{key!r} is not a property a session sets on {describe(item)}", where)
+    assert offset is not None
     check_expect(view, storage, position, {key: old})
     raw = state.get(storage)[position]
-    state.replace(storage, position, rec.patch(raw, fields[key][1], "<i", to_units(int(value))))  # type: ignore[arg-type]
+    state.replace(storage, position, rec.patch(raw, offset, "<i", to_units(int(value))))  # type: ignore[arg-type]
 
 
 def _set_wide(
@@ -739,6 +931,105 @@ def clone(state: State, item: Item, changes: Mapping[str, object]) -> None:
             raw = rec.set_wide_index(raw, index)
         raw = rec.set_text_string(raw, shown)
     state.append(storage, raw)
+
+
+KEEPOUT_FLAG = 2
+"""The second flag byte of a keep-out (``pcb-records.md``, "Regions and keep-outs"): no template of a new
+record is one."""
+
+
+def _shape_template(state: State, storage: str, kind: int, layer: int) -> bytes:
+    """The first record of ``kind`` on ``layer`` that is no keep-out and, for a region, a free region of
+    ``KIND=0`` that is no board cut-out: the template of a new shape (change c0452, Decision 5)."""
+    for raw in state.get(storage) if state.has(storage) else []:
+        if raw[0] != kind or rec.prefix_of(raw)[0] != layer or rec.split(raw)[1][0][2] == KEEPOUT_FLAG:
+            continue
+        if kind == REGION:
+            keys = rec.region_keys(raw)
+            free = rec.prefix_of(raw)[2:] == (rec.NO_INDEX, rec.NO_INDEX)
+            if not free or keys.get("KIND", "0") != "0" or keys.get("ISBOARDCUTOUT") == "TRUE":
+                continue
+        return raw
+    raise Refused(
+        "altium.edit.no-template",
+        f"the document holds no {KIND_NAMES.get(kind, str(kind))} on {LAYER_NAMES.get(layer, layer)} to copy",
+        f"{storage}/Data",
+    )
+
+
+def _new_shape(raw: bytes, layer: int, net: int) -> bytes:
+    return rec.set_prefix(raw, layer=layer, net=net, polygon=rec.NO_INDEX, component=rec.NO_INDEX)
+
+
+def add_arc(
+    state: State, centre: Point, radius: int, angles: tuple[float, float], *, width: int, layer: str,
+    net: str | None,
+) -> None:  # fmt: skip
+    """A free arc cloned from an arc on ``layer``: centre, radius, start and end angles (degrees,
+    anticlockwise from the start) and width; no sub-polygon."""
+    view = View(state)
+    at, number = view.units(centre), view.layer_id(layer)
+    _assert(radius > 0 and width > 0, "an arc needs a radius and a width above zero")
+    raw = _new_shape(_shape_template(state, "Arcs6", ARC, number), number, view.net_index(net))
+    raw = rec.patch(raw, 13, "<3i", *at, to_units(radius))
+    raw = rec.patch(raw, 25, "<2d", angles[0] % 360.0, angles[1] % 360.0)
+    raw = rec.patch(raw, 41, "<i", to_units(width))
+    if len(rec.split(raw)[1][0]) >= 47:
+        raw = rec.patch(raw, 45, "<H", 0)
+    state.append("Arcs6", raw)
+
+
+def add_fill(
+    state: State, corner: Point, opposite: Point, *, layer: str, net: str | None, rotation: float
+) -> None:
+    """A free fill cloned from a fill on ``layer``: its two corners, lower-left first, and its rotation;
+    the template's bytes after the rotation are kept (no row records what they hold)."""
+    view = View(state)
+    number = view.layer_id(layer)
+    box = _corners(view.units(corner), view.units(opposite))
+    _assert(box[0] < box[2] and box[1] < box[3], "a fill needs a width and a height above zero")
+    raw = _new_shape(_shape_template(state, "Fills6", FILL, number), number, view.net_index(net))
+    raw = rec.patch(raw, 13, "<4i", *box)
+    raw = rec.patch(raw, 29, "<d", rotation % 360.0)
+    state.append("Fills6", raw)
+
+
+def add_region(state: State, outline: list[Point], *, layer: str, net: str | None) -> None:
+    """A free region cloned from a free region on ``layer`` with the outline ``outline`` and no hole, in
+    ``Regions6`` and, when the template has a twin, in ``ShapeBasedRegions6``."""
+    view = View(state)
+    number = view.layer_id(layer)
+    _assert(len(outline) >= 3, "a region needs three vertices")
+    vertices = [view.units(p) for p in outline]
+    template = _shape_template(state, "Regions6", REGION, number)
+    twins = _twins(state, template)
+    index = view.net_index(net)
+    state.append(
+        "Regions6", _new_shape(rec.region_outline(template, vertices, shape_based=False), number, index)
+    )
+    for twin in twins:
+        other = state.get("ShapeBasedRegions6")[twin]
+        shaped = rec.region_outline(other, vertices, shape_based=True)
+        state.append("ShapeBasedRegions6", _new_shape(shaped, number, index))
+
+
+def add_polygon(state: State, name: str, outline: list[Point], *, layer: str, net: str) -> None:
+    """A polygon cloned from the first record of ``Polygons6``, with no pour (change c0452, Decision 4)."""
+    view = View(state)
+    number = view.layer_id(layer)
+    _assert(1 <= number <= 32, f"a polygon lies on a signal layer, not on {layer}")
+    polygons = state.properties("Polygons6") if state.has("Polygons6") else []
+    if not polygons:
+        raise Refused("altium.edit.no-template", "the document holds no polygon to copy", "Polygons6/Data")
+    _assert(name not in [_polygon_name(p) for p in polygons], f"the document holds a polygon {name!r}")
+    template = polygons[0]
+    pour = max((int(p.get("POURINDEX") or 0) for p in polygons), default=-1) + 1
+    changes = {"NAME": name_codes(name), "LAYER": v7_layer(number), "NET": str(view.net_index(net)),
+               "POURINDEX": str(pour)}  # fmt: skip
+    if template.get("UNIQUEID") is not None:
+        changes["UNIQUEID"] = new_id(held_ids(state))
+    raw = rec.set_property(template.raw, changes)
+    state.append("Polygons6", _with_outline(raw, [view.units(p) for p in outline]))
 
 
 def _carry(template: bytes, source: Primitive) -> bytes:
@@ -996,7 +1287,10 @@ def _add_pad_entry(state: State, source: State, old_pad: int, new_pad: int, take
 
 
 __all__ = [
+    "REACH",
+    "Arc",
     "Component",
+    "Fill",
     "Item",
     "Point",
     "Polygon",
@@ -1006,7 +1300,11 @@ __all__ = [
     "Track",
     "Via",
     "View",
+    "add_arc",
     "add_component",
+    "add_fill",
+    "add_polygon",
+    "add_region",
     "clone",
     "delete",
     "describe",
@@ -1017,6 +1315,7 @@ __all__ = [
     "remap_layer",
     "rotate",
     "rotation_text",
+    "set_outline",
     "set_property",
     "set_rule",
 ]

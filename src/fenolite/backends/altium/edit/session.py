@@ -22,13 +22,13 @@ A refused commit writes nothing; its ``Receipt`` holds the issues and exit code 
 from __future__ import annotations
 
 from collections import Counter
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from types import MappingProxyType
 
 from fenolite.backends.altium.edit import connectivity, integrity, ops
-from fenolite.backends.altium.edit.ops import Component, Item, Point, Refused
+from fenolite.backends.altium.edit.ops import Component, Item, Point, Polygon, Refused
 from fenolite.backends.altium.edit.state import State
 from fenolite.backends.altium.read.pcb import read_pcbdoc
 from fenolite.backends.altium.read.pcbprops import parse_blocks
@@ -37,11 +37,11 @@ from fenolite.core.evidence import Evidence, Level
 from fenolite.core.io import atomic_write
 
 OPERATIONS = ("delete", "move", "rotate", "flip", "set_property", "clone", "add_component", "remap_layer",
-              "set_rule")  # fmt: skip
+              "set_rule", "set_outline", "create")  # fmt: skip
 ROWS: Mapping[str, tuple[str, ...]] = MappingProxyType(
     {
-        "delete": ("H-A-EDIT-DELETE", "H-A-EDIT-KIT"),
-        "move": ("H-A-EDIT-MOVE", "H-A-EDIT-KIT"),
+        "delete": ("H-A-EDIT-DELETE", "H-A-EDIT-SHAPE", "H-A-EDIT-KIT"),
+        "move": ("H-A-EDIT-MOVE", "H-A-EDIT-SHAPE", "H-A-EDIT-KIT"),
         "rotate": ("H-A-EDIT-ROTATE", "H-A-EDIT-KIT"),
         "flip": ("H-A-EDIT-FLIP", "H-A-EDIT-KIT"),
         "set_property": ("H-A-EDIT-PROPERTY", "H-A-EDIT-KIT"),
@@ -49,6 +49,8 @@ ROWS: Mapping[str, tuple[str, ...]] = MappingProxyType(
         "add_component": ("H-A-EDIT-ADD", "H-A-EDIT-IDS", "H-A-EDIT-KIT"),
         "remap_layer": ("H-A-EDIT-LAYER", "H-A-EDIT-KIT"),
         "set_rule": ("H-A-EDIT-RULE", "H-A-EDIT-KIT"),
+        "set_outline": ("H-A-EDIT-SHAPE", "H-A-EDIT-KIT"),
+        "create": ("H-A-EDIT-CREATE", "H-A-EDIT-IDS", "H-A-EDIT-KIT"),
     }
 )
 """The rows of ``docs/hypotheses.md`` each operation rests on."""
@@ -158,6 +160,48 @@ class Session:
     def set_rule(self, name: str, key: str, value: str, *, old: str) -> Session:
         label = f"set {key} of the rule {name!r} to {value}"
         return self._queue("set_rule", label, lambda s: ops.set_rule(s, name, key, value, old))
+
+    def set_outline(self, item: Polygon, outline: Sequence[Point], *, old: Sequence[Point]) -> Session:
+        """Give the polygon ``item`` the outline ``outline`` (line vertices, nanometres), stating its old
+        vertices ``old``; its pour is removed (change c0452)."""
+        new, held = list(outline), list(old)
+        label = f"set the outline of {ops.describe(item)} to {len(new)} vertices"
+        return self._queue("set_outline", label, lambda s: ops.set_outline(s, item, new, held))
+
+    def add_arc(
+        self, centre: Point, radius: int, start: float, end: float, *, width: int, layer: str,
+        net: str | None = None,
+    ) -> Session:  # fmt: skip
+        """Add a free arc of ``centre`` and ``radius`` (nm) from ``start`` to ``end`` degrees."""
+        label = f"add an arc of radius {radius / 1e6:g} mm on {layer}"
+
+        def run(state: State) -> None:
+            ops.add_arc(state, centre, radius, (start, end), width=width, layer=layer, net=net)
+
+        return self._queue("create", label, run)
+
+    def add_fill(
+        self, corner: Point, opposite: Point, *, layer: str, net: str | None = None, rotation: float = 0.0
+    ) -> Session:
+        """Add a free fill between two opposite corners (nm)."""
+        label = f"add a fill on {layer}"
+
+        def run(state: State) -> None:
+            ops.add_fill(state, corner, opposite, layer=layer, net=net, rotation=rotation)
+
+        return self._queue("create", label, run)
+
+    def add_region(self, outline: Sequence[Point], *, layer: str, net: str | None = None) -> Session:
+        """Add a free region of the outline ``outline`` (nm, no closing vertex)."""
+        points = list(outline)
+        label = f"add a region of {len(points)} vertices on {layer}"
+        return self._queue("create", label, lambda s: ops.add_region(s, points, layer=layer, net=net))
+
+    def add_polygon(self, name: str, outline: Sequence[Point], *, layer: str, net: str) -> Session:
+        """Add the polygon ``name`` of the outline ``outline`` (nm), without its pour."""
+        points = list(outline)
+        label = f"add the polygon {name} on {layer}"
+        return self._queue("create", label, lambda s: ops.add_polygon(s, name, points, layer=layer, net=net))
 
     def declare_connectivity(self, *nets: str) -> Session:
         """Allow a change of the connectivity of ``nets`` (a short between two of them, or a net split or
