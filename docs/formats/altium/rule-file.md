@@ -71,8 +71,8 @@ on it, S-0580).
 |---|---|---|---|---|---|---|
 | `Clearance` | `clearance` | `GAP` | — | — | `DifferentNets` | `OBJECTCLEARANCES` absent, blank, uniform or a matrix of exact cells (each one more rule); `GENERICCLEARANCE` absent or equal to `GAP`; `IGNOREPADTOPADCLEARANCEINFOOTPRINT` absent or `FALSE`; `ISMATRIX`, `SOURCERULE`, `CELLROWNAME`, `CELLROWTYPE`, `CELLCOLNAME`, `CELLCOLTYPE`, `INNERLAYERS` and `OUTERLAYERS` absent or as in "Clearance forms that map" |
 | `Width` | `track_width` | `MINLIMIT` | `PREFEREDWIDTH` | `MAXLIMIT` | `AnyNet` | per-layer keys as in "Per-layer values"; `CHECKCONNECTEDCOPPER` absent or `FALSE`; `IMPEDANCEPROFILEDRIVEN` absent, `FALSE` or `TRUE`; `IMPEDANCEPROFILEID`, `IMPEDANCEPROFILEVALUE`, `MINIMP`, `MAXIMP` and `FAVIMP` allowed and unused |
-| `RoutingVias` | `via_diameter` | `MINWIDTH` | `WIDTH` | `MAXWIDTH` | `AnyNet` | `VIASTYLE` is `Through Hole` |
-| `RoutingVias` | `via_drill` | `MINHOLEWIDTH` | `HOLEWIDTH` | `MAXHOLEWIDTH` | `AnyNet` | `VIASTYLE` is `Through Hole` |
+| `RoutingVias` | `via_diameter` | `MINWIDTH` | `WIDTH` | `MAXWIDTH` | `AnyNet` | `VIASTYLE` is `Through Hole`; `USEVIATEMPLATES` absent or `FALSE` (`TRUE`: "Via templates"); `VIATEMPLATEGUID#<n>` and `VIATEMPLATENAME#<n>` allowed and unused |
+| `RoutingVias` | `via_drill` | `MINHOLEWIDTH` | `HOLEWIDTH` | `MAXHOLEWIDTH` | `AnyNet` | as the row above: `VIASTYLE`, `USEVIATEMPLATES` |
 | `HoleSize` | `hole_size` | `MINLIMIT` | — | `MAXLIMIT` | `AnyNet` | `ABSOLUTEVALUES` is `TRUE`; `MINPERCENT` and `MAXPERCENT` allowed and unused |
 | `BoardOutlineClearance` | `edge_clearance` | `GAP` | — | — | `DifferentNets` | `OBJECTCLEARANCES` absent or empty; `GENERICCLEARANCE` absent or equal to `GAP`; `IGNOREPADTOPADCLEARANCEINFOOTPRINT` absent or `FALSE` |
 | `HoleToHoleClearance` | `hole_to_hole` | `GAP` | — | — | `AnyNet` | `ALLOWSTACKEDMICROVIAS` is `FALSE` or `TRUE` (with `TRUE` the record is also kept: "Kept rule records") |
@@ -133,6 +133,19 @@ The reading:
   from the general ones, or that is profile-driven, is refused with `scope`.
 - A record that holds per-layer keys is kept for an Altium write ("Kept rule records"): the lowering writes
   one form per rule and no per-layer key.
+
+## Via templates
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| A Routing Via Style takes its sizes from its limits ("Min/Max preferred", whose minimum and maximum the check obeys) or from one or more enabled via templates ("Template preferred"); the page does not say what the check tests in template mode | S-2248 | INFERRED | H-A-RULE-VIA-TEMPLATE |
+| A record in template mode holds `USEVIATEMPLATES=TRUE` and, per template, `VIATEMPLATEGUID#<n>` and `VIATEMPLATENAME#<n>`; it still holds its own limits, which differ from the template's sizes (`50mil` and `28mil` beside a template of 16 mil and 8 mil). One public record holds the template keys without `USEVIATEMPLATES` | S-2219 | INFERRED | H-A-RULE-VIA-TEMPLATE |
+| The document holds the templates in `PadViaLibraryCache/Data`: one block of the library's header keys, then one block per template after one lead byte, each with `TEMPLATE.TEMPLATEID` (the GUID a record names), `TEMPLATE.TEMPLATENAME`, `TEMPLATE.VIA.HOLESIZE`, `TEMPLATE.VIA.STACKDATA0.DIAMETER` and `TEMPLATE.TOLERANCE.POSITIVE` and `.NEGATIVE` (`214748.3647mil` in every public template); a template can be listed twice | S-2219 | INFERRED | H-A-RULE-VIA-TEMPLATE |
+
+A record with `USEVIATEMPLATES=TRUE` is refused with `template`: its vias take the sizes of the templates,
+and no permitted source says whether the check tests those sizes (with a tolerance the document holds), the
+record's own limits, or nothing. Neither reading is taken until a measurement decides it. The template keys
+of a record without `USEVIATEMPLATES=TRUE` are allowed and unused: its own limits are the rule.
 
 ## Rule kinds seen
 

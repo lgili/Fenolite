@@ -232,3 +232,38 @@ def test_a_record_with_layer_values_is_kept() -> None:
         record("Width", *WIDTH, PRIORITY="2"),
     ]
     assert kept_indexes(records, mapped(*records)) == frozenset({0})
+
+
+# --- 4.2 via templates ---------------------------------------------------------------------------------
+
+VIA = (
+    ("HOLEWIDTH", "8mil"), ("WIDTH", "16mil"), ("VIASTYLE", "Through Hole"), ("MINHOLEWIDTH", "8mil"),
+    ("MINWIDTH", "16mil"), ("MAXHOLEWIDTH", "20mil"), ("MAXWIDTH", "40mil"),
+)  # fmt: skip
+TEMPLATE = (("VIATEMPLATEGUID#1", "{00000000-0000-0000-0000-000000000001}"), ("VIATEMPLATENAME#1", "v16h8"))
+
+
+def test_template_mode_is_refused() -> None:
+    """``USEVIATEMPLATES=TRUE``: no permitted source states what the check tests, so the record is refused."""
+    fields = record("RoutingVias", *VIA, ("USEVIATEMPLATES", "TRUE"), *TEMPLATE)
+    (refused,) = mapped(fields).unmapped
+    assert refused.reason == "template" and "via templates (v16h8)" in refused.detail
+
+
+def test_template_keys_without_template_mode_are_unused() -> None:
+    """Template keys without ``USEVIATEMPLATES=TRUE``: the record's own limits are the rule."""
+    for fields in (
+        record("RoutingVias", *VIA, *TEMPLATE),
+        record("RoutingVias", *VIA, ("USEVIATEMPLATES", "FALSE")),
+    ):
+        mapping = mapped(fields)
+        assert mapping.unmapped == ()
+        assert [(rule.kind, limits(rule)) for rule in mapping.ruleset.rules] == [
+            ("via_diameter", (16 * MIL, 16 * MIL, 40 * MIL)),
+            ("via_drill", (8 * MIL, 8 * MIL, 20 * MIL)),
+        ]
+
+
+def test_template_key_of_another_form_is_refused() -> None:
+    (refused,) = mapped(record("RoutingVias", *VIA, ("VIATEMPLATESIZE#1", "16mil"))).unmapped
+    assert refused.reason == "keys"

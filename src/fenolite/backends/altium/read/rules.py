@@ -265,7 +265,11 @@ RULE_KIND_MAP: dict[str, KindMap] = {
             NeutralLimits("via_drill", "MINHOLEWIDTH", "HOLEWIDTH", "MAXHOLEWIDTH"),
         ),
         "AnyNet",
-        (Condition("VIASTYLE", ("Through Hole",), required=True),),
+        (
+            Condition("VIASTYLE", ("Through Hole",), required=True),
+            Condition("USEVIATEMPLATES", ("FALSE", "TRUE")),
+        ),
+        patterns=(r"VIATEMPLATE(?:GUID|NAME)#[1-9][0-9]*",),
     ),
     "HoleSize": KindMap(
         (NeutralLimits("hole_size", "MINLIMIT", None, "MAXLIMIT"),),
@@ -742,6 +746,23 @@ def _layer_limits(general: tuple[Nm | None, ...], held: dict[str, Nm]) -> tuple[
     return tuple(held.get(part, value) for part, value in zip(("MIN", "PREF", "MAX"), general, strict=True))
 
 
+def _templates(fields: Sequence[Field]) -> None:
+    """Refuse a Routing Via Style record in template mode (``USEVIATEMPLATES=TRUE``; ``rule-file.md``, "Via
+    templates"). Its vias take the sizes of the enabled via templates, and no public source states what the
+    rule check tests in that mode (S-2248): neither the template's sizes, whose tolerance the document holds,
+    nor the record's own limits are known to be the rule. The keys of the templates without
+    ``USEVIATEMPLATES=TRUE`` are allowed and unused: the record's limits are the rule."""
+    if _get(fields, "USEVIATEMPLATES") != "TRUE":
+        return
+    names = [value or "" for key, value in fields if re.fullmatch(r"VIATEMPLATENAME#[1-9][0-9]*", key)]
+    listed = ", ".join(names) if names else "none named"
+    raise _Refusal(
+        "template",
+        f"USEVIATEMPLATES=TRUE: the vias take the sizes of the via templates ({listed}), and no permitted "
+        "source states what the rule check tests in template mode",
+    )
+
+
 def _and(selector: Selector, leaf: Selector) -> Selector:
     """``selector`` narrowed by ``leaf``: ``leaf`` alone when ``selector`` is ``all``."""
     return leaf if selector.op == "all" else Selector("and", items=(selector, leaf))
@@ -777,6 +798,7 @@ def _map_one(
     _check_keys(fields, kind, table)
     groups = _limits(fields, kind, table)
     per_layer, absent = _layer_values(fields, table, groups, layers)
+    _templates(fields)
     selector_a, selector_b, on_layers = _scopes(fields, table, layers, for_kind(document, kind))
     if table.pair_scope:
         selector_a = _pairs(selector_a)
