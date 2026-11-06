@@ -142,7 +142,7 @@ def test_a_body_follows_the_side(board: Path, tmp_path: Path) -> None:
     assert (keys_before["BODYPROJECTION"], keys_before["MODEL.3D.ROTZ"]) == ("0", "0.000")
     _session(source, tmp_path / "down.PcbDoc", [("flip", "D1", 0)])
     keys = rec.region_keys(State.of((tmp_path / "down.PcbDoc").read_bytes()).get("ComponentBodies6")[-1])
-    # Altium's own flip (S-2123): BODYPROJECTION=1, the top body's angles, and TEXTUREROTATION 0 as 360
+    # Altium's own flip (S-2123, S-2124): BODYPROJECTION=1, model angles 0, and TEXTUREROTATION 0 as 360
     flipped = (
         keys["BODYPROJECTION"],
         keys["MODEL.3D.ROTZ"],
@@ -161,8 +161,9 @@ def test_a_body_follows_the_side(board: Path, tmp_path: Path) -> None:
 
 
 def test_a_flipped_body_keeps_other_texture_rotations(board: Path, tmp_path: Path) -> None:
-    """A body whose texture rotation is not 0 keeps it, and keeps its angles, on a flip (S-2123 measures only
-    the value 0)."""
+    """A body whose texture rotation is not 0 keeps it on a flip, and its model angles take 0, as Altium's own
+    flip and its save of a bottom body write them (S-2124: ``J01-body-t90`` flipped by Altium, and Fenolite's
+    flip of it saved by Altium, both hold 0, 0 and 90)."""
     source = _with_body(board)
     state = State.of(source.read_bytes())
     raw = state.get("ComponentBodies6")[-1]
@@ -178,4 +179,7 @@ def test_a_flipped_body_keeps_other_texture_rotations(board: Path, tmp_path: Pat
     _session(source, tmp_path / "down.PcbDoc", [("flip", "D1", 0)])
     keys = rec.region_keys(State.of((tmp_path / "down.PcbDoc").read_bytes()).get("ComponentBodies6")[-1])
     assert keys["BODYPROJECTION"] == "1"
-    assert {key: keys[key] for key in turned} == turned
+    assert {key: keys[key] for key in turned} == turned | {
+        "MODEL.3D.ROTZ": "0.000",
+        "MODEL.2D.ROTATION": "0.000",
+    }

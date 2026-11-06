@@ -26,13 +26,17 @@
   recorded as S-2123 with its result. Proof: the agent's report with the side of `D1`'s pads, designator
   and body after the reopen.
   Done 2026-11-06 (S-2123): 4 cases, no dialog; expectations hold after the reopen; the control passes.
-- [ ] 3.3 Write a flipped body as Altium's own flip does (S-2123): `BODYPROJECTION=1` with `MODEL.3D.ROTZ`
+- [x] 3.3 Write a flipped body as Altium's own flip does (S-2123): `BODYPROJECTION=1` with `MODEL.3D.ROTZ`
   and `MODEL.2D.ROTATION` of the top body, not 180/180, so Altium's first save changes no byte of it. Proof:
   `uv run pytest tests/unit/backends/altium/edit/test_flip_frame.py -q -n 0` and the VM reopen of
   `c0453-flip-body.PcbDoc` with its body bytes unchanged.
   Code done 2026-11-06: the flip's body record equals byte for byte that of Altium's save of the earlier
   flip (`c0453-flip-body-saved.PcbDoc`); the VM reopen of `c0453-flip-body2.PcbDoc` is pending
   (`~/fenolite-altium-checks/claude-2026-11-06/c0453-flip-body2/`).
+  Done 2026-11-06 (S-2124): Altium's save leaves the body of `c0453-flip-body2.PcbDoc` byte for byte. "Of the
+  top body" holds for angles 0 only: Altium writes both angles 0 on any bottom body (its flip of a 90 case,
+  and its save of Fenolite's flip that kept 90), so the flip writes 0 and 0 on the way down; Fenolite's flip
+  of the 90 case now equals Altium's save of it byte for byte, and `test_flip_frame.py` passes.
 
 ## 4. Close
 

@@ -481,6 +481,9 @@ def _turned(keys: Mapping[str, str], key: str, turn: float) -> dict[str, str]:
 
 FLIPPED_TEXTURE_ROTATION = " 3.60000000000000E+0002"
 """``TEXTUREROTATION`` of a body with the value 0 after Altium's own flip to the bottom (S-2123)."""
+BOTTOM_BODY_ANGLE = "0.000"
+"""``MODEL.3D.ROTZ`` and ``MODEL.2D.ROTATION`` of a body after Altium's own flip to the bottom, whatever they
+were on top; Altium's save writes them so on any bottom body (S-2124)."""
 
 
 def _texture_zero(text: str | None) -> bool:
@@ -492,11 +495,12 @@ def _texture_zero(text: str | None) -> bool:
 
 def _body_model_keys(raw: bytes, move: rec.Transform, turn: float, flipped: bool = False) -> bytes:
     """A body with its ``MODEL.2D.X``/``Y`` moved and ``MODEL.3D.ROTZ`` turned, where it holds them. With
-    ``flipped`` (a flip), ``BODYPROJECTION`` changes side, and ``MODEL.3D.ROTZ`` and ``MODEL.2D.ROTATION``
-    keep their values: Altium's own flip writes those of the top body, and its save turns a half turn there
-    back to them (S-2123, change c0453 task 3.3). A body flipped to the bottom with ``TEXTUREROTATION`` 0
-    takes Altium's 360 (S-2123); any other texture rotation is kept, its rule being unknown
-    (``pcb-document.md``, "Frame of a bottom part")."""
+    ``flipped`` (a flip), ``BODYPROJECTION`` changes side. On the way down ``MODEL.3D.ROTZ`` and
+    ``MODEL.2D.ROTATION`` take 0, as Altium's own flip writes them for any top value and its save does on any
+    bottom body (S-2124, change c0453 task 3.3), and ``TEXTUREROTATION`` 0 takes Altium's 360 (S-2123); any
+    other texture rotation is kept, as Altium keeps 90 (S-2124). On the way up the angles and the texture
+    rotation are kept, as Altium keeps 0, 0 and 360 (S-2124; ``pcb-document.md``, "Frame of a bottom
+    part")."""
     keys = rec.region_keys(raw)
     x, y = parse_mil(keys.get("MODEL.2D.X")), parse_mil(keys.get("MODEL.2D.Y"))
     changes: dict[str, str] = {}
@@ -508,6 +512,10 @@ def _body_model_keys(raw: bytes, move: rec.Transform, turn: float, flipped: bool
     if flipped and "BODYPROJECTION" in keys:
         down = keys["BODYPROJECTION"].strip() != "1"
         changes["BODYPROJECTION"] = "1" if down else "0"
+        if down:
+            changes |= {
+                key: BOTTOM_BODY_ANGLE for key in ("MODEL.3D.ROTZ", "MODEL.2D.ROTATION") if key in keys
+            }
         if down and _texture_zero(keys.get("TEXTUREROTATION")):
             changes["TEXTUREROTATION"] = FLIPPED_TEXTURE_ROTATION
     return rec.set_region_keys(raw, changes) if changes else raw

@@ -36,9 +36,11 @@ The flip therefore kept `ROTZ − R`, and `MODEL.2D.ROTATION − R`, which row -
 the kit run showed Altium's own flip of a body (S-2123, task 3.3). Altium writes `BODYPROJECTION=1` with
 the top body's `MODEL.3D.ROTZ` and `MODEL.2D.ROTATION`, 0 and 0, and its first save turns the 180 and 180
 Fenolite wrote back to 0 and 0. `TEXTUREROTATION` 0 becomes 360 in both Altium's flip and the save of
-Fenolite's. The flip now keeps both angles and writes `TEXTUREROTATION` 0 as 360 on the way down. Another
-texture rotation is kept: the census gives no single rule for it, and a kit case with a texture rotation
-of 90 settles it.
+Fenolite's. The second kit run (S-2124) settles the other values: Altium's flip of a body with both angles
+and `TEXTUREROTATION` at 90 writes 0, 0 and 90, and its save of a bottom body that keeps 90 and 90 writes
+0 and 0. So on the way down the flip writes both angles 0, writes `TEXTUREROTATION` 0 as 360 and keeps
+any other texture rotation; on the way up it keeps all three, as Altium's flip back keeps 0, 0 and 360.
+Altium's save then leaves the body record byte for byte, for angles 0 and 90 alike (S-2124).
 
 ## Kit
 
