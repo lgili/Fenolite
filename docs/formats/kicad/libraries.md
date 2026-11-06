@@ -444,6 +444,8 @@ row on the models of an install stays `INFERRED`: its test runs only where an in
 | A model that is not found gives the two lines `Could not add 3D model for <ref>.` and `File not found: <path as written>` on standard output for each footprint, a STEP without that body and exit 0 | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-EXPORT-MODELS |
 | With `--subst-models`, a `.wrl` path whose file is present gives the body of its `.step` sibling; with only the sibling present nothing is substituted and the model counts as not found; without the option a present `.wrl` exits 2 with the board alone | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-EXPORT-MODELS |
 | A STEP holds one `NEXT_ASSEMBLY_USAGE_OCCURRENCE` named after the reference for each footprint whose model was added | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-EXPORT-MODELS |
+| A built project reads `${KIPRJMOD}/<rel>` from its own folder, not from the folder of the design script: the board that `fenolite build` made from a design imported from Altium (the `<library>.3dshapes` folder beside the script) gave `Could not add 3D model` for 15 of its 15 models, and a STEP with the board alone, until the build copied the files (change c0458); then 0 of 15 | S-2170, S-0020 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-11-06) | H-K-EXPORT-MODELS |
+| KiCad's 3D viewer of that built board is expected to miss the same models: `KIPRJMOD` names the folder of the open project, for every path that uses it; the GUI was not probed | S-0045 | INFERRED | H-K-EXPORT-MODELS |
 
 Fenolite's choices on top of these facts:
 

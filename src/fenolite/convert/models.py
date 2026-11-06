@@ -25,7 +25,7 @@ import re
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
-from pathlib import Path, PurePosixPath
+from pathlib import Path, PurePosixPath, PureWindowsPath
 
 from fenolite.backends import step, stepbox
 from fenolite.backends.altium import pcbdoc
@@ -274,8 +274,10 @@ STEP_MAGIC = b"ISO-10303-21"
 UNREAD = "the model child holds no path, uses at in place of offset, or holds a value that is no number"
 KICAD_EMBEDDED = "the model is embedded in the KiCad file (kicad-embed://), which Fenolite does not read"
 VARIABLE = "the model path names a variable other than KIPRJMOD; only files of the project are read"
-OUTSIDE = "the model path leads outside the project folder; only files of the project are read"
 MISSING = "the model file is not found in the project folder"
+NOT_FOUND = "the model file is not found at its path"
+"""The reason of an absolute path, or of a path that climbs out of the project folder, whose file is absent
+(change c0458; a file inside the folder that is absent is ``MISSING``)."""
 NOT_STEP = "the model file is no STEP text; an Altium body embeds a STEP model"
 SCALED = "the model is scaled; an Altium body holds no scale"
 NO_GEOMETRY = "the STEP model holds no edge whose box Fenolite can measure"
@@ -286,21 +288,31 @@ _NAME_UNSAFE = re.compile(r"[^A-Za-z0-9_. ()+-]+")
 
 
 def model_path(path: str, root: Path) -> Path | str:
-    """The file of the project folder ``root`` that the model path ``path`` names, or the reason it names
-    none: ``${KIPRJMOD}`` (or ``$(KIPRJMOD)``) is ``root``, a relative path is read below ``root``; another
-    variable, an absolute path, a path that leads out of ``root`` and a KiCad embedded file are not read."""
+    """The file that the model path ``path`` of a board in the project folder ``root`` names, as KiCad reads
+    it (``docs/formats/kicad/libraries.md``, "3D models"; change c0458), or the reason it names none:
+    ``${KIPRJMOD}`` (or ``$(KIPRJMOD)``) is ``root``, a relative path is read from ``root``, an absolute
+    path where it is, and a path that climbs out of ``root`` is followed. Another variable and a KiCad
+    embedded file are not read; an absent file is ``MISSING`` inside ``root`` and ``NOT_FOUND`` elsewhere."""
     if path.startswith("kicad-embed://"):
         return KICAD_EMBEDDED
     rest = _PROJECT.sub("", path, count=1).replace("\\", "/")
     if _VARIABLE.search(rest):
         return VARIABLE
-    if not rest or rest.startswith("/") or re.match(r"^[A-Za-z]:/", rest):
-        return OUTSIDE
+    if not rest:
+        return MISSING
     base = root.resolve()
-    target = (base / PurePosixPath(rest)).resolve()
-    if not target.is_relative_to(base):
-        return OUTSIDE
-    return target if target.is_file() else MISSING
+    if re.match(r"^[A-Za-z]:/", rest) or rest.startswith("//"):
+        written = Path(PureWindowsPath(rest))
+        if not written.is_absolute():  # a Windows path read on another system names no file here
+            return NOT_FOUND
+        target = written.resolve()
+    elif rest.startswith("/"):
+        target = Path(rest).resolve()
+    else:
+        target = (base / PurePosixPath(rest)).resolve()
+    if target.is_file():
+        return target
+    return MISSING if target.is_relative_to(base) else NOT_FOUND
 
 
 @dataclass(frozen=True, slots=True)

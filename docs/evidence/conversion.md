@@ -270,7 +270,7 @@ unchanged.
 | CM5_MINIMA_3 | footprint-graphic | lost | 3 | a filled circle has no record: a region holds straight edges only |
 | CM5_MINIMA_3 | model | lost | 62 | the model path names a variable other than KIPRJMOD; only files of the project are read |
 | CM5_MINIMA_3 | model | lost | 10 | the model file is not found in the project folder |
-| CM5_MINIMA_3 | model | lost | 5 | the model path leads outside the project folder; only files of the project are read |
+| CM5_MINIMA_3 | model | lost | 5 | the model file is not found at its path |
 | CM5_MINIMA_3 | zone-fill | changed | 13 | a polygon is written unpoured; Altium fills it on a repour |
 | CM5_MINIMA_3 | stackup | lost | 1 | the document has no key for the solder mask thickness, the colours, the finish, the impedance-control flag; the copper and dielectric values are written |
 | CM5_MINIMA_3 | text | lost | 131 | the text record has no key for a justification other than centred |
@@ -332,7 +332,7 @@ unchanged.
 | One-Air-Max | footprint-graphic | lost | 1 | degenerate arc on F.SilkS is not written |
 | One-Air-Max | net-tie | changed | 2 | the component is written as a net tie, which ties all its pads: Altium marks the whole component, not groups of pads |
 | One-Air-Max | model | lost | 193 | the model path names a variable other than KIPRJMOD; only files of the project are read |
-| One-Air-Max | model | lost | 4 | the model path leads outside the project folder; only files of the project are read |
+| One-Air-Max | model | lost | 4 | the model file is not found at its path |
 | One-Air-Max | model | lost | 1 | the model file is not found in the project folder |
 | One-Air-Max | zone-fill | changed | 34 | a polygon is written unpoured; Altium fills it on a repour |
 | One-Air-Max | stackup | lost | 1 | the document has no key for the solder mask thickness, the finish; the copper and dielectric values are written |

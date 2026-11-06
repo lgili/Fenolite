@@ -301,15 +301,18 @@ middle between the ends, is written as the track it draws and reported `changed`
 arc record holds a centre and a radius, which such an arc has not (change c0435).
 
 **Models to Altium** (change c0449). Each `model` child of a board footprint is embedded in the document
-when its path, with `${KIPRJMOD}` (or `$(KIPRJMOD)`) read as the project folder, or relative to that folder,
-names a STEP file inside the project, its scale is 1 on each axis and `stepbox.model_box` bounds its edges.
+when its path names a STEP file, its scale is 1 on each axis and `stepbox.model_box` bounds its edges. The
+path is read as KiCad reads it (change c0458): `${KIPRJMOD}` (or `$(KIPRJMOD)`) is the project folder, a
+relative path is read from that folder, an absolute path where it is, and a path that climbs out of the
+folder is followed.
 The document's `Models` storage holds each distinct file once, and the footprint's component gets a body that
 names it, at the pose that is the inverse of the KiCad placement written by the opposite direction, with the
 placed model's box as its outline and heights (`docs/formats/altium/pcb-bodies.md`, "Written form of a model
 body"). Each child is counted under `model`: written; changed when KiCad hides it (Altium shows every model);
-lost with its reason for a missing file, a path under another variable or outside the project, a KiCad
-embedded file (`kicad-embed://`), a file that is no STEP text, a scale other than 1, or a STEP without an
-edge to measure. Paths outside the project are not read, so the result does not depend on the machine. After
+lost with its reason for a file that is not found (in the project folder, or at a path outside it), a path
+under another variable, a KiCad embedded file (`kicad-embed://`), a file that is no STEP text, a scale other
+than 1, or a STEP without an edge to measure. A path under a variable other than `KIPRJMOD` (an official
+library's model) is not resolved; an absolute path depends on the machine, as it does in KiCad. After
 a round trip a model keeps its bytes and pose; its name is the file name of the KiCad side.
 
 The drawing-layer map is fixed: `User.1` through `User.8` → Mechanical 1 through 8; `Dwgs.User`,

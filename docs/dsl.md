@@ -1137,8 +1137,13 @@ configuration, and another machine both find every footprint (`H-K-VENDOR-GLOBAL
   design's names. In KiCad's library check the vendored project row hides a global row of the same
   nickname, and with it the global library's other items (`H-K-VENDOR-SHADOW`, measured for DRC on both
   majors). The GUI footprint chooser is expected to behave the same; this is not probed.
-- **Only placed footprints:** no whole library and no 3D models (they stay at their
-  `${KICAD…_3DMODEL_DIR}` paths).
+- **Only placed footprints:** no whole library. A model of the official libraries, or any path under a
+  `${KICAD…}` variable, is never copied: it stays at its path. A model that a vendored footprint names as
+  `${KIPRJMOD}/<rel>` and that the script's folder holds is the project's own file, and the build copies it
+  byte for byte to `<rel>` in the built project (change c0458). KiCad reads such a path from the board's
+  folder, so without the copy the built board would show none of these models
+  (`docs/formats/kicad/libraries.md`, "3D models"). This is the case of a design that `fenolite import`
+  made from an Altium project: its `<library>.3dshapes` folder lies beside the script.
 - **Symbols** follow the same rule: the symbols the schematic uses are written to
   `lib/<nickname>.kicad_sym` with a `sym-lib-table` row each, flattened and never a whole library
   (`docs/schematic.md`, "The symbols and their libraries"). The licence note below applies to those

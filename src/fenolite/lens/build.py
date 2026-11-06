@@ -2197,6 +2197,7 @@ def build_design(
         built, readback, preserve.match_footprints(built, readback), lock_outline=lock_outline
     ).design
     vendored = _vendor(plan, target, files, record, issues)
+    _vendor_models(plan, resolver, files)
     authored_ids = {
         part.footprint.lib_id for part in parts if part.location is None and part.footprint is not None
     }
@@ -3111,6 +3112,33 @@ def _vendor(
                 )
             )
     return sorted(vendored)
+
+
+PROJECT_MODEL = ("${KIPRJMOD}/", "${KIPRJMOD}\\")
+"""The starts of a model path of the project folder: the only model paths whose files a build copies (change
+c0458)."""
+
+
+def _vendor_models(plan: Mapping[str, Location], resolver: LibraryResolver, files: dict[str, bytes]) -> None:
+    """Copy, byte for byte, each model file that a vendored footprint names as ``${KIPRJMOD}/<rel>`` and the
+    design script's folder holds, to ``<rel>`` in the built project (change c0458): KiCad reads such a path
+    from the board's folder (``docs/formats/kicad/libraries.md``, "3D models"), so without the copy the built
+    board shows none of them. A path under another variable (an official library's model) is never copied, a
+    path that climbs out of the folder is not either, and a file the build already writes is kept."""
+    for location in sorted(plan.values(), key=lambda found: str(found.item_path)):
+        try:
+            models = resolver.footprint(location.lib_id).models
+        except FenoliteError:
+            continue
+        for path in models:
+            if not path.startswith(PROJECT_MODEL):
+                continue
+            found = resolver.locate_model(path)
+            if found is None or found.source != "project" or found.rel is None:
+                continue
+            if found.rel in files or found.rel.split("/", 1)[0] == ".fenolite":
+                continue
+            files[found.rel] = found.file.read_bytes()
 
 
 # --- edited outputs -------------------------------------------------------------------------------
