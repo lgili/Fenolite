@@ -265,7 +265,7 @@ def test_evidence() -> None:
     viewer |= {"H-A-CONV-UNION"}  # the union members a conversion carries through KiCad (c0460)
     viewer |= {"H-A-CONV-BOARD6"}  # the Board6 settings a conversion carries (c0464), never the build
     # the reader's mapping of rule records (c0462, c0465): the build writes none of these records
-    viewer |= {"H-A-RULE-LAYER-VALUES", "H-A-RULE-VIA-TEMPLATE", "H-A-RULE-MATCHED"}
+    viewer |= {"H-A-RULE-LAYER-VALUES", "H-A-RULE-VIA-TEMPLATE", "H-A-RULE-MATCHED", "H-A-RULE-MATRIX-NPTH"}
     viewer |= {"H-A-RULE-SHORT", "H-A-RULE-ANTENNA"}
     rows = {r.id for r in register if r.id.startswith(stems)} - refuted - viewer
     # change c0173: the PCB document writer writes the flattened panel; the array rows that its kit has not

@@ -6,6 +6,7 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Tests: the coordinator approves c0462's extension key `layer_value` (a per-layer value of an Altium rule record) in the model review, and the reader's new rule rows (`H-A-RULE-MATRIX-NPTH` among them) are no claim of the Altium build.
 - Docs: the kit request S-2233 (c0464) and the open repeat and OutJob steps of c0389 name Altium Designer 24.5, which the maintainer accepts in place of 26 since 2026-11-06.
 - A per-layer Width or Differential Pairs Routing rule (c0462 task 4.1) no longer breaks the import of a board that holds one, nor a conversion back from KiCad (`FEN-1001`, `KeyError: 'layer_value'`, on public row `-01`): its bag key `layer_value` joins the closed table `EXT_KEYS`.
 - A per-layer Width or Differential Pairs Routing rule (c0462 task 4.1) no longer breaks the import of a board that holds one, nor a conversion back from KiCad (`FEN-1001`, `KeyError: 'layer_value'`, on public row `-01`): its bag key `layer_value` joins the closed table `EXT_KEYS`. The row's per-layer keys name only mid-layers, which its internal planes do not take; the document written back from KiCad declares the two inner layers as mid-layers, so only the way back gave the rules, and only a heavy corpus test converts that far. A unit test now checks every pair key of the rule mapper against the table, and an authored per-layer Width converts to KiCad and back.
