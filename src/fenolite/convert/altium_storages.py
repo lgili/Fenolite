@@ -186,13 +186,15 @@ def pin_pair_text(pairs: list[dict[str, str]]) -> bytes:
 
 _PAIR_KEYS = ("NAME", "COLOR", "OVERRIDECOLORFORDRAW", "PINS")
 _MECHANICAL_NAME = re.compile(r"LAYER(5[7-9]|6[0-9]|7[0-2])NAME")
+_MECHANICAL_KEY = re.compile(r"LAYER(5[7-9]|6[0-9]|7[0-2])(?:NAME|MECHENABLED)")
 
 
 def board_settings(board: bytes) -> list[tuple[str, str]]:
     """The settings of the ``Board6`` stream ``board`` (change c0464): the keys the record holds once and
     ``docboard.OWNED_KEY`` does not name, in order, each run of them opened by ``(docboard.ANCHOR, key)``
-    with the key before the run; then the names of mechanical layers 1 to 16 (``LAYER57NAME`` …
-    ``LAYER72NAME``). A field ``docboard.format_line`` refuses is left out."""
+    with the key before the run; then the names and the enabled flags of mechanical layers 1 to 16
+    (``LAYER57NAME`` … ``LAYER72NAME``, ``LAYER57MECHENABLED`` …), which the writer gives a layer the written
+    document does not use. A field ``docboard.format_line`` refuses is left out."""
     from fenolite.backends.altium.docboard import ANCHOR, OWNED_KEY, writable_field
 
     text = board[4:].rstrip(b"\x00").decode("latin-1")
@@ -215,7 +217,7 @@ def board_settings(board: bytes) -> list[tuple[str, str]]:
             if not open_run and before is not None:
                 found.append((ANCHOR, before))
             found.append((key, value))
-        elif _MECHANICAL_NAME.fullmatch(key) and counts[key] == 1 and writable_field(key, value):
+        elif _MECHANICAL_KEY.fullmatch(key) and counts[key] == 1 and writable_field(key, value):
             names.append((key, value))
         open_run = kept
         before = key

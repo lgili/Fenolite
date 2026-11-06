@@ -388,6 +388,7 @@ def board_records(
     stack: StackSpec | None = None,
     arcs: Mapping[int, OutlineArc] | None = None,
     pin_pairs: Sequence[Field] = (),
+    mechanical: Sequence[int] | None = None,
 ) -> list[list[Field]]:
     """The ``Board6`` record as its 27 lines, in Altium's order. ``filename`` is the document's file name
     (no folder); ``vertices`` is the outline in binary units in the Altium frame, without the closing
@@ -396,7 +397,8 @@ def board_records(
     (1 … 74) that primitives lie on; ``stack`` is the copper stack (``None``: the two-layer stack of c0035,
     whose bytes it keeps). ``pin_pairs`` (change c0461) are the ``PINPAIRCOUNT`` and ``PINPAIR…<k>`` keys of
     the xSignals a conversion carried, in place of ``PINPAIRCOUNT=0``, as the source holds them after
-    ``UNIQUEID``. ``ValueError`` for fewer than three vertices."""
+    ``UNIQUEID``. ``mechanical`` (change c0464) are the numbers of the enabled mechanical layers, in place
+    of those ``used_layers`` give (``enabled_mechanical``). ``ValueError`` for fewer than three vertices."""
     if len(vertices) < 3:
         raise ValueError("a board outline needs at least three points")
     origin_x, origin_y = rec.mil_text(origin[0]), rec.mil_text(origin[1])
@@ -432,7 +434,7 @@ def board_records(
         *_SHEET,
         *plane_net_fields(stack),
     ]
-    mechanical = enabled_mechanical(used_layers)
+    mechanical = tuple(sorted(mechanical)) if mechanical is not None else enabled_mechanical(used_layers)
     first, *later = legacy_lines(stack, mechanical)
     later[-1] += [
         ("LAYERPAIR0LOW", "TOP"),
@@ -492,7 +494,7 @@ def board_records(
     ]
     return [
         head,
-        [RECORD, *stack_fields(used_layers, substack, stack), *first],
+        [RECORD, *stack_fields(used_layers, substack, stack, mechanical), *first],
         *later,
         _routing(stack, mechanical),
         [
@@ -623,10 +625,11 @@ def board_text(
     arcs: Mapping[int, OutlineArc] | None = None,
     pin_pairs: Sequence[Field] = (),
     settings: Sequence[Field] = (),
+    mechanical: Sequence[int] | None = None,
 ) -> str:
     """The text of the ``Board6`` record: each line as ``|KEY=VALUE`` fields, the lines joined by one CR.
     ``settings`` are the carried settings of a source (change c0464, ``with_settings``), merged before the
-    mechanical layers are named."""
+    mechanical layers are named; ``mechanical`` are the enabled mechanical layers (``board_records``)."""
     lines = board_records(
         filename,
         vertices,
@@ -636,6 +639,7 @@ def board_text(
         stack=stack,
         arcs=arcs,
         pin_pairs=pin_pairs,
+        mechanical=mechanical,
     )
     if settings:
         lines = with_settings(lines, settings)

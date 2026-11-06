@@ -477,6 +477,7 @@ def _layer_fields(
     used: Collection[int],
     substack: str | None = None,
     stack: StackSpec | None = None,
+    mechanical: Collection[int] | None = None,
 ) -> list[Field]:
     """The keys of one layer of a ``V9`` list (``sep`` ``_``) or of the ``_V8`` list (``sep`` empty). With
     ``substack`` (a document's sub-stack GUID) a layer of the physical stack first gets its two sub-stack
@@ -500,8 +501,11 @@ def _layer_fields(
     elif group == _DIELECTRIC:
         fields += spec.dielectrics[low - 1].fields()
     elif group == _MECHANICAL:
-        # Mechanical 1 to 12 are enabled when a primitive lies on them (change c0126)
-        fields.append(("MECHENABLED", _bool(low in ENABLED_MECHANICAL or (low <= 12 and long in used))))
+        # Mechanical 1 to 12 are enabled when a primitive lies on them (change c0126); ``mechanical`` names
+        # the enabled ones when a conversion carried the source's flags (change c0464)
+        default = low in ENABLED_MECHANICAL or (low <= 12 and long in used)
+        enabled = low in mechanical if mechanical is not None else default
+        fields.append(("MECHENABLED", _bool(enabled)))
     elif low in (10, 11):
         fields += [*_RESIST, ("COVERLAY_EXPANSION", "0mil")]
     out = [(f"{prefix}{sep}{key}", value) for key, value in fields]
@@ -537,25 +541,30 @@ def _substack(prefix: str, sep: str, substack: str) -> list[Field]:
 
 
 def stack_fields(
-    used_layers: Collection[int] = (), substack: str | None = None, stack: StackSpec | None = None
+    used_layers: Collection[int] = (),
+    substack: str | None = None,
+    stack: StackSpec | None = None,
+    mechanical: Collection[int] | None = None,
 ) -> list[Field]:
     """The layer stack in its ``V9`` and ``_V8`` generations and the keys that close it: the master stack,
     the physical stack, the cache list, the ``_V8`` list, the top and bottom dielectric and the style keys.
     ``used_layers`` are numbered layers (1 … 74); ``substack`` is a document's sub-stack GUID, which adds
-    the sub-stack keys (a library has none); ``stack`` is the copper stack (``None``: two layers)."""
+    the sub-stack keys (a library has none); ``stack`` is the copper stack (``None``: two layers).
+    ``mechanical`` (change c0464) are the numbers of the enabled mechanical layers when they are not those
+    ``used_layers`` give (``enabled_mechanical``)."""
     used = {long_id(layer) for layer in used_layers}
     out = _master("V9_MASTERSTACK", "_")
     if substack is not None:
         out += _substack("V9_SUBSTACK0", "_", substack)
     for index, long in enumerate(_stack_ids(stack)):
-        out += _layer_fields(f"V9_STACK_LAYER{index}", "_", long, used, substack, stack)
+        out += _layer_fields(f"V9_STACK_LAYER{index}", "_", long, used, substack, stack, mechanical)
     for index, long in enumerate(_cache_ids(stack)):
-        out += _layer_fields(f"V9_CACHE_LAYER{index}", "_", long, used, substack, stack)
+        out += _layer_fields(f"V9_CACHE_LAYER{index}", "_", long, used, substack, stack, mechanical)
     out += _master("LAYERMASTERSTACK_V8", "")
     if substack is not None:
         out += _substack("LAYERSUBSTACK_V8_0", "", substack)
     for index, long in enumerate(_v8_ids(stack)):
-        out += _layer_fields(f"LAYER_V8_{index}", "", long, used, substack, stack)
+        out += _layer_fields(f"LAYER_V8_{index}", "", long, used, substack, stack, mechanical)
     for side in ("TOP", "BOTTOM"):
         out += [(f"{side}{key.removeprefix('DIEL')}", value) for key, value in _RESIST]
     out += [("LAYERSTACKSTYLE", "0"), ("SHOWTOPDIELECTRIC", "FALSE"), ("SHOWBOTTOMDIELECTRIC", "FALSE")]

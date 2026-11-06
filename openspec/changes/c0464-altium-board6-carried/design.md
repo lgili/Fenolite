@@ -79,6 +79,26 @@ placed (`lower.named_mechanical`). A mechanical id takes the source's name when 
 `named_layers`, or when no written primitive lies on it. An id that a KiCad layer of the fixed map reaches
 and that holds primitives keeps the KiCad name: it is not the source's layer.
 
+## Empty slots
+
+The maintainer's flow A (S-2235) and public rows `-02`, `-04` and `-06` (S-2236) gave back mechanical slots
+that nothing lies on with another name or flag:
+
+- the writer enables Mechanical 13 to 16 always and 1 to 12 when used, so an unused enabled slot came back
+  disabled (rows `-04` slots 3 and 5, `-06` slot 12);
+- a drawing on Altium's drill drawing layer goes to the KiCad row `Altium.DrillDrawing` (c0428), and the
+  way back mapped that row by the fixed map to Mechanical 8, which then took the KiCad name `User.8` and was
+  enabled (row `-02`);
+- a body on a mechanical layer above 16 comes back on the writer's body layer, Mechanical 13 or 14, and its
+  slot took the KiCad name of that id (row `-06` slot 14: `B.Fab` for `Bottom Courtyard`).
+
+The carrier also holds `LAYER57MECHENABLED` … `LAYER72MECHENABLED`. The writer enables a mechanical layer
+that something of the written document lies on and gives every other one the source's flag
+(`pcbdoc._mechanical_enabled`, through `docboard.board_records` into the legacy keys, the stack lists and
+the layer sets). A slot takes the source's name unless a primitive lies on it: a body on a layer the writer
+chose does not make it the KiCad layer's. `lower.drill_rows` sends the rows named `Altium.DrillDrawing` and
+`Altium.DrillGuide` back to layers 73 and 55. The body's own layer above Mechanical 16 is not carried here.
+
 ## Evidence
 
 INFERRED (H-A-CONV-BOARD6): Altium opening a `Board6` whose settings come from the source is not yet

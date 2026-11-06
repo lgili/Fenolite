@@ -27,9 +27,19 @@
   S-2234). Proof:
   `uv run pytest tests/unit/convert/test_board6_settings_c0464.py -n 0 -k flow`.
 
+## 6. Empty mechanical slots
+
+- [x] 6.1 Carry the enabled flags of mechanical layers 1 to 16 with their names; a slot that nothing lies on
+  takes the source's flag, and a slot no primitive lies on its name (S-2235, S-2236). Proof:
+  `uv run pytest tests/unit/convert/test_board6_settings_c0464.py -n 0 -k empty_slots`.
+- [x] 6.2 A drawing on the KiCad row `Altium.DrillDrawing` or `Altium.DrillGuide` goes back to layer 73 or
+  55 (`lower.drill_rows`). Proof: `uv run pytest tests/unit/convert/test_board6_settings_c0464.py -n 0 -k drill`.
+- [x] 6.3 Rows `-02`, `-04` and `-06` through flow A give every slot's name and flag back, and row `-02`'s
+  drill drawing text on layer 73 (S-2236). Proof: the scratch slot census against the cached corpus.
+
 ## 5. Evidence and docs
 
 - [x] 5.1 Row in `pcb-records.md`, H-A-CONV-BOARD6, S-2230 to S-2233, CHANGELOG.
 - [ ] 5.2 Kit: Altium opens the flow A round trip of the maintainer's board and of row `-04` with metric
-  units, the source's mechanical names, row `-05` with its black mask, and no error; it reports whether the super classes come back
+  units, the source's mechanical names and enabled flags, row `-05` with its black mask, and no error; it reports whether the super classes come back
   (S-2233, asked of altium-rounds-2).

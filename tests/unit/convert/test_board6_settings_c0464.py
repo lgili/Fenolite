@@ -4,7 +4,8 @@
 
 The sources are authored: the committed two-layer KiCad board, a line on ``F.CrtYd`` added, written as an
 Altium document with one clearance rule of 0.025 mm, and its ``Board6`` edited to a metric document with
-Altium's mechanical layer type names, a hole-shape hash pair and a Situs strategy name.
+Altium's mechanical layer type names, a hole-shape hash pair and a Situs strategy name; for the empty slots,
+some of its unused mechanical layers enabled or disabled against the writer's default and one left unnamed.
 """
 
 from __future__ import annotations
@@ -37,6 +38,11 @@ NAMES = (
 """Authored names after Altium's mechanical layer types, Mechanical 1 to 16."""
 GAP = "0.9843mil"
 """0.025 mm as an Altium rule writes it."""
+FLAGS = {3: "TRUE", 8: "FALSE", 16: "FALSE"}
+"""Authored flags of empty slots: Mechanical 3 enabled and 8 disabled (the writer disables an unused layer
+of 1 to 12), Mechanical 16 disabled (the writer enables 13 to 16 in every document); Mechanical 8 keeps
+Altium's own name."""
+UNNAMED = 8
 
 
 def _clearance() -> tuple[int, tuple[tuple[str, str], ...]]:
@@ -57,7 +63,7 @@ def _fields(text: str) -> dict[str, str]:
     return dict(re.findall(r"\|([^=|\r]+)=([^|\r]*)", text))
 
 
-def _edited(text: str) -> str:
+def _edited(text: str, *, slots: bool = False) -> str:
     """The writer's ``Board6`` text made metric, its mechanical layers named, its solder masks black in the
     3D view settings (the writer's are green), and the hash pair after
     ``HOLESHAPEHASHSIZE`` and the strategy name after the last place marker, as Altium writes them."""
@@ -65,14 +71,17 @@ def _edited(text: str) -> str:
         "|GR0_DISPLAYUNIT=1|", "|GR0_DISPLAYUNIT=0|"
     )
     for n, name in enumerate(NAMES, start=1):
+        name = f"Mechanical {n}" if slots and n == UNNAMED else name
         text = re.sub(rf"\|LAYER{56 + n}NAME=[^|\r]*", f"|LAYER{56 + n}NAME={name}", text)
+    for n, flag in FLAGS.items() if slots else ():
+        text = re.sub(rf"\|LAYER{56 + n}MECHENABLED=[^|\r]*", f"|LAYER{56 + n}MECHENABLED={flag}", text)
     text = re.sub(r"(\|HOLESHAPEHASHSIZE=[^|\r]*)", r"\1|HASHKEY00=1|HASHVALUE00=12", text, count=1)
     text = re.sub(r"CFG3D\.(TOP|BOT)SOLDERMASKCOLOR=\d+", r"CFG3D.\1SOLDERMASKCOLOR=0", text)  # black
     situs = r"\1|SITUSSTRATEGYNAME=Default 2 Layer Board"
     return re.sub(r"(\|PLACEMARKERY\d+=[^|\r]*)(?!.*\|PLACEMARKERY)", situs, text, count=1, flags=re.S)
 
 
-def _source(folder: Path) -> Path:
+def _source(folder: Path, *, slots: bool = False) -> Path:
     board = folder / "board" / BOARD.name
     board.parent.mkdir(parents=True)
     text = BOARD.read_text("utf-8").rstrip()
@@ -89,7 +98,7 @@ def _source(folder: Path) -> Path:
     for name, data in written.files.items():
         if name.endswith(".PcbDoc"):
             streams = open_compound(data).as_dict()
-    text = _edited(_board6(streams["Board6/Data"])).encode("latin-1") + b"\x00"
+    text = _edited(_board6(streams["Board6/Data"]), slots=slots).encode("latin-1") + b"\x00"
     streams["Board6/Data"] = struct.pack("<I", len(text)) + text
     path = folder / "source" / "two_layer.PcbDoc"
     path.parent.mkdir(parents=True)
@@ -120,9 +129,9 @@ def _go(folder: Path, *args: str) -> None:
     assert done.exit_code == 0, done.error
 
 
-def _flow_a(folder: Path) -> Path:
+def _flow_a(folder: Path, *, slots: bool = False) -> Path:
     """``import --to python``, ``build`` and ``convert --to altium`` of the authored source."""
-    source = _source(folder)
+    source = _source(folder, slots=slots)
     _go(folder, "import", str(source), "--to", "python", "--out", "py", "--licence", "CC0-1.0", "--copyright",
         "2026 Fenolite contributors", "--allow-lossy")  # fmt: skip
     _go(folder, "build", str(folder / "py" / "design.py"), "--out", "b")
@@ -145,8 +154,10 @@ def test_the_conversion_carries_the_settings(tmp_path: Path) -> None:
     assert ("DISPLAYUNIT", "0") in fields and ("GR0_DISPLAYUNIT", "0") in fields
     assert keys.index("HASHKEY00") == keys.index("HOLESHAPEHASHSIZE") + 1
     assert fields[keys.index("SITUSSTRATEGYNAME") - 1][0] == docboard.ANCHOR
-    assert not [k for k in keys if docboard.OWNED_KEY.fullmatch(k) and not re.fullmatch(r"LAYER\d+NAME", k)]
+    mechanical = re.compile(r"LAYER\d+(?:NAME|MECHENABLED)")
+    assert not [k for k in keys if docboard.OWNED_KEY.fullmatch(k) and not mechanical.fullmatch(k)]
     assert storages.mechanical_names(fields) == {56 + n: name for n, name in enumerate(NAMES, start=1)}
+    assert len([k for k in keys if k.endswith("MECHENABLED")]) == 16  # the flags of the empty slots
 
 
 def test_the_merge_keeps_the_writers_owned_keys() -> None:
@@ -208,3 +219,41 @@ def test_flow_a_keeps_a_black_solder_mask(tmp_path: Path) -> None:
     board, _rules = _written(_flow_a(tmp_path))
     masks = re.findall(r"CFG3D\.(?:TOP|BOT)SOLDERMASKCOLOR=\d+", _fields(board)["3DCONFIGURATION"])
     assert masks == ["CFG3D.TOPSOLDERMASKCOLOR=0", "CFG3D.BOTSOLDERMASKCOLOR=0"]
+
+
+def _slots(fields: dict[str, str]) -> list[tuple[str, str]]:
+    return [(fields[f"LAYER{56 + n}NAME"], fields[f"LAYER{56 + n}MECHENABLED"]) for n in range(1, 17)]
+
+
+def test_flow_a_keeps_the_empty_slots(tmp_path: Path) -> None:
+    """Scenario "Empty mechanical slots come back as the source left them": a slot that nothing of the
+    written document lies on takes the source's name and enabled flag, so Mechanical 3 stays enabled,
+    Mechanical 8 disabled and named by Altium, and the reserved Mechanical 16 disabled; the slots the board
+    uses stay enabled."""
+    document = _flow_a(tmp_path, slots=True)
+    source = _fields(_written(tmp_path / "source" / "two_layer.PcbDoc")[0])
+    assert [source[f"LAYER{56 + n}MECHENABLED"] for n in FLAGS] == list(FLAGS.values())
+    assert source[f"LAYER{56 + UNNAMED}NAME"] == f"Mechanical {UNNAMED}"
+    assert _slots(_fields(_written(document)[0])) == _slots(source)
+
+
+DRILL = '(gr_line (start 12 14) (end 22 14) (stroke (width 0.1) (type solid)) (layer "User.8") (uuid "c0464000-0000-4000-8000-000000000002"))'  # noqa: E501
+
+
+def test_a_drill_drawing_row_goes_back_to_its_layer(tmp_path: Path) -> None:
+    """Scenario "A drill drawing comes back on its layer": a line on the KiCad row a conversion names
+    ``Altium.DrillDrawing`` is written on Altium's drill drawing layer (73), not on Mechanical 8, which
+    nothing then uses."""
+    text = BOARD.read_text("utf-8")
+    row = '\t\t(33 "B.Fab" user)\n'
+    text = text.replace(row, row + '\t\t(53 "User.8" user "Altium.DrillDrawing")\n').rstrip()
+    board = tmp_path / "board" / BOARD.name
+    board.parent.mkdir(parents=True)
+    board.write_text(text[: text.rindex(")")] + "  " + DRILL + "\n)\n", encoding="utf-8")
+    assert '"Altium.DrillDrawing"' in board.read_text("utf-8")
+    conversion = convert_project(read_source(board), to="altium", allow_lossy=True)
+    (document,) = [data for name, data in conversion.files.items() if name.endswith(".PcbDoc")]
+    layers = sorted(t.prefix.layer for t in read_pcbdoc(document).tracks if isinstance(t, TrackRecord))
+    assert 73 in layers and 64 not in layers
+    fields = _fields(_board6(open_compound(document).as_dict()["Board6/Data"]))
+    assert fields["LAYER64MECHENABLED"] == "FALSE"

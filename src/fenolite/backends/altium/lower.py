@@ -252,11 +252,30 @@ def named_mechanical(board: Board) -> dict[str, int]:
     return named
 
 
+DRILL_ROWS: Mapping[str, int] = MappingProxyType({"Altium.DrillGuide": 55, "Altium.DrillDrawing": 73})
+"""The KiCad user names a conversion gives Altium's drill guide and drill drawing layers (change c0428,
+``convert.altium_to_kicad.DRILL_LAYERS``), with those layers' ids."""
+
+
+def drill_rows(board: Board) -> dict[str, int]:
+    """The user layers of a KiCad board whose KiCad user name is one of ``DRILL_ROWS``, each with that
+    layer's id (change c0464): a drawing a conversion put there goes back to its drill layer, not to the
+    mechanical layer of its KiCad row."""
+    found: dict[str, int] = {}
+    for layer in board.layers:
+        bag = layer.ext.get("kicad") if layer.name.startswith("User.") else None
+        ident = DRILL_ROWS.get(dict(bag.payload).get("user_name", "")) if bag is not None else None
+        if ident is not None:
+            found[layer.name] = ident
+    return found
+
+
 def kicad_mechanical(board: Board) -> dict[str, int]:
     """The drawing-layer map of a KiCad board (change c0412): ``KICAD_MECHANICAL``, except that a layer of
-    ``named_mechanical`` is on its mechanical layer. Named layers come last, so the document names their
-    mechanical layer after them; a layer the fixed map puts on the same mechanical layer stays there."""
-    named = named_mechanical(board)
+    ``named_mechanical`` is on its mechanical layer and one of ``drill_rows`` on its drill layer (change
+    c0464). Named layers come last, so the document names their mechanical layer after them; a layer the
+    fixed map puts on the same mechanical layer stays there."""
+    named = {**drill_rows(board), **named_mechanical(board)}
     fixed = {name: ident for name, ident in KICAD_MECHANICAL.items() if name not in named}
     return {**fixed, **named}
 

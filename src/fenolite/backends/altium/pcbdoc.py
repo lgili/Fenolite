@@ -59,7 +59,7 @@ from fenolite.backends.altium.docboard import (
     polygon_fields,
     split_plane_fields,
 )
-from fenolite.backends.altium.libboard import guid, long_id
+from fenolite.backends.altium.libboard import enabled_mechanical, guid, long_id
 from fenolite.backends.altium.pcblib import (
     BODY_IS_MODEL,
     BODY_NO_OUTLINE,
@@ -877,6 +877,7 @@ def board_record(
     arcs: Collection[int] = (),
     pin_pairs: Sequence[Field] = (),
     settings: Sequence[Field] = (),
+    mechanical: Sequence[int] | None = None,
 ) -> bytes:
     """The one ``Board6`` record (``docboard``): the outline in the Altium frame, the origin at the board's
     lower-left corner, the layers that primitives lie on. ``frame`` and ``origin`` (change c0090) replace
@@ -884,7 +885,8 @@ def board_record(
     an arc through the next point, its middle, to the point after it: the middle is not written as a
     vertex, and the start is written as an arc vertex. ``pin_pairs`` are the xSignal keys a conversion
     carried (change c0461, ``docboard.board_records``); ``settings`` the source's settings a conversion
-    carried (change c0464, ``docboard.with_settings``)."""
+    carried (change c0464, ``docboard.with_settings``), and ``mechanical`` the enabled mechanical layers
+    those settings give (``_mechanical_enabled``)."""
     from fenolite.backends.altium.project import unique_id  # project imports this module
 
     frame = frame if frame is not None else Frame.of(outline)
@@ -915,6 +917,7 @@ def board_record(
         arcs=written,
         pin_pairs=pin_pairs,
         settings=settings,
+        mechanical=mechanical,
     )
     return rec.text_block(text)
 
@@ -2603,23 +2606,20 @@ def _write(
     filled[BODY_STORAGES[0]], filled[BODY_STORAGES[1]] = body_records(spec, frame)
     filled["EmbeddedBoards6"] = list(spec.embedded_arrays)
     poured = {copper.layers[layer] for zone in spec.zones for layer in zone.layers}
-    used = sorted(
-        {
-            record_layer(record)
-            for record in (
-                *pads,
-                *tracks,
-                *arcs,
-                *texts,
-                *filled["Vias6"],
-                *regions,
-                *free.regions,
-                *filled["Fills6"],
-            )
-        }
-        | poured
-        | {body.layer for body in spec.bodies}
-    )
+    drawn = {
+        record_layer(record)
+        for record in (
+            *pads,
+            *tracks,
+            *arcs,
+            *texts,
+            *filled["Vias6"],
+            *regions,
+            *free.regions,
+            *filled["Fills6"],
+        )
+    } | poured
+    used = sorted(drawn | {body.layer for body in spec.bodies})
     unique = [
         rec.property_block(
             (
@@ -2644,9 +2644,10 @@ def _write(
                     stack=stack,
                     frame=spec.frame,
                     origin=spec.origin,
-                    layer_names=_layer_names(spec, used, settings),
+                    layer_names=_layer_names(spec, drawn, settings),
                     pin_pairs=_pin_pair_fields(pin_pairs[1]) if pin_pairs is not None else (),
                     settings=settings,
+                    mechanical=_mechanical_enabled(used, settings),
                 )
             ],
         ),
@@ -2686,6 +2687,7 @@ PIN_PAIRS = "Board6.PinPairs"
 SETTINGS = "Board6.Settings"
 """The kept storage of the source's ``Board6`` settings (change c0464, ``docboard.with_settings``)."""
 _MECHANICAL_NAME = re.compile(r"LAYER(5[7-9]|6[0-9]|7[0-2])NAME")
+_MECHANICAL_FLAG = re.compile(r"LAYER(5[7-9]|6[0-9]|7[0-2])MECHENABLED")
 
 
 def _split_records(data: bytes) -> list[bytes]:
@@ -2716,7 +2718,8 @@ def _layer_names(spec: PcbDocSpec, used: Collection[int], settings: Sequence[Fie
     """The names of the mechanical layers of ``Board6``: each id after the layer of ``spec.layer_ids`` that
     reaches it (but ``Mech.<n>``, which keeps Altium's name), and after the source's name among the carried
     ``settings`` (change c0464) when the id is in ``spec.named_layers`` (the layer is the source's) or no
-    layer of ``used`` is it (nothing of the written document lies on it)."""
+    layer of ``used`` is it (no primitive of the written document lies on it: a body on a layer the writer
+    chose does not make it the KiCad layer's)."""
     names = {ident: name for name, ident in spec.layer_ids.items() if not name.startswith("Mech.")}
     for key, value in settings:
         match = _MECHANICAL_NAME.fullmatch(key)
@@ -2726,6 +2729,24 @@ def _layer_names(spec: PcbDocSpec, used: Collection[int], settings: Sequence[Fie
         if ident in spec.named_layers or ident not in used:
             names[ident] = value
     return names
+
+
+def _mechanical_enabled(used: Collection[int], settings: Sequence[Field]) -> tuple[int, ...] | None:
+    """The numbers of the enabled mechanical layers when the carried ``settings`` hold the source's flags
+    (change c0464): a layer that something of the written document lies on is enabled, as a build enables
+    it (``enabled_mechanical``), and every other one takes the source's flag. ``None`` without flags."""
+    flags = {
+        int(match.group(1)) - 56: value.upper() == "TRUE"
+        for key, value in settings
+        if (match := _MECHANICAL_FLAG.fullmatch(key)) is not None
+    }
+    if not flags:
+        return None
+    enabled = set(enabled_mechanical(used))
+    for number, flag in flags.items():
+        if 56 + number not in used:
+            (enabled.add if flag else enabled.discard)(number)
+    return tuple(sorted(enabled))
 
 
 def _pin_pair_fields(data: bytes) -> list[Field]:

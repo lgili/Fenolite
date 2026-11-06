@@ -4,13 +4,17 @@
 
 A conversion of an Altium design to KiCad SHALL carry, as the board property
 `Fenolite.Altium.Board6.Settings`, every key of the source's `Board6` record that the record holds once
-and that the writer does not own (`docboard.OWNED_KEY`), with its value and its place, and the names of
-mechanical layers 1 to 16. A key whose text a record line cannot hold SHALL NOT be carried.
+and that the writer does not own (`docboard.OWNED_KEY`), with its value and its place, and the names and
+enabled flags of mechanical layers 1 to 16. A key whose text a record line cannot hold SHALL NOT be
+carried.
 
 The conversion back SHALL write the source's value of each carried key, and SHALL write a carried key that
 the writer does not write after the key it followed in the source. A mechanical layer SHALL take the
 source's name when the KiCad layer that reaches it is named `Mech.<n>`, or when no written primitive lies
-on it.
+on it; a component body on it SHALL NOT count as such a primitive. A mechanical layer that nothing of the
+written document lies on SHALL take the source's enabled flag; one that something lies on SHALL be enabled.
+A drawing on the KiCad user layer a conversion named `Altium.DrillDrawing` or `Altium.DrillGuide` SHALL be
+written on Altium's drill drawing (73) or drill guide (55) layer.
 
 #### Scenario: A metric document stays metric
 
@@ -41,3 +45,17 @@ on it.
   `SITUSSTRATEGYNAME`
 - **WHEN** it is converted to KiCad and back
 - **THEN** the written `Board6` holds them with their values, on the line and after the key they followed
+
+#### Scenario: Empty mechanical slots come back as the source left them
+
+- **GIVEN** an authored Altium document whose unused Mechanical 3 is enabled, whose unused Mechanical 8 is
+  disabled and keeps Altium's name `Mechanical 8`, and whose unused reserved Mechanical 16 is disabled
+- **WHEN** it goes through flow A
+- **THEN** the sixteen `LAYER<57+k>NAME` and `LAYER<57+k>MECHENABLED` keys of the written `Board6` are the
+  source's
+
+#### Scenario: A drill drawing comes back on its layer
+
+- **GIVEN** a KiCad board with a line on the user layer `User.8` named `Altium.DrillDrawing`
+- **WHEN** it is converted to Altium
+- **THEN** the line is a track on layer 73, nothing lies on Mechanical 8, and Mechanical 8 is disabled
