@@ -108,6 +108,8 @@ def test_imports_only_core_and_model() -> None:
                         continue  # c0449: the Models streams are deflated in memory; no file access
                     if path.name == "fills.py" and name == "uuid":
                         continue  # c0450: the fill marker is a version-8 uuid built in memory
+                    if path.name == "unions.py" and name == "uuid":
+                        continue  # c0460: the union member marker is a version-8 uuid built in memory
                     allowed = STDLIB_ALLOWED | (
                         {"json", "pathlib"} if path.name == "graduation.py" else set()
                     )
