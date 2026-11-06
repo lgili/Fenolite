@@ -19,7 +19,16 @@
 - [x] 3.1 Public row -04 refuses on the way back what the pour of its source refuses (9 of 9), and writes
   the polygons. Proof: `uv run pytest tests/corpus/test_altium_pour_c0457.py -q -n 0`.
 
-## 4. Close
+## 4. Flow A on lote-29 (S-2162)
 
-- [x] 4.1 Docs, S-2160 and S-2161, CHANGELOG; light checks; the touched and consuming test files alone with
+- [x] 4.1 `rulecarrier.condition_key`: a condition keyed by its parsed form, else without balanced outer
+  parentheses; schema `fenolite.altium-rules.v2`, version 1 keys still compared as written. Proof:
+  `uv run pytest tests/unit/convert/test_rule_carrier_c0457.py -q -n 0 -k "meaning or version_1 or imported"`.
+- [x] 4.2 `rulecarrier.board_minimum`: a build's board minimum is not lowered; taken when another
+  unconditioned rule holds its `min`, else a reported loss `BOARD_MINIMUM`. Proof: the same file,
+  `-k "board_minimum or imported"`.
+
+## 5. Close
+
+- [x] 5.1 Docs, S-2160 to S-2162, CHANGELOG; light checks; the touched and consuming test files alone with
   `-n 0`.

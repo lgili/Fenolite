@@ -112,20 +112,27 @@ class _Carried:
     """What the rule records carried in the board give the way back (changes c0434, c0457): the design
     without the rules those records give again, the records written (as read, or with the limits KiCad
     holds), the names of the rules that came from a record and were edited otherwise in KiCad, how many
-    rules the records stand for (the rules taken out, and one per record that gave none), and the ids of
-    the rules whose limits a record now holds."""
+    rules the records stand for (the rules taken out, and one per record that gave none), the ids of
+    the rules whose limits a record now holds, and the ids of the board minimums of an imported design
+    that are not written (``rulecarrier.board_minimum``)."""
 
     design: Design
     records: tuple[tuple[int, tuple[tuple[str, str], ...]], ...] = ()
     edited: frozenset[str] = frozenset()
     count: int = 0
     limits: tuple[str, ...] = ()
+    minimums: tuple[str, ...] = ()
 
 
 LIMITS_EDITED = "a rule record whose limits were edited in KiCad is written with KiCad's limits"
 """Change c0457: the record keeps its name, priority, scopes and enabled state."""
 EDITED_LOWERED = "a rule record edited in KiCad is written as a rule of its kind, as KiCad holds it"
 """Change c0457: the lowered rule takes the next priority of its kind and a name of its own."""
+BOARD_MINIMUM = (
+    "a board minimum of an imported design (design.rules.minimum) is not written as a rule: the rule records "
+    "of the Altium document it came from hold the board's limits"
+)
+"""Change c0457: a report-class loss; the import writes the document's board setup minimums so."""
 
 
 def _carried(source: SourceProject, design: Design) -> _Carried:
@@ -163,10 +170,12 @@ def _carried(source: SourceProject, design: Design) -> _Carried:
         taken |= set(names)
         limits += [rule.id for rule in own]
     left = tuple(rule for rule in rules.rules if rule.name not in taken)
-    count = len(rules.rules) - len(left) + sum(1 for record in matched.kept if not record.blocks)
+    minimums = tuple(rule.id for rule in rules.rules if rule.name in matched.minimums)
+    empty = sum(1 for record in matched.kept if not record.blocks)
+    count = len(rules.rules) - len(left) - len(minimums) + empty
     design = dataclasses.replace(design, rules=dataclasses.replace(rules, rules=left))
     records = tuple((r.number, written[id(r)]) for r in carried if id(r) in written)
-    return _Carried(design, records, frozenset(edited), count, tuple(limits))
+    return _Carried(design, records, frozenset(edited), count, tuple(limits), minimums)
 
 
 def _rule_changes(
@@ -303,6 +312,8 @@ def write(source: SourceProject, options: Options) -> Written:
     lost.update(_extra_losses(design, written))
     if "rule" in lost and carried.edited:
         lost["rule"] = _source_rule_losses(lost["rule"], design, carried.edited)
+    if carried.minimums:  # change c0457: reported, not refused
+        lost["rule"] = {**lost.get("rule", {}), BOARD_MINIMUM: carried.minimums}
     rule_changes = _rule_changes(design, carried, lost.get("rule", {}))
     if rule_changes:  # change c0457: a source rule edited in KiCad is a change, not a loss
         changed["rule"] = {**changed.get("rule", {}), **rule_changes}
@@ -311,6 +322,8 @@ def write(source: SourceProject, options: Options) -> Written:
     if carried.count:  # the rules the source's records give again, as they were read
         counts["rule"] = counts.get("rule", 0) + carried.count
         held["rule"] = held.get("rule", 0) + carried.count
+    if carried.minimums:
+        counts["rule"] = counts.get("rule", 0) + len(carried.minimums)
     if design.circuit.components:
         counts[SCHEMATIC] = 1
     name = inputs.name

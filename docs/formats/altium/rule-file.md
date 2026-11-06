@@ -214,6 +214,19 @@ is not written again. An edit in KiCad is a change, not a loss:
 - Any other edit is lowered as a rule of its kind. `SOURCE_RULE_LOST` stays for an edit that no Altium
   record can hold.
 
+A build writes a condition of two terms on one side in parentheses, `(A.Type == 'Via' && A.NetName ==
+'VCC')`, where the conversion wrote it without them (S-2162). So property schema
+`fenolite.altium-rules.v2` keys a condition by its parsed form when KiCad's closed grammar reads it, else
+by its text without balanced outer parentheses (`rulecarrier.condition_key`). Version 1 keys are still
+compared as they were written.
+
+The import writes the board setup minimums of the converted document as `design.rules.minimum(...)`, and
+a build writes them as rules `fenolite_0_min_<constraint>` without a condition, holding a `min` alone. A
+conversion of a board that carries the records does not lower such a rule (`rulecarrier.board_minimum`):
+the records hold the board's limits. When another rule without a condition holds the same `min` of that
+constraint, the minimum adds nothing. Otherwise it is a reported loss (`to_altium.BOARD_MINIMUM`), never
+a refusal.
+
 On that way back no other record is added: no rule of a net class, no `All` default, no Polygon Connect
 Style lowered from the zones when the source holds one, and no plane rule of a kind that the source holds.
 Without the file, the way back writes the rules of the KiCad project, as before.

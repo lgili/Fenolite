@@ -14,7 +14,9 @@ rules file, or that gave none, as it was read (name, priority, scopes, enabled s
 whose rules keep their names and shapes but not their limits is written with KiCad's limits. The rules
 of any other record are lowered as KiCad holds them. Version 0 of the property (change c0434) keyed each
 rule list by its text, name included; it is still read, a rule then matching under its own name or under
-the name the record gave.
+the name the record gave. Version 2 compares a condition in its parsed form (``condition_key``), so the
+parentheses a build writes around it do not count; version 1 keys are compared as they were written. A
+board minimum an import wrote (``board_minimum``) is not lowered.
 """
 
 from __future__ import annotations
@@ -32,9 +34,11 @@ if TYPE_CHECKING:
 
 PROPERTY = "Fenolite.Altium.Rules6"
 """The board property that carries the records (``boardcarrier``)."""
-SCHEMA = "fenolite.altium-rules.v1"
-SCHEMAS = ("fenolite.altium-rules.v0", SCHEMA)
-"""The versions ``read_carrier`` reads; version 0 keyed each rule list by its text (change c0434)."""
+SCHEMA = "fenolite.altium-rules.v2"
+SCHEMAS = ("fenolite.altium-rules.v0", "fenolite.altium-rules.v1", SCHEMA)
+"""The versions ``read_carrier`` reads, in order: version 0 keyed each rule list by its text (change c0434),
+version 1 compared a condition's text with its runs of spaces made one, version 2 its parsed form
+(``condition_key``)."""
 LIMITS = frozenset({"min", "opt", "max"})
 
 
@@ -51,6 +55,8 @@ class Carried:
     """Rule name → the shape key of the list (``rule_keys``); empty in version 0."""
     texts: bool = False
     """Version 0: ``blocks`` holds the ``digest`` of each list's text, its name included."""
+    version: int = 2
+    """The version of the keys (``SCHEMAS``): ``rule_keys`` of that version gives them."""
 
     @property
     def name(self) -> str:
@@ -92,7 +98,8 @@ def read_carrier(text: str) -> tuple[Carried, ...]:
     schema = cast(dict[str, Any], data).get("schema") if isinstance(data, dict) else None
     if schema not in SCHEMAS:
         raise ValueError(f"not a {SCHEMA} file")
-    texts = schema != SCHEMA
+    version = SCHEMAS.index(cast(str, schema))
+    texts = version == 0
     found: list[Carried] = []
     try:
         for row in cast(list[dict[str, Any]], data["records"]):
@@ -100,7 +107,7 @@ def read_carrier(text: str) -> tuple[Carried, ...]:
             fields = tuple((str(key), str(value)) for key, value in pairs)
             blocks = {str(name): str(body) for name, body in cast(dict[str, Any], row["blocks"]).items()}
             shapes = {str(k): str(v) for k, v in cast(dict[str, Any], row.get("shapes", {})).items()}
-            found.append(Carried(int(row["number"]), fields, blocks, shapes, texts))
+            found.append(Carried(int(row["number"]), fields, blocks, shapes, texts, version))
     except (KeyError, TypeError, ValueError) as error:
         raise ValueError(f"a malformed {SCHEMA} record: {error}") from None
     return tuple(found)
@@ -108,12 +115,18 @@ def read_carrier(text: str) -> tuple[Carried, ...]:
 
 @dataclass(frozen=True, slots=True)
 class DruRule:
-    """A rule of a rules file: its name, the node as parsed, and its content and shape keys."""
+    """A rule of a rules file: its name, the node as parsed, its content and shape keys, and the keys of
+    version 1 (``rule_keys``)."""
 
     name: str
     node: Node
     content: str
     shape: str
+    older: tuple[str, str] = ("", "")
+
+    def keys(self, version: int) -> tuple[str, str]:
+        """The content and shape keys of ``version`` (1 or 2)."""
+        return self.older if version == 1 else (self.content, self.shape)
 
     def text_key(self, name: str) -> str:
         """The version-0 key of the rule under ``name``: the ``digest`` of its text with that name."""
@@ -127,17 +140,55 @@ class DruRule:
 _SPACES = re.compile(r"\s+")
 
 
-def rule_keys(node: Node) -> tuple[str, str]:
+def _wrapped(text: str) -> bool:
+    """Whether ``text`` is one parenthesised group: its first ``(`` closes at its last character, quoted
+    strings skipped."""
+    if not (text.startswith("(") and text.endswith(")")):
+        return False
+    depth, quote = 0, ""
+    for at, char in enumerate(text):
+        if quote:
+            quote = "" if char == quote else quote
+        elif char in "'\"":
+            quote = char
+        elif char == "(":
+            depth += 1
+        elif char == ")":
+            depth -= 1
+            if depth == 0 and at < len(text) - 1:
+                return False
+    return depth == 0
+
+
+def condition_key(text: str) -> str:
+    """The form of a condition that two texts of one meaning share (change c0457): its parsed selectors
+    when KiCad's closed grammar reads it (``backends.kicad.rulemap.parse_condition``), else its text with
+    its runs of spaces made one and its balanced outer parentheses taken off, again and again. A build
+    writes ``(A.Type == 'Via' && A.NetClass == 'X')`` where the conversion wrote it without them."""
+    from fenolite.backends.kicad.rulemap import parse_condition
+
+    text = _SPACES.sub(" ", text).strip()
+    parsed = parse_condition(text)
+    if parsed is not None:
+        return "parsed " + repr(parsed)
+    while _wrapped(text):
+        text = text[1:-1].strip()
+    return text
+
+
+def rule_keys(node: Node, *, version: int = 2) -> tuple[str, str]:
     """The content key and the shape key of a rule list: the SHA-256 of its children after the name, each in
-    compact form, in sorted order, a condition with its runs of spaces made one. The shape leaves out the
-    values of the ``min``, ``opt`` and ``max`` of each constraint (change c0457)."""
+    compact form, in sorted order, a condition as ``condition_key`` gives it (version 1: with its runs of
+    spaces made one). The shape leaves out the values of the ``min``, ``opt`` and ``max`` of each
+    constraint (change c0457)."""
     from fenolite.backends.kicad.sexpr import Atom, Node, dumps
 
     def item(child: Node | Atom, shape: bool) -> str:
         if not isinstance(child, Node):
             return dumps(child, style="compact")
         if child.name == "condition" and child.atoms():
-            text = _SPACES.sub(" ", child.atoms()[0].value).strip()
+            text = child.atoms()[0].value
+            text = _SPACES.sub(" ", text).strip() if version == 1 else condition_key(text)
             return dumps(Node(child.head, (Atom.string(text),)), style="compact")
         if shape and child.name == "constraint":
             kept = [
@@ -169,7 +220,8 @@ def dru_rules(text: str | None) -> tuple[DruRule, ...]:
             continue
         atoms = item.node.atoms()
         if atoms:
-            found.append(DruRule(str(atoms[0].value), item.node, *rule_keys(item.node)))
+            older = rule_keys(item.node, version=1)
+            found.append(DruRule(str(atoms[0].value), item.node, *rule_keys(item.node), older))
     return tuple(found)
 
 
@@ -194,12 +246,54 @@ class Matched:
     """What the rules file holds of the carried records (``match``): the records written as read, the
     records whose limits alone were edited with the names of their rules, the names of the rules those
     records stand for (not lowered again), and the names of the rules of every other record that are still
-    in the file (edited in KiCad)."""
+    in the file (edited in KiCad), and the names of the board minimums of an imported design that no
+    record holds (``board_minimum``)."""
 
     kept: tuple[Carried, ...]
     limits: tuple[tuple[Carried, tuple[str, ...]], ...]
     taken: frozenset[str]
     edited: frozenset[str]
+    minimums: tuple[str, ...] = ()
+
+
+_MINIMUM_NAME = re.compile(r"^fenolite_0_min_([a-z_]+)$")
+
+
+def board_minimum(rule: DruRule) -> tuple[str, str] | None:
+    """The constraint and the ``min`` (compact text) of a board minimum that a build writes for
+    ``design.rules.minimum()`` (``fenolite_0_min_<constraint>``: no condition, no layer, one constraint of
+    that name with a ``min`` alone), or ``None`` (change c0457). An import of an Altium document writes the
+    minimums of its board setup that way; the document holds them in its rule records, not as rules."""
+    from fenolite.backends.kicad.sexpr import Node, dumps
+
+    found = _MINIMUM_NAME.match(rule.name)
+    if found is None:
+        return None
+    nodes = [c for c in rule.node.children[1:] if isinstance(c, Node)]
+    if any(n.name in ("condition", "layer") for n in nodes):
+        return None
+    constraints = [n for n in nodes if n.name == "constraint"]
+    if len(constraints) != 1:
+        return None
+    (constraint,) = constraints
+    atoms, limits = constraint.atoms(), [c for c in constraint.children if isinstance(c, Node)]
+    if not atoms or atoms[0].value != found.group(1) or [n.name for n in limits] != ["min"]:
+        return None
+    return found.group(1), dumps(limits[0], style="compact")
+
+
+def _floors(rule: DruRule) -> set[tuple[str, str]]:
+    """``(constraint, min)`` of each constraint of a rule without a condition or a layer."""
+    from fenolite.backends.kicad.sexpr import Node, dumps
+
+    nodes = [c for c in rule.node.children[1:] if isinstance(c, Node)]
+    if any(n.name in ("condition", "layer") for n in nodes):
+        return set()
+    found: set[tuple[str, str]] = set()
+    for constraint in (n for n in nodes if n.name == "constraint" and n.atoms()):
+        for limit in (c for c in constraint.children if isinstance(c, Node) and c.name == "min"):
+            found.add((constraint.atoms()[0].value, dumps(limit, style="compact")))
+    return found
 
 
 def match(records: Sequence[Carried], rules: Sequence[DruRule]) -> Matched:
@@ -210,6 +304,9 @@ def match(records: Sequence[Carried], rules: Sequence[DruRule]) -> Matched:
     keys compare the text under the record's name. A rule of the same content as a kept record's rule is a
     copy of it and is taken too (an import may hold one rule as a board minimum and as a rule). A record not
     kept whose rule lists are rules of the file under their names, of the same shapes, has its limits edited.
+    A board minimum an import made (``board_minimum``) that no record holds is taken too: when another rule
+    without a condition holds the same ``min`` of its constraint it adds nothing, else it is named in
+    ``minimums``.
     """
     free = list(range(len(rules)))
     used: dict[int, str] = {}
@@ -218,7 +315,7 @@ def match(records: Sequence[Carried], rules: Sequence[DruRule]) -> Matched:
         order = sorted(free, key=lambda i: rules[i].name != name)
         for i in order:
             rule = rules[i]
-            if (rule.text_key(name) if record.texts else rule.content) == key:
+            if (rule.text_key(name) if record.texts else rule.keys(record.version)[0]) == key:
                 return i
         return None
 
@@ -251,7 +348,7 @@ def match(records: Sequence[Carried], rules: Sequence[DruRule]) -> Matched:
             record.shapes
             and record.blocks
             and all(
-                i is not None and rules[i].shape == record.shapes.get(n)
+                i is not None and rules[i].keys(record.version)[1] == record.shapes.get(n)
                 for n, i in zip(record.blocks, at, strict=True)
             )
         ):
@@ -261,7 +358,19 @@ def match(records: Sequence[Carried], rules: Sequence[DruRule]) -> Matched:
             limits.append((record, tuple(record.blocks)))
             continue
         edited |= {name for name in record.blocks if name in by_name}
-    return Matched(tuple(kept), tuple(limits), frozenset(taken), frozenset(edited))
+    floors: set[tuple[str, str]] = set()
+    for other in (r for r in rules if board_minimum(r) is None):
+        floors |= _floors(other)
+    minimums: list[str] = []
+    for i in free:
+        rule = rules[i]
+        found = board_minimum(rule)
+        if found is None or rule.name in edited:
+            continue
+        taken.add(rule.name)
+        if found not in floors:
+            minimums.append(rule.name)
+    return Matched(tuple(kept), tuple(limits), frozenset(taken), frozenset(edited), tuple(minimums))
 
 
 __all__ = [
@@ -272,7 +381,9 @@ __all__ = [
     "Carried",
     "DruRule",
     "Matched",
+    "board_minimum",
     "carrier_text",
+    "condition_key",
     "digest",
     "dru_blocks",
     "dru_rules",

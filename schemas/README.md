@@ -92,6 +92,7 @@ tracked separately in `frozen-v0.json` while the active CLI writer remains v0.
 | `fenolite.altium-observations.v0` | public | `fenolite.cli.file_source_formats:AltiumObservationsFile` | Value-free observation output; native verdict stays unjudged. |
 | `fenolite.altium-rules.v0` | internal | `internal` | Rule records of an Altium source in a KiCad board property (c0434). |
 | `fenolite.altium-rules.v1` | internal | `internal` | Rule records of an Altium source in a KiCad board property (c0434, keyed by content in c0457). |
+| `fenolite.altium-rules.v2` | internal | `internal` | Rule records of an Altium source in a KiCad board property (c0457, conditions compared parsed). |
 | `fenolite.altium-schematic-layout.v0` | internal | `internal` | Protected native-layout observation used only by rebuilds. |
 | `fenolite.artifacts.v0` | public | `fenolite.exports.manifest:Manifest` | User-authored input or agent-readable output. |
 | `fenolite.assembly-template.v0` | public | `fenolite.cli.file_formats:AssemblyTemplateFile` | User-authored input or agent-readable output. |
