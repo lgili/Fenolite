@@ -103,6 +103,9 @@ def body_models(path: Path, *, issues: list[Issue] | None = None) -> tuple[BodyM
             BodyModel(
                 locator=f"{BODY_STORAGE}/Data#{record.index}",
                 name=records[k].get("NAME", "") or props.text("MODEL.NAME"),
+                ident=records[k].get("ID", ""),
+                checksum=records[k].get("CHECKSUM", ""),
+                body_checksum=props.text("MODEL.CHECKSUM"),
                 format=STEP,
                 data=data,
                 position=Point(_length(props.text("MODEL.2D.X")), -_length(props.text("MODEL.2D.Y"))),

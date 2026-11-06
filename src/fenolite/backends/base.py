@@ -986,7 +986,11 @@ class BodyModel:
     from the face the footprint is on. ``rotation`` holds the angles about x, then y, then z, in a frame of
     the top face: x right, y the board frame's −y, z out of the top face. A model point ``p`` lies at
     ``T(position, face ± z) · F(side) · Rz · Ry · Rx · p``, ``F`` the identity on the top and a half turn
-    about x on the bottom, below the bottom face."""
+    about x on the bottom, below the bottom face.
+
+    ``ident`` and ``checksum`` are the ``ID`` and ``CHECKSUM`` texts of the model's record and
+    ``body_checksum`` the body's ``MODEL.CHECKSUM``, empty where the file holds none (change c0449: a
+    conversion that gives the same bytes back writes them again)."""
 
     locator: str
     name: str
@@ -995,6 +999,9 @@ class BodyModel:
     position: Point
     z: Nm = 0
     rotation: tuple[Udeg, Udeg, Udeg] = (0, 0, 0)
+    ident: str = ""
+    checksum: str = ""
+    body_checksum: str = ""
 
 
 BodyShape = Literal["extruded", "model", "cylinder", "sphere", "other"]

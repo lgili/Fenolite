@@ -40,4 +40,14 @@
   U1 also came back with its box's heights (8.2677 / 24.6457 mil) where the source stores 0 / 10 mil.
   Fixed: an unchanged model keeps the source body's `STANDOFFHEIGHT` and `OVERALLHEIGHT`, carried in
   `Fenolite.Altium.ModelHeights`; pinned by `tests/unit/convert/test_model_heights_c0449.py` and
-  `tests/corpus/test_altium_bodies.py::test_embedded_models_keep_their_stored_heights`. NG6011 to re-run.
+  `tests/corpus/test_altium_bodies.py::test_embedded_models_keep_their_stored_heights`.
+  Re-run on NG6011 (2026-11-06): U1 is TPS63050 at 0 / 10 mil, 13 STEP bodies, no dialog. The Altium session
+  that had opened the first round trip still showed that file's model names: the IDs were the same (the
+  ID of the bytes) and `CHECKSUM` 0, so Altium seems to serve a model it has opened by its `ID`. Fixed: a
+  model whose bytes are the source's keeps its record's `ID` and `CHECKSUM`, and a body placed as before its
+  `MODEL.CHECKSUM`, carried in `Fenolite.Altium.ModelIds`. No public source or corpus record gives the
+  checksum's rule (no CRC-32, Adler-32, sum, length or hash prefix of the inflated, deflated or newline-
+  changed bytes matches any of 153 records), so a new model gets the `ID` of its bytes and its name
+  (`pcbrecords.model_id`) and the stand-in 0. Pinned by `tests/unit/convert/test_model_ids_c0449.py` and
+  `tests/corpus/test_altium_bodies.py::test_embedded_models_keep_their_source_ids`. A clean read after an
+  Altium relaunch to confirm (altium-rounds-2).

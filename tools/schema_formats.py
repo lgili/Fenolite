@@ -55,7 +55,13 @@ FORMATS: dict[str, Format] = {
     "fenolite.altium-model-heights.v0": Format(
         "internal",
         None,
-        "Stored heights of the embedded Altium models in a KiCad board property (c0449).",
+        "Stored heights of Altium model bodies in a KiCad board property (c0449).",
+        "internal",
+    ),
+    "fenolite.altium-model-ids.v0": Format(
+        "internal",
+        None,
+        "Record IDs and checksums of Altium models in a KiCad board property (c0449).",
         "internal",
     ),
     "fenolite.altium-rules.v0": Format(

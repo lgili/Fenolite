@@ -186,7 +186,9 @@ def test_roundtrip_of_two_models(tmp_path: Path) -> None:
     storage = document.storages["Models"]
     (record,) = model_records(storage["Data"])
     assert storage["Header"] == struct.pack("<I", 1) and zlib.decompress(storage["0"]) == BOX
-    assert record["ID"] == pcbrecords.model_id(BOX) and record["NAME"] == "box.step"
+    assert (
+        record["ID"] == pcbrecords.model_id(BOX, "box.step") and record["NAME"] == "box.step"
+    )  # a new model
     records = read_bodies(document.storages["ComponentBodies6"]["Data"])
     bodies = [b for b in records if b.properties.text("MODEL.MODELTYPE") == "1"]
     assert len(bodies) == 2 and {b.properties.text("MODELID") for b in bodies} == {record["ID"]}

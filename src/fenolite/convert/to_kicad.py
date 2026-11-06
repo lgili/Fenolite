@@ -601,6 +601,10 @@ def write_altium(source: SourceProject, options: Options) -> Written:
         from fenolite.convert.models import HEIGHTS_PROPERTY, heights_text
 
         board_items[HEIGHTS_PROPERTY] = heights_text(placed.heights).encode("utf-8")
+    if placed.ids:  # change c0449: each placed model's record ID and checksums, for the way back
+        from fenolite.convert.models import IDS_PROPERTY, ids_text
+
+        board_items[IDS_PROPERTY] = ids_text(placed.ids).encode("utf-8")
     if carried:  # change c0434: every rule record travels in the board, for the way back
         from fenolite.convert import rulecarrier
 

@@ -1587,9 +1587,10 @@ def _place_model(
             height=model.height,
             standoff=model.standoff,
             bottom=bottom,
-            model_id=rec.model_id(model.model.data),
+            model_id=pcbdoc.record_id(model.model),
             body_id=model.ident,
             model=model.model,
+            checksum=model.checksum,
         )
     )
     if model.changed:

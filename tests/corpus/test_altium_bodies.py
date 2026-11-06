@@ -712,3 +712,47 @@ def test_embedded_models_keep_their_stored_heights(tmp_path: Path) -> None:
     back = {name.rsplit("_", 1)[0]: value for name, value in heights(document).items()}
     assert len(source) == 3 and {name: back[name.replace(" ", "_")] for name in source} == source
     assert source["IC_Texas_Instruments_TPS63050YFFR_eec"] == ("0mil", "10mil")
+
+
+def test_embedded_models_keep_their_source_ids(tmp_path: Path) -> None:
+    """Change c0449, task 4.3 (row ``-04``): each embedded model taken to KiCad and back with its bytes keeps
+    its record's ``ID`` and ``CHECKSUM``, and each of its bodies, placed as before, its ``MODELID`` and
+    ``MODEL.CHECKSUM``. Altium seems to serve a model it has opened by its ``ID``: with the IDs of the
+    model's bytes alone, a session that had opened an older round trip showed that file's model names."""
+    import hashlib
+    import zlib
+
+    from fenolite.api import convert
+    from fenolite.backends.altium.models3d import model_records
+
+    def ids(document: Path) -> tuple[dict[str, tuple[str, str]], set[tuple[str, str]]]:
+        read = read_pcbdoc(document.read_bytes(), file=document.name)
+        storages = {name.lower(): streams for name, streams in read.storages.items()}
+        models = storages[MODELS.lower()]
+        by_data: dict[str, tuple[str, str]] = {}
+        for k, r in enumerate(model_records(models["Data"])):
+            by_data[hashlib.sha256(zlib.decompress(models[str(k)])).hexdigest()] = (r["ID"], r["CHECKSUM"])
+        bodies = {
+            (record.properties.text("MODELID") or "", record.properties.text("MODEL.CHECKSUM") or "")
+            for record in read_bodies(storages[PLAIN.lower()]["Data"], storage=PLAIN)
+            if record.properties.text("MODEL.MODELTYPE") == "1"
+        }
+        return by_data, bodies
+
+    def write(files: Mapping[str, bytes], folder: Path) -> Path:
+        for key, data in files.items():
+            (folder / key).parent.mkdir(parents=True, exist_ok=True)
+            (folder / key).write_bytes(data)
+        return folder
+
+    (item,) = [i for i in DOCUMENTS if i.id.endswith("-04")]
+    path = require(item)
+    source, source_bodies = ids(path)
+    kicad = write(convert(path, to="kicad", allow_lossy=True).conversion.files, tmp_path / "kicad")
+    (board,) = kicad.glob("*.kicad_pcb")
+    altium = write(convert(board, to="altium", allow_lossy=True).conversion.files, tmp_path / "altium")
+    (document,) = altium.glob("*.PcbDoc")
+    back, back_bodies = ids(document)
+    assert len(source) == 3 and {sha: back[sha] for sha in source} == source
+    assert all(checksum != "0" for _, checksum in source.values())
+    assert source_bodies <= back_bodies

@@ -17,7 +17,11 @@ inverse of ``placement`` (``altium_pose``), and the outline and heights of the p
 (``stepbox.model_box``), or the reason it has no record. A model that comes back with the model and the
 pose the conversion to KiCad gave it keeps the heights its source body stores (``StoredHeights``, carried in
 the board property ``HEIGHTS_PROPERTY``; change c0449, task 4.3): the box gives them only to a model that is
-new or changed.
+new or changed. A model whose bytes are the source's keeps its record's ``ID`` and ``CHECKSUM``, and a body
+that also keeps its placement its ``MODEL.CHECKSUM`` (``StoredIds``, carried in ``IDS_PROPERTY``). Altium
+seems to serve a model it has opened by its ``ID``, and no public source or corpus record gives the rule of
+the checksum, so a new model gets the ``ID`` of its bytes and its name (``pcbrecords.model_id``) and the
+stand-in checksum: no entry of another model can match it.
 """
 
 from __future__ import annotations
@@ -34,6 +38,7 @@ from typing import cast
 
 from fenolite.backends import step, stepbox
 from fenolite.backends.altium import pcbdoc
+from fenolite.backends.altium import pcbrecords as rec
 from fenolite.backends.base import BodyForm, BodyModel, BodyShape
 from fenolite.backends.kicad import fpitems
 from fenolite.backends.kicad.pcb import read_model_ref
@@ -74,6 +79,14 @@ HeightKey = tuple[str, tuple[int, int, int], tuple[int, int, int], str]
 its turns (µdeg, each in [0, 360°)) and its footprint's side."""
 
 
+IDS_PROPERTY = "Fenolite.Altium.ModelIds"
+"""The board property that carries the record ``ID`` and ``CHECKSUM`` of each embedded model a conversion to
+KiCad placed and each such body's ``MODEL.CHECKSUM`` (change c0449, task 4.3)."""
+IDS_SCHEMA = "fenolite.altium-model-ids.v0"
+_GUID = re.compile(r"\{[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\}")
+"""A saved ``ID``: a GUID text in braces (153 of 153 records of the public rows)."""
+
+
 @dataclass(frozen=True, slots=True)
 class StoredHeights:
     """The heights an Altium model body stores (``STANDOFFHEIGHT`` and ``OVERALLHEIGHT``, in nm), with the
@@ -91,6 +104,34 @@ class StoredHeights:
     @property
     def key(self) -> HeightKey:
         return height_key(self.sha256, self.offset, self.rotation, self.side)
+
+
+@dataclass(frozen=True, slots=True)
+class StoredIds:
+    """What identifies an Altium model body's model in its source (change c0449, task 4.3): the ``ID`` and
+    ``CHECKSUM`` of the model's record, and the body's ``MODEL.CHECKSUM``, with the key of ``StoredHeights``.
+    The body's checksum equals its record's in 312 of 453 bodies of the public rows (``pcb-bodies.md``)."""
+
+    sha256: str
+    offset: tuple[int, int, int]
+    rotation: tuple[int, int, int]
+    side: str
+    ident: str
+    checksum: str
+    body_checksum: str
+
+    @property
+    def key(self) -> HeightKey:
+        return height_key(self.sha256, self.offset, self.rotation, self.side)
+
+
+@dataclass(frozen=True, slots=True)
+class CarriedIds:
+    """What ``read_ids`` gives: per model SHA-256 (hex) its record's ``(ID, CHECKSUM)``, and per placed model
+    its body's ``MODEL.CHECKSUM``."""
+
+    models: Mapping[str, tuple[str, str]] = field(default_factory=lambda: {})
+    bodies: Mapping[HeightKey, str] = field(default_factory=lambda: {})
 
 
 def height_key(
@@ -167,6 +208,72 @@ def read_heights(data: bytes | None) -> dict[HeightKey, tuple[int, int]]:
     return {key: value for key, value in found.items() if key not in clash}
 
 
+def ids_text(found: Iterable[StoredIds]) -> str:
+    """The carrier's JSON text: the schema, one entry per model and one per placed body, each sorted."""
+    rows = tuple(found)
+    models = sorted({(s.sha256, s.ident, s.checksum) for s in rows})
+    bodies = sorted({(*s.key, s.body_checksum) for s in rows if s.body_checksum})
+    root = {
+        "schema": IDS_SCHEMA,
+        "models": [{"sha256": s, "id": i, "checksum": c} for s, i, c in models],
+        "bodies": [
+            {"sha256": s, "offset": list(o), "rotation": list(r), "side": side, "checksum": c}
+            for s, o, r, side, c in bodies
+        ],
+    }
+    return json.dumps(root, sort_keys=True, separators=(",", ":"))
+
+
+def _rows(root: Mapping[str, object], name: str) -> list[dict[str, object]]:
+    items = root.get(name)
+    rows = cast("list[object]", items) if isinstance(items, list) else []
+    return [cast("dict[str, object]", row) for row in rows if isinstance(row, dict)]
+
+
+def _checksum(value: object) -> str | None:
+    return value if isinstance(value, str) and rec.checksum_problem(value) is None else None
+
+
+def read_ids(data: bytes | None) -> CarriedIds:
+    """The model identities a board carries; nothing for no property, another schema or text that is no
+    carrier. An entry that is not well formed is left out, and so is a model or a body whose entries
+    disagree: that model then gets the ``ID`` of its bytes and name, that body its record's checksum."""
+    if not data:
+        return CarriedIds()
+    try:
+        loaded: object = json.loads(data.decode("utf-8"))
+    except (UnicodeDecodeError, ValueError):
+        return CarriedIds()
+    root = cast("dict[str, object]", loaded) if isinstance(loaded, dict) else {}
+    if root.get("schema") != IDS_SCHEMA:
+        return CarriedIds()
+    models: dict[str, tuple[str, str]] = {}
+    clash: set[object] = set()
+    for row in _rows(root, "models"):
+        sha, ident, checksum = row.get("sha256"), row.get("id"), _checksum(row.get("checksum"))
+        if not isinstance(sha, str) or not isinstance(ident, str) or checksum is None:
+            continue
+        if not _GUID.fullmatch(ident):
+            continue
+        if models.setdefault(sha, (ident, checksum)) != (ident, checksum):
+            clash.add(sha)
+    bodies: dict[HeightKey, str] = {}
+    for row in _rows(root, "bodies"):
+        sha, side, checksum = row.get("sha256"), row.get("side"), _checksum(row.get("checksum"))
+        offset, rotation = _triple(row.get("offset")), _triple(row.get("rotation"))
+        if not isinstance(sha, str) or side not in ("top", "bottom") or offset is None or rotation is None:
+            continue
+        if checksum is None:
+            continue
+        key = height_key(sha, offset, rotation, str(side))
+        if bodies.setdefault(key, checksum) != checksum:
+            clash.add(key)
+    return CarriedIds(
+        {sha: value for sha, value in models.items() if sha not in clash},
+        {key: value for key, value in bodies.items() if key not in clash},
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class Placed:
     """What ``place_models`` gives: per footprint instance id its placements, the model files (path below
@@ -181,6 +288,8 @@ class Placed:
     bodies_lost: Mapping[str, str] = field(default_factory=lambda: {})
     heights: tuple[StoredHeights, ...] = ()
     """The stored heights of each placed embedded model, for the way back (change c0449, task 4.3)."""
+    ids: tuple[StoredIds, ...] = ()
+    """The source identity of each placed embedded model that has one, for the way back (change c0449)."""
 
 
 def model_file(library: str, footprint: str, data: bytes) -> str:
@@ -340,6 +449,7 @@ def place_models(
     bodies_changed: dict[str, str] = {}
     bodies_lost: dict[str, str] = {}
     heights: list[StoredHeights] = []
+    ids: list[StoredIds] = []
     for footprint in footprints:
         found: list[ModelPlacement] = []
         generated: list[tuple[str, step.Solid, str]] = []
@@ -366,6 +476,18 @@ def place_models(
                             digest, placed.offset, placed.rotation, footprint.side, body.standoff, body.height
                         )
                     )
+                    if model.ident:
+                        ids.append(
+                            StoredIds(
+                                digest,
+                                placed.offset,
+                                placed.rotation,
+                                footprint.side,
+                                model.ident,
+                                model.checksum,
+                                model.body_checksum,
+                            )
+                        )
                     changed[body.id] = PLACED
                     bodies_changed[body.id] = CARRIED
                     continue
@@ -393,7 +515,7 @@ def place_models(
                     bodies_changed[ident] = reason
         if found:
             placements[footprint.id] = tuple(found)
-    return Placed(placements, files, changed, lost, bodies_changed, bodies_lost, tuple(heights))
+    return Placed(placements, files, changed, lost, bodies_changed, bodies_lost, tuple(heights), tuple(ids))
 
 
 # --- the way back: a KiCad model in an Altium document (change c0449) --------------------------------------
@@ -507,14 +629,19 @@ def footprint_models(
     footprints: Iterable[FootprintInstance],
     root: Path,
     stored: Mapping[HeightKey, tuple[int, int]] | None = None,
+    ids: CarriedIds | None = None,
 ) -> dict[str, tuple[pcbdoc.FootprintModel, ...]]:
     """Per footprint instance id, its ``model`` children as the Altium write takes them (change c0449):
     each child whose STEP file the project folder ``root`` holds, unscaled and with a box, as a model with
     its pose, outline and heights; every other child with its reason. A model's id is
     ``<footprint id>/model/<n>``, ``n`` counting the footprint's children from 0. A model whose
     ``HeightKey`` ``stored`` holds (``read_heights``: the same bytes, offset, turns and side as the
-    conversion to KiCad gave it) takes the heights its source body stores; any other, those of its box."""
+    conversion to KiCad gave it) takes the heights its source body stores; any other, those of its box.
+    A model whose bytes ``ids`` names (``read_ids``) keeps its source record's ``ID`` and ``CHECKSUM``, and
+    with its placement its body's ``MODEL.CHECKSUM``; any other model gets the ``ID`` of its bytes and its
+    file name (``pcbrecords.model_id``) and the stand-in checksum."""
     stored = stored or {}
+    ids = ids or CarriedIds()
     boxes: dict[bytes, stepbox.Box | None] = {}
     found: dict[str, tuple[pcbdoc.FootprintModel, ...]] = {}
     for footprint in footprints:
@@ -544,10 +671,13 @@ def footprint_models(
                 made.append(pcbdoc.FootprintModel(ident, reason=NO_GEOMETRY))
                 continue
             pose = altium_pose(ref, footprint, box)
-            model = pcbdoc.EmbeddedModel(data, model_name(file), pose.position, pose.z, pose.rotation)
-            standoff, height = stored.get(
-                height_key(key.hex(), ref.offset, ref.rotation, footprint.side), (pose.standoff, pose.height)
+            name = model_name(file)
+            ident, checksum = ids.models.get(key.hex(), (rec.model_id(data, name), ""))
+            model = pcbdoc.EmbeddedModel(
+                data, name, pose.position, pose.z, pose.rotation, ident=ident, checksum=checksum
             )
+            placed = height_key(key.hex(), ref.offset, ref.rotation, footprint.side)
+            standoff, height = stored.get(placed, (pose.standoff, pose.height))
             made.append(
                 pcbdoc.FootprintModel(
                     ident,
@@ -556,6 +686,7 @@ def footprint_models(
                     standoff,
                     height,
                     changed=HIDDEN if ref.hidden else "",
+                    checksum=ids.bodies.get(placed, ""),
                 )
             )
         if made:
@@ -572,6 +703,8 @@ __all__ = [
     "HEIGHTS_PROPERTY",
     "HEIGHTS_SCHEMA",
     "HeightKey",
+    "IDS_PROPERTY",
+    "IDS_SCHEMA",
     "KIND",
     "NOT_CYLINDER",
     "NOT_SPHERE",
@@ -580,12 +713,15 @@ __all__ = [
     "PRISM",
     "UNKNOWN",
     "Placed",
+    "CarriedIds",
     "StoredHeights",
+    "StoredIds",
     "altium_pose",
     "body_solid",
     "footprint_models",
     "height_key",
     "heights_text",
+    "ids_text",
     "model_name",
     "model_path",
     "model_file",
@@ -593,6 +729,7 @@ __all__ = [
     "place_models",
     "placement",
     "read_heights",
+    "read_ids",
     "rotation_matrix",
     "turns",
 ]

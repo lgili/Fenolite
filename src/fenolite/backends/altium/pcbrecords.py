@@ -1094,15 +1094,19 @@ MODEL_SOURCE = "Undefined"
 MODEL_ID_SALT = "fenolite.altium.model:"
 _MODEL_NAME = re.compile(r"[A-Za-z0-9_. ()+-]+")
 """The characters a written model name keeps: the record holds no ``|``, ``=`` or NUL."""
+_CHECKSUM = re.compile(r"-?[0-9]{1,10}")
 UDEG_TURN = 360_000_000
 
 
-def model_id(data: bytes) -> str:
+def model_id(data: bytes, name: str = "") -> str:
     """The ``ID`` of the ``Models`` record of ``data`` and the ``MODELID`` of its bodies: a GUID text in
-    braces made of the first 16 bytes of the SHA-256 of ``fenolite.altium.model:`` and the hex SHA-256 of
-    ``data``, so equal models share one record and a build is repeatable."""
-    inner = hashlib.sha256(data).hexdigest()
-    digest = hashlib.sha256((MODEL_ID_SALT + inner).encode("ascii")).hexdigest().upper()
+    braces made of the first 16 bytes of the SHA-256 of ``fenolite.altium.model:``, the hex SHA-256 of
+    ``data`` and, when ``name`` is given, a NUL and ``name``; equal models share one record and a build is
+    repeatable. Altium seems to serve a model it has opened by its ``ID`` (``pcb-bodies.md``), so a
+    conversion names a new model by its name too: the same bytes under another name are another entry
+    (change c0449)."""
+    inner = hashlib.sha256(data).hexdigest() + ("\0" + name if name else "")
+    digest = hashlib.sha256((MODEL_ID_SALT + inner).encode("utf-8")).hexdigest().upper()
     return "{" + "-".join((digest[:8], digest[8:12], digest[12:16], digest[16:20], digest[20:32])) + "}"
 
 
@@ -1112,6 +1116,14 @@ def degrees_text(udeg: int) -> str:
     value = Decimal(turn.numerator) / Decimal(turn.denominator)
     text = format(value.quantize(Decimal("0.001"), rounding=ROUND_HALF_EVEN), "f")
     return "0.000" if text == "360.000" else text
+
+
+def checksum_problem(text: str) -> str | None:
+    """Why ``text`` cannot be a written ``CHECKSUM`` or ``MODEL.CHECKSUM``, or ``None``: saved values are
+    32-bit decimals, signed in some documents and unsigned in others (``pcb-bodies.md``)."""
+    if _CHECKSUM.fullmatch(text) is None or not -(2**31) <= int(text) < 2**32:
+        return f"the model checksum {text!r} is no 32-bit decimal"
+    return None
 
 
 def model_name_problem(name: str) -> str | None:
@@ -1136,6 +1148,7 @@ def model_body_record(
     rotation: tuple[int, int, int],
     identifier: str = "",
     shape_based: bool = False,
+    checksum: str = BODY_CHECKSUM,
 ) -> bytes:
     """One component body that names an embedded model (type 12; ``pcb-bodies.md``, "Written form of a model
     body"): the framing of ``body_record``, the 34 keys of ``MODEL_BODY_KEYS``, ``MODELID`` ``model`` (the
@@ -1143,7 +1156,8 @@ def model_body_record(
     units, and the three turns in µdeg. ``standoff`` may be negative, as a through-hole part's is.
     ``ValueError`` for fewer than three vertices, a layer that is no Mechanical 1 to 16, a component index
     outside 16 bits, an overall height not above the standoff, an empty model id or a name the record cannot
-    hold."""
+    hold. ``checksum`` is its ``MODEL.CHECKSUM``: the source body's for a model whose bytes are the source's,
+    else the stand-in (``ValueError`` for a text that is no signed 32-bit decimal)."""
     if len(vertices) < 3:
         raise ValueError("a component body needs at least three vertices")
     if layer not in BODY_LAYERS:
@@ -1154,7 +1168,7 @@ def model_body_record(
         raise ValueError("the overall height of a component body must be above its standoff")
     if not model:
         raise ValueError("a model body needs the id of its model")
-    problem = model_name_problem(name)
+    problem = model_name_problem(name) or checksum_problem(checksum)
     if problem is not None:
         raise ValueError(problem)
     values: dict[str, str] = {
@@ -1179,7 +1193,7 @@ def model_body_record(
         "TEXTURESIZEY": "0mil",
         "TEXTUREROTATION": BODY_TEXTURE_ROTATION,
         "MODELID": model,
-        "MODEL.CHECKSUM": BODY_CHECKSUM,
+        "MODEL.CHECKSUM": checksum,
         "MODEL.EMBED": "TRUE",
         "MODEL.NAME": name,
         "MODEL.2D.X": mil_text(position[0]),
@@ -1195,11 +1209,14 @@ def model_body_record(
     return _body_bytes(layer, component, values, MODEL_BODY_KEYS, vertices, shape_based=shape_based)
 
 
-def model_record(model: str, name: str, *, dz: int, rotation: tuple[int, int, int]) -> bytes:
+def model_record(
+    model: str, name: str, *, dz: int, rotation: tuple[int, int, int], checksum: str = BODY_CHECKSUM
+) -> bytes:
     """One record of ``Models/Data`` (``pcb-bodies.md``, "Embedded models and their placement"): a 32-bit
-    length and ``EMBED=TRUE|MODELSOURCE=Undefined|ID=…|ROTX=…|ROTY=…|ROTZ=…|DZ=…|CHECKSUM=0|NAME=…`` with a
-    NUL; ``DZ`` in integer units, as saved records hold it, and ``CHECKSUM`` the stand-in of the bodies."""
-    problem = model_name_problem(name)
+    length and ``EMBED=TRUE|MODELSOURCE=Undefined|ID=…|ROTX=…|ROTY=…|ROTZ=…|DZ=…|CHECKSUM=…|NAME=…`` with a
+    NUL; ``DZ`` in integer units, as saved records hold it, and ``CHECKSUM`` ``checksum``: the source
+    record's for bytes that are the source's (change c0449), else the stand-in of the bodies."""
+    problem = model_name_problem(name) or checksum_problem(checksum)
     if problem is not None:
         raise ValueError(problem)
     fields = (
@@ -1210,7 +1227,7 @@ def model_record(model: str, name: str, *, dz: int, rotation: tuple[int, int, in
         ("ROTY", degrees_text(rotation[1])),
         ("ROTZ", degrees_text(rotation[2])),
         ("DZ", str(dz)),
-        ("CHECKSUM", BODY_CHECKSUM),
+        ("CHECKSUM", checksum),
         ("NAME", name),
     )
     text = "|".join(f"{key}={value}" for key, value in fields).encode("ascii") + b"\0"
@@ -1323,6 +1340,7 @@ __all__ = [
     "BodyForm",
     "body_layer",
     "body_model_id",
+    "checksum_problem",
     "body_record",
     "degrees_text",
     "MODEL_BODY_COLOR",

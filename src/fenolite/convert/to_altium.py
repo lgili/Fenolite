@@ -26,7 +26,15 @@ from fenolite.backends.kicad import fpitems
 from fenolite.backends.kicad.outline import edge_outline
 from fenolite.convert import altium_links, altium_strings, pads, schematic
 from fenolite.convert.direction import Direction, Options, TargetLimitError, Written
-from fenolite.convert.models import HEIGHTS_PROPERTY, HeightKey, footprint_models, read_heights
+from fenolite.convert.models import (
+    HEIGHTS_PROPERTY,
+    IDS_PROPERTY,
+    CarriedIds,
+    HeightKey,
+    footprint_models,
+    read_heights,
+    read_ids,
+)
 from fenolite.convert.report import SOURCE_RULE_LOST, ConversionReport, census
 from fenolite.convert.sources import ALTIUM, KICAD, SourceProject
 from fenolite.core.errors import FormatError
@@ -275,19 +283,20 @@ def with_unions(source: SourceProject, design: Design) -> Design:
     return dataclasses.replace(design, board=unions.restored(board, members))
 
 
-def _stored_heights(source: SourceProject) -> dict[HeightKey, tuple[int, int]]:
-    """The stored heights of the embedded models a conversion to KiCad placed (change c0449, task 4.3;
-    ``models.read_heights`` of the board property ``models.HEIGHTS_PROPERTY``); none for a board that does
-    not read or carries none."""
+def _stored_models(source: SourceProject) -> tuple[dict[HeightKey, tuple[int, int]], CarriedIds]:
+    """The stored heights and the source identities of the embedded models a conversion to KiCad placed
+    (change c0449, task 4.3; ``models.read_heights`` and ``models.read_ids`` of the board properties
+    ``models.HEIGHTS_PROPERTY`` and ``models.IDS_PROPERTY``); none for a board that does not read or carries
+    none."""
     from fenolite.backends.kicad.boardcarrier import carried as board_carried
 
     if source.path.suffix != ".kicad_pcb":
-        return {}
+        return {}, CarriedIds()
     try:
         found = board_carried(source.path.read_text(encoding="utf-8"))
     except (OSError, UnicodeDecodeError, FormatError):
-        return {}
-    return read_heights(found.get(HEIGHTS_PROPERTY))
+        return {}, CarriedIds()
+    return read_heights(found.get(HEIGHTS_PROPERTY)), read_ids(found.get(IDS_PROPERTY))
 
 
 def write(source: SourceProject, options: Options) -> Written:
@@ -308,7 +317,7 @@ def write(source: SourceProject, options: Options) -> Written:
     edges = edge_outline(design) if board is not None and board.outline is None else None
     # each model child whose STEP file the project holds becomes a body that embeds it (change c0449)
     models = (
-        footprint_models(board.footprints, source.root, _stored_heights(source)) if board is not None else {}
+        footprint_models(board.footprints, source.root, *_stored_models(source)) if board is not None else {}
     )
     kept_storages, storage_losses = _carried_storages(source, design)  # changes c0450 and c0461
     try:

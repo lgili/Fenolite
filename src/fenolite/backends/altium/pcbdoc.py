@@ -480,13 +480,22 @@ def body_mode(value: str) -> BodyMode:
 class EmbeddedModel:
     """The model a body names (change c0449): ``data`` the STEP text the ``Models`` storage embeds, ``name``
     its file name, ``position`` the model origin in the frame of the placements, ``dz`` its rise from the
-    face in nm and ``rotation`` the turns about x, y and z in µdeg (``H-A-BODY-MODEL-PLACE``)."""
+    face in nm and ``rotation`` the turns about x, y and z in µdeg (``H-A-BODY-MODEL-PLACE``). ``ident`` and
+    ``checksum`` are the ``ID`` and ``CHECKSUM`` of its record: a conversion gives the source's for bytes that
+    are the source's; empty, ``pcbrecords.model_id`` of the data and the stand-in (``record_id``)."""
 
     data: bytes = field(repr=False)
     name: str
     position: Point
     dz: int = 0
     rotation: tuple[int, int, int] = (0, 0, 0)
+    ident: str = ""
+    checksum: str = ""
+
+
+def record_id(model: EmbeddedModel) -> str:
+    """The ``ID`` of ``model``'s ``Models`` record and the ``MODELID`` of the bodies that name it."""
+    return model.ident or rec.model_id(model.data)
 
 
 @dataclass(frozen=True, slots=True)
@@ -503,6 +512,9 @@ class FootprintModel:
     height: int = 0
     reason: str = ""
     changed: str = ""
+    checksum: str = ""
+    """The body's ``MODEL.CHECKSUM``: the source body's for a model that comes back with the same bytes and
+    placement; empty, the stand-in."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -526,6 +538,8 @@ class PlacedBody:
     model: EmbeddedModel | None = None
     """The embedded model the body names (change c0449): its record names it with ``model_id``, the
     ``ID`` of its ``Models`` entry; ``None`` for an extruded body."""
+    checksum: str = ""
+    """The ``MODEL.CHECKSUM`` of a body that names a model; empty, the stand-in."""
 
 
 def body_vertices(outline: Sequence[Point], frame: Frame) -> list[tuple[int, int]]:
@@ -617,13 +631,14 @@ def _model_body(
         standoff=rec.to_units(body.standoff),
         overall=rec.to_units(body.height),
         bottom=body.bottom,
-        model=rec.model_id(model.data),
+        model=record_id(model),
         name=model.name,
         position=_units(frame(model.position)),
         dz=rec.to_units(model.dz),
         rotation=model.rotation,
         identifier=body.identifier,
         shape_based=shape_based,
+        checksum=body.checksum or model.checksum or rec.BODY_CHECKSUM,
     )
 
 
@@ -642,12 +657,15 @@ def model_storage(spec: PcbDocSpec) -> Storage:
         model = body.model
         if model is None:
             continue
-        ident = rec.model_id(model.data)
+        ident = record_id(model)
         if ident in seen:
             continue
         seen.add(ident)
+        checksum = model.checksum or rec.BODY_CHECKSUM
         records.append(
-            rec.model_record(ident, model.name, dz=rec.to_units(model.dz), rotation=model.rotation)
+            rec.model_record(
+                ident, model.name, dz=rec.to_units(model.dz), rotation=model.rotation, checksum=checksum
+            )
         )
         streams.append((str(len(streams)), zlib.compress(model.data, 6)))
     return Storage(MODELS_STORAGE, (("Header", _u32(len(records))), ("Data", b"".join(records)), *streams))
@@ -3001,6 +3019,7 @@ __all__ = [
     "place_component",
     "polygon_name",
     "polygon_records",
+    "record_id",
     "record_layer",
     "routed_arcs",
     "routed_tracks",

@@ -1126,7 +1126,9 @@ other byte; `carried` reads them back. Change c0434 writes `Fenolite.Altium.Rule
 document (`docs/formats/altium/pcb-records.md`, "Through KiCad"), change c0449 the stored heights of each
 placed embedded model as `Fenolite.Altium.ModelHeights` (schema `fenolite.altium-model-heights.v0`: per
 model its SHA-256, offset, turns and side in KiCad, and its `STANDOFFHEIGHT` and `OVERALLHEIGHT` in nm;
-`docs/conversion.md`, "Models to Altium").
+`docs/conversion.md`, "Models to Altium") and their identities as `Fenolite.Altium.ModelIds` (schema
+`fenolite.altium-model-ids.v0`: per model SHA-256 its record's `ID` and `CHECKSUM`, per placed model, keyed
+as the heights are, its body's `MODEL.CHECKSUM`).
 
 ## Authored native TAB value observations
 

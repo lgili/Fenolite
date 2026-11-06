@@ -38,6 +38,9 @@ UNITS = rec.UNITS_PER_MIL
 NAME = "models.PcbDoc"
 MODEL_NAME = "marker.step"
 MODEL_ID = "{0C423000-0000-4000-8000-000000000001}"
+MODEL_CHECKSUM = "-423449"
+"""The authored ``CHECKSUM`` of the model's record (change c0449): a negative 32-bit decimal, as some saved
+ones are; body ``n`` that names the model holds ``MODEL.CHECKSUM`` ``body_checksum(n)``, another value."""
 MARKER = ((0, 0), (120, 0), (0, 40))
 """The authored model: a prism over this triangle (mil, model frame, Y up), from 20 mil to 100 mil. Its six
 vertices are distinct under every turn, so a pose is read back from them alone."""
@@ -101,6 +104,11 @@ def marker_step() -> bytes:
     """The authored model file: the marker prism, in mm, Y up."""
     ring = tuple((x * MIL, y * MIL) for x, y in MARKER)
     return write_solids("marker", [Prism(ring, MARKER_Z[0] * MIL, MARKER_Z[1] * MIL, "body")])
+
+
+def body_checksum(index: int) -> str:
+    """The authored ``MODEL.CHECKSUM`` of body record ``index`` (from 0) when it names the model."""
+    return str(423000 + index)
 
 
 def case(ref: str) -> Case:
@@ -195,6 +203,7 @@ def _bodies(data: bytes, components: dict[str, tuple[int, int]], cases: tuple[Ca
         fields["MODEL.MODELTYPE"] = types[item.shape]
         if item.shape == "model":
             fields["MODELID"] = MODEL_ID
+            fields["MODEL.CHECKSUM"] = body_checksum(index - 1)
             fields["MODEL.EMBED"] = "TRUE"
             fields["MODEL.NAME"] = MODEL_NAME
             fields["MODEL.2D.X"] = rec.mil_text(x + item.offset[0] * UNITS)
@@ -228,7 +237,7 @@ def write_document(*, unknown: bool = False) -> bytes:
         components[str(designator)] = (round(record.x), round(record.y))
     streams["ComponentBodies6/Data"] = _bodies(streams["ComponentBodies6/Data"], components, cases)
     model = f"EMBED=TRUE|MODELSOURCE=Undefined|ID={MODEL_ID}|ROTX=0.000|ROTY=0.000|ROTZ=0.000|DZ=0|"
-    model += f"CHECKSUM=0|NAME={MODEL_NAME}"
+    model += f"CHECKSUM={MODEL_CHECKSUM}|NAME={MODEL_NAME}"
     text = model.encode("ascii") + b"\0"
     streams["Models/Data"] = struct.pack("<I", len(text)) + text
     streams["Models/Header"] = struct.pack("<I", 1)
