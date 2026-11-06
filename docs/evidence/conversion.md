@@ -262,7 +262,6 @@ rows without the `net-tie` row; its compared differences are unchanged.
 | CM5_MINIMA_3 | pad | lost | 2 | the pad is a surface pad without a copper layer |
 | CM5_MINIMA_3 | footprint-graphic | lost | 3 | a filled circle has no record: a region holds straight edges only |
 | CM5_MINIMA_3 | zone-fill | changed | 13 | a polygon is written unpoured; Altium fills it on a repour |
-| CM5_MINIMA_3 | outline | lost | 14 | an arc of the outline is written as two straight edges |
 | CM5_MINIMA_3 | stackup | lost | 1 | the document has no key for the solder mask thickness, the colours, the finish, the impedance-control flag; the copper and dielectric values are written |
 | CM5_MINIMA_3 | text | lost | 131 | the text record has no key for a justification other than centred |
 | CM5_MINIMA_3 | text | lost | 18 | the text is empty |
@@ -308,11 +307,10 @@ rows without the `net-tie` row; its compared differences are unchanged.
 | One-Air-Max | dnp | lost | 11 | the Altium documents hold no fitted flag outside variants |
 | One-Air-Max | footprint | changed | 118 | differs from the library footprint |
 | One-Air-Max | pad | lost | 12 | the pad has the shape custom, which has no exact Altium form |
-| One-Air-Max | footprint-copper | lost | 3 | a graphic of a footprint on a copper layer has no record written: it would be copper |
+| One-Air-Max | footprint-copper | lost | 1 | a graphic of a footprint on a copper layer has no record written: it would be copper |
 | One-Air-Max | footprint-graphic | lost | 1 | degenerate arc on F.SilkS is not written |
 | One-Air-Max | net-tie | changed | 2 | the component is written as a net tie, which ties all its pads: Altium marks the whole component, not groups of pads |
 | One-Air-Max | zone-fill | changed | 34 | a polygon is written unpoured; Altium fills it on a repour |
-| One-Air-Max | outline | lost | 20 | an arc of the outline is written as two straight edges |
 | One-Air-Max | stackup | lost | 1 | the document has no key for the solder mask thickness, the finish; the copper and dielectric values are written |
 | One-Air-Max | text | lost | 24 | the text record has no key for a justification other than centred |
 | One-Air-Max | text | lost | 1 | the text holds a control character or a line break |
@@ -327,15 +325,12 @@ rows without the `net-tie` row; its compared differences are unchanged.
 | RoyalBlue54L-Feather | pad | lost | 39 | the pad has the shape custom, which has no exact Altium form |
 | RoyalBlue54L-Feather | pad | lost | 9 | the pad is a surface pad without a copper layer |
 | RoyalBlue54L-Feather | pad | changed | 6 | a connector pad is written as a surface pad with no paste and no mask opening |
-| RoyalBlue54L-Feather | footprint-copper | lost | 1 | a graphic of a footprint on a copper layer has no record written: it would be copper |
 | RoyalBlue54L-Feather | zone | lost | 2 | the model holds no outline of the zone (an outline with an arc is kept by the reader) |
 | RoyalBlue54L-Feather | zone-fill | changed | 2 | a polygon is written unpoured; Altium fills it on a repour |
-| RoyalBlue54L-Feather | outline | lost | 4 | an arc of the outline is written as two straight edges |
 | RoyalBlue54L-Feather | stackup | lost | 1 | the document has no key for the solder mask thickness, the colours, the finish; the copper and dielectric values are written |
 | RoyalBlue54L-Feather | text | lost | 1 | the text holds a control character or a line break |
 | RoyalBlue54L-Feather | schematic | changed | 1 | the schematic is generated from the circuit on one sheet with generic symbols |
 | RoyalBlue54L-NFC-Antenna | footprint-graphic | lost | 5 | the layer Edge.Cuts has no layer in the document for a graphic |
-| RoyalBlue54L-NFC-Antenna | outline | lost | 12 | an arc of the outline is written as two straight edges |
 | RoyalBlue54L-NFC-Antenna | schematic | changed | 1 | the schematic is generated from the circuit on one sheet with generic symbols |
 | sonde xilinx | footprint | changed | 3 | differs from the library footprint |
 | sonde xilinx | zone-fill | changed | 1 | a polygon is written unpoured; Altium fills it on a repour |
@@ -346,11 +341,9 @@ rows without the `net-tie` row; its compared differences are unchanged.
 | tinytapeout-demo | footprint | changed | 63 | differs from the library footprint |
 | tinytapeout-demo | pad | lost | 16 | the pad has the shape custom, which has no exact Altium form |
 | tinytapeout-demo | pad | lost | 4 | the pad is a surface pad without a copper layer |
-| tinytapeout-demo | footprint-copper | lost | 25 | a graphic of a footprint on a copper layer has no record written: it would be copper |
 | tinytapeout-demo | footprint-graphic | lost | 9 | the layer Edge.Cuts has no layer in the document for a graphic |
 | tinytapeout-demo | footprint-graphic | lost | 6 | a filled circle has no record: a region holds straight edges only |
 | tinytapeout-demo | zone-fill | changed | 2 | a polygon is written unpoured; Altium fills it on a repour |
-| tinytapeout-demo | outline | lost | 12 | an arc of the outline is written as two straight edges |
 | tinytapeout-demo | stackup | lost | 1 | the stack-up holds several dielectric sheets between F.Cu and In1.Cu (2 dielectric entries) and the document holds one dielectric per gap; the default stack values are written |
 | tinytapeout-demo | text | lost | 215 | the text record has no key for a justification other than centred |
 | tinytapeout-demo | text | lost | 9 | the text holds a control character or a line break |
@@ -375,27 +368,27 @@ Each difference of the read-back, per board, with the kind of the lost item that
 |---|---|---|---|
 | CM5_MINIMA_3 | dnp | dnp | 1 |
 | CM5_MINIMA_3 | dnp | footprint | 1 |
-| CM5_MINIMA_3 | edge-ring | outline | 2 |
 | CM5_MINIMA_3 | pad-kind | pad | 2 |
 | CM5_MINIMA_3 | pad-missing | pad | 1 |
 | interf_u | pad-kind | pad | 62 |
 | microwave | ref-ambiguous | source | 1 |
 | One-Air-Max | dnp | dnp | 1 |
 | One-Air-Max | dnp | footprint | 10 |
-| One-Air-Max | edge-ring | outline | 2 |
 | One-Air-Max | pad-missing | pad | 12 |
 | One-Air-Max | pin-missing | pad | 12 |
+| One-Air-Max | route-connectivity | footprint | 7 |
+| One-Air-Max | route-connectivity | pad | 3 |
 | pic_programmer | pad-missing | pad | 2 |
 | pic_programmer | pin-missing | pad | 2 |
+| pic_programmer | route-connectivity | footprint | 2 |
 | RoyalBlue54L-Feather | dnp | dnp | 20 |
 | RoyalBlue54L-Feather | dnp | footprint | 2 |
-| RoyalBlue54L-Feather | edge-ring | outline | 2 |
 | RoyalBlue54L-Feather | pad-kind | pad | 6 |
 | RoyalBlue54L-Feather | pad-missing | pad | 22 |
 | RoyalBlue54L-Feather | pin-missing | pad | 18 |
-| RoyalBlue54L-Feather | route-connectivity | footprint | 1 |
+| RoyalBlue54L-Feather | route-connectivity | footprint | 4 |
+| RoyalBlue54L-Feather | route-connectivity | pad | 9 |
 | RoyalBlue54L-Feather | route-connectivity | zone | 1 |
-| RoyalBlue54L-NFC-Antenna | edge-ring | outline | 2 |
 | tinytapeout-demo | dnp | dnp | 9 |
 | tinytapeout-demo | dnp | footprint | 2 |
 | tinytapeout-demo | edge-ring | outline | 2 |

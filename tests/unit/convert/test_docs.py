@@ -79,6 +79,7 @@ def test_current_pairing_measurements_bind_declared_inputs() -> None:
     assert record["rows"]["08"]["differences"] == {}
     assert record["rows"]["16"]["differences"] == {
         "dnp": 11,
+        "net-tie-copper": 25,  # compared since change c0431, which writes a net tie's copper
         "pad-missing": 17,  # 20 before change c0433 kept pads without a number in their component
         "route-connectivity": 1,
     }

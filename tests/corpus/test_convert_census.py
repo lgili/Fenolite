@@ -72,9 +72,8 @@ NOT_WRITTEN: dict[str, dict[str, int]] = {
     "10": {"keep-out": 4, "text": 2, "zone-fill": 2},
     "11": {
         "dnp": 11,
-        "footprint-copper": 3,
+        "footprint-copper": 1,
         "footprint-graphic": 1,
-        "outline": 20,
         "pad": 12,
         "stackup": 1,
         "text": 25,
@@ -83,8 +82,6 @@ NOT_WRITTEN: dict[str, dict[str, int]] = {
     "12": {"pad": 2, "stackup": 1, "zone-fill": 1},
     "13": {
         "dnp": 22,
-        "footprint-copper": 1,
-        "outline": 4,
         "pad": 48,
         "stackup": 1,
         "text": 1,
@@ -96,7 +93,6 @@ NOT_WRITTEN: dict[str, dict[str, int]] = {
     "16": {
         "dimension": 6,
         "dnp": 11,
-        "footprint-copper": 25,
         "footprint-graphic": 15,
         "graphic": 2,
         "outline": 1,
@@ -119,9 +115,22 @@ DIFFERENCES: dict[str, tuple[int, dict[str, int]]] = {
     "08": (4, {}),
     "09": (5, {}),
     "10": (5, {}),
-    "11": (5, {"dnp": 11, "pad-missing": 12, "pin-missing": 12}),
-    "12": (5, {"pad-missing": 2, "pin-missing": 2}),
-    "13": (5, {"dnp": 22, "pad-kind": 6, "pad-missing": 22, "pin-missing": 18, "route-connectivity": 2}),
+    "11": (
+        5,
+        {"dnp": 11, "net-tie-copper": 2, "pad-missing": 12, "pin-missing": 12, "route-connectivity": 10},
+    ),
+    "12": (5, {"pad-missing": 2, "pin-missing": 2, "route-connectivity": 2}),
+    "13": (
+        5,
+        {
+            "dnp": 22,
+            "net-tie-copper": 1,
+            "pad-kind": 6,
+            "pad-missing": 22,
+            "pin-missing": 18,
+            "route-connectivity": 14,
+        },
+    ),
     "14": (5, {}),
     "15": (5, {}),
     "16": (5, {"dnp": 11, "pad-missing": 17, "route-connectivity": 1}),
