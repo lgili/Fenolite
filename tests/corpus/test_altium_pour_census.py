@@ -145,30 +145,52 @@ POUR_CENSUS: dict[str, tuple[int, dict[str, int], dict[str, tuple[str, ...]]]] =
     "altium-third-party-pcbdoc-01": (5, {"connect-scope": 2, "depends-on-refused": 3}, {}),
     "altium-third-party-pcbdoc-02": (12, {"depends-on-refused": 6, "rule-unmapped": 6}, {}),
     "altium-third-party-pcbdoc-03": (1, {}, {"B.Cu GND_L02_P000": ("M2", "M3", "M4")}),
-    "altium-third-party-pcbdoc-04": (9, {"depends-on-refused": 5, "rule-scope": 4}, {}),
+    "altium-third-party-pcbdoc-04": (
+        9,
+        {},
+        {
+            "F.Cu GND_L01_P014": ("M1", "M2"), "F.Cu 5V_L01_P011": ("M2",), "F.Cu 5V_L01_P007": ("M1", "M2"),
+            "F.Cu NETL1_2_L01_P008": ("M1", "M2"), "F.Cu LED_L01_P010": ("M2",),
+            "F.Cu NETC2_1_L01_P009": ("M1", "M2"), "In1.Cu GND_L02_P012": ("M1", "M2"),
+            "In2.Cu GND_L03_P013": ("M1", "M2"), "B.Cu GND_L04_P005": ("M1", "M2"),
+        },
+    ),
     "altium-third-party-pcbdoc-05": (
         2, {}, {"B.Cu GND_BOTTOM": ("M2",), "F.Cu GND_TOP": ("M2", "M3", "M4")},
     ),
     "altium-third-party-pcbdoc-06": (
         10, {"connect-scope": 1, "depends-on-refused": 6, "rule-unmapped": 3}, {},
     ),
-    "altium-third-party-pcbdoc-07": (9, {"depends-on-refused": 5, "rule-scope": 4}, {}),
+    "altium-third-party-pcbdoc-07": (
+        9,
+        {},
+        {
+            "In2.Cu \u00b8": ("M2",), "In1.Cu \u00b8": ("M2",), "F.Cu \u00b8": ("M1", "M2"),
+            "B.Cu \u00b8": ("M2",),
+        },
+    ),
     "altium-third-party-pcbdoc-08": (
         33,
         {"connect-scope": 2, "depends-on-refused": 18, "rule-scope": 13},
         {},
     ),
 }  # fmt: skip
-"""Row → its polygons, the refused ones per reason, and the failed criteria of each compared polygon (by
-layer and name) against the regions the document holds (``docs/evidence/altium-pour.md``, census of
-2026-10-26). M1 passes on every compared polygon. On 2026-11-04 (change c0377) one polygon of ``-08`` is
-no longer refused for a rule scope, since the RF clearance rules now read; an earlier refused polygon of its
-layer lies within its reach, so it is refused as ``depends-on-refused``. Since lote-26 a polygon cut-out is
-taken out of the area instead of refusing the polygon (``polygon-cutout``), so those polygons go on to the
-next criteria and are refused for a connect scope, an unmapped rule or a rule scope. Since change c0463 an
-outline with arc vertices or a repeated vertex is poured (S-2221, S-2222): the 12 ``outline-arc`` and 2
-``outline`` polygons of ``-02``, ``-07`` and ``-08`` go on, and are refused for a rule scope or an unmapped
-rule (3) or as ``depends-on-refused`` (11)."""
+"""Row → its polygons, the refused ones per reason, and the failed criteria of each compared polygon (by layer
+and name) against the regions the document holds (``docs/evidence/altium-pour.md``, census of 2026-10-26).
+Until change c0462, M1 passed on every compared polygon. On 2026-11-04 (change c0377) one polygon of ``-08``
+is no longer refused for a rule scope, since the RF clearance rules now read; an earlier refused polygon of
+its layer lies within its reach, so it is refused as ``depends-on-refused``. Since lote-26 a polygon cut-out
+is taken out of the area instead of refusing the polygon (``polygon-cutout``), so those polygons go on to the
+next criteria and are refused for a connect scope, an unmapped rule or a rule scope.
+
+Change c0462 (2026-11-06) reads the Clearance scopes of ``-04`` (``HasFootprint``) and ``-07`` (``InPolygon``
+against ``InAnyDifferentialPair``), so the pour refuses none of their polygons for a rule. With change c0463's
+arc outlines ``-07`` refuses none either. The polygons that pour now fail M1 or M2 against the saved regions:
+9 of 9 in ``-04`` (7 by M1) and 9 of 9 in ``-07`` (1 by M1; its polygons share one name, so the verdicts of a
+layer share a key). These failures are the pour's geometry, not the rules read. Poured without the newly read
+rule, 4 of the 9 polygons of ``-04`` keep their M1 ratio; the rule lowers the ratio of 4 others (one from a
+failure to a pass) and raises one (3.61 to 3.85). On ``-07`` the rule turns no failure into a pass. A known
+item of task 5.2, for change c0463."""
 
 
 @pytest.mark.parametrize("item", DOCUMENTS, ids=lambda item: item.id)
@@ -201,4 +223,4 @@ def test_pour_census(item: CorpusItem) -> None:
         for failure in verdict.failures:
             print(f"    {failure.criterion} {failure.message} {failure.at or ''}")
     assert (len(result.polygons), refused, failed) == POUR_CENSUS[item.id]
-    assert all(verdict.ratio <= 1 for verdict in found.polygons)
+    assert all((verdict.ratio <= 1) == ("M1" not in verdict.failed) for verdict in found.polygons)

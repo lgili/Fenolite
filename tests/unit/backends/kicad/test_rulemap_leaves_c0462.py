@@ -2,7 +2,8 @@
 # Copyright (c) 2026 Fenolite contributors
 """The KiCad conditions of the leaves ``zone``, ``hole`` and ``pad_type`` (change c0462, task 3.2; S-2213;
 capability kicad-file-backend, "Zone, hole and pad-type conditions"). They are written only for a major whose
-``dru-cond-<key>`` probe is recorded ``present``; until then a rule that uses one is a reported loss."""
+``dru-cond-<key>`` probe is recorded ``present`` (10.0.6); on another major a rule that uses one is a reported
+loss."""
 
 from __future__ import annotations
 
@@ -63,12 +64,29 @@ def test_a_leaf_in_a_larger_condition(proved: None) -> None:
     assert parse_condition(written) == (selector, None)
 
 
+def test_the_shipped_table_holds_10_alone() -> None:
+    """The three probes are recorded ``present`` on 10.0.6 and not yet run on 9.0.9."""
+    assert {key: rulemap.SELECTOR_SUPPORT[key] for key in rulemap.LEAF_KEYS_C0462} == dict.fromkeys(
+        rulemap.LEAF_KEYS_C0462, frozenset({10})
+    )
+
+
 def test_unproved_leaves_are_losses() -> None:
-    """Before the probes: a rule with a new leaf is not written; a KiCad rule with one stays as written."""
+    """On a major without the probe: a rule with a new leaf is not written."""
     for selector in (Selector("zone", "Z"), Selector("hole", "1.."), Selector("pad_type", "smd")):
-        written, issues = condition_text(_rule(selector), target=10)
+        written, issues = condition_text(_rule(selector), target=9)
         assert [issue.code for issue in issues] == ["rules.unsupported-selector"]
         assert "not proved" in issues[0].message
+
+
+def test_a_kicad_rule_with_an_unproved_leaf_stays_as_written(monkeypatch: pytest.MonkeyPatch) -> None:
+    """With no major proved, a KiCad rule with a new leaf is not lifted; with one proved, it is."""
+    outside = rulemap._outside_kind("clearance", Selector("zone", "Z"), None, ())  # pyright: ignore[reportPrivateUsage]
+    assert outside is None
+    support = {
+        key: value for key, value in rulemap.SELECTOR_SUPPORT.items() if key not in rulemap.LEAF_KEYS_C0462
+    }
+    monkeypatch.setattr(rulemap, "SELECTOR_SUPPORT", MappingProxyType(support))
     outside = rulemap._outside_kind("clearance", Selector("zone", "Z"), None, ())  # pyright: ignore[reportPrivateUsage]
     assert outside is not None and "no probe" in outside
 

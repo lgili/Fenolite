@@ -243,12 +243,12 @@ def test_target10_project_explicit_import9_refuses_before_output(tmp_path: Path)
         (
             9,
             "403dfe636c95151c39c4c7687dd90f0393986d7c4accafd7f7e025440f2cf5be",
-            "f535482d5912b876b00f00ac2134cee65171f2d03b143c13dc4a3f41481a66b0",
+            "fce8fc2539920aa2765adc91815162fc6a8bbd79b06d3510cfc74b26b3121f95",
         ),
         (
             10,
             "64788ade238c244ddce1e60f1870afbbe1202c4aae31936360c0915a1fbef24a",
-            "2e35cd7b815f69783fa0ce26faacbe45a8e030c1cdd344484edb0f3e113aef4e",
+            "ed9db787a18279e2c565d94c8225af7a0a2d6d602ee180226f1b4ff1864f155c",
         ),
     ),
 )
@@ -260,7 +260,9 @@ def test_ordinary_import_and_rebuild_keep_every_byte(
     Each positive uses an authored project of its actual target. The carrier and
     explicit Default declaration are intentional; all native rebuilt files retain
     their complete pre-carrier bytes, with only canonical circuit Default added.
-    A separate negative preserves refusal of a native10 project on target9.
+    A separate negative preserves refusal of a native10 project on target9. The built digests moved once,
+    in c0462, for ``.fenolite/meta.json`` alone: the model writer stamps ``schema_version`` 1.1 on every
+    document (design D4); every KiCad file kept its bytes.
     """
     source = copy_project(tmp_path, native_target=target)
     assert imported(tmp_path, source, "--confirm", "--kicad-version", str(target)).exit_code == 0

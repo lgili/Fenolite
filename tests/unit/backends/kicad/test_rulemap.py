@@ -197,9 +197,10 @@ def test_selector_b_gated(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_empty_support_lowers_only_all() -> None:
-    assert all(not entry for entry in rulemap.SELECTOR_SUPPORT.values()) or set(
-        rulemap.SELECTOR_SUPPORT
-    ) == set(rulemap.SELECTOR_KEYS)
+    assert all(not entry for entry in rulemap.SELECTOR_SUPPORT.values()) or set(rulemap.SELECTOR_SUPPORT) == {
+        *rulemap.SELECTOR_KEYS,
+        *rulemap.LEAF_KEYS_C0462,
+    }
     assert rule_nodes(rule(), target=10)[1] == ()
 
 
@@ -324,20 +325,21 @@ def test_rule_order() -> None:
 
 
 def test_support_keys() -> None:
-    assert set(rulemap.SELECTOR_SUPPORT) == set(rulemap.SELECTOR_KEYS) == {
+    assert set(rulemap.SELECTOR_SUPPORT) == {*rulemap.SELECTOR_KEYS, *rulemap.LEAF_KEYS_C0462} == {
         "net", "netclass", "ref", "item_kind", "area", "diff_pair", "and", "or", "not", "glob", "selector_b",
-        "layer_clause",
+        "layer_clause", "zone", "hole", "pad_type",
     }  # fmt: skip
 
 
 def test_support_matches_probe_results() -> None:
     """Each entry holds exactly the majors whose committed probe file records ``present`` for its key."""
     files = {"9.0.9": 9, "10.0.6": 10}
-    expected: dict[str, set[int]] = {key: set() for key in rulemap.SELECTOR_KEYS}
+    keys = (*rulemap.SELECTOR_KEYS, *rulemap.LEAF_KEYS_C0462)
+    expected: dict[str, set[int]] = {key: set() for key in keys}
     for name, major in files.items():
         path = PROBES / f"{name}.json"
         probes: dict[str, str] = json.loads(path.read_text(encoding="utf-8"))["probes"]
-        for key in rulemap.SELECTOR_KEYS:
+        for key in keys:
             if probes.get(f"dru-cond-{key}") == "present":
                 expected[key].add(major)
     assert {k: set(v) for k, v in rulemap.SELECTOR_SUPPORT.items()} == expected
