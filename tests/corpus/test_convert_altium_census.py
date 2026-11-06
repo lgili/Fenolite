@@ -121,7 +121,7 @@ CONVERTED_LOSSES = {
     "altium-third-party-pcbdoc-05": {},
     "altium-third-party-pcbdoc-06": {},
     "altium-third-party-pcbdoc-07": {},
-    "altium-third-party-pcbdoc-08": {"text": 298, "graphic": 1000},
+    "altium-third-party-pcbdoc-08": {},
 }
 """The losses per kind, measured on 2026-10-15; on 2026-10-16 (change c0170) the slots of the pads of
 ``-07`` (8) and ``-08`` (4) are kept: the import holds a slot's axis in the pad's own frame, and none is

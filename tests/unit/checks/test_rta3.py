@@ -161,16 +161,12 @@ def test_rta3_module_touches_no_file() -> None:
             name = node.func.id if isinstance(node.func, ast.Name) else getattr(node.func, "attr", "")
             assert name not in {"open", "read_bytes", "write_bytes", "write_text", "exec", "eval"}, name
     assert not imported & {"pathlib", "os", "subprocess", "io", "tempfile", "shutil"}
+    # change c0433 dropped the view of detached pads, and the imports it needed
     assert {name for name in imported if name.startswith("fenolite.")} == {
         "fenolite.backends.altium.import_evidence",
         "fenolite.backends.altium.lower",
-        "fenolite.backends.altium.pcbrecords",
         "fenolite.backends.altium.roundtrip",
         "fenolite.backends.base",
         "fenolite.core.evidence",
-        "fenolite.core.coords",
-        "fenolite.geometry.transform",
-        "fenolite.model.board",
-        "fenolite.model.circuit",
         "fenolite.model.design",
     }

@@ -26,11 +26,12 @@ def test_undeclared_layer_is_refused() -> None:
 CUTOUT_ROWS: dict[str, str] = {
     "altium-third-party-pcbdoc-03": (
         "the region with ISBOARDCUTOUT=TRUE on the Keep-Out layer is read as an Edge.Cuts cut-out since "
-        "change c0168. Its layer table cut to two copper layers loaded in KiCad until change c0409 wrote the "
+        "change c0168; since change c0427 it crosses the board edge and is cut into the outline as a notch. "
+        "Its layer table cut to two copper layers loaded in KiCad until change c0409 wrote the "
         "footprints' own graphics, some of them on Mech.1, Mech.13 and Mech.15"
     ),
 }
-"""Row id → why its board holds an Edge.Cuts cut-out and no graphic on the Altium Keep-Out layer."""
+"""Row id → why its board holds its cut-out on Edge.Cuts and no graphic on the Altium Keep-Out layer."""
 
 
 @pytest.mark.needs_corpus
@@ -58,6 +59,5 @@ def test_negative_public_probe(row_id: str) -> None:
     if row_id in CUTOUT_ROWS:
         graphics = design.board.graphics
         assert not [g for g in graphics if g.layer == "Altium.KeepOut"], row_id
-        cutouts = [g for g in graphics if g.kind == "polygon" and g.layer == "Edge.Cuts" and not g.filled]
-        assert cutouts, row_id
+        assert [g for g in graphics if g.layer == "Edge.Cuts"], row_id
     assert not result.ok, row_id

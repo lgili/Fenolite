@@ -29,6 +29,7 @@ from dataclasses import dataclass, field, replace
 from fractions import Fraction
 from typing import Final, Literal
 
+from fenolite.backends.altium.adapter.layers import MULTI
 from fenolite.backends.altium.connectstyle import (
     Connection,
     ConnectStyle,
@@ -104,7 +105,7 @@ REASONS: Mapping[str, str] = {
     "threshold": "a threshold of the polygon is not a length or an area that Fenolite reads",
     "unshaped-copper": "copper the engine does not shape (a text, a graphic) lies within the polygon's reach",
     "unshaped-pad": "a pad whose copper the import does not shape lies within the polygon's reach",
-    "polygon-cutout": "a polygon cut-out lies within the polygon's reach",
+    "polygon-cutout": "a polygon cut-out within the polygon's reach could not be taken out of its area",
     "depends-on-refused": "an earlier polygon of the layer within this one's reach is refused",
     "copper-check": "the copper check finds a short or a clearance below the rule on the computed pour",
 }
@@ -1002,7 +1003,7 @@ class _Context:
     objects: LayerObjects
     rules: Clearances
     styles: tuple[ConnectStyle, ...]
-    cutouts: Mapping[str, tuple[BBox, ...]]
+    cutouts: Mapping[str, tuple[tuple[BBox, Polygon], ...]]
     board: tuple[Polygon, ...]
     reach: Nm
     """How far beyond a polygon's outline an object can shape its pour: the largest clearance, air gap
@@ -1093,27 +1094,35 @@ def _depends(polygon: PourPolygon, state: _Layer, context: _Context) -> str:
     return ""
 
 
-def _polygon_cutouts(reading: PourReading) -> Mapping[str, tuple[BBox, ...]]:
-    """The boxes of the polygon cut-outs (regions of ``KIND=1``) per copper layer of the import."""
+def _polygon_cutouts(reading: PourReading) -> Mapping[str, tuple[tuple[BBox, Polygon], ...]]:
+    """The box and ring of each polygon cut-out (region of ``KIND=1``) per copper layer of the import, on
+    Multi-Layer for every copper layer (change c0439 writes a pour-only rule area of every copper layer
+    there)."""
     from fenolite.backends.altium.adapter.units import pcb_point
 
     board = reading.design.board
     layer_names: dict[int, str] = {}
+    copper: list[str] = []
     if board is not None:
         for layer in board.layers:
             pairs = dict(layer.ext["altium"].payload) if "altium" in layer.ext else {}
             ident = pairs.get("layer_id", "")
             if ident.isdecimal():
                 layer_names[int(ident)] = layer.name
-    found: dict[str, list[BBox]] = {}
+            if layer.kind == "copper":
+                copper.append(layer.name)
+    found: dict[str, list[tuple[BBox, Polygon]]] = {}
     for region in reading.document.regions:
         if not isinstance(region, RegionRecord) or region.properties.get("KIND") != "1":
             continue
-        name = layer_names.get(region.prefix.layer)
         points = [pcb_point(round(v.x), round(v.y)) for v in region.outline]
-        if name is not None and points:
-            found.setdefault(name, []).append(BBox.of_points(points))
-    return {name: tuple(boxes) for name, boxes in found.items()}
+        if len(points) < 3:
+            continue
+        names = copper if region.prefix.layer == MULTI else [layer_names.get(region.prefix.layer)]
+        for name in names:
+            if name is not None:
+                found.setdefault(name, []).append((BBox.of_points(points), Polygon(tuple(points))))
+    return {name: tuple(items) for name, items in found.items()}
 
 
 def _pour(polygon: PourPolygon, state: _Layer, context: _Context) -> tuple[tuple[Polygon, ...], str]:
@@ -1125,12 +1134,16 @@ def _pour(polygon: PourPolygon, state: _Layer, context: _Context) -> tuple[tuple
     for box, _what in objects.unshaped.get(layer, []):
         if box.intersects(reach):
             return (), "unshaped-pad" if _what == "pad" else "unshaped-copper"
-    if any(box.intersects(reach) for box in context.cutouts.get(layer, ())):
-        return (), "polygon-cutout"
     try:
         area_now = geometry.meet((Polygon(polygon.zone.outline),), context.board)
     except GeometryError:
         return (), "outline"
+    cut = [ring for box, ring in context.cutouts.get(layer, ()) if box.intersects(reach)]
+    if cut:  # no polygon pours its copper in a polygon cut-out (pcb-records.md, "Regions and keep-outs")
+        try:
+            area_now = geometry.minus(area_now, geometry.union(cut))
+        except GeometryError:
+            return (), "polygon-cutout"
     edge = rules.edge(me)
     if edge > 0:
         inner = geometry.offset(context.board, -(edge + tol + 1), tol)

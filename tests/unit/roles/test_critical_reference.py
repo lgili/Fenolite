@@ -457,9 +457,10 @@ def test_altium_readback(
 ) -> None:
     """Scenario "Same critical copper in Altium", ``H-A-CRIT-READBACK``: the convert of a routed ``open``
     variant reads back with every role track and via at its place and width, locked, and every corridor as a
-    pour keep-out region on its layer; and the role copper changes the role findings of the Altium reading
-    exactly as it changes those of the KiCad reading (the readings of a converted project differ before
-    routing already, since a board that Fenolite did not build has no pin names to classify its parts)."""
+    polygon cut-out on its layer (change c0439); and the role copper changes the role findings of the
+    Altium reading exactly as it changes those of the KiCad reading (the readings of a converted project
+    differ before routing already, since a board that Fenolite did not build has no pin names to classify
+    its parts)."""
     done = routed_open(board)
     routed_doc = _converted(done.built, tmp_path / "routed")
     open_doc = _converted(opened(board), tmp_path / "open")
@@ -490,8 +491,7 @@ def test_altium_readback(
     regions = sorted(
         tuple((round(p.x / 1_000), round(p.y / 1_000)) for p in region_points(r.outline))
         for r in document.regions
-        if r.prefix.flags2 == 2
-        and r.properties.get("KEEPOUTRESTRICTIONS") == "4"
+        if r.properties.get("KIND") == "1"  # a pour-only corridor is a polygon cut-out (change c0439)
         and r.properties.get("V7_LAYER") == "TOP"
     )
     corridors = sorted(

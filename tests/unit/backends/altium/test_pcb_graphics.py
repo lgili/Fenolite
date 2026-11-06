@@ -143,10 +143,11 @@ def test_keepout_restriction_bits() -> None:
 def test_keepout_on_some_copper_layers_is_one_region_per_layer() -> None:
     wanted = keepout(layers=("In1.Cu", "F.Cu"), no_copper_pour=True)
     document, _ = read_back(bare_spec(copper_layers=LAYERS, keepouts=(wanted,)))
-    assert [(r.prefix.layer, r.prefix.flags2) for r in document.regions] == [(1, 2), (2, 2)]
+    # a pour-only keep-out is a polygon cut-out of each of its layers since change c0439: KIND=1, no flag
+    assert [(r.prefix.layer, r.prefix.flags2) for r in document.regions] == [(1, 0), (2, 0)]
     assert [r.properties.get("V7_LAYER") for r in document.regions] == ["TOP", "MID1"]
-    assert {r.properties.get("KEEPOUTRESTRICTIONS") for r in document.shape_regions} == {"4"}
-    assert {r.properties.get("KEEPOUTRESTRIC") for r in document.regions} == {"4"}
+    assert {r.properties.get("KIND") for r in document.regions} == {"1"}
+    assert {r.properties.get("KEEPOUTRESTRICTIONS") for r in document.shape_regions} == {None}
     two = keepout(layers=("F.Cu", "B.Cu"), no_tracks=True)  # every copper layer of a two-layer board
     document, _ = read_back(bare_spec(keepouts=(two,)))
     assert [r.prefix.layer for r in document.regions] == [pcbrecords.KEEPOUT_LAYER]

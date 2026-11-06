@@ -5,7 +5,7 @@ codes of its error findings and the kinds it leaves out are pinned. The report h
 only: no name of a corpus file is printed.
 
 Rows 01 and 02 failed on causes change c0426 fixed (a pad position 1 nm off after rounding; a via whose
-drill equals its diameter) and now import with no finding; row 08 is pinned as change c0426 left it."""
+drill equals its diameter) and now import with no finding, as row 08 does after change c0428."""
 
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ PINNED: dict[str, tuple[int, frozenset[str]]] = {
     "altium-third-party-pcbdoc-05": (0, frozenset()),
     "altium-third-party-pcbdoc-06": (0, frozenset()),  # a text with a CR LF line break
     "altium-third-party-pcbdoc-07": (0, frozenset()),  # a negative silk to silk clearance
-    "altium-third-party-pcbdoc-08": (5, frozenset({"import.unequal"})),  # CR LF texts; heavy
+    "altium-third-party-pcbdoc-08": (0, frozenset()),  # CR LF texts; heavy
 }
 ROWS = {item.id: item for item in manifest_items("altium-pcbdoc") if item.id in PINNED}
 ROWS |= {item.id: item for item in manifest_items("altium-import") if item.id in PINNED}
