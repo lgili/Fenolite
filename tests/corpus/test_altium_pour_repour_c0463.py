@@ -54,7 +54,13 @@ STALE: dict[str, tuple[int, ...]] = {
 repour (S-2224)."""
 
 ORACLE: dict[str, tuple[dict[str, int], dict[str, tuple[str, ...]]]] = {
-    "altium-third-party-pcbdoc-01": ({"connect-scope": 2, "depends-on-refused": 3}, {}),
+    "altium-third-party-pcbdoc-01": (
+        {},
+        {
+            "P31 B.Cu": ("M1", "M2", "M3", "M4"), "P30 F.Cu": ("M2",), "P32 F.Cu": ("M1", "M2", "M3", "M4"),
+            "P33 F.Cu": ("M1", "M2", "M3"), "P35 F.Cu": ("M1", "M2", "M3", "M4"),
+        },
+    ),
     "altium-third-party-pcbdoc-02": ({"depends-on-refused": 6, "rule-unmapped": 6}, {}),
     "altium-third-party-pcbdoc-03": ({}, {"P0 B.Cu": ("M2", "M3", "M4")}),
     "altium-third-party-pcbdoc-04": (
@@ -66,7 +72,7 @@ ORACLE: dict[str, tuple[dict[str, int], dict[str, tuple[str, ...]]]] = {
         },
     ),
     "altium-third-party-pcbdoc-05": ({}, {"P1 B.Cu": ("M2",), "P0 F.Cu": ("M2",)}),
-    "altium-third-party-pcbdoc-06": ({"connect-scope": 1, "depends-on-refused": 6, "rule-unmapped": 3}, {}),
+    "altium-third-party-pcbdoc-06": ({"depends-on-refused": 6, "rule-unmapped": 4}, {}),
     "altium-third-party-pcbdoc-07": (
         {},
         {
@@ -75,7 +81,7 @@ ORACLE: dict[str, tuple[dict[str, int], dict[str, tuple[str, ...]]]] = {
             "P17 B.Cu": ("M2",),
         },
     ),
-    "altium-third-party-pcbdoc-08": ({"connect-scope": 2, "depends-on-refused": 18, "rule-scope": 13}, {}),
+    "altium-third-party-pcbdoc-08": ({"depends-on-refused": 18, "rule-unmapped": 15}, {}),
 }  # fmt: skip
 """Row → the refused polygons per reason, and the failed criteria of each compared polygon (``P<POURINDEX>
 <layer>``) against Altium's repour (S-2224), measured on ``claude/c0463-pour`` without the rule scopes of
@@ -86,7 +92,11 @@ and no failure.
 Rows ``-04`` and ``-07`` are repinned on ``cac/lote-29`` (c0462 reads their Clearance scopes) with the edge
 and relief conductor of S-2227: every polygon pours; on ``-04`` 4 of 9 fail M1 (the top layer), on
 ``-07`` none does, and M2 remains. Parting a pinch that the neck removal closes again takes M3 and M4
-off ``P0 F.Cu`` of ``-05``."""
+off ``P0 F.Cu`` of ``-05``.
+
+On ``cac/lote-29`` 60687e26d (c0462 tasks 4.3 to 4.5) every row is repinned: the 5 polygons of ``-01`` pour
+and fail, 4 by M1 (ratios 1.27 to 4.01); ``-06`` and ``-08`` are refused ``rule-unmapped`` where they were
+refused for a connect or rule scope. Rows 01 to 08 hold the same refusals and failures as the census."""
 
 
 def _record() -> dict[str, object]:

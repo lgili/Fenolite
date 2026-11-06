@@ -205,7 +205,8 @@ Task 4.5 reads the Polygon Connect Style scopes with the document, so no polygon
 The one polygon of ``-06`` and the two of ``-08`` that were go on to the Clearance rules and are refused
 ``rule-unmapped`` (their governing Clearance matrix is refused ``matrix-kind``, task 4.3). The 5 polygons of
 ``-01`` (2 ``connect-scope``, 3 ``depends-on-refused``) now pour, and every one fails against the saved
-regions: 4 by M1, with ratios 2.28 to 4.01, and one by M2 (ratio 0.30). The 5 hold the nets GND, VDD, CHG+
+regions: 4 by M1, with ratios 2.28 to 4.01, and one by M2 (ratio 0.30); with c0463's edge, conductor and
+pinch (S-2227) the M1 ratios are 1.27 to 4.01. The 5 hold the nets GND, VDD, CHG+
 and VBB but share the name ``Top Layer-No Net``, so the verdicts of a layer share a key. The cause is not
 measured yet; a known item for change c0463.
 
