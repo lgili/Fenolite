@@ -12853,6 +12853,12 @@
         "error"
       ]
     },
+    "equiv.pad-mask": {
+      "experimental": false,
+      "severities": [
+        "error"
+      ]
+    },
     "equiv.pad-missing": {
       "experimental": false,
       "severities": [

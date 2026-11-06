@@ -319,7 +319,13 @@ def _pad_where(ref: str, pad: Pad) -> str:
 
 
 def _pad_differences(
-    where: str, one: Pad, other: Pad, board_a: Board, board_b: Board, tolerances: Tolerances
+    where: str,
+    one: Pad,
+    other: Pad,
+    board_a: Board,
+    board_b: Board,
+    tolerances: Tolerances,
+    masks: tuple[norm.MaskOf, norm.MaskOf] = (norm.own_mask, norm.own_mask),
 ) -> tuple[list[Difference], bool]:
     """The differences of one pad pair, and whether its copper span is unknown on a side."""
     found: list[Difference] = []
@@ -365,6 +371,9 @@ def _pad_differences(
     unknown = span_a is None or span_b is None
     if span_a is not None and span_b is not None and span_a != span_b:
         found.append(_difference(3, "pad-copper", where, norm.span_text(span_a), norm.span_text(span_b)))
+    mask_a, mask_b = masks[0](one), masks[1](other)
+    if not norm.masks_equal(mask_a, mask_b, tolerances):  # change c0440
+        found.append(_difference(3, "pad-mask", where, str(mask_a), str(mask_b)))
     return found, unknown
 
 
@@ -475,9 +484,14 @@ def net_tie_copper_differences(
 
 
 def level_footprints(
-    a: Design, b: Design, refs: Sequence[str], tolerances: Tolerances = EXACT
+    a: Design,
+    b: Design,
+    refs: Sequence[str],
+    tolerances: Tolerances = EXACT,
+    masks: tuple[norm.MaskOf, norm.MaskOf] = (norm.own_mask, norm.own_mask),
 ) -> tuple[LevelResult, tuple[FootprintPair, ...]]:
-    """Level 3 over the components ``refs``, and the footprint pairs it compared (those of level 4)."""
+    """Level 3 over the components ``refs``, and the footprint pairs it compared (those of level 4).
+    ``masks`` gives each side's solder-mask expansion of a pad (``norm.MaskOf``; change c0440)."""
     assert a.board is not None and b.board is not None
     placed_a, placed_b = _placed(a), _placed(b)
     differences: list[Difference] = []
@@ -513,7 +527,7 @@ def level_footprints(
                 continue
             for pad_a, pad_b in zip(pads_a, pads_b, strict=True):
                 found, no_span = _pad_differences(
-                    _pad_where(ref, pad_a), pad_a, pad_b, a.board, b.board, tolerances
+                    _pad_where(ref, pad_a), pad_a, pad_b, a.board, b.board, tolerances, masks
                 )
                 differences += found
                 unknown += no_span
@@ -569,6 +583,7 @@ def compare_designs(
     strict: bool = False,
     keepout_layers: tuple[Collection[str], Collection[str]] = ((), ()),
     across: bool = False,
+    masks: tuple[norm.MaskOf, norm.MaskOf] = (norm.own_mask, norm.own_mask),
 ) -> EquivalenceReport:
     """Run the levels 1 to ``level`` in order and apply ``rules`` to each; with ``strict`` level 5 also runs
     the item rule of ``strict.py``. Before level 1 a board-only one-pad NPTH footprint that a free hole of
@@ -606,7 +621,7 @@ def compare_designs(
     if level >= 2:
         results.append(level_netlist(a, b, refs))
     if level >= 3:
-        third, pairs = level_footprints(a, b, refs, tolerances)
+        third, pairs = level_footprints(a, b, refs, tolerances, masks)
         results.append(third)
         if level >= 4:
             fourth, shift = level_placement(pairs, tolerances, frame)

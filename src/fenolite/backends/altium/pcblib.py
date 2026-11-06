@@ -567,6 +567,14 @@ def pad_bytes(
     # A connector pad has copper only: no paste and no mask opening, so neither mask takes the rule's
     # expansion (change c0160; ``pcb-library.md``, "Pad records of a written footprint", U1 and U2).
     solder_mode = rec.PAD_EXPANSION_NONE if pad.kind == "connect" else rec.SOLDER_FROM_RULES
+    # a pad's own margin is a manual expansion (change c0440): written "from the rules", every pad of a
+    # converted board took the rule's expansion, and pads whose source mask was manual met in slivers
+    solder_expansion = paste_expansion = 0
+    paste_mode = rec.PAD_EXPANSION_NONE
+    if pad.kind != "connect" and pad.mask_margin is not None:
+        solder_mode, solder_expansion = rec.PAD_EXPANSION_MANUAL, rec.to_units(pad.mask_margin)
+    if pad.kind != "connect" and pad.paste_margin is not None:
+        paste_mode, paste_expansion = rec.PAD_EXPANSION_MANUAL, rec.to_units(pad.paste_margin)
     return rec.pad_record(
         name=pad.number,
         layer=layer,
@@ -585,6 +593,9 @@ def pad_bytes(
         slot_length=slot_length,
         slot_rotation=slot_rotation,
         solder_mode=solder_mode,
+        paste_mode=paste_mode,
+        solder_expansion=solder_expansion,
+        paste_expansion=paste_expansion,
     )
 
 

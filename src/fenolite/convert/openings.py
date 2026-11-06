@@ -114,23 +114,32 @@ def _margin(text: str | None, rule: RuleExpansion) -> tuple[Nm | None, str | Non
         mode, units = int(mode_text), int(expansion or "0")
     except ValueError:
         return None, UNKNOWN_REASON
-    if mode == MODE_MANUAL:
-        return (pcb_length(units) or None), None
+    if mode == MODE_MANUAL:  # a manual 0 is an override too (change c0440): it is written, not inherited
+        return pcb_length(units), None
     if mode == MODE_NONE:
         return None, None
     return None, UNKNOWN_REASON
 
 
-def open_pad(pad: Pad, rules: RuleExpansions) -> tuple[Pad, tuple[str, ...]]:
+def source_pairs(pad: Pad) -> dict[str, str]:
+    """The ``mask`` and ``paste`` entries of the Altium bag of a pad as read, for ``open_pad``: the
+    conversion empties every bag before it opens the pads (change c0440)."""
+    return {key: value for key, value in _pairs(pad).items() if key in ("mask", "paste")}
+
+
+def open_pad(
+    pad: Pad, rules: RuleExpansions, pairs: Mapping[str, str] | None = None
+) -> tuple[Pad, tuple[str, ...]]:
     """``pad`` with its mask and paste layers by its kind and its margins, and the reasons of its
-    ``pad-margin`` rows. A surface pad off the outer copper layers gains nothing."""
+    ``pad-margin`` rows. A surface pad off the outer copper layers gains nothing. ``pairs`` are the pad's
+    ``source_pairs`` when its own bag is already emptied (change c0440); ``None`` reads its bag."""
     layers = list(pad.layers)
     if pad.kind == "smd":
         extra: Sequence[str] = next((_SIDES[name] for name in pad.layers if name in _SIDES), ())
     else:
         extra = _BOTH_MASKS
     layers += [name for name in extra if name not in layers]
-    pairs = _pairs(pad)
+    pairs = _pairs(pad) if pairs is None else pairs
     mask, mask_why = _margin(pairs.get("mask"), rules.mask)
     reasons = [why for why in (mask_why,) if why]
     paste: Nm | None = None
@@ -150,4 +159,5 @@ __all__ = [
     "RuleExpansions",
     "open_pad",
     "rule_expansion",
+    "source_pairs",
 ]

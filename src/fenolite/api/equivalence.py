@@ -48,8 +48,10 @@ from fenolite.checks.equivalence import (
 from fenolite.checks.equivalence import codes as equivalence_codes
 from fenolite.checks.equivalence.exclusions import apply_rules
 from fenolite.checks.equivalence.model import FRAMES, Difference, Frame, LevelResult
+from fenolite.checks.equivalence.norm import MASK_NONE, MASK_RULES, MaskOf, own_mask
 from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence
+from fenolite.model.board import Pad
 from fenolite.model.design import Design
 
 AGAINST = ("kicad-import",)
@@ -218,6 +220,47 @@ def _tolerances(given: Tolerances | Mapping[str, int] | None, profile: Profile |
         return Tolerances(**values)
     except (TypeError, ValueError) as error:
         raise SideUsageError(str(error), where="tolerances") from None
+
+
+def mask_rule(design: Design) -> int | None:
+    """The expansion of the first enabled ``SolderMaskExpansion`` rule of scope ``All`` among the rule
+    records a design read from Altium keeps, ``None`` without one (change c0440)."""
+    from fenolite.backends.altium.adapter.rules import KEPT_RULE, kept_fields
+    from fenolite.convert.openings import MASK_RULE, rule_expansion
+
+    board = design.board
+    held = board.ext.get("altium") if board is not None else None
+    texts = [str(text) for name, text in (held.payload if held is not None else ()) if name == KEPT_RULE]
+    return rule_expansion((dict(kept_fields(text)[1]) for text in texts), MASK_RULE).value
+
+
+def mask_of(design: Design) -> MaskOf:
+    """The solder-mask expansion of a pad of ``design`` for level 3 (change c0440): its own margin; on a
+    board read from Altium, its manual expansion (the bag's ``mask``, ``<mode>,<units>``), ``MASK_NONE``
+    for mode 0, and for a pad that follows the rules ``mask_rule``, else ``MASK_RULES``."""
+    from fenolite.backends.altium.adapter.units import pcb_length
+
+    board = design.board
+    if board is None or "altium" not in board.ext:
+        return own_mask
+    rule = mask_rule(design)
+
+    def expansion(pad: Pad) -> int | str | None:
+        if pad.mask_margin is not None:
+            return pad.mask_margin
+        held = pad.ext.get("altium")
+        text = next((str(v) for k, v in (held.payload if held is not None else ()) if k == "mask"), None)
+        if text is None:
+            return MASK_RULES if rule is None else rule
+        mode, _, units = text.partition(",")
+        if mode == "0":
+            return MASK_NONE
+        try:
+            return pcb_length(int(units or "0")) if mode == "2" else None
+        except ValueError:
+            return None
+
+    return expansion
 
 
 def _path(given: str | Path) -> Path:
@@ -410,6 +453,7 @@ def equivalent(
             strict=strict,
             keepout_layers=keepout_layers,
             across=across,
+            masks=(mask_of(compared_a.design), mask_of(compared_b.design)),
         )
     except ValueError as error:
         raise SideUsageError(str(error), where="level") from None

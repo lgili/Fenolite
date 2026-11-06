@@ -1748,6 +1748,11 @@ meaning = "A pad reaches other copper (top, inner, bottom) on one side than on t
 fix = "Make the two designs agree, or name the known difference in an exclusion profile (--exclusions with --profile)."
 see = "equivalent"
 
+["equiv.pad-mask"]
+meaning = "The solder-mask expansion of a pad differs: its own margin, its Altium manual value or mode, or the expansion of the Altium rule it follows."
+fix = "Give the pad the same mask expansion on both sides, or name the known difference in an exclusion profile (--exclusions with --profile)."
+see = "equivalent"
+
 ["equiv.pad-drill"]
 meaning = "The drill of a pad differs by more than the length tolerance, or only one side has a drill."
 fix = "Correct the pad, or pass --tolerance-nm when the difference is rounding."

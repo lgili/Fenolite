@@ -156,6 +156,11 @@ an independent source (`pcb-document.md`).
   0 (`none`) with the expansion 0, the form the reader reports as a bag entry for each mask; the page's
   `Enabled` and `Tented` options are what that form must stand for (U1, U2), so
   `tests/unit/backends/altium/test_pcblib_stacks.py` and Part T step T6 measure it (change c0160).
+- A pad with its own solder-mask or paste margin (`Pad.mask_margin`, `Pad.paste_margin`, a KiCad
+  `solder_mask_margin` or `solder_paste_margin`) carries that mask with mode 2 (manual) and the margin as
+  its expansion; a pad without one keeps the solder mode 1 (from the rules) and the paste mode 0. Before
+  change c0440 every pad was written with mode 1, so a converted board's pads took the rule's expansion and
+  the pad's own margin was left out without a report (S-1990, S-1991).
 - A pad without a number stays a pad of its footprint with an empty designator, in the library and in the
   board document, with its own net and layer: documents saved by Altium hold component pads without a name
   (`pcb-records.md`, "Free pads as holes", census of S-0172, S-0200, S-0601; change c0433). Change c0160

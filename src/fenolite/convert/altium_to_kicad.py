@@ -534,6 +534,14 @@ def prepare(source: SourceProject, name: str, target: int, ledger: Ledger) -> De
     from fenolite.convert import openings
 
     records = rule_records(source, source.design)
+    # the pads' own mask and paste modes, read before ``_clean`` empties their bags (change c0440: every pad
+    # took the rule's expansion, so a pad with a manual expansion came out with another opening)
+    source_board = source.design.board
+    own = {
+        pad.id: openings.source_pairs(pad)
+        for fp in (source_board.footprints if source_board is not None else ())
+        for pad in fp.pads
+    }
     expansions = openings.RuleExpansions(
         mask=openings.rule_expansion(records, openings.MASK_RULE),
         paste=openings.rule_expansion(records, openings.PASTE_RULE),
@@ -579,7 +587,7 @@ def prepare(source: SourceProject, name: str, target: int, ledger: Ledger) -> De
                 continue
             if aligned is not pad:
                 ledger.change("pad", pad.id, "the circular pad rotates to its slot axis")
-            opened, reasons = openings.open_pad(aligned, expansions)
+            opened, reasons = openings.open_pad(aligned, expansions, own.get(pad.id, {}))
             for reason in reasons:
                 ledger.drop(openings.KIND, pad.id, reason)
             pads.append(opened)

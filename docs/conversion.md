@@ -365,12 +365,17 @@ wires are regenerated. Duplicate designators refuse the schematic alone, with an
 kind: a surface pad on `F.Cu` gets `F.Paste` and `F.Mask` (on `B.Cu` the bottom ones), a plated or unplated
 through-hole pad `F.Mask` and `B.Mask` and no paste; a surface pad on an inner layer gets none. Its mask and
 paste expansions become `Pad.mask_margin` and `Pad.paste_margin`, written as `solder_mask_margin` and
-`solder_paste_margin`: a manual expansion as it is, an expansion "from the rules" as the first enabled
+`solder_paste_margin`: a manual expansion as it is (0 included: since change c0440 a manual 0 is written
+as a margin of 0, not left to the board's setting), an expansion "from the rules" as the first enabled
 `SolderMaskExpansion` or `PasteMaskExpansion` rule of scope `All`, none without one. A pad that a rule of
 another scope may govern takes the `All` rule and is a `pad-margin` loss: the scope is not evaluated, but
 a rule whose scope selects no pad (`IsVia`, `IsTrack`, in the closed scope grammar) is left out. The
 paste `Enabled` switch and the solder `Tented` option are not read (`docs/formats/altium/pcb-library.md`,
-U1 and U2), so a tented pad of the source is open in KiCad (`H-A-CONV-PADMASK`).
+U1 and U2), so a tented pad of the source is open in KiCad (`H-A-CONV-PADMASK`). The modes are read from each pad's
+bag before the conversion empties the source's bags (change c0440: until then every pad took the rule's
+expansion, so a pad with a manual expansion came out with another opening). The way back writes a pad's
+margin as a manual expansion (`docs/formats/altium/pcb-library.md`), so each pad keeps its value; a pad that
+followed a rule comes back manual with the rule's value, because a KiCad board holds no rule-or-manual mode.
 
 **Footprint drawings and texts** (changes c0409, c0422). A component's own lines, arcs, circles, fills and
 regions are its footprint's `fp_line`, `fp_arc`, `fp_circle`, `fp_rect` and `fp_poly` children, and its

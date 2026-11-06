@@ -322,6 +322,7 @@ level are sorted by `where`, then kind.
 | 3 | `pad-rotation` | `rotation` | the rotations relative to the footprint differ beyond the tolerance |
 | 3 | `pad-copper` | `layers` | the copper spans differ |
 | 3 | `net-tie-copper` | `copper` | a footprint that is a net tie on a side holds a piece of copper (a segment, a region or an arc on a copper layer, in the footprint's frame, by role `top`, `inner<k>` or `bottom`) that the other side does not hold within the tolerance; `a` or `b` is `""` (change c0431) |
+| 3 | `pad-mask` | `mask_margin` | the solder-mask expansions differ beyond the tolerance (change c0440): the pad's own margin; on a side read from Altium, its manual expansion, `none` for mode 0, and for a pad that follows the rules the expansion of the side's first enabled `SolderMaskExpansion` rule of scope `All` (`rules` when the side has none). A KiCad pad without its own margin follows the board's setting, which the model does not hold: it agrees with any value |
 | 4 | `side` | `side` | top on one side of the comparison, bottom on the other |
 | 4 | `position` | `position` | the positions differ beyond the tolerance, in the chosen frame |
 | 4 | `rotation` | `rotation` | the rotations differ beyond the tolerance |

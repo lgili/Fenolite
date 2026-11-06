@@ -40,6 +40,7 @@ TABLE = (
     (3, "pad-rotation", "rotation"),
     (3, "pad-copper", "layers"),
     (3, "net-tie-copper", "copper"),
+    (3, "pad-mask", "mask_margin"),
     (4, "side", "side"),
     (4, "position", "position"),
     (4, "rotation", "rotation"),

@@ -11,7 +11,7 @@ a mirror of a whole board.
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from statistics import median_low
 
 from fenolite.checks.equivalence.model import Tolerances
@@ -163,6 +163,30 @@ def copper_span(pad: Pad, board: Board) -> frozenset[str] | None:
         else:
             span.add("inner")
     return frozenset(span)
+
+
+MASK_NONE = "none"
+"""The mask expansion of a pad that its side reads as opening no mask."""
+MASK_RULES = "rules"
+"""The mask expansion of a pad that follows a rule its side does not know."""
+MaskOf = Callable[[Pad], "int | str | None"]
+"""How a side gives the solder-mask expansion of a pad for level 3 (change c0440): nanometres,
+``MASK_NONE``, ``MASK_RULES``, or ``None`` when the side makes no statement."""
+
+
+def own_mask(pad: Pad) -> int | None:
+    """The pad's own margin: the ``MaskOf`` of a side without a backend reading (``None``: the pad follows
+    its board's setting, which the model does not hold)."""
+    return pad.mask_margin
+
+
+def masks_equal(a: int | str | None, b: int | str | None, tolerances: Tolerances) -> bool:
+    """Whether two ``mask_expansion`` values agree; ``None`` on a side is no statement and agrees."""
+    if a is None or b is None:
+        return True
+    if isinstance(a, int) and isinstance(b, int):
+        return lengths_equal(a, b, tolerances)
+    return a == b
 
 
 def span_text(span: frozenset[str]) -> str:
