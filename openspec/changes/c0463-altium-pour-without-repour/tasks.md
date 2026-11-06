@@ -62,16 +62,15 @@ Rules for every task:
 ## 4. The Repour oracle
 
 - [x] 4.1 The kit step `repour` (S-2224), and its records for the 8 rows. Proof:
-  `uv run pytest tests/unit/cli/test_kit.py -q -n 0`, and the records declared in the manifest.
+  `uv run pytest tests/unit/cli/test_kit_cmd.py tests/unit/backends/altium/test_pourrecord_c0463.py tests/corpus/test_manifest.py -q -n 0`,
+  and the records declared in the manifest.
   The step runs from `tools/kit_pour_c0463.py` (the rows as published, copied from the corpus cache), not
   from `fenolite kit`: the rows are no kit sample. The record holds counts, areas and ring hashes only (the
   coordinator's rule of 2026-11-06: no vertex list of a row, no saved board in the repository), so 4.2 runs
   M1 to M4 against the saved boards of a folder named by an environment variable and checks their hashes
   against the record. Proof of the tool: `tests/unit/backends/altium/test_pourrecord_c0463.py`.
   Run (2026-11-06, AD 24.5.2.23, S-2224): `tests/data/altium/kit/repour.json`, declared; 0 dialogs and 0
-  messages on every row. `tests/unit/cli/test_kit.py` does not exist; the proof ran was
-  `tests/unit/cli/test_kit_cmd.py`, `tests/unit/backends/altium/test_pourrecord_c0463.py` and
-  `tests/corpus/test_manifest.py`. Rows 03, 05 and 07 saved exactly Altium 24.5's repour; on 01, 02, 04,
+  messages on every row. Proof passed. Rows 03, 05 and 07 saved exactly Altium 24.5's repour; on 01, 02, 04,
   06 and 08 some rings differ, by at most 0.13% of a polygon's area, so no saved pour is stale enough to
   explain the M2 failures of rows 04 and 07.
 - [ ] 4.2 `tests/corpus/test_altium_pour_repour_c0463.py`, with stale saved pours named. Proof:
