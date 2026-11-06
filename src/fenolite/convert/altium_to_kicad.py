@@ -19,10 +19,11 @@ from fenolite.core.ids import derived_id
 from fenolite.core.libnames import FREE_PAD_PREFIX, library_name
 from fenolite.core.units import Nm
 from fenolite.model.base import ExtBag
-from fenolite.model.board import Board, FootprintInstance, Graphic, Keepout, Layer, Pad
+from fenolite.model.board import Board, FootprintInstance, Graphic, Keepout, Layer, Pad, Via
 from fenolite.model.circuit import Component, Net, PinRef
 from fenolite.model.design import Design
 from fenolite.model.library import FootprintDef, ModelPlacement, SymbolDef
+from fenolite.model.rules import RuleSubject
 
 
 class Ledger:
@@ -647,25 +648,117 @@ def rule_records(source: SourceProject, design: Design) -> tuple[dict[str, str],
     return tuple({key: value or "" for key, value in record.fields} for record in document.rules)
 
 
+class RuleSubjects:
+    """The subject of each pad and via of the source for an expansion record (change c0462, design D6): its
+    net, the net classes that hold it (read from the document's classes: an Altium net may be in several),
+    its component's designator, its one copper layer (a surface pad only) and its hole."""
+
+    def __init__(self, design: Design, document: Any) -> None:
+        from fenolite.backends.altium.adapter.layers import copper_layers_of
+        from fenolite.backends.altium.read.scopedoc import scope_document
+        from fenolite.checks.clearance import DEFAULT_CLASS
+        from fenolite.model.pairs import net_bases
+
+        circuit = design.circuit
+        board = design.board
+        names = {netclass.id: netclass.name for netclass in circuit.netclasses}
+        self._nets = {
+            net.id: (net.name, names.get(net.netclass_id or "", DEFAULT_CLASS)) for net in circuit.nets
+        }
+        self._bases = net_bases(net.name for net in circuit.nets)
+        self.refs = {component.id: component.ref for component in circuit.components}
+        self.copper = (
+            frozenset(layer.name for layer in board.layers if layer.kind == "copper") if board else ()
+        )
+        self.document = (
+            None
+            if document is None
+            else scope_document(document, copper_layers_of(board.layers) if board is not None else None)
+        )
+        classes = self.document.classes if self.document is not None else None
+        self._groups = (
+            None
+            if classes is None
+            else tuple(
+                (c.name.casefold(), c.superclass, frozenset(m.casefold() for m in c.members))
+                for c in classes
+                if c.kind == 0
+            )
+        )
+
+    def _net(self, net_id: str | None) -> tuple[str | None, str | None, str | None]:
+        name, netclass = self._nets.get(net_id, (None, None)) if net_id is not None else (None, None)
+        return name, netclass, self._bases.get(name) if name is not None else None
+
+    def classes(self, net_id: str | None) -> frozenset[str] | None:
+        """The case-folded names of the document's net classes that hold the net (none without a net);
+        ``None`` when the document is not read, so a ``netclass`` leaf compares the neutral class."""
+        if self._groups is None:
+            return None
+        name = self._net(net_id)[0]
+        if name is None:
+            return frozenset()
+        folded = name.casefold()
+        return frozenset(group for group, every, members in self._groups if every or folded in members)
+
+    def pad(self, pad: Pad, component_id: str | None) -> RuleSubject:
+        from fenolite.convert import openings
+
+        net, netclass, base = self._net(pad.net_id)
+        ref = self.refs.get(component_id) if component_id is not None else None
+        return openings.pad_subject(pad, self.copper, net, netclass, ref, base)
+
+    def via(self, via: Via) -> RuleSubject:
+        net, netclass, base = self._net(via.net_id)
+        return RuleSubject("via", net=net, netclass=netclass, diff_pair=base, hole=via.drill)
+
+
+def source_scope(source: SourceProject, design: Design) -> Any:
+    """The ``read.scope.ScopeDocument`` of the source's PCB document (change c0462), with which the scopes
+    of its rule records are read; ``None`` when the document cannot be read."""
+    return RuleSubjects(design, _pcb_document(source, design)).document
+
+
+def pad_rules(design: Design, records: Sequence[Mapping[str, str]], subjects: RuleSubjects) -> dict[str, Any]:
+    """Pad id → the ``openings.RuleExpansions`` of each pad of ``design``: the mask and paste expansions of
+    the records that govern it, each scope read with the full grammar (change c0462, design D6)."""
+    from fenolite.convert import openings
+
+    board = design.board
+    if board is None:
+        return {}
+    mask = openings.expansion_rules(records, openings.MASK_RULE, subjects.document)
+    paste = openings.expansion_rules(records, openings.PASTE_RULE, subjects.document)
+    return {
+        pad.id: openings.pad_expansions(
+            mask, paste, subjects.pad(pad, fp.component_id), subjects.classes(pad.net_id)
+        )
+        for fp in board.footprints
+        for pad in fp.pads
+    }
+
+
 VIA_MASK_CHANGED = (
     "KiCad opens every untented via by the board's one mask margin; this via's opening differs from the "
     "most frequent one, which the board takes (change c0445)"
 )
 VIA_RULE_SCOPED = (
-    "the via takes its mask from the rules and a SolderMaskExpansion rule of another scope may govern it; "
-    "the rule of scope IsVia or All was applied (change c0445)"
+    "the via takes its mask from the rules and a SolderMaskExpansion rule whose scope Fenolite cannot judge "
+    "for it comes first; the next rule that selects the via was applied (changes c0445, c0462)"
 )
 VIA_MASK_STATE, VIA_MASK_EXPANSION = 66, 54
 """The offsets of a via record's solder-mask cache state and top expansion (``pcb-copper.md``, "Via")."""
 
 
 def via_margins(
-    source: SourceProject, records: Sequence[Mapping[str, str]]
+    source: SourceProject, records: Sequence[Mapping[str, str]], subjects: RuleSubjects | None = None
 ) -> tuple[dict[str, Nm], tuple[str, ...]]:
     """Via id → the growth of its mask opening beyond its copper (change c0445), for each via of the source
     that is untented on a side and whose record or rule gives one (``openings.via_margin``), and the ids of
-    those that take the rule while a rule of another scope comes first (``ViaRule.scoped``). A via is found
-    by the locator of its provenance in ``Vias6``."""
+    those that take the rule while a rule Fenolite cannot judge for them comes first (``ViaRule.scoped``).
+    Each via takes the record whose scope selects it (``openings.via_governing``, change c0462); without
+    ``subjects`` the scopes are read without the document. A via is found by the locator of its provenance
+    in ``Vias6``."""
     import struct
 
     from fenolite.backends.altium.adapter.units import pcb_length
@@ -676,7 +769,9 @@ def via_margins(
     document = _pcb_document(source, source.design)
     if board is None or document is None:
         return {}, ()
-    rule = openings.via_rule(records)
+    if subjects is None:
+        subjects = RuleSubjects(source.design, None)
+    mask = openings.expansion_rules(records, openings.MASK_RULE, subjects.document)
     found: dict[str, Nm] = {}
     scoped: list[str] = []
     for via in board.vias:
@@ -691,6 +786,7 @@ def via_margins(
             continue
         state = record.tail[VIA_MASK_STATE - 31]
         units = struct.unpack_from("<i", record.tail, VIA_MASK_EXPANSION - 31)[0]
+        rule = openings.via_governing(mask, subjects.via(via), subjects.classes(via.net_id))
         margin = openings.via_margin(via.diameter, via.drill, state, pcb_length(units), rule)
         if margin is not None:
             found[via.id] = margin
@@ -809,7 +905,11 @@ def prepare(source: SourceProject, name: str, target: int, ledger: Ledger) -> De
     from fenolite.backends.kicad._fpmap import aligned_slot_pad
     from fenolite.convert import openings
 
-    records = rule_records(source, source.design)
+    document = _pcb_document(source, source.design)
+    records = (
+        () if document is None else tuple({k: v or "" for k, v in record.fields} for record in document.rules)
+    )
+    subjects = RuleSubjects(source.design, document)
     # the pads' own mask and paste modes, read before ``_clean`` empties their bags (change c0440: every pad
     # took the rule's expansion, so a pad with a manual expansion came out with another opening)
     source_board = source.design.board
@@ -818,10 +918,7 @@ def prepare(source: SourceProject, name: str, target: int, ledger: Ledger) -> De
         for fp in (source_board.footprints if source_board is not None else ())
         for pad in fp.pads
     }
-    expansions = openings.RuleExpansions(
-        mask=openings.rule_expansion(records, openings.MASK_RULE),
-        paste=openings.rule_expansion(records, openings.PASTE_RULE),
-    )
+    expansions = pad_rules(source.design, records, subjects)  # change c0462: the record that governs each pad
 
     design = map_layers(
         keepouts(
@@ -871,7 +968,9 @@ def prepare(source: SourceProject, name: str, target: int, ledger: Ledger) -> De
                 continue
             if aligned is not pad:
                 ledger.change("pad", pad.id, "the circular pad rotates to its slot axis")
-            opened, reasons = openings.open_pad(aligned, expansions, own.get(pad.id, {}))
+            opened, reasons = openings.open_pad(
+                aligned, expansions.get(pad.id, openings.RuleExpansions()), own.get(pad.id, {})
+            )
             for reason in reasons:
                 ledger.drop(openings.KIND, pad.id, reason)
             pads.append(opened)
@@ -880,12 +979,12 @@ def prepare(source: SourceProject, name: str, target: int, ledger: Ledger) -> De
     for hole in board.holes:
         ledger.drop("hole", hole.id, "a standalone hole has no footprint")
     board = dataclasses.replace(board, footprints=tuple(footprints), holes=())
-    margins, scoped = via_margins(source, records)
+    margins, scoped = via_margins(source, records, subjects)
     board = board_mask(board, margins, ledger, scoped)  # change c0445: the vias' mask
     from fenolite.convert import altium_zones  # change c0409: the pour settings of the Altium rules
 
     board = altium_zones.connect_zones(
-        board, design, altium_zones.board_styles(source.design.board), refs, ledger
+        board, design, altium_zones.board_styles(source.design.board, subjects.document), refs, ledger
     )
     board = altium_zones.zone_clearances(board, design, ledger)
     from fenolite.convert import altium_strings  # change c0409, B10

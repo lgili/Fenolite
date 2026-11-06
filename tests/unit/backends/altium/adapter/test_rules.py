@@ -226,7 +226,7 @@ def test_cell_rules_of_an_import_and_the_clearance_in_force() -> None:
     pair of item kinds above the generic rule of the same record."""
     from fenolite.checks.clearance import ClearanceResolver
 
-    matrix = "ClearanceObj_Via-ClearanceObj_Via:35000;ClearanceObj_Track-ClearanceObj_Text:100000"
+    matrix = "ClearanceObj_Via-ClearanceObj_Via:35000;ClearanceObj_Track-ClearanceObj_Hole:100000"
     record = rec.rule(
         "Clearance", "Clearance", GAP="4mil", GENERICCLEARANCE="4mil", OBJECTCLEARANCES=matrix,
         IGNOREPADTOPADCLEARANCEINFOOTPRINT="FALSE",
@@ -239,7 +239,7 @@ def test_cell_rules_of_an_import_and_the_clearance_in_force() -> None:
     assert cell.native_ids == {"altium": "rule:Clearance:Clearance:clearance:via-via"}
     assert dict(cell.ext["altium"].payload)["cell"] == "via-via"
     assert dict(generic.ext["altium"].payload)["cells_not_lifted"] == (
-        "ClearanceObj_Track-ClearanceObj_Text:100000"
+        "ClearanceObj_Track-ClearanceObj_Hole:100000"
     )
     assert "record" not in dict(cell.ext["altium"].payload)
     resolver = ClearanceResolver(design)

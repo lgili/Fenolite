@@ -13,14 +13,20 @@ and ``SolderMaskExpansion`` records. Nothing is read from a file here: the calle
 from __future__ import annotations
 
 import dataclasses
-from collections.abc import Iterable, Mapping, Sequence
+import fnmatch
+import itertools
+from collections.abc import Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from fenolite.backends.altium.adapter.units import pcb_length, text_length
 from fenolite.core.evidence import Evidence, Level
 from fenolite.core.units import Nm
 from fenolite.model.board import Pad
-from fenolite.model.rules import Selector
+from fenolite.model.rules import PAD_TYPE_OF, RuleSubject, Selector
+
+if TYPE_CHECKING:
+    from fenolite.backends.altium.read.scope import ScopeDocument
 
 EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-A-CONV-PADMASK",))
 KIND = "pad-margin"
@@ -29,7 +35,8 @@ MODE_NONE, MODE_RULE, MODE_MANUAL = 0, 1, 2
 MASK_RULE, PASTE_RULE = "SolderMaskExpansion", "PasteMaskExpansion"
 SCOPE_ALL = "All"
 SCOPED_REASON = (
-    "a rule of another scope may govern the pad; its scope is not evaluated, the rule of scope All is used"
+    "a rule whose scope Fenolite cannot judge for the pad comes first; the next rule that selects the pad is "
+    "used"
 )
 UNKNOWN_REASON = "the pad's expansion mode is not one of none, rules and manual: no margin"
 _SIDES = {"F.Cu": ("F.Paste", "F.Mask"), "B.Cu": ("B.Paste", "B.Mask")}
@@ -165,6 +172,183 @@ def via_margin(diameter: Nm, drill: Nm, state: int, expansion: Nm, rule: ViaRule
     return (drill - diameter) // 2 + rule.value if rule.from_hole else rule.value
 
 
+@dataclass(frozen=True, slots=True)
+class ExpansionRule:
+    """One enabled expansion record (change c0462, design D6): its priority (1 governs), its scope as
+    written, its selector (``None``: a scope ``read.scope.parse_scope`` does not read), its expansion and,
+    for a solder-mask record, whether the expansion is measured from the hole (``SOLDERMASKFROMHOLE``)."""
+
+    priority: int
+    scope: str
+    selector: Selector | None
+    value: Nm | None
+    from_hole: bool = False
+
+
+def expansion_rules(
+    records: Iterable[Mapping[str, str]], kind: str, document: ScopeDocument | None = None
+) -> tuple[ExpansionRule, ...]:
+    """The enabled records of ``kind`` (``MASK_RULE`` or ``PASTE_RULE``) as ``ExpansionRule`` in the order of
+    Altium's priority (the first governs), each scope read with the records' ``document``."""
+    from fenolite.backends.altium.read.scope import parse_scope
+
+    rows: list[ExpansionRule] = []
+    for record in records:
+        if record.get("RULEKIND") != kind or record.get("ENABLED", "TRUE").upper() != "TRUE":
+            continue
+        try:
+            priority = int(record.get("PRIORITY", "0"))
+        except ValueError:
+            priority = 0
+        scope = record.get("SCOPE1EXPRESSION", "").strip()
+        selector = parse_scope(scope, document=document)
+        found = text_length(record.get("EXPANSION"))
+        rows.append(
+            ExpansionRule(
+                priority,
+                scope,
+                selector if isinstance(selector, Selector) else None,
+                None if found is None else found[0],
+                record.get("SOLDERMASKFROMHOLE", "FALSE").upper() == "TRUE",
+            )
+        )
+    return tuple(sorted(rows, key=lambda row: row.priority))
+
+
+_NONE = Selector("not", items=(Selector("all"),))
+
+
+def _unknown(selector: Selector, subject: RuleSubject) -> set[Selector]:
+    """The leaves of ``selector`` the conversion cannot judge for ``subject``: a room (``area``: the
+    conversion places no object in a room), and a layer while the object spans the layers."""
+    if selector.op == "area" or (selector.op == "layer" and subject.layer is None):
+        return {selector}
+    found: set[Selector] = set()
+    for item in selector.items:
+        found |= _unknown(item, subject)
+    return found
+
+
+MAX_UNKNOWN = 8
+"""The most unknown leaves whose every truth value is tried (``_decided``); a scope with more is unread."""
+
+
+def _assigned(selector: Selector, values: Mapping[Selector, bool]) -> Selector:
+    if selector in values:
+        return Selector("all") if values[selector] else _NONE
+    if selector.items:
+        return dataclasses.replace(selector, items=tuple(_assigned(item, values) for item in selector.items))
+    return selector
+
+
+def _decided(selector: Selector, subject: RuleSubject) -> bool | None:
+    """Whether ``selector`` selects ``subject``, ``None`` when it depends on a leaf the conversion cannot
+    judge (``_unknown``): every truth value of those leaves is tried, and one answer for all decides it.
+    ``OnLayer('Bottom Layer')`` holds the vias and the pads with a hole by its own terms, so it decides them
+    without their layer."""
+    from fenolite.checks.clearance import selector_matches
+
+    unknown = sorted(_unknown(selector, subject), key=lambda leaf: (leaf.op, leaf.value))
+    if len(unknown) > MAX_UNKNOWN:
+        return None
+    found = {
+        selector_matches(_assigned(selector, dict(zip(unknown, bits, strict=True))), subject)
+        for bits in itertools.product((False, True), repeat=len(unknown))
+    }
+    return found.pop() if len(found) == 1 else None
+
+
+@dataclass(frozen=True, slots=True)
+class Governed:
+    """The expansion record that governs one pad or via (``governing_expansion``): its value and
+    ``from_hole`` (``None``: no record selects it), and ``unread``, the scope of a record before it that
+    Fenolite cannot judge for the object, ``""`` when there is none."""
+
+    value: Nm | None = None
+    from_hole: bool = False
+    unread: str = ""
+
+
+def _with_classes(selector: Selector, classes: Collection[str]) -> Selector:
+    """``selector`` with each ``netclass`` leaf decided by ``classes``, the names (case-folded) of every
+    net class that holds the subject's net: an Altium net may be in several classes, the neutral subject
+    names one."""
+    if selector.op == "netclass":
+        wanted = selector.value.casefold()
+        return Selector("all") if any(fnmatch.fnmatchcase(name, wanted) for name in classes) else _NONE
+    if selector.items:
+        return dataclasses.replace(
+            selector, items=tuple(_with_classes(item, classes) for item in selector.items)
+        )
+    return selector
+
+
+def governing_expansion(
+    rules: Sequence[ExpansionRule], subject: RuleSubject, classes: Collection[str] | None = None
+) -> Governed:
+    """The first record of ``rules`` whose scope selects ``subject``, names compared without case, as the
+    clearance rules compare them. A record whose scope is outside the grammar, or that selects the object or
+    not by a leaf the conversion cannot judge (a room, or a layer of a through-hole pad or a via, which span
+    the layers; ``_decided``), may govern it: its scope is kept in ``unread`` and the next record that
+    selects the object gives the value. ``classes`` (case-folded) are the net classes of the document that
+    hold the subject's net; without them a ``netclass`` leaf compares ``subject.netclass``."""
+    unread = ""
+    for rule in rules:
+        selector = rule.selector
+        if selector is not None and classes is not None:
+            selector = _with_classes(selector, classes)
+        selects = None if selector is None else _decided(selector, subject)
+        if selects is None:
+            unread = unread or rule.scope
+        elif selects:
+            return Governed(rule.value, rule.from_hole, unread)
+    return Governed(None, False, unread)
+
+
+def pad_subject(
+    pad: Pad,
+    copper: Collection[str],
+    net: str | None = None,
+    netclass: str | None = None,
+    ref: str | None = None,
+    diff_pair: str | None = None,
+) -> RuleSubject:
+    """The subject of ``pad`` for an expansion record: a surface pad on its one layer of ``copper`` (the
+    copper layer names of its board), a pad with a hole on none, with its finished hole."""
+    layers = [name for name in pad.layers if name in copper]
+    surface = pad.kind == "smd"
+    return RuleSubject(
+        "pad",
+        net=net,
+        netclass=netclass,
+        ref=ref,
+        layer=layers[0] if surface and len(layers) == 1 else None,
+        diff_pair=diff_pair,
+        hole=None if surface or not pad.drill else pad.drill,
+        pad_type=PAD_TYPE_OF.get(pad.kind),
+    )
+
+
+def pad_expansions(
+    mask: Sequence[ExpansionRule],
+    paste: Sequence[ExpansionRule],
+    subject: RuleSubject,
+    classes: Collection[str] | None = None,
+) -> RuleExpansions:
+    """The ``RuleExpansions`` of one pad: each the value of the record that governs it, ``scoped`` when a
+    record Fenolite cannot judge for it comes first."""
+    found = [governing_expansion(rules, subject, classes) for rules in (mask, paste)]
+    return RuleExpansions(*(RuleExpansion(one.value, scoped=bool(one.unread)) for one in found))
+
+
+def via_governing(
+    mask: Sequence[ExpansionRule], subject: RuleSubject, classes: Collection[str] | None = None
+) -> ViaRule:
+    """The ``ViaRule`` of one via: the solder-mask record that governs it (``governing_expansion``)."""
+    found = governing_expansion(mask, subject, classes)
+    return ViaRule(found.value, found.from_hole, scoped=bool(found.unread))
+
+
 def _pairs(pad: Pad) -> dict[str, str]:
     bag = pad.ext.get("altium")
     return dict(bag.payload) if bag is not None else {}
@@ -220,6 +404,13 @@ def open_pad(
 __all__ = [
     "EVIDENCE",
     "KIND",
+    "ExpansionRule",
+    "Governed",
+    "expansion_rules",
+    "governing_expansion",
+    "pad_expansions",
+    "pad_subject",
+    "via_governing",
     "MASK_RULE",
     "PASTE_RULE",
     "RuleExpansion",

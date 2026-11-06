@@ -38,6 +38,9 @@ known to `kicad-cli`, so nothing here is `ORACLE-VERIFIED`, and the meaning of t
 | A count of `OBJECTCLEARANCES` is 0.0001 mil (2.54 nm, the unit of the document's coordinates), and a cell that the text leaves out holds the generic value; so a text whose every entry holds the length of `GAP` says one clearance | S-0558, S-0175, S-0176, S-0187 | INFERRED | H-A-RULE-CLEARANCE-FORMS |
 | The matrix of the Clearance rule has a row and a column per object kind (track, arc, surface pad, through-hole pad, via, fill, polygon, region, hole); a simple view shows arc with track as one entry, and fill, polygon and region as one | S-0558 | INFERRED | H-A-RULE-CLEARANCE-CELLS |
 | The object kinds named by the entries of the public Clearance matrices are `Arc`, `Track`, `SMDPad`, `THPad`, `Via`, `Fill`, `Poly`, `Region`, `Text` and `Hole`, and no other. Two of the four matrices give different values to object kinds of one item kind of the copper check (a through-hole pad and a surface pad; an arc and a track); the two others do not | S-0175, S-0176, S-0187 | CORPUS-VERIFIED (2026-10-07; test_altium_rule_kinds.py) | H-A-RULE-CLEARANCE-CELLS |
+| The Clearance rule has a simple and an advanced view of its matrix: the simple view joins Track and Arc (with their keep-outs) as one entry and Fill, Poly and Region (with their keep-outs) as one Copper entry; a cell is the clearance of one pair of object kinds, and a scope narrows which cells apply. Hole is a row of its own: it gives the clearance from a hole to copper on signal layers, and it governs a pad whose hole is at least as large as the pad only when an option is set, the larger of the Hole and TH Pad cells otherwise. The page says nothing of an unplated pad | S-2249 | INFERRED | H-A-RULE-CLEARANCE-CELLS, H-A-RULE-MATRIX-NPTH |
+| Board Outline Clearance gives the clearance from objects to the board's edges, as a matrix of object kinds against edge kinds: the outer edge (`Outline Edge`), the edge of a cavity, the edge of a cutout, a Split Line that bounds a layer (`Split Barrier`), and a Split Line a layer continues across (`Split Continuation`, where 0 lets the object cross). One minimum value is copied to every cell, and cells may differ | S-2217 | INFERRED | H-A-RULE-CLEARANCE-CELLS |
+| The edge kinds of the public Board Outline Clearance matrices are written `OutlineEdge`, `CavityEdge`, `CutoutEdge`, `SplitBarrior` and `SplitContinuation`, each paired with an object kind (`ClearanceObj_Poly-ClearanceObj_OutlineEdge:<count>`); three of the 8 public rows hold one such matrix (1, 5 and 5 entries) | S-1654 | CORPUS-VERIFIED (2026-11-06; test_altium_rule_kinds_c0462.py) | H-A-RULE-CLEARANCE-CELLS |
 | Hole To Hole Clearance, Silk To Silk Clearance, Silk To Solder Mask Clearance, Minimum Solder Mask Sliver and Layer Pairs are checked by the DRC; an option of Hole To Hole Clearance allows stacked micro vias | S-1830 | INFERRED | H-A-RD-RULE-C0424 |
 | Short Circuit reports touching primitives of different nets unless it allows the short; Net Antennae reports open-ended stubs up to its tolerance; Un-Routed Net checks routing completion | S-1831 | INFERRED | H-A-RD-RULE-C0424 |
 | Routing Layers allows routing per signal layer; Differential Pairs Routing holds the least, preferred and greatest gap, per-layer widths, an impedance profile and the greatest uncoupled length; Routing Topology, Routing Priority, Routing Corners and Fanout Control guide the router | S-1832 | INFERRED | H-A-RD-RULE-C0424 |
@@ -50,7 +53,7 @@ known to `kicad-cli`, so nothing here is `ORACLE-VERIFIED`, and the meaning of t
 | A Short-Circuit rule reports two touching copper primitives of different nets; with "Allow Short Circuit" the nets under its two scopes may short (the example: two ground systems in one design). How several such rules combine by priority is not stated | S-2241 | INFERRED | H-A-RULE-SHORT |
 | A Net Antennae rule reports, per net, an open-ended track or arc, or one ending in a via, whose stub is longer than its tolerance (the maximum permissible stub length). Where the stub is measured, and whether a stub of exactly the tolerance passes, are not stated | S-2240 | INFERRED | H-A-RULE-ANTENNA |
 | The public ShortCircuit records (rule-kind number 15) hold one own key, `ALLOWED` (`FALSE` in all 8); the NetAntennae records (rule-kind number 56) hold `NETANTENNAETOLERANCE` (`0mil` in 6, `1mil` in 2); every one is enabled with scopes `All` and `All` | S-2243 | CORPUS-VERIFIED (8 rows; 2026-11-06) | H-A-RULE-SHORT, H-A-RULE-ANTENNA |
-| `Arc` and `Track` are the tracks and arcs of the import, `SMDPad` and `THPad` its pads, `Via` its vias, and `Poly` the poured copper of a polygon, which the import reads as the fills of a zone; `Fill`, `Region`, `Text` and `Hole` are objects the copper check holds no item of | S-0558 | INFERRED | H-A-RULE-CLEARANCE-CELLS |
+| `Arc` and `Track` are the tracks and arcs of the import, `SMDPad` and `THPad` its pads, `Via` its vias, and `Poly` the poured copper of a polygon, which the import reads as the fills of a zone; `Fill` and `Region` the free fills and regions, which the copper check judges on copper as `graphic` items (change c0462); `Text` and `Hole` are objects the copper check holds no item of | S-0558 | INFERRED | H-A-RULE-CLEARANCE-CELLS |
 
 ## Header keys
 
@@ -77,7 +80,7 @@ on it, S-0580).
 | `RoutingVias` | `via_diameter` | `MINWIDTH` | `WIDTH` | `MAXWIDTH` | `AnyNet` | `VIASTYLE` is `Through Hole`; `USEVIATEMPLATES` absent or `FALSE` (`TRUE`: "Via templates"); `VIATEMPLATEGUID#<n>` and `VIATEMPLATENAME#<n>` allowed and unused |
 | `RoutingVias` | `via_drill` | `MINHOLEWIDTH` | `HOLEWIDTH` | `MAXHOLEWIDTH` | `AnyNet` | as the row above: `VIASTYLE`, `USEVIATEMPLATES` |
 | `HoleSize` | `hole_size` | `MINLIMIT` | — | `MAXLIMIT` | `AnyNet` | `ABSOLUTEVALUES` is `TRUE`; `MINPERCENT` and `MAXPERCENT` allowed and unused |
-| `BoardOutlineClearance` | `edge_clearance` | `GAP` | — | — | `DifferentNets` | `OBJECTCLEARANCES` absent or empty; `GENERICCLEARANCE` absent or equal to `GAP`; `IGNOREPADTOPADCLEARANCEINFOOTPRINT` absent or `FALSE` |
+| `BoardOutlineClearance` | `edge_clearance` | `GAP` | — | — | `DifferentNets` | `OBJECTCLEARANCES` absent, blank or a matrix of exact cells against the edges (each one more rule, change c0462); `GENERICCLEARANCE` absent or equal to `GAP`; `IGNOREPADTOPADCLEARANCEINFOOTPRINT` absent or `FALSE` |
 | `HoleToHoleClearance` | `hole_to_hole` | `GAP` | — | — | `AnyNet` | `ALLOWSTACKEDMICROVIAS` is `FALSE` or `TRUE` (with `TRUE` the record is also kept: "Kept rule records") |
 | `MinimumAnnularRing` | `annular_width` | `MINIMUMRING` | — | — | `AnyNet` | — |
 | `SilkToSilkClearance` | `silk_clearance` | `SILKTOSILKCLEARANCE` | — | — | `AnyNet` | — |
@@ -390,7 +393,7 @@ checked in this order.
 | `impedance-profile` | the record takes per-layer values from an impedance profile it does not hold ("Per-layer values") |
 | `template` | `USEVIATEMPLATES=TRUE`: the vias take the sizes of the via templates the record names, and no permitted source says what the rule check tests then ("Via templates") |
 | `connected-copper` | a Width record with `CHECKCONNECTEDCOPPER=TRUE`: Altium's connected-copper width check, which no neutral rule expresses ("Per-layer values") |
-| `matrix-kind` | a cell of an object matrix names an object kind no neutral kind holds ("Cells of an object matrix") |
+| `matrix-kind` | an object matrix tells apart object kinds that one neutral kind holds (an arc and a track, a fill and a region, the outline and a cutout), or names an object or edge kind outside the table ("Cells of an object matrix") |
 | `delay-units` | a Matched Lengths record gives its tolerance as a delay ("Matched Lengths") |
 | `scope` | a scope is outside the closed grammar and the two are no layer condition that maps, or `SCOPE2EXPRESSION` is not `All` for a unary kind |
 | `no-layer` | the two scopes are a layer condition for a kind of layer the board does not hold: the rule applies to no object ("Layer scopes of Clearance") |
@@ -561,7 +564,7 @@ with via template keys 4, BoardOutlineClearance object matrices 3, Clearance sco
 | `OnLayer`, `ExistsOnLayer` on a board with blind or buried vias | the neutral subject holds no via span (`via-span`; since change c0462 the layer functions map when joined with other terms) |
 | Clearance with `NETSCOPE=AnyNet` | a neutral clearance holds between different nets; a clearance between objects of one net has no counterpart, so mapping the record would drop half of it |
 | HoleToHoleClearance with `ALLOWSTACKEDMICROVIAS=TRUE` | the neutral rule has no exception for stacked micro-vias |
-| Clearance with `IGNOREPADTOPADCLEARANCEINFOOTPRINT=TRUE`, an object matrix of differing cells | the neutral rule cannot leave out the pads of one footprint or tell the objects apart (change c0125) |
+| Clearance with `IGNOREPADTOPADCLEARANCEINFOOTPRINT=TRUE`; an object matrix that tells apart an arc and a track, or a fill and a region; an edge matrix that tells the outline from a cutout | the neutral rule cannot leave out the pads of one footprint (change c0125), and no neutral kind tells those objects apart (change c0462) |
 | Width with per-layer widths or impedance keys (`FAVIMP`, `MAXIMP`, `<LAYER>_MINWIDTH`) | read since change c0462 ("Per-layer values"); a profile-driven record without every layer stays `impedance-profile` |
 | RoutingVias with via template keys | since change c0462 the keys alone are unused; template mode stays `template` ("Via templates") |
 | PlaneConnect, PolygonConnect | no neutral rule; the board keeps Polygon Connect Style records (change c0215) |
@@ -581,39 +584,65 @@ table marked `read_only`.
 | uniform matrix | every entry of `OBJECTCLEARANCES` holds the length of `GAP`, to the nanometre (a count is `rules.MATRIX_UNIT`, 0.0001 mil) | `min` = `GAP` |
 | matrix cell | `ISMATRIX=TRUE`; `CELLROWNAME=All`, `CELLROWTYPE=0`, `CELLCOLNAME=All`, `CELLCOLTYPE=0`; `INNERLAYERS=TRUE`; `OUTERLAYERS=TRUE`; `SOURCERULE` with any value | the keys add nothing: the scopes, `GAP` and `PRIORITY` of the record decide |
 
-A matrix with an entry of another length is read cell by cell ("Cells of an object matrix", change
-c0130); it stays unmapped (`keys`) when it tells apart object kinds that are one item kind of the
-copper check. A record with
+A matrix with an entry of another length is read cell by cell ("Cells of an object matrix", changes
+c0130 and c0462); it stays unmapped (`matrix-kind`) when it tells apart object kinds that are one neutral
+kind. A record with
 `IGNOREPADTOPADCLEARANCEINFOOTPRINT=TRUE` stays unmapped (`keys`): no selector says "two pads of one
 component". Any other value of a cell key stays unmapped (`keys`): a cell for a named class is in no
 public file, so its scope text is not known.
 
 ### Cells of an object matrix
 
-Change c0130. `rules.read_matrix` reads a matrix of differing clearances in the item kinds of the copper
-check (`rules.MATRIX_KINDS`). The value of a pair of object kinds is its entry, or `GAP` without one.
+Change c0130, widened by change c0462 (design D5). `rules.read_matrix` reads a matrix of differing
+clearances in the neutral kinds (`rules.MATRIX_CLASSES`, by `rules.MATRIX_KINDS`). The value of a pair
+of object kinds is its entry, or `GAP` without one.
 
-| object kind | item kind of the check |
-|---|---|
-| `Arc`, `Track` | `track` |
-| `SMDPad`, `THPad` | `pad` |
-| `Via` | `via` |
-| `Poly` | `zone` |
-| `Fill`, `Region`, `Text`, `Hole` | none |
+| object kind | neutral kind | selector |
+|---|---|---|
+| `Arc`, `Track` | `track` | `item_kind track` (the copper check sees an arc as a track, as KiCad's `Track` type does) |
+| `SMDPad`, `THPad` | `pad`, or `smd` and `th` when the two differ | `item_kind pad`; `pad_type smd`; `or(pad_type th, pad_type npth)` (`H-A-RULE-MATRIX-NPTH`) |
+| `Via` | `via` | `item_kind via` |
+| `Poly` | `zone` | `item_kind zone` (the poured copper of a polygon) |
+| `Fill`, `Region` | `graphic` | `item_kind graphic` (a free fill or region on copper is a copper graphic of the import) |
+| `Text` | `text` | `item_kind text`: no item of the copper check, but a rule `all` selects copper text on another target, so a text cell is a rule of its own; the KiCad writer reports it as a loss of that rule |
+| `Hole` | none | a hole cell governs only a pad without annular ring, and only under an option of Altium (S-2249); no neutral `clearance` rule holds the clearance of a hole, the rule of a plain record included |
 
-- A pair of item kinds is exact when every pair of object kinds in it holds one value. A value that
-  differs from `GAP` is a cell and gives one more `clearance` rule: name `<NAME>/<kind>-<kind>`, the
-  record's priority, `item_kind` on both sides (joined with `and` to the record's scope on its side). It
-  governs above the rule of `GAP` of its record: among rules of one priority the later name governs. A
-  record with two different scopes gets a second rule with the kinds exchanged for a cell of two kinds.
-- When the object kinds of one item kind disagree, no neutral rule says the pair and the whole record
-  stays unmapped (`keys`); the detail names the pairs, for example `track to pad`. Part of a record is
-  never mapped: the rest of it would be judged with a value it does not hold.
-- An entry with an object kind that has no item changes no rule; the rule of `GAP` keeps such entries
-  as written in its bag (`cells_not_lifted`).
+- A pair of neutral kinds is a cell when its value differs from `GAP`, and gives one more `clearance`
+  rule: name `<NAME>/<kind>-<kind>`, the record's priority, the kinds' selectors on both sides (joined with
+  `and` to the record's scope on its side). It governs above the rule of `GAP` of its record: among rules
+  of one priority the later name governs, and the selectors of two kinds select no object in common, so
+  no two cell rules of a record meet. A record with two different scopes gets a second rule with the kinds
+  exchanged for a cell of two kinds. The cell rules hold the record's priority, so no rule of another
+  record changes rank.
+- Object kinds of one neutral kind (`Arc` and `Track`, `Fill` and `Region`) that differ for some
+  partner are said by no neutral rule: the record stays unmapped (`matrix-kind`), and the detail names the
+  first two entries that differ, for example `Arc-Poly 0 mm and Track-Poly 0.25 mm`. A surface pad and a
+  through-hole pad that differ become the kinds `smd` and `th`. An object kind outside the table is
+  refused too (`matrix-kind`, naming the cell). Part of a record is never mapped.
+- An entry of `Hole` changes no rule; the rule of `GAP` keeps such entries as written in its bag
+  (`cells_not_lifted`).
 - `RuleMapping.matrix_cells` counts, per enabled Clearance record with entries, those a rule holds and
   those none holds; the copper stage of a document check reports the sums as `summary.clearance_cells`.
 - A cell of 0 is a rule of 0: no clearance is asked of the pair, and a short is still a short.
+- A record whose matrix holds an entry is kept (`adapter.rules.kept_indexes`): the Altium writer writes an
+  empty matrix and no scope of a kind of object, so it writes the record back as read.
+- The unit test `tests/unit/backends/altium/test_rule_keys_c0462.py -k matrix` evaluates every pair of
+  object kinds against the rules of an authored matrix, cells above and below `GAP`; the corpus test
+  `tests/corpus/test_altium_rule_kinds_c0462.py::test_every_matrix_holds_its_cells` does it for every
+  matrix of the 8 public rows read alone, three of which are refused (`matrix-kind`).
+
+A Board Outline Clearance record holds a matrix of object kinds against edge kinds (S-2217). Its entries
+pair an object kind of the table above with an edge kind, in either order:
+
+| edge kind | judged as |
+|---|---|
+| `OutlineEdge` (the board's outer edge), `CutoutEdge` (a cutout's edge) | the board's edge: the edge check of Fenolite judges both rings with one `edge_clearance` rule |
+| `CavityEdge`, `SplitBarrior`, `SplitContinuation` (a cavity, a split line of a layer stack region, spelled as written) | none: the model holds no cavity and no layer stack region, so the entry changes no rule (`cells_not_lifted`) |
+
+An object kind whose entry against the outline differs from its entry against a cutout is said by no
+neutral rule (`matrix-kind`). Each object kind whose value differs from `GAP` gives one more
+`edge_clearance` rule, name `<NAME>/<kind>`, selector the kind's joined to the record's scope. The edge
+matrices are not counted in `matrix_cells`.
 
 ### Layer scopes of Clearance
 

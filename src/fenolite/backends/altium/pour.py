@@ -42,6 +42,7 @@ from fenolite.backends.altium.hatch import HATCH_NORMALS, first_part, grid_segme
 from fenolite.backends.altium.read.pcb import PcbDocument, read_pcbdoc
 from fenolite.backends.altium.read.pcbprims import ArcRecord, RegionRecord, TrackRecord
 from fenolite.backends.altium.read.proptext import parse_length
+from fenolite.backends.altium.read.scope import ScopeDocument
 from fenolite.backends.base import BoardPad, EdgeRing
 from fenolite.core.coords import Point
 from fenolite.core.evidence import Evidence, Level
@@ -1049,6 +1050,16 @@ def _board_area(reading: PourReading, geometry: _Geometry, tol: int) -> tuple[Po
     return geometry.minus((outer,), holes)
 
 
+def connect_document(reading: PourReading) -> ScopeDocument:
+    """The ``ScopeDocument`` of ``reading``, with which its Polygon Connect Style scopes are read (change
+    c0462, task 4.5): the names of its nets, classes, components and polygons, and its copper layers."""
+    from fenolite.backends.altium.adapter.layers import copper_layers_of
+    from fenolite.backends.altium.read.scopedoc import scope_document
+
+    board = reading.design.board
+    return scope_document(reading.document, copper_layers_of(board.layers) if board is not None else None)
+
+
 def rule_subject(
     layer: str,
     kind: str,
@@ -1119,7 +1130,9 @@ def pour_reading(
     tol = min(p.tol for p in polygons)
     objects = LayerObjects(reading, tol)
     rules = Clearances(reading)
-    styles = read_connect_styles([record.fields for record in reading.document.rules])
+    styles = read_connect_styles(  # change c0462: the full grammar, with the document's names
+        [record.fields for record in reading.document.rules], connect_document(reading)
+    )
     board = _board_area(reading, geometry, tol)
     widest = max(
         (

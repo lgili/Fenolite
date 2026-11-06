@@ -34,6 +34,12 @@ Since change c0463 (2026-11-06) an outline with arc vertices or with a repeated 
 `connect-scope` 2. No polygon is refused `outline-arc` or `outline`; the 14 that were are now held back by
 the rule scopes of change c0462, as their layers' other polygons are.
 
+Since change c0462 task 4.5 (2026-11-06) the Polygon Connect Style scopes are read with the document, so no
+polygon is refused `connect-scope`. The 5 polygons of `-01` pour, and each fails against the saved regions (4
+by M1, ratios 2.28 to 4.01; one by M2, ratio 0.30; cause not measured yet). `-06` refuses
+`depends-on-refused` 6 and `rule-unmapped` 4, and `-08` `depends-on-refused` 18 and `rule-unmapped` 15: the
+polygons that were refused `connect-scope` meet a Clearance matrix that task 4.3 refuses (`matrix-kind`).
+
 ## Disagreements
 
 Places are in the frame of the import, in nanometres (the import negates Altium's Y). "Candidate" is Fenolite's pour, "reference" the

@@ -5,7 +5,9 @@ D5). Every record here is authored for Fenolite."""
 
 from __future__ import annotations
 
+import dataclasses
 from collections.abc import Sequence
+from fractions import Fraction
 
 from fenolite.backends.altium.adapter.rules import kept_indexes
 from fenolite.backends.altium.read.rules import (
@@ -271,6 +273,244 @@ def test_template_keys_without_template_mode_are_unused() -> None:
 def test_template_key_of_another_form_is_refused() -> None:
     (refused,) = mapped(record("RoutingVias", *VIA, ("VIATEMPLATESIZE#1", "16mil"))).unmapped
     assert refused.reason == "keys"
+
+
+# --- 4.3 object matrices of Clearance and Board Outline Clearance ------------------------------------
+
+OBJECT_KINDS = {
+    "Arc": RuleSubject("track"),
+    "Track": RuleSubject("track"),
+    "SMDPad": RuleSubject("pad", ref="U1", pad_type="smd"),
+    "THPad": RuleSubject("pad", ref="J1", hole=MM, pad_type="th"),
+    "Via": RuleSubject("via", hole=MM // 3),
+    "Poly": RuleSubject("zone", zone="GND"),
+    "Fill": RuleSubject("graphic"),
+    "Region": RuleSubject("graphic"),
+    "Text": RuleSubject("text"),
+}
+"""A subject of each object kind of a matrix whose cells a neutral rule takes, as the copper check makes
+it (an arc is a ``track``, a free fill or region on copper a ``graphic``; text is no item of the check, but
+a rule ``all`` selects it on another target)."""
+NPTH = RuleSubject("pad", ref="H1", hole=3 * MM, pad_type="npth")
+"""A pad whose hole is not plated: a through-hole pad of the matrix (``H-A-RULE-MATRIX-NPTH``)."""
+EDGES = ("OutlineEdge", "CutoutEdge")
+
+
+def on(subject: RuleSubject, net: str) -> RuleSubject:
+    return dataclasses.replace(subject, net=net, layer="F.Cu")
+
+
+def cell_values(text: str, gap: int) -> dict[tuple[str, str], int]:
+    """Each entry of an object matrix in nanometres, by its two kinds as written and the other way round,
+    read here apart from the mapper; a count is 0.0001 mil."""
+    found: dict[tuple[str, str], int] = {}
+    for entry in filter(None, (part.strip() for part in text.split(";"))):
+        pair, count = entry.rsplit(":", 1)
+        first, second = (name.removeprefix("ClearanceObj_") for name in pair.split("-"))
+        found[(first, second)] = found[(second, first)] = round(Fraction(int(count) * 254, 100))
+    return found
+
+
+def pair_rule(rules: Sequence[Rule], a: RuleSubject, b: RuleSubject) -> Rule | None:
+    """The clearance rule that governs the pair: the last one in precedence order that selects it, one
+    side of a two-sided rule on either object (``checks.clearance``)."""
+    found = [
+        rule
+        for rule in rule_precedence(rules)
+        if rule.kind == "clearance"
+        and (
+            rule.selector_a.matches(a) or rule.selector_a.matches(b)
+            if rule.selector_b is None
+            else (rule.selector_a.matches(a) and rule.selector_b.matches(b))
+            or (rule.selector_a.matches(b) and rule.selector_b.matches(a))
+        )
+    ]
+    return found[-1] if found else None
+
+
+def prove_clearance(mapping: RuleMapping, text: str, gap: int, nets: tuple[str, str] = ("A", "B")) -> None:
+    """Every pair of object kinds of ``OBJECT_KINDS`` (and an unplated pad as a through-hole pad) is held
+    to exactly its entry of ``text``, or to ``gap`` without one, whatever ranks the rules take."""
+    values = cell_values(text, gap)
+    kinds = {**OBJECT_KINDS, "NPTH": NPTH}
+    for first, one in kinds.items():
+        for second, other in kinds.items():
+            rule = pair_rule(mapping.ruleset.rules, on(one, nets[0]), on(other, nets[1]))
+            names = (first.replace("NPTH", "THPad"), second.replace("NPTH", "THPad"))
+            assert rule is not None and rule.min == values.get(names, gap), (first, second, rule)
+
+
+def prove_edges(mapping: RuleMapping, text: str, gap: int, net: str = "A") -> None:
+    """Every object kind is held to exactly its entry against the outline and a cutout, or to ``gap``."""
+    values = cell_values(text, gap)
+    for name, subject in {**OBJECT_KINDS, "NPTH": NPTH}.items():
+        rule = governing(mapping.ruleset.rules, "edge_clearance", on(subject, net))
+        for edge in EDGES:
+            assert rule is not None and rule.min == values.get((name.replace("NPTH", "THPad"), edge), gap)
+
+
+def entry(first: str, second: str, count: int) -> str:
+    return f"ClearanceObj_{first}-ClearanceObj_{second}:{count}"
+
+
+AUTHORED = ";".join(
+    (
+        entry("Arc", "Arc", 60000),
+        entry("Arc", "Track", 60000),
+        entry("Track", "Track", 60000),
+        entry("Arc", "SMDPad", 100000),
+        entry("Track", "SMDPad", 100000),
+        entry("THPad", "THPad", 150000),
+        entry("Via", "Poly", 120000),
+        entry("Fill", "Poly", 0),
+        entry("Poly", "Region", 0),
+        entry("Track", "Hole", 0),
+        entry("Text", "Text", 0),
+    )
+)
+"""A matrix authored for Fenolite: cells below the generic 8 mil (tracks 6 mil, a polygon to a fill or a
+region 0) and above it (a track to a surface pad 10 mil, two through-hole pads 15 mil, a via to a polygon
+12 mil), and an entry no neutral rule takes (a hole)."""
+
+
+def test_matrix_of_authored_cells_holds_every_pair() -> None:
+    """Design D5: the neutral rules give every pair of object kinds exactly its cell's gap."""
+    fields = record("Clearance", ("GAP", "8mil"), ("OBJECTCLEARANCES", AUTHORED))
+    mapping = mapped(fields)
+    assert mapping.unmapped == ()
+    assert [(rule.name, rule.min) for rule in mapping.ruleset.rules] == [
+        ("Clearance", 8 * MIL),
+        ("Clearance/track-track", 6 * MIL),
+        ("Clearance/track-smd", 10 * MIL),
+        ("Clearance/th-th", 15 * MIL),
+        ("Clearance/via-zone", 12 * MIL),
+        ("Clearance/zone-graphic", 0),
+        ("Clearance/text-text", 0),
+    ]
+    assert mapping.matrix_cells == ((0, 10, 1),)
+    prove_clearance(mapping, AUTHORED, 8 * MIL)
+    th = mapping.ruleset.rules[3].selector_a
+    assert th == Selector("or", items=(Selector("pad_type", "th"), Selector("pad_type", "npth")))
+
+
+def test_matrix_of_the_scenario() -> None:
+    """Scenario "A matrix of differing cells": 0.2 mm, track to surface pad 0.3 mm (an arc with a track, as
+    the simple view of the matrix joins them), via to via 0.15 mm."""
+    text = ";".join(
+        (entry("Arc", "SMDPad", 118110), entry("Track", "SMDPad", 118110), entry("Via", "Via", 59055))
+    )
+    mapping = mapped(record("Clearance", ("GAP", "0.2mm"), ("OBJECTCLEARANCES", text)))
+    assert mapping.unmapped == ()
+    prove_clearance(mapping, text, 200_000)
+    assert [(rule.name, rule.min) for rule in mapping.ruleset.rules] == [
+        ("Clearance", 200_000),
+        ("Clearance/track-smd", 299_999),
+        ("Clearance/via-via", 150_000),
+    ]
+
+
+def test_matrix_of_a_scoped_record_holds_every_pair_it_selects() -> None:
+    """Two scopes: the cells hold for the pairs the record selects, and another record keeps its rank."""
+    fields = record(
+        "Clearance",
+        ("GAP", "8mil"),
+        ("OBJECTCLEARANCES", AUTHORED),
+        SCOPE1EXPRESSION="InNet('A')",
+        PRIORITY="2",
+    )
+    plain = record("Clearance", ("GAP", "20mil"), SCOPE1EXPRESSION="InNet('C')", NAME="Wide", PRIORITY="1")
+    mapping = mapped(fields, plain)
+    prove_clearance(mapping, AUTHORED, 8 * MIL, ("A", "B"))
+    prove_clearance(mapping, AUTHORED, 8 * MIL, ("B", "A"))
+    for one in OBJECT_KINDS.values():
+        for other in OBJECT_KINDS.values():
+            rule = pair_rule(mapping.ruleset.rules, on(one, "C"), on(other, "A"))
+            assert rule is not None and (rule.name, rule.min) == ("Wide", 20 * MIL)
+
+
+def test_matrix_whose_pads_agree_keeps_one_pad_kind() -> None:
+    text = entry("SMDPad", "Via", 50000) + ";" + entry("THPad", "Via", 50000)
+    mapping = mapped(record("Clearance", ("GAP", "8mil"), ("OBJECTCLEARANCES", text)))
+    assert [(rule.name, rule.min) for rule in mapping.ruleset.rules] == [
+        ("Clearance", 8 * MIL),
+        ("Clearance/pad-via", 5 * MIL),
+    ]
+    prove_clearance(mapping, text, 8 * MIL)
+
+
+def test_matrix_kinds_no_neutral_kind_tells_apart_are_refused() -> None:
+    for text, named in (
+        (entry("Arc", "Via", 0), "Arc-Via 0 mm and Track-Via 0.2032 mm"),
+        (entry("Region", "Poly", 0), "Fill-Poly 0.2032 mm and Region-Poly 0 mm"),
+        (entry("Track", "Keepout", 0), "the object kind Keepout in the cell Track-Keepout"),
+    ):
+        (refused,) = mapped(record("Clearance", ("GAP", "8mil"), ("OBJECTCLEARANCES", text))).unmapped
+        assert refused.reason == "matrix-kind" and named in refused.detail, (text, refused.detail)
+
+
+EDGE_MATRIX = ";".join(
+    (
+        entry("Poly", "OutlineEdge", 200000),
+        entry("CutoutEdge", "Poly", 200000),
+        entry("SMDPad", "OutlineEdge", 50000),
+        entry("SMDPad", "CutoutEdge", 50000),
+        entry("Text", "OutlineEdge", 0),
+        entry("Text", "CutoutEdge", 0),
+        entry("Track", "CavityEdge", 0),
+        entry("Via", "SplitBarrior", 0),
+        entry("Via", "SplitContinuation", 0),
+    )
+)
+"""An edge matrix authored for Fenolite: a polygon 20 mil, a surface pad 5 mil and text 0 from the outline
+and from a cutout, and entries for a cavity and a split line, which no neutral rule takes."""
+
+
+def test_matrix_of_board_outline_clearance_holds_every_object() -> None:
+    fields = record(
+        "BoardOutlineClearance", ("GAP", "10mil"), ("OBJECTCLEARANCES", EDGE_MATRIX), NETSCOPE="DifferentNets"
+    )
+    mapping = mapped(fields)
+    assert mapping.unmapped == () and mapping.matrix_cells == ()
+    assert [(rule.name, rule.kind, rule.min) for rule in mapping.ruleset.rules] == [
+        ("BoardOutlineClearance", "edge_clearance", 10 * MIL),
+        ("BoardOutlineClearance/smd", "edge_clearance", 5 * MIL),
+        ("BoardOutlineClearance/zone", "edge_clearance", 20 * MIL),
+        ("BoardOutlineClearance/text", "edge_clearance", 0),
+    ]
+    prove_edges(mapping, EDGE_MATRIX, 10 * MIL)
+    payload = dict(mapping.ruleset.rules[0].ext["altium"].payload)
+    assert payload["cells_not_lifted"].count(";") == 2
+
+
+def test_a_record_with_a_matrix_is_kept() -> None:
+    """The lowering writes an empty matrix and no scope of a kind of object, so a record whose matrix holds
+    an entry is written back as read; a blank matrix holds none."""
+    records = [
+        record("Clearance", ("GAP", "8mil"), ("OBJECTCLEARANCES", AUTHORED)),
+        record(
+            "BoardOutlineClearance",
+            ("GAP", "10mil"),
+            ("OBJECTCLEARANCES", EDGE_MATRIX),
+            NETSCOPE="DifferentNets",
+        ),
+        record("Clearance", ("GAP", "8mil"), ("OBJECTCLEARANCES", " "), PRIORITY="2"),
+    ]
+    assert kept_indexes(records, mapped(*records)) == frozenset({0, 1})
+
+
+def test_matrix_of_board_outline_clearance_that_tells_edges_apart_is_refused() -> None:
+    for text, named in (
+        (
+            entry("Poly", "OutlineEdge", 196850),
+            "Poly 0.499999 mm from the outline and 0.254 mm from a cutout",
+        ),
+        (entry("Via", "Hull", 0), "the edge kind Hull in the cell Via-Hull"),
+    ):
+        fields = record(
+            "BoardOutlineClearance", ("GAP", "10mil"), ("OBJECTCLEARANCES", text), NETSCOPE="DifferentNets"
+        )
+        (refused,) = mapped(fields).unmapped
+        assert refused.reason == "matrix-kind" and named in refused.detail, (text, refused.detail)
 
 
 # --- 4.4 Matched Lengths and checks Fenolite performs ------------------------------------------------

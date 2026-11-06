@@ -142,7 +142,14 @@ def test_pour_time(item: CorpusItem) -> None:
 
 
 POUR_CENSUS: dict[str, tuple[int, dict[str, int], dict[str, tuple[str, ...]]]] = {
-    "altium-third-party-pcbdoc-01": (5, {"connect-scope": 2, "depends-on-refused": 3}, {}),
+    "altium-third-party-pcbdoc-01": (
+        5,
+        {},
+        {
+            "B.Cu Top Layer-No Net": ("M1", "M2", "M3", "M4"),
+            "F.Cu Top Layer-No Net": ("M1", "M2", "M3", "M4"),
+        },
+    ),
     "altium-third-party-pcbdoc-02": (12, {"depends-on-refused": 6, "rule-unmapped": 6}, {}),
     "altium-third-party-pcbdoc-03": (1, {}, {"B.Cu GND_L02_P000": ("M2", "M3", "M4")}),
     "altium-third-party-pcbdoc-04": (
@@ -159,7 +166,7 @@ POUR_CENSUS: dict[str, tuple[int, dict[str, int], dict[str, tuple[str, ...]]]] =
         2, {}, {"B.Cu GND_BOTTOM": ("M2",), "F.Cu GND_TOP": ("M2", "M3", "M4")},
     ),
     "altium-third-party-pcbdoc-06": (
-        10, {"connect-scope": 1, "depends-on-refused": 6, "rule-unmapped": 3}, {},
+        10, {"depends-on-refused": 6, "rule-unmapped": 4}, {},
     ),
     "altium-third-party-pcbdoc-07": (
         9,
@@ -171,7 +178,7 @@ POUR_CENSUS: dict[str, tuple[int, dict[str, int], dict[str, tuple[str, ...]]]] =
     ),
     "altium-third-party-pcbdoc-08": (
         33,
-        {"connect-scope": 2, "depends-on-refused": 18, "rule-scope": 13},
+        {"depends-on-refused": 18, "rule-unmapped": 15},
         {},
     ),
 }  # fmt: skip
@@ -190,7 +197,17 @@ arc outlines ``-07`` refuses none either. The polygons that pour now fail M1 or 
 layer share a key). These failures are the pour's geometry, not the rules read. Poured without the newly read
 rule, 4 of the 9 polygons of ``-04`` keep their M1 ratio; the rule lowers the ratio of 4 others (one from a
 failure to a pass) and raises one (3.61 to 3.85). On ``-07`` the rule turns no failure into a pass. A known
-item of task 5.2, for change c0463."""
+item of task 5.2, for change c0463. Task 4.3 refuses the second Clearance matrix of ``-08`` (``matrix-kind``:
+its fills and regions differ) before its scope is read, so its 13 polygons move from ``rule-scope`` to
+``rule-unmapped``.
+
+Task 4.5 reads the Polygon Connect Style scopes with the document, so no polygon is refused ``connect-scope``.
+The one polygon of ``-06`` and the two of ``-08`` that were go on to the Clearance rules and are refused
+``rule-unmapped`` (their governing Clearance matrix is refused ``matrix-kind``, task 4.3). The 5 polygons of
+``-01`` (2 ``connect-scope``, 3 ``depends-on-refused``) now pour, and every one fails against the saved
+regions: 4 by M1, with ratios 2.28 to 4.01, and one by M2 (ratio 0.30). The 5 hold the nets GND, VDD, CHG+
+and VBB but share the name ``Top Layer-No Net``, so the verdicts of a layer share a key. The cause is not
+measured yet; a known item for change c0463."""
 
 
 @pytest.mark.parametrize("item", DOCUMENTS, ids=lambda item: item.id)

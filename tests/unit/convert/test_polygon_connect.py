@@ -223,3 +223,38 @@ def test_board6_zone_takes_the_smaller_pad_clearance() -> None:
     (row,) = [row for row in conversion.report.rows if row.kind == "zone"]
     reasons = {reason.reason: (reason.outcome, reason.count) for reason in row.reasons}
     assert reasons[CLEARANCE_FROM_RULES] == ("changed", 2)  # change c0420: a derived clearance is reported
+
+
+def test_scopes_read_with_the_source_document() -> None:
+    """Change c0462, task 4.5: the records are read with the source's document, so ``InNamedPolygon`` names
+    a pour of the board; without it the zones keep their setting. A scope that names a layer is not judged:
+    the zones carry the target's layer names."""
+    from fenolite.convert.altium_to_kicad import source_scope
+    from fenolite.convert.altium_zones import STYLE_UNREAD
+
+    records = (
+        _record("PolygonConnect", 2, "All", "Relief", "0.4mm", "0.3mm"),
+        _record("Inside", 1, "InNamedPolygon('GND_L01_P000')", "Direct", "0.4mm", "0.3mm"),
+    )
+    source = _source(records)
+    board = source.design.board
+    assert board is not None
+    document = source_scope(source, source.design)
+    assert document is not None and document.layers
+
+    def connected(styles: object) -> tuple[dict[str, str], Ledger]:
+        ledger = Ledger()
+        found = connect_zones(board, source.design, styles, {}, ledger)  # type: ignore[arg-type]
+        return {zone.name: zone.settings.connection for zone in found.zones}, ledger
+
+    read, _ = connected(board_styles(board, document))
+    assert read == {"GND_L01_P000": "solid", "GND_L06_P001": "thermal"}
+    blind, ledger = connected(board_styles(board))
+    unread = STYLE_UNREAD.format(reason="connect-scope")
+    assert blind == {zone.name: zone.settings.connection for zone in board.zones}
+    assert len(ledger.changed["zone"][unread]) == 2
+    top = document.layers[0].document_name
+    layered = _source((records[0], _record("Top", 1, f"OnLayer('{top}')", "Direct", "0.4mm", "0.3mm")))
+    assert layered.design.board is not None
+    styles = board_styles(layered.design.board, document)
+    assert styles[0].name == "Top" and styles[0].scope1 is None

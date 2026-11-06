@@ -120,6 +120,8 @@ class KindMap:
     """The suffixes of the record's per-layer keys (``LAYER_VALUE_KEY``) and the neutral kind whose limits
     they set on one copper layer (change c0462, design D5): ``WIDTH`` of a Width record, ``GAP`` of a
     Differential Pairs Routing record."""
+    edge_matrix: bool = False
+    """The object matrix pairs object kinds with edge kinds (Board Outline Clearance; change c0462)."""
 
     def allows(self, key: str) -> bool:
         """Whether ``key`` matches one of ``patterns`` or is a per-layer key of ``layer_values``."""
@@ -182,25 +184,54 @@ MATRIX_UNIT = (254, 100)
 """One count of an entry of ``OBJECTCLEARANCES`` in nanometres, as a fraction: 0.0001 mil, the unit of
 the document's coordinates (``rule-file.md``, "Clearance forms that map"; ``H-A-RULE-CLEARANCE-FORMS``)."""
 _MATRIX_ENTRY = re.compile(r"ClearanceObj_([A-Za-z]+)-ClearanceObj_([A-Za-z]+):(\d+)")
-ITEM_KINDS = ("track", "pad", "via", "zone")
-"""The item kinds of the copper check that a cell rule names (``model.rules`` ``item_kind``; the check
-sees an arc as a ``track`` and the fill of a poured polygon as a ``zone``)."""
+MATRIX_CLASSES: dict[str, Selector] = {
+    "track": Selector("item_kind", "track"),
+    "pad": Selector("item_kind", "pad"),
+    "smd": Selector("pad_type", "smd"),
+    "th": Selector("or", items=(Selector("pad_type", "th"), Selector("pad_type", "npth"))),
+    "via": Selector("item_kind", "via"),
+    "zone": Selector("item_kind", "zone"),
+    "graphic": Selector("item_kind", "graphic"),
+    "text": Selector("item_kind", "text"),
+}
+"""The neutral kinds a cell rule names, in the order of its rules, and the selector of each (change c0462,
+design D5): the item kinds of the copper check (it sees an arc as a ``track``, the fill of a poured polygon
+as a ``zone`` and a free fill or region on copper as a ``graphic``), the two kinds of pad, ``smd`` and
+``th``, that a matrix takes in place of ``pad`` when its surface pads and through-hole pads differ, and
+``text``, which the copper check holds no item of but a rule ``all`` selects on another target. A
+through-hole pad is plated or not (``H-A-RULE-MATRIX-NPTH``, ``INFERRED``)."""
+ITEM_KINDS = tuple(MATRIX_CLASSES)
+"""The names of ``MATRIX_CLASSES`` in order."""
 MATRIX_KINDS: dict[str, str | None] = {
     "Arc": "track",
     "Track": "track",
-    "SMDPad": "pad",
-    "THPad": "pad",
+    "SMDPad": "smd",
+    "THPad": "th",
     "Via": "via",
     "Poly": "zone",
-    "Fill": None,
-    "Region": None,
-    "Text": None,
+    "Fill": "graphic",
+    "Region": "graphic",
+    "Text": "text",
     "Hole": None,
 }
-"""Object kind of the matrix → the item kind of the copper check that holds it, or ``None`` when the check
-holds no item of the kind: a fill and a region are graphics in the model, text is no copper item, and the
-clearance of a hole is another neutral kind (``rule-file.md``, "Cells of an object matrix";
+"""Object kind of the matrix → its kind of ``MATRIX_CLASSES`` (``smd`` and ``th`` are ``pad`` when the two
+agree), or ``None`` for ``Hole``, whose cells no neutral rule takes: a hole cell governs a pad without
+annular ring, and only under an option of Altium (S-2249), and no neutral ``clearance`` rule, the rule of a
+plain record included, holds the clearance of a hole (``rule-file.md``, "Cells of an object matrix";
 ``H-A-RULE-CLEARANCE-CELLS``)."""
+TWIN_KINDS = (("Arc", "Track"), ("Fill", "Region"))
+"""Object kinds that one neutral kind holds: a matrix that gives them different clearances is refused
+(``matrix-kind``)."""
+EDGE_KINDS: dict[str, bool] = {
+    "OutlineEdge": True,
+    "CutoutEdge": True,
+    "CavityEdge": False,
+    "SplitBarrior": False,
+    "SplitContinuation": False,
+}
+"""Edge kind of a Board Outline Clearance matrix (spelled as the documents write it) → whether the edge
+check of Fenolite judges it: the outline and a cutout are rings of the board's edge, while a cavity and a
+split line of a layer stack region are not in the model (S-2217; change c0462, design D5)."""
 ONE_OBJECT_KINDS = frozenset({"Width", "RoutingVias", "HoleSize", "MinimumAnnularRing"})
 """The kinds whose neutral rule limits one object (a track's width, a via, a hole, an annular ring): the
 net scope, which relates the nets of two objects, does not change what they select (change c0377,
@@ -286,10 +317,11 @@ RULE_KIND_MAP: dict[str, KindMap] = {
         (NeutralLimits("edge_clearance", "GAP", None, None),),
         "DifferentNets",
         (
-            Condition("OBJECTCLEARANCES", ("",)),
+            Condition("OBJECTCLEARANCES", matrix_with="GAP"),
             Condition("GENERICCLEARANCE", same_as="GAP"),
             Condition("IGNOREPADTOPADCLEARANCEINFOOTPRINT", ("FALSE",)),
         ),
+        edge_matrix=True,
     ),
     "HoleToHoleClearance": KindMap(
         (NeutralLimits("hole_to_hole", "GAP", None, None),),
@@ -510,78 +542,144 @@ def _header(fields: Sequence[Field]) -> tuple[str, str, int]:
 
 @dataclass(frozen=True, slots=True)
 class Matrix:
-    """What an object matrix says in the item kinds of the copper check (``read_matrix``): ``cells`` are
-    the pairs of item kinds whose clearance differs from the generic one, as (kind, kind, nanometres) in
-    the order of ``ITEM_KINDS``; ``judged`` counts the entries of the text whose two object kinds the check
-    holds items of, and ``unjudged`` lists the other entries as written."""
+    """What an object matrix says in the neutral kinds (``read_matrix``): ``cells`` are the pairs whose
+    clearance differs from the generic one, as (kind, kind, nanometres) in the order of ``ITEM_KINDS``, the
+    second kind ``EDGE`` in the matrix of a Board Outline Clearance record; ``judged`` counts the entries of
+    the text that a neutral rule takes, and ``unjudged`` lists the other entries as written."""
 
     cells: tuple[tuple[str, str, Nm], ...] = ()
     judged: int = 0
     unjudged: tuple[str, ...] = ()
 
 
-def read_matrix(text: str, gap: str | None) -> Matrix | str:
-    """The object matrix ``text`` (the value of ``OBJECTCLEARANCES``) of a record whose generic clearance
-    is the length ``gap``, or a string that says why a neutral rule set cannot say it.
+EDGE = "edge"
+"""The second kind of a cell of an edge matrix: the board's edge, outline and cutouts alike."""
 
-    Entries are ``ClearanceObj_<kind>-ClearanceObj_<kind>:<count>`` joined by ``;``; a count is
-    ``MATRIX_UNIT`` long, and a pair the text leaves out holds ``gap``. The object kinds fall into the item
-    kinds of the copper check by ``MATRIX_KINDS``. A pair of item kinds is said exactly when every pair of
-    object kinds in it holds one value: that value is a cell when it differs from ``gap``. When the object
-    kinds of one item kind disagree (an arc and a track, a through-hole pad and a surface pad) no neutral
-    rule says the pair, and the matrix is refused. An entry with an object kind that the check holds no
-    item of (a fill, a region, text, a hole) is listed in ``unjudged`` and changes nothing else."""
-    if not text.strip():
-        return Matrix()
-    length = parse_length(gap or "")
-    listed: dict[tuple[str, str], Nm] = {}
+
+def _mm(value: Nm) -> str:
+    return f"{value / 1_000_000:g} mm"
+
+
+def _entries(text: str, *, edges: bool) -> tuple[dict[tuple[str, str], int], list[str], int]:
+    """The counts of the entries of ``text`` by pair (object kinds sorted; an object kind first and an edge
+    kind second in an edge matrix), the unjudged entries and the number of judged ones."""
+    listed: dict[tuple[str, str], int] = {}
     unjudged: list[str] = []
     judged = 0
     for part in text.strip().split(";"):
         entry = part.strip()
         match = _MATRIX_ENTRY.fullmatch(entry)
         if match is None:
-            return "OBJECTCLEARANCES holds text that is no entry of an object matrix"
+            raise _Refusal("keys", "OBJECTCLEARANCES holds text that is no entry of an object matrix")
         first, second = match.group(1), match.group(2)
-        for name in (first, second):
-            if name not in MATRIX_KINDS:
-                return f"OBJECTCLEARANCES names the object kind {name}, which is outside the table"
-        first, second = sorted((first, second))
+        if edges and first in EDGE_KINDS:
+            first, second = second, first
+        for name, table in ((first, MATRIX_KINDS), (second, EDGE_KINDS if edges else MATRIX_KINDS)):
+            if name not in table:
+                what = "edge kind" if table is EDGE_KINDS else "object kind"
+                raise _Refusal(
+                    "matrix-kind",
+                    f"OBJECTCLEARANCES names the {what} {name} in the cell {first}-{second}, which "
+                    "no neutral kind holds",
+                )
+        if not edges:
+            first, second = sorted((first, second))
         if (first, second) in listed:
-            return f"OBJECTCLEARANCES holds two entries for {first} and {second}"
-        listed[(first, second)] = round_half_even_div(int(match.group(3)) * MATRIX_UNIT[0], MATRIX_UNIT[1])
-        if MATRIX_KINDS[first] is None or MATRIX_KINDS[second] is None:
-            unjudged.append(entry)
-        else:
-            judged += 1
-    if length is None:
-        return "OBJECTCLEARANCES holds entries and the record holds no GAP that is a length"
-    values: dict[tuple[str, str], set[Nm]] = {}
-    names = sorted(name for name, kind in MATRIX_KINDS.items() if kind is not None)
-    for position, first in enumerate(names):
-        for second in names[position:]:
-            kinds = sorted((MATRIX_KINDS[first] or "", MATRIX_KINDS[second] or ""), key=ITEM_KINDS.index)
-            values.setdefault((kinds[0], kinds[1]), set()).add(listed.get((first, second), length))
-    ordered = sorted(values, key=lambda pair: (ITEM_KINDS.index(pair[0]), ITEM_KINDS.index(pair[1])))
-    mixed = [f"{first} to {second}" for first, second in ordered if len(values[(first, second)]) > 1]
-    if mixed:
-        return (
-            f"OBJECTCLEARANCES is a matrix of differing clearances whose cells for {', '.join(mixed)} hold "
-            "more than one value: a neutral rule tells a track, a pad, a via and a poured polygon apart, "
-            "and not an arc from a track or a through-hole pad from a surface pad"
+            raise _Refusal("keys", f"OBJECTCLEARANCES holds two entries for {first} and {second}")
+        listed[(first, second)] = int(match.group(3))
+        lifted = MATRIX_KINDS[first] is not None and (
+            EDGE_KINDS[second] if edges else MATRIX_KINDS[second] is not None
         )
+        if lifted:
+            judged += 1
+        else:
+            unjudged.append(entry)
+    return listed, unjudged, judged
+
+
+def _read_matrix(text: str, gap: str | None, *, edges: bool = False) -> Matrix:
+    """``read_matrix``, raising the refusal."""
+    if not text.strip():
+        return Matrix()
+    listed, unjudged, judged = _entries(text, edges=edges)
+    length = parse_length(gap or "")
+    if length is None:
+        raise _Refusal("keys", "OBJECTCLEARANCES holds entries and the record holds no GAP that is a length")
+    objects = [name for name, kind in MATRIX_KINDS.items() if kind is not None]
+    partners = [name for name, judged_edge in EDGE_KINDS.items() if judged_edge] if edges else objects
+
+    def value(first: str, second: str) -> Nm:
+        low, high = (first, second) if edges else sorted((first, second))
+        count = listed.get((low, high))
+        return length if count is None else round_half_even_div(count * MATRIX_UNIT[0], MATRIX_UNIT[1])
+
+    if edges:
+        for name in objects:
+            outline, cutout = value(name, "OutlineEdge"), value(name, "CutoutEdge")
+            if outline != cutout:
+                raise _Refusal(
+                    "matrix-kind",
+                    f"OBJECTCLEARANCES gives {name} {_mm(outline)} from the outline and "
+                    f"{_mm(cutout)} from a cutout: the edge check of Fenolite judges both as the board's "
+                    "edge",
+                )
+    for one, other in TWIN_KINDS:
+        differ = [name for name in partners if value(one, name) != value(other, name)]
+        if differ:
+            name = differ[0]
+            raise _Refusal(
+                "matrix-kind",
+                f"OBJECTCLEARANCES gives {one}-{name} {_mm(value(one, name))} and {other}-{name} "
+                f"{_mm(value(other, name))}: the copper check sees {one} and {other} as one kind, "
+                f"{MATRIX_KINDS[one]}",
+            )
+    split = any(value("SMDPad", name) != value("THPad", name) for name in partners)
+
+    def kind(name: str) -> str:
+        found = MATRIX_KINDS[name]
+        assert found is not None
+        return "pad" if found in ("smd", "th") and not split else found
+
+    values: dict[tuple[str, str], Nm] = {}
+    for position, first in enumerate(objects):
+        for second in [EDGE] if edges else objects[position:]:
+            pair = sorted((kind(first), EDGE if edges else kind(second)), key=_kind_order)
+            held = value(first, "OutlineEdge" if edges else second)
+            assert values.setdefault((pair[0], pair[1]), held) == held  # the kinds of a class agree
     cells = tuple(
-        (first, second, value)
-        for first, second in ordered
-        for value in values[(first, second)]
-        if value != length
+        (first, second, held)
+        for (first, second), held in sorted(values.items(), key=lambda item: tuple(map(_kind_order, item[0])))
+        if held != length
     )
     return Matrix(cells, judged, tuple(unjudged))
 
 
-def matrix_problem(text: str, gap: str | None) -> str:
+def _kind_order(kind: str) -> int:
+    return len(ITEM_KINDS) if kind == EDGE else ITEM_KINDS.index(kind)
+
+
+def read_matrix(text: str, gap: str | None, *, edges: bool = False) -> Matrix | str:
+    """The object matrix ``text`` (the value of ``OBJECTCLEARANCES``) of a record whose generic clearance
+    is the length ``gap``, or a string that says why a neutral rule set cannot say it. ``edges``: the
+    matrix of a Board Outline Clearance record, whose entries pair an object kind with an edge kind.
+
+    Entries are ``ClearanceObj_<kind>-ClearanceObj_<kind>:<count>`` joined by ``;``; a count is
+    ``MATRIX_UNIT`` long, and a pair the text leaves out holds ``gap``. The object kinds fall into the
+    neutral kinds by ``MATRIX_KINDS`` and the edge kinds by ``EDGE_KINDS``. A pair of neutral kinds is a
+    cell when its value differs from ``gap``. Object kinds of one neutral kind (``TWIN_KINDS``) that differ
+    for some partner, and an object whose clearance from the outline differs from that from a cutout, are
+    said by no neutral rule: the matrix is refused (``matrix-kind``). Surface pads and through-hole pads that
+    differ become the kinds ``smd`` and ``th``. An entry of an object or edge kind that no neutral rule takes
+    (a hole, a cavity, a split line) is listed in ``unjudged`` and changes nothing else."""
+    try:
+        return _read_matrix(text, gap, edges=edges)
+    except _Refusal as refusal:
+        return refusal.detail
+
+
+def matrix_problem(text: str, gap: str | None, *, edges: bool = False) -> str:
     """Why ``read_matrix`` refuses the object matrix ``text``, or ``""`` when it reads it."""
-    found = read_matrix(text, gap)
+    found = read_matrix(text, gap, edges=edges)
     return found if isinstance(found, str) else ""
 
 
@@ -598,9 +696,7 @@ def _check_keys(fields: Sequence[Field], kind: str, table: KindMap) -> None:
                 raise _Refusal("keys", f"{condition.key} is required for {kind}")
             continue
         if condition.matrix_with:
-            problem = matrix_problem(value or "", _get(fields, condition.matrix_with))
-            if problem:
-                raise _Refusal("keys", problem)
+            _read_matrix(value or "", _get(fields, condition.matrix_with), edges=table.edge_matrix)
         elif condition.same_as:
             other = _get(fields, condition.same_as)
             mine = parse_length(value or "")
@@ -950,8 +1046,11 @@ def _map_one(
     unique_id = _get(fields, "UNIQUEID")
     native = {BACKEND: unique_id} if unique_id else {}
     record = ("record", record_text(fields))
-    matrix = read_matrix(_get(fields, "OBJECTCLEARANCES") or "", _get(fields, "GAP")) if table.cells else None
-    assert not isinstance(matrix, str)  # _check_keys refused it
+    matrix = (
+        _read_matrix(_get(fields, "OBJECTCLEARANCES") or "", _get(fields, "GAP"), edges=table.edge_matrix)
+        if table.cells
+        else None
+    )
     left = ((UNJUDGED_PAIR, ";".join(matrix.unjudged)),) if matrix is not None and matrix.unjudged else ()
     bag = ExtBag(payload=(record, *left))
     rules: list[Rule] = []
@@ -1001,6 +1100,23 @@ def _map_one(
             )
         )
     for first, second, value in matrix.cells if matrix is not None else ():
+        if second == EDGE:
+            rules.append(
+                Rule(
+                    id=derived_id("rul", BACKEND, f"{origin}:{index}:edge_clearance:{first}"),
+                    native_ids=dict(native),
+                    ext={BACKEND: ExtBag(payload=(record, (CELL_PAIR, first)))},
+                    name=f"{name}/{first}",
+                    kind="edge_clearance",
+                    selector_a=_of_kind(selector_a, first),
+                    selector_b=None,
+                    layers=on_layers,
+                    min=value,
+                    severity="error",
+                    priority=priority,
+                )
+            )
+            continue
         sides = [(first, second)]
         if first != second and (selector_b or Selector("all")) != selector_a:
             sides.append((second, first))  # the two scopes differ: either object may be of either kind
@@ -1055,9 +1171,8 @@ def _routing_layers(
 
 
 def _of_kind(selector: Selector, kind: str) -> Selector:
-    """``selector`` narrowed to the items of ``kind``."""
-    leaf = Selector("item_kind", kind)
-    return leaf if selector.op == "all" else Selector("and", items=(selector, leaf))
+    """``selector`` narrowed to the items of the neutral kind ``kind`` (``MATRIX_CLASSES``)."""
+    return _and(selector, MATRIX_CLASSES[kind])
 
 
 def _matrix_cells(
@@ -1067,7 +1182,13 @@ def _matrix_cells(
     for index, fields in enumerate(records):
         table = RULE_KIND_MAP.get(_get(fields, "RULEKIND") or "")
         text = (_get(fields, "OBJECTCLEARANCES") or "").strip()
-        if table is None or not table.cells or not text or _get(fields, "ENABLED") != "TRUE":
+        if (
+            table is None
+            or not table.cells
+            or table.edge_matrix
+            or not text
+            or _get(fields, "ENABLED") != "TRUE"
+        ):
             continue
         matrix = read_matrix(text, _get(fields, "GAP")) if index in mapped else None
         if isinstance(matrix, Matrix):
@@ -1147,17 +1268,21 @@ __all__ = [
     "CARRIED_KINDS",
     "CELL_PAIR",
     "CHECKED_KINDS",
+    "EDGE",
+    "EDGE_KINDS",
     "HEADER_KEYS",
     "ITEM_KINDS",
     "LAYER_PAIR",
     "LAYER_VALUE_KEY",
     "MATCHED_GROUPS",
+    "MATRIX_CLASSES",
     "MATRIX_KINDS",
     "MATRIX_UNIT",
     "NOT_APPLYING",
     "PENDING_KINDS",
     "READ_KINDS",
     "RULE_KIND_MAP",
+    "TWIN_KINDS",
     "UNJUDGED_PAIR",
     "UNMAPPED_REASONS",
     "Condition",

@@ -35,9 +35,10 @@ from fenolite.backends.altium.connectstyle import (
 )
 from fenolite.model.board import Board, FootprintInstance, Pad, Zone, ZoneConnection
 from fenolite.model.design import Design
-from fenolite.model.rules import Rule, RuleSubject
+from fenolite.model.rules import PAD_TYPE_OF, Rule, RuleSubject, Selector
 
 if TYPE_CHECKING:
+    from fenolite.backends.altium.read.scope import ScopeDocument
     from fenolite.convert.altium_to_kicad import Ledger
 
 ZONE_CONNECTIONS: Mapping[tuple[ConnectKind, ConnectKind], ZoneConnection] = {
@@ -70,15 +71,28 @@ CLEARANCE_FROM_RULES = (
 )
 
 
-def board_styles(board: Board | None) -> tuple[ConnectStyle, ...]:
+def _placed(selector: Selector | None) -> bool:
+    """Whether ``selector`` holds a layer or a room: the conversion judges neither (``board_styles``)."""
+    if selector is None:
+        return False
+    return selector.op in ("layer", "area") or any(_placed(item) for item in selector.items)
+
+
+def board_styles(board: Board | None, document: ScopeDocument | None = None) -> tuple[ConnectStyle, ...]:
     """The Polygon Connect Style records an imported Altium board keeps (its ``polygon_connect`` pairs), the
-    governing one first."""
+    governing one first, their scopes read with the full grammar and the source's ``document`` (change
+    c0462, task 4.5). A scope that names a layer or a room is not judged: the zones carry the target's layer
+    names and no room, so a pour such a record may govern keeps its setting (``connect-scope``)."""
     if board is None:
         return ()
     bag = board.ext.get("altium")
     payload = bag.payload if bag is not None else ()
-    return read_connect_styles(
-        [connect_fields(str(text)) for key, text in payload if key == "polygon_connect"]
+    styles = read_connect_styles(
+        [connect_fields(str(text)) for key, text in payload if key == "polygon_connect"], document
+    )
+    return tuple(
+        dataclasses.replace(style, scope1=None) if _placed(style.scope1) or _placed(style.scope2) else style
+        for style in styles
     )
 
 
@@ -120,7 +134,10 @@ def _pad_connection(
     kind: ObjectKind = "th_pad" if pad.kind == "thru_hole" else "smd_pad"
     owns: list[tuple[Connection, ZoneConnection, Connection]] = []
     for polygon, connection, relief, name in zones:
-        subject = RuleSubject("pad", net=polygon.net, netclass=polygon.netclass, ref=ref)
+        subject = RuleSubject(
+            "pad", net=polygon.net, netclass=polygon.netclass, ref=ref, pad_type=PAD_TYPE_OF.get(pad.kind),
+            hole=pad.drill if pad.kind != "smd" else None,
+        )  # fmt: skip
         own = governing_connection(styles, subject, polygon, kind, name)
         if isinstance(own, str):
             return pad
@@ -154,10 +171,11 @@ def connect_zones(board: Board, design: Design, styles: Sequence[ConnectStyle], 
         if name is None:
             zones.append(zone)
             continue
-        polygon = RuleSubject("zone", net=name, netclass=netclass)
-        pad = RuleSubject("pad", net=name, netclass=netclass)
-        th = governing_connection(styles, pad, polygon, "th_pad", zone.name)
-        smd = governing_connection(styles, pad, polygon, "smd_pad", zone.name)
+        polygon = RuleSubject("zone", net=name, netclass=netclass, zone=zone.name)
+        through = RuleSubject("pad", net=name, netclass=netclass, pad_type="th")
+        surface = RuleSubject("pad", net=name, netclass=netclass, pad_type="smd")
+        th = governing_connection(styles, through, polygon, "th_pad", zone.name)
+        smd = governing_connection(styles, surface, polygon, "smd_pad", zone.name)
         if isinstance(th, str) or isinstance(smd, str):
             ledger.change("zone", zone.id, STYLE_UNREAD.format(reason=th if isinstance(th, str) else smd))
             zones.append(zone)

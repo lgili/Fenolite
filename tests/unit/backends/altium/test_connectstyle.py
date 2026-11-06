@@ -262,3 +262,36 @@ def test_written_keys_read_back() -> None:
                 and abs(back.air_gap - mine.air_gap) <= 2
             )
     assert parse_length(_mil(MIL10)) == MIL10
+
+
+def test_scopes_read_with_the_document() -> None:
+    """Change c0462, task 4.5: a scope is read with the full grammar and the document's names, and a Polygon
+    Connect Style record judges polygons (``read.scope.PARENTS``), so ``IsNamedPolygon`` maps inside an
+    ``And``. Without the document both records refuse the pour with ``connect-scope``."""
+    from fenolite.backends.altium.read.scope import ScopeClass, ScopeDocument
+
+    document = ScopeDocument(
+        nets=("GND", "VCC"),
+        polygons=("Top_GND", "Bottom_GND"),
+        classes=(ScopeClass(1, "Connectors", ("J1",)),),
+    )
+    records = [
+        _record("Named", 1, "All", "IsNamedPolygon('top_gnd') and InNet('GND')", *_simple("Direct")),
+        _record("Inside", 2, "InNamedPolygon('Bottom_GND')", "All", *_simple("NoConnect")),
+        _record("Rest", 3, "All", "All", *_simple("Relief")),
+    ]
+    styles = read_connect_styles(records, document)
+    assert [style.reason for style in styles] == ["", "", ""]
+    assert styles[0].scope2 is not None and styles[1].scope1 is not None
+    pad = _pad("GND")
+
+    def joined(polygon: str) -> str:
+        zone = RuleSubject(item_kind="zone", net="GND", netclass="Default", zone=polygon)
+        found = governing_connection(styles, pad, zone, "th_pad", polygon)
+        assert isinstance(found, Connection)
+        return found.style
+
+    assert (joined("Top_GND"), joined("Bottom_GND"), joined("Other")) == ("direct", "none", "relief")
+    blind = read_connect_styles(records)
+    assert governing_connection(blind, pad, _zone("GND"), "th_pad", "Top_GND") == "connect-scope"
+    assert kept_mapping(records, document) == (True, ())

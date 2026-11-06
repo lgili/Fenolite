@@ -111,12 +111,17 @@ No issue of this capability MUST have the severity `error`: malformed input rais
 - Per-layer Width and DiffPairsRouting values MUST give one rule per copper layer of the board whose value differs from the general one.
 - Width impedance keys MUST be read through the per-layer widths the record holds. When the widths come from a profile the record does not hold, the record MUST stay `Unmapped`, reason `impedance-profile`.
 - RoutingVias template keys MUST be read from the template the document holds. A template the document does not hold MUST stay `Unmapped`, reason `template`.
-- An `OBJECTCLEARANCES` matrix of a Clearance or BoardOutlineClearance record MUST give neutral rules such that every pair of object kinds gets exactly its cell's gap. A cell whose object kind has no neutral kind MUST be refused, reason `matrix-kind`, naming the cell.
+- An `OBJECTCLEARANCES` matrix of a Clearance or BoardOutlineClearance record MUST give neutral rules such that every pair of object kinds gets exactly its cell's gap. A matrix that gives different values to object kinds one neutral kind holds (an arc and a track, a fill and a region, the outline and a cutout), or that names an object or edge kind outside the table, MUST be refused, reason `matrix-kind`, naming the cell. An entry of a kind no neutral rule holds (a hole, a cavity, a split line) MUST change no rule and stay in the record's bag.
 
 #### Scenario: A matrix of differing cells
 - **GIVEN** an authored Clearance record of 0.2 mm whose matrix gives track to SMD pad 0.3 mm, via to via 0.15 mm and every other cell 0.2 mm
 - **WHEN** `uv run pytest tests/unit/backends/altium/test_rule_keys_c0462.py -k matrix` maps it and evaluates every pair of object kinds
 - **THEN** each pair gets its cell's gap, and no `Unmapped` is given
+
+#### Scenario: A matrix that tells an arc from a track
+- **GIVEN** an authored Clearance record whose matrix gives arc to via 0 and leaves track to via at the record's gap
+- **WHEN** the same file, `-k matrix`, maps it
+- **THEN** the record stays `Unmapped` with the reason `matrix-kind`, naming `Arc-Via` and `Track-Via`
 
 #### Scenario: Per-layer widths
 - **GIVEN** an authored Width record with a general preferred width of 0.25 mm and `BOTTOMLAYER_PREFWIDTH` 0.3 mm on a two-layer board

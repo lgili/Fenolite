@@ -45,13 +45,27 @@ Rules for every task:
 - [x] 4.2 RoutingVias templates. Proof: the same file, `-k template`.
   Kit run 2026-11-06 (S-2247): a named template Altium does not resolve makes the record check no via; a
   resolved template is not measured, so the refusal `template` stays.
-- [ ] 4.3 `OBJECTCLEARANCES` matrices of Clearance and BoardOutlineClearance. Proof: the same file,
+- [x] 4.3 `OBJECTCLEARANCES` matrices of Clearance and BoardOutlineClearance. Proof: the same file,
   `-k matrix`.
-- [ ] 4.4 MatchedLengths onto `skew` and `length`; mask and paste expansions; `check-relaxed`. Add the
+  Done 2026-11-06 (S-2217, S-2249): every matrix of the 8 public rows is proved cell by cell
+  (`tests/corpus/test_altium_rule_kinds_c0462.py::test_every_matrix_holds_its_cells`); three are refused
+  `matrix-kind` (row `-06`: an arc and a track, the outline and a cutout; row `-08`: a fill and a region).
+- [x] 4.4 MatchedLengths onto `skew` and `length`; mask and paste expansions; `check-relaxed`. Add the
   "Rule kinds and their reading" table. Proof:
   `uv run pytest tests/corpus/test_altium_rule_kinds_c0462.py -q -n 0`.
-- [ ] 4.5 PolygonConnect through the full grammar in `connectstyle`. Proof:
+  Done 2026-11-06: MatchedLengths, `check-relaxed` and the table landed with the earlier tasks. Each pad and
+  via now takes the expansion of the record that governs it (design D6, `convert.openings.governing_expansion`,
+  `tests/unit/convert/test_expansion_scopes_c0462.py`), and level 3 of `equivalent` chooses the same record.
+  The public rows hold only `All` and `IsVia` expansion records, so no census moves. The bag key `layer_value`
+  of task 4.1 joins the closed table: its import raised `KeyError` on a trip through KiCad
+  (`tests/corpus/test_altium_via_mask_c0445.py` failed on `cac/lote-29` 332b79837).
+- [x] 4.5 PolygonConnect through the full grammar in `connectstyle`. Proof:
   `uv run pytest tests/unit/backends/altium/test_connectstyle.py -q -n 0`.
+  Done 2026-11-06: the pour and the conversion read the scopes with the source's document and a polygon as
+  the parent object; no public polygon is refused `connect-scope`. Rows `-06` and `-08` then stop at
+  `rule-unmapped` (their Clearance matrix, task 4.3). The 5 polygons of `-01` pour and fail against the saved
+  regions (4 by M1, 2.28 to 4.01; cause not measured): a known item for c0463. A conversion leaves a scope that
+  names a layer or a room unjudged (its zones hold the target's layer names).
 
 ## 5. Acceptance
 

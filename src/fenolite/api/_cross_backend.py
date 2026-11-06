@@ -74,7 +74,7 @@ def _kicad(design: Design, side: ReadSide) -> Design:
 
 def _altium(design: Design, read: Path | None) -> Design:
     from fenolite.convert import altium_zones
-    from fenolite.convert.altium_to_kicad import Ledger, zone_outlines
+    from fenolite.convert.altium_to_kicad import Ledger, source_scope, zone_outlines
     from fenolite.convert.sources import SourceProject
 
     if design.board is None or not design.board.zones:
@@ -95,7 +95,11 @@ def _altium(design: Design, read: Path | None) -> Design:
     board = design.board
     assert board is not None
     refs = {component.id: component.ref for component in design.circuit.components}
-    styles = altium_zones.board_styles(board)
+    document = None  # change c0462: the scopes read with the document's names when the document is at hand
+    if read is not None and read.suffix.lower() in (".pcbdoc", ".prjpcb"):
+        source = SourceProject(read, read, read.parent, ALTIUM, read.suffix.lower().lstrip("."), design)
+        document = source_scope(source, design)
+    styles = altium_zones.board_styles(board, document)
     board = altium_zones.connect_zones(board, design, styles, refs, ledger)
     board = altium_zones.zone_clearances(board, design, ledger)
     return replace(design, board=board)

@@ -72,8 +72,9 @@ def kept_indexes(records: Sequence[Sequence[Field]], mapping: RuleMapping) -> fr
     a record the mapper does not map (any reason), a record of a kind outside ``read.rules.WRITTEN_KINDS``,
     and a Hole To Hole Clearance with stacked micro vias allowed. A Polygon Connect Style record is not among
     them (the board keeps it as ``polygon_connect``), nor a record without ``RULEKIND``. A record that holds
-    per-layer values (``read.rules.holds_layer_values``) is kept too: the lowering writes one form per rule
-    and no per-layer key (change c0462)."""
+    per-layer values (``read.rules.holds_layer_values``) is kept too, and so is a record whose object matrix
+    holds an entry: the lowering writes one form per rule, no per-layer key and an empty matrix, and a cell
+    rule's kind of object has no scope it writes (change c0462)."""
     unmapped = {item.index for item in mapping.unmapped}
     found: set[int] = set()
     for index, fields in enumerate(records):
@@ -81,7 +82,7 @@ def kept_indexes(records: Sequence[Sequence[Field]], mapping: RuleMapping) -> fr
         if not kind or kind == POLYGON_CONNECT:
             continue
         stacked = kind == STACKED[0] and _get(fields, STACKED[1]) == STACKED[2]
-        layered = holds_layer_values(fields)
+        layered = holds_layer_values(fields) or bool((_get(fields, "OBJECTCLEARANCES") or "").strip())
         if index in unmapped or kind not in WRITTEN_KINDS or stacked or layered:
             found.add(index)
     return frozenset(found)

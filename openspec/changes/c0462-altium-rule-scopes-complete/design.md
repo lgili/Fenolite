@@ -146,6 +146,14 @@ guide (AGENTS.md rule 6).
   - The cell rules sit at the record's place in Altium's priority order, so no rule of another record
     changes rank.
   - A cell whose object kind has no neutral kind is refused (`matrix-kind`), naming the cell.
+  - As implemented (task 4.3, S-2217, S-2249): the copper check and KiCad's `Track` type see an arc as a track,
+    and the check sees a free fill and a region as one copper graphic, so a matrix that tells an arc from a
+    track, or a fill from a region, is refused (`matrix-kind`), and so is an edge matrix that tells the
+    outline from a cutout. A `Hole` cell governs only a pad without annular ring under an option of Altium
+    (S-2249), and no neutral `clearance` rule holds a hole's clearance, a plain record's included: it stays in
+    the bag (`cells_not_lifted`), as do a cavity and a split line. `THPad` is `or(pad_type th, pad_type
+    npth)` (`H-A-RULE-MATRIX-NPTH`, `INFERRED`). Surface and through-hole pads that agree stay one kind,
+    `item_kind pad`. A record whose matrix holds an entry is kept, so an Altium write gives it back as read.
 
 ## D6: kinds that govern copper
 
@@ -157,6 +165,14 @@ guide (AGENTS.md rule 6).
 | PolygonConnect | read by `connectstyle` with the full grammar. `connect-scope` goes away with it. |
 | ShortCircuit, UnRoutedNet, NetAntennae, UnpouredPolygon | `fenolite check` performs these checks by itself. The record is carried. A record that relaxes one (for example `ALLOWED=TRUE` on ShortCircuit) is reported as the warning `altium.rules.check-relaxed`. `check` takes no allowance by net and no dangling tolerance from the design, so it does not honour the relaxation (amended during task 4.4). |
 | the rest (fanout, routing corners/topology/priority, layer pairs, test points, height, silk, sliver, orientations, SMD to corner/plane, acute angle, vias under SMD) | carried only (c0434), listed in the table with the reason that none governs copper geometry |
+
+As implemented (task 4.4): a pad's subject is its net, every net class of the document that holds the net
+(an Altium net may be in several, the neutral net names one), its component, its one copper layer (a surface
+pad only), its hole and its pad type; a via's its net, classes and hole. A leaf the conversion cannot judge
+(a room; a layer of an object that spans the layers) is tried both ways: a scope that one answer does not
+decide is reported (`pad-margin`, `VIA_RULE_SCOPED`), and the next record that selects the object governs.
+The fates of the records (c0424) are unchanged: only the first record of scope `All` of each kind is
+`changed`, the others are kept for the Altium writer.
 
 The table in `rule-file.md`, "Rule kinds and their reading", is closed. A test fails when a corpus kind
 is absent from it.

@@ -222,28 +222,25 @@ def _tolerances(given: Tolerances | Mapping[str, int] | None, profile: Profile |
         raise SideUsageError(str(error), where="tolerances") from None
 
 
-def mask_rule(design: Design) -> int | None:
-    """The expansion of the first enabled ``SolderMaskExpansion`` rule of scope ``All`` among the rule
-    records a design read from Altium keeps, ``None`` without one (change c0440)."""
-    from fenolite.backends.altium.adapter.rules import KEPT_RULE, kept_fields
-    from fenolite.convert.openings import MASK_RULE, rule_expansion
-
-    board = design.board
-    held = board.ext.get("altium") if board is not None else None
-    texts = [str(text) for name, text in (held.payload if held is not None else ()) if name == KEPT_RULE]
-    return rule_expansion((dict(kept_fields(text)[1]) for text in texts), MASK_RULE).value
-
-
 def mask_of(design: Design) -> MaskOf:
     """The solder-mask expansion of a pad of ``design`` for level 3 (change c0440): its own margin; on a
     board read from Altium, its manual expansion (the bag's ``mask``, ``<mode>,<units>``), ``MASK_NONE``
-    for mode 0, and for a pad that follows the rules ``mask_rule``, else ``MASK_RULES``."""
+    for mode 0, and for a pad that follows the rules the expansion of the kept record that governs it, as
+    the conversion chooses it (change c0462, design D6), else ``MASK_RULES``. A pad before whose record comes
+    one whose scope cannot be judged without the document gives no statement (``None``)."""
+    from fenolite.backends.altium.adapter.rules import KEPT_RULE, kept_fields
     from fenolite.backends.altium.adapter.units import pcb_length
+    from fenolite.convert.altium_to_kicad import RuleSubjects
+    from fenolite.convert.openings import MASK_RULE, expansion_rules, governing_expansion
 
     board = design.board
     if board is None or "altium" not in board.ext:
         return own_mask
-    rule = mask_rule(design)
+    held = board.ext["altium"]
+    texts = [str(text) for name, text in held.payload if name == KEPT_RULE]
+    rules = expansion_rules((dict(kept_fields(text)[1]) for text in texts), MASK_RULE)
+    subjects = RuleSubjects(design, None)
+    owners = {pad.id: fp.component_id for fp in board.footprints for pad in fp.pads}
 
     def expansion(pad: Pad) -> int | str | None:
         if pad.mask_margin is not None:
@@ -251,7 +248,12 @@ def mask_of(design: Design) -> MaskOf:
         held = pad.ext.get("altium")
         text = next((str(v) for k, v in (held.payload if held is not None else ()) if k == "mask"), None)
         if text is None:
-            return MASK_RULES if rule is None else rule
+            found = governing_expansion(
+                rules, subjects.pad(pad, owners.get(pad.id)), subjects.classes(pad.net_id)
+            )
+            if found.unread:
+                return None
+            return MASK_RULES if found.value is None else found.value
         mode, _, units = text.partition(",")
         if mode == "0":
             return MASK_NONE

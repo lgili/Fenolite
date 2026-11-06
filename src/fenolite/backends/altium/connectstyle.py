@@ -18,7 +18,7 @@ from dataclasses import dataclass, replace
 from typing import Literal
 
 from fenolite.backends.altium.read.proptext import parse_length
-from fenolite.backends.altium.read.scope import ScopeDocument, parse_scope
+from fenolite.backends.altium.read.scope import ScopeDocument, for_kind, parse_scope
 from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence, Level
 from fenolite.core.units import Nm, Udeg
@@ -145,7 +145,9 @@ def read_connect_style(
     fields: Sequence[tuple[str, str | None]], document: ScopeDocument | None = None
 ) -> ConnectStyle | None:
     """The record ``fields`` as a ``ConnectStyle``, ``None`` when it is not an enabled Polygon Connect
-    Style record; its scopes are read with ``document`` (``read.scope.ScopeDocument``)."""
+    Style record; its scopes are read with ``document`` (``read.scope.ScopeDocument``), whose parent objects
+    are a polygon's (``read.scope.PARENTS``, change c0462)."""
+    document = for_kind(document, RULE_KIND)
     values = {key: value or "" for key, value in fields}
     if values.get("RULEKIND") != RULE_KIND or values.get("ENABLED", "TRUE").upper() != "TRUE":
         return None
