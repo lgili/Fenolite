@@ -178,7 +178,7 @@ Never silently. The kinds today:
 | `outline-width` | root `Edge.Cuts` items drawn with another stroke than the 0.1 mm a DSL board writes (one row per width; c0281) |
 | `layer-table` | non-copper rows the DSL cannot preserve: unknown names, a missing required `Edge.Cuts`, or gaps in declared `User.n` rows; supported shorter standard tables use `technical_layers=` (c0324) |
 
-Change c0427 also expresses three things the import of an Altium board left out:
+Change c0427 also expresses four things the import of an Altium board left out:
 
 - a copper graphic on a net nothing else names (a fill or region on a board-only net) declares that net,
   so the graphic is code with `net=`;
@@ -186,7 +186,10 @@ Change c0427 also expresses three things the import of an Altium board left out:
   paste layer (`H-K-PASTE-DRAWING`);
 - a text's CR LF line breaks are line feeds (`H-A-TEXT-CRLF`), and a board cut-out that crosses the board
   shape is a notch of the shape (`altium.import.cutout-notch`, `H-A-CUTOUT-NOTCH`), where before it made an
-  outline KiCad calls invalid.
+  outline KiCad calls invalid;
+- an arc whose three points lie on one line, the middle one between the ends (an Altium arc of a tiny
+  sweep, rounded to the nanometre), is the `design.line()` it draws; an arc of one point, or whose middle
+  point lies beyond an end, stays a `drawing`.
 
 Change c0277 (verbatim items and the DSL coverage holes) is not merged yet: until it is, its kinds stay in
 this list, and each item it makes expressible removes its row. Since its first part the import also writes

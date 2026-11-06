@@ -7,9 +7,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from _importcode import build, copy_project, imported
+from _importcode import build, built_board, copy_project, imported
 
 from fenolite.backends.kicad.dru import read_rules
+from fenolite.core.coords import Point
 
 
 def _rules(tmp_path: Path, text: str) -> Path:
@@ -99,3 +100,25 @@ def test_a_negative_silk_clearance_is_code(tmp_path: Path) -> None:
     assert build(tmp_path / "out").exit_code == 0
     held = read_rules((tmp_path / "out" / "built" / "two_sheet.kicad_dru").read_text(encoding="utf-8"))
     assert [(rule.kind, rule.min) for rule in held.rules] == [("silk_clearance", -254_000)]
+
+
+def test_a_straight_arc_is_the_line_it_draws(tmp_path: Path) -> None:
+    """An arc whose three points lie on one line, the middle one between the ends, is the line it draws
+    (an Altium arc of a tiny sweep, rounded to the nanometre); before change c0427 it was a ``drawing``. An
+    arc of one point, or whose middle point lies beyond an end, draws no line and stays one."""
+    arc = (
+        '\t(gr_arc (start {0}) (mid {1}) (end {2}) (stroke (width 0.2) (type solid)) (layer "Dwgs.User") '
+        '(uuid "6c1e3d0a-0427-4b01-8000-00000000003{3}"))\n'
+    )
+    points = (("10 10", "11 10", "12 10"), ("20 10", "20 10", "20 10"), ("30 10", "34 10", "32 10"))
+    source = _drawn(tmp_path, "".join(arc.format(*row, n) for n, row in enumerate(points, 1)))
+    reply = imported(tmp_path, source, "--confirm", "--allow-lossy")
+    assert reply.exit_code == 0, reply.error
+    assert _kinds(reply) == {"drawing": 2}
+    script = (tmp_path / "out" / "design.py").read_text(encoding="utf-8")
+    assert '"Dwgs.User/arc/1"' in script and '"Dwgs.User/arc/2"' not in script and "design.arc(" not in script
+    assert build(tmp_path / "out").exit_code == 0
+    built = built_board(tmp_path / "out").design.board
+    assert built is not None
+    lines = [(g.kind, g.points, g.width) for g in built.graphics if g.layer == "Dwgs.User"]
+    assert lines == [("line", (Point(10_000_000, 10_000_000), Point(12_000_000, 10_000_000)), 200_000)]

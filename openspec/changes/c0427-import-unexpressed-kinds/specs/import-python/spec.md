@@ -26,6 +26,16 @@ A drawing on `F.Paste` or `B.Paste` SHALL be emitted as a DSL drawing call (chan
 - **WHEN** `uv run pytest tests/unit/importer/test_unexpressed_kinds.py -k paste -q` imports `two_sheet` with a filled polygon on `B.Paste`
 - **THEN** nothing is unexpressed and the built board holds the polygon on `B.Paste`
 
+### Requirement: A straight arc is the line it draws
+`import --to python` SHALL emit a drawing arc whose three points lie on one line, with the middle point
+between the ends and a width above 0, as `design.line()` from its start to its end, on its layer and of its
+width. An arc of
+one point, or whose middle point lies beyond an end, SHALL stay counted as `drawing` (change c0427).
+
+#### Scenario: Straight arcs on Dwgs.User
+- **WHEN** `uv run pytest tests/unit/importer/test_unexpressed_kinds.py -k straight_arc -q` imports `two_sheet` with three `Dwgs.User` arcs of width 0.2 mm: one with its middle point between its ends, one of one point, one whose middle point lies beyond its end
+- **THEN** the first is `design.line()`, the other two are counted as `drawing`, the script builds, and the built board holds one `Dwgs.User` line from (10, 10) to (12, 10) mm, 0.2 mm wide
+
 ### Requirement: Public Altium rows are pinned
 The import result of every public Altium PCB document of the corpus manifest SHALL be pinned: exit code,
 codes of its error findings, and no unexpressed item (change c0427).

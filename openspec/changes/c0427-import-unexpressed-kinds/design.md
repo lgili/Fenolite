@@ -38,6 +38,14 @@ When the result is one ring without holes the shape's lines are replaced by the 
 `Board6/Data#0:notch:V<k>`) and the cut-out goes, with `altium.import.cutout-notch` (info). With an arc in
 the shape, no backend, a geometry error or another result, nothing changes.
 
+## 6. Straight arcs
+
+An Altium arc of a tiny sweep reads as three model points rounded to the nanometre, and they may lie on one
+line. `design.arc()` takes no such arc, so the import left it out as a `drawing`. `_graphic_call` writes it as
+`design.line()` from its start to its end, of its width and on its layer, when its middle point lies between
+its ends: the stroke it draws. An arc of one point, or whose middle point lies beyond an end, draws no such
+line and stays a `drawing`. The Altium writer does the same for a copper arc (`straight_arc`, change c0435).
+
 ## Open
 
 - Zero-width arcs on mechanical layers: KiCad 10.0.6 loads a zero-width `gr_arc` as 0.1 mm, so the DSL's

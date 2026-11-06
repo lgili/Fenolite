@@ -995,7 +995,11 @@ def _graphic_call(graphic: Graphic, key: str) -> Call | None:
     if graphic.kind == "arc" and len(points) == 3 and graphic.width > 0:
         a, m, b = points
         if (m.x - a.x) * (b.y - a.y) == (m.y - a.y) * (b.x - a.x):
-            return None
+            # three points on one line, the middle one between the ends: the line it draws (change c0427)
+            between = min(a.x, b.x) <= m.x <= max(a.x, b.x) and min(a.y, b.y) <= m.y <= max(a.y, b.y)
+            if a == b or not between:
+                return None
+            return Call("design.line", (text(key), _xy(a), _xy(b)), (layer, ("width", width)))
         return Call("design.arc", (text(key), _xy(a), _xy(m), _xy(b)), (layer, ("width", width)))
     if graphic.kind == "polygon" and len(points) >= 3 and (graphic.width > 0 or graphic.filled):
         ring = Tup(tuple(_xy(p) for p in points))
