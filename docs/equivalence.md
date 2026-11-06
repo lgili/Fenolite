@@ -214,7 +214,10 @@ order; a circle is its centre and squared radius; a rectangle is its four-point 
 cut-outs and slots, board graphics, holes and dimensions match as multisets by their whole key and give
 `<kind>-missing`. Zones match by net name, layers and outline and then compare their name, priority and
 every field of their settings (`zone-field`); fills, the fill state and the lock are never compared
-(`H-K-FID-ZONE-OUTLINE`). Rule areas match by layers and outline (`keepout-field`). Texts match by layer and
+(`H-K-FID-ZONE-OUTLINE`). Rule areas match by layers and outline (`keepout-field`). A drawing of a
+keep-out layer matches as the rule area of each ring it covers; two such drawings also compare their
+`form`, `stroke` for a track, an arc or a circle and `area` for a filled shape, so a keep-out line written
+back as a region is a `keepout-field` difference (change c0442). Texts match by layer and
 text and compare position, size, thickness, rotation and justification (`text-field`). For each footprint
 pair of level 3, its graphics and texts are compared in the footprint's frame, and its fields match by name
 (`field-pose` at `<REF>:<field name>`, for example `R1:Reference` with field `position`).

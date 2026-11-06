@@ -315,14 +315,28 @@ def _drawn_keepouts(
     drawn: Sequence[tuple[Graphic, tuple[Point, ...]]], copper: Sequence[str], prefix: str
 ) -> list[Shape]:
     """A rule-area shape per ring of a keep-out drawing (``pairing.split_keepout_drawings``): keyed as
-    ``_keepouts`` keys a rule area, on every copper layer, stating only ``DRAWN_KEEPOUT``."""
+    ``_keepouts`` keys a rule area, on every copper layer, stating only ``DRAWN_KEEPOUT`` and the drawing's
+    ``form`` (``drawn_form``, change c0442), which only another drawing is compared on."""
     layers = ",".join(sorted(copper))
     shapes: list[Shape] = []
-    for _, points in drawn:
+    for graphic, points in drawn:
         edges = ring(points)
-        shapes.append(Shape((layers, tuple(edges)), f"{prefix}:{layers}:{ring_text(edges)}", DRAWN_KEEPOUT,
+        value = {**DRAWN_KEEPOUT, DRAWN_FORM: drawn_form(graphic)}
+        shapes.append(Shape((layers, tuple(edges)), f"{prefix}:{layers}:{ring_text(edges)}", value,
                             partial=True))  # fmt: skip
     return shapes
+
+
+DRAWN_FORM = "form"
+"""The field of a drawn keep-out that says what was drawn (change c0442): ``stroke`` for a track, an arc, a
+circle or an outline drawn with a width, ``area`` for a filled shape. A rule scope tells a track from a
+region, so a keep-out line written back as a region is a ``keepout-field`` difference."""
+
+
+def drawn_form(graphic: Graphic) -> str:
+    """``area`` for a filled drawing or an outline of width 0, ``stroke`` for any other (``DRAWN_FORM``)."""
+    filled = graphic.kind in ("polygon", "rect") and (graphic.filled or graphic.width <= 0)
+    return "area" if filled else "stroke"
 
 
 def _renamed(board: Board, names: Mapping[str, str]) -> Board:
@@ -572,6 +586,9 @@ def level_geometry(
     def fields_of(kind: str) -> Compare:
         def compare(one: Shape, other: Shape) -> list[Difference]:
             mine, theirs = dict(one.value or {}), dict(other.value or {})
+            if one.partial != other.partial:  # a drawing against a rule area: no form to compare (c0442)
+                mine.pop(DRAWN_FORM, None)
+                theirs.pop(DRAWN_FORM, None)
             if one.partial or other.partial:
                 stated = set(mine if one.partial else theirs)
                 mine = {k: v for k, v in mine.items() if k in stated}

@@ -32,6 +32,7 @@ import fenolite.backends.altium.pcblib as pcblib
 import fenolite.backends.altium.pcbrecords as rec
 import fenolite.backends.altium.project as project
 import fenolite.backends.altium.rulemap as rulemap
+from fenolite.backends.altium import keepout_lines
 from fenolite.backends.altium.altsym import AltiumSymbol
 from fenolite.backends.altium.ascii import text_problem
 from fenolite.backends.altium.cfb import CompoundTooLarge, name_key
@@ -1037,6 +1038,62 @@ class _Items:
     comment: pcbdoc.TextPlace | None = None
 
 
+KEEPOUT_STROKE_IDS: Mapping[str, int] = MappingProxyType({keepout_lines.LAYER: keepout_lines.LAYER_ID})
+"""The layer of the strokes that marked rule areas give back (change c0442): the Keep-Out layer."""
+
+
+def _keepout_strokes(
+    fp: FootprintInstance, frame: pcbdoc.Frame, account: _Account
+) -> tuple[tuple[pcbdoc.ComponentGraphic, ...], FootprintInstance]:
+    """The strokes that the marked rule areas of ``fp`` carry (``keepout_lines``, change c0442), as tracks
+    and arcs of the component on the Keep-Out layer without the keep-out flag, the form the source drew,
+    and ``fp`` with its other rule areas. Each marked area is counted written under ``keep-out``; one whose
+    stroke no record holds is counted lost there."""
+    graphics, others, _ = keepout_lines.strokes(fp.keepouts)
+    if not graphics:
+        return (), fp
+    to_board = Transform.placement(fp.position, fp.rotation)
+    items: list[pcbdoc.ComponentGraphic] = []
+    for graphic in graphics:
+        kept = None
+        if graphic.kind == "arc":
+            kept = kept_arc(graphic, tuple(to_board.apply(p) for p in graphic.points), frame)
+        problem = pcbdoc.graphic_problem(graphic, arc_known=kept is not None, layers=KEEPOUT_STROKE_IDS)
+        if problem is None:
+            items.append(pcbdoc.ComponentGraphic(graphic, keepout_lines.LAYER_ID, kept))
+        else:
+            _refuse_stroke(fp.keepouts, graphic, problem, account)
+    stroked = [area for area in fp.keepouts if area not in others]
+    _count_strokes(stroked, [item.graphic for item in items], account)
+    return tuple(items), dataclasses.replace(fp, keepouts=others)
+
+
+def _refuse_stroke(areas: Sequence[Keepout], graphic: Graphic, problem: str, account: _Account) -> None:
+    """Count lost under ``keep-out`` the marked areas of ``areas`` whose stroke ``graphic`` no record holds:
+    its own area, and the second ring of a circle."""
+    name = next(area.name for area in areas if area.id == graphic.id)
+    for area in areas:
+        if area.name in (name, name + "/2"):
+            account.skip("keep-out", area.id, problem)
+
+
+def _count_strokes(areas: Sequence[Keepout], strokes: Collection[Graphic], account: _Account) -> None:
+    """Count written under ``keep-out`` each marked area of ``areas`` that gave one of ``strokes`` (the
+    stroke has the id of the area whose name carries it; the second ring of a circle follows its first). A
+    marked area whose stroke was refused was counted lost with it; its second ring is counted lost too."""
+    given = {graphic.id for graphic in strokes}
+    first = {area.name: area.id for area in areas if (one := keepout_lines.parse(area.name)) and not one[3]}
+    count = 0
+    for area in areas:
+        found = keepout_lines.parse(area.name)
+        if found is None:
+            continue
+        owner = first.get(area.name.removesuffix("/2")) if found[3] else area.id
+        if owner in given:
+            count += 1
+    account.wrote("keep-out", count)
+
+
 def _footprint_items(
     fp: FootprintInstance,
     layers: Mapping[str, int],
@@ -1278,12 +1335,16 @@ def _footprints(
         if frame is not None and (fp.graphics or fp.texts or fp.fields):
             ids = {**rec.BOARD_LAYER_MAP, **(layer_ids or {})}
             own = _footprint_items(fp, ids, copper, frame, account, copper_ids)
+        areas = fp
+        if frame is not None:
+            strokes, areas = _keepout_strokes(fp, frame, account)
+            own = dataclasses.replace(own, items=(*own.items, *strokes))
         defn = FootprintDef(
             id=fp.id,
             name=pattern or "FOOTPRINT",
             pads=tuple(pads),
             graphics=own.graphics,
-            keepouts=_written_keepouts(fp, copper, account),
+            keepouts=_written_keepouts(areas, copper, account),
         )
         native = _FP_NATIVE.fullmatch(fp.native_ids.get(BACKEND, ""))
         placed.append(
@@ -1509,7 +1570,21 @@ def _items(
         else:
             account.skip("graphic", graphic.id, problem)
     keepouts: list[Keepout] = []
-    for keepout in board.keepouts:
+    strokes, areas, _ = keepout_lines.strokes(board.keepouts)
+    written: list[Graphic] = []
+    for graphic in strokes:
+        kept = kept_arc(graphic, graphic.points, frame) if graphic.kind == "arc" else None
+        problem = pcbdoc.graphic_problem(graphic, arc_known=kept is not None, layers=KEEPOUT_STROKE_IDS)
+        if problem is None:
+            graphics.append(graphic)
+            written.append(graphic)
+            if kept is not None:
+                records[graphic.id] = kept
+        else:
+            _refuse_stroke(board.keepouts, graphic, problem, account)
+    _count_strokes([area for area in board.keepouts if area not in areas], written, account)
+    stroked = len(written)
+    for keepout in areas:
         problem = pcbdoc.keepout_problem(keepout, layers)
         if problem is None:
             keepouts.append(keepout)
@@ -1524,7 +1599,7 @@ def _items(
     for dimension in board.dimensions:
         account.skip("dimension", dimension.id, "the document has no dimension record")
     account.wrote("text", len(texts))
-    account.wrote("graphic", len(graphics) + outline)
+    account.wrote("graphic", len(graphics) - stroked + outline)
     account.wrote("keep-out", len(keepouts))
     account.wrote("hole", len(holes))
     return texts, graphics, keepouts, holes
@@ -1948,7 +2023,7 @@ def _document(
         frame=None if options is not None else frame,
         origin=origin,
         free_pads=tuple(free_pads),
-        layer_ids=layer_ids,
+        layer_ids={**layer_ids, **KEEPOUT_STROKE_IDS},
         arc_records=MappingProxyType(arc_records),
         allow_full_drill=full_drill,
         bodies=tuple(placed_bodies),

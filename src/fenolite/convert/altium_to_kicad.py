@@ -242,7 +242,10 @@ def keepouts(design: Design, ledger: Ledger, restrictions: Mapping[str, int] | N
     10.0.6 imports a keep-out track or region there with all four (``pcb-records.md``, "Regions and
     keep-outs"); a drawing whose id ``restrictions`` names (``keepout_restrictions``) forbids only what its
     keep-out record forbids (change c0420, N2 and N3). A drawing of a footprint gives a rule area of that
-    footprint, in its pad frame (change c0411); a free drawing one of the board."""
+    footprint, in its pad frame (change c0411); a free drawing one of the board. A track, arc or circle
+    without a keep-out record (one ``restrictions`` lacks) names each of its areas with its stroke
+    (``keepout_lines.marker``), so the Altium writer gives it back as that stroke (change c0442)."""
+    from fenolite.backends.altium import keepout_lines
     from fenolite.geometry.errors import GeometryError
     from fenolite.model.board import Keepout
 
@@ -263,6 +266,8 @@ def keepouts(design: Design, ledger: Ledger, restrictions: Mapping[str, int] | N
             return []
         filled = graphic.kind in ("polygon", "rect") and (graphic.filled or graphic.width <= 0)
         ledger.change(kind, graphic.id, KEEPOUT_AREA if filled else KEEPOUT_BAND)
+        # a plain stroke (no keep-out record) carries itself in the name of its areas (change c0442)
+        plain = restrictions is not None and graphic.id not in restrictions
         return [
             Keepout(
                 id=derived_id("kpo", "conversion", graphic.id if index == 0 else f"{graphic.id}:{index}"),
@@ -272,6 +277,7 @@ def keepouts(design: Design, ledger: Ledger, restrictions: Mapping[str, int] | N
                 no_vias=no_vias,
                 no_pads=no_pads,
                 no_copper_pour=no_copper_pour,
+                name=(keepout_lines.marker(graphic, index) or "") if plain else "",
             )
             for index, ring in enumerate(rings)
         ]
