@@ -242,7 +242,8 @@ def _stroke_keepout(
     covers, one per stroke (two for a circle), with ``restrictions`` (``record_restrictions`` of its
     record). A stroke that covers no area is bad geometry. ``into`` and ``frame`` as ``_keepout``.
 
-    Each area keeps its stroke and restriction byte in the pair ``stroke`` of its bag (``_marked_stroke``):
+    Each area keeps its stroke and restriction byte in the pair ``stroke`` of its bag (``_marked_stroke``; a
+    keep-out fill its corners, ``_marked_fill``):
     a conversion to KiCad names the area after it, and the Altium writer gives it back as the stroke (change
     c0450)."""
     try:
@@ -276,6 +277,14 @@ def _marked_stroke(
     numbers = [n for p in placed for n in (p.x, p.y)] + [width, restrictions]
     value = kind + "".join(f"/{n}" for n in numbers)
     return [dataclasses.replace(area, ext=bag([(STROKE_KEY, value)])) for area in areas]
+
+
+def _marked_fill(area: Keepout, restrictions: int) -> Keepout:
+    """``area``, the rule area of a keep-out fill, with the fill in the pair ``stroke`` of its bag:
+    ``fill/<x1>/<y1>/…/<x4>/<y4>/<restrictions>``, its four corners as the area's outline (change c0455). A
+    conversion to KiCad names the area after it (``convert.altium_to_kicad``)."""
+    numbers = [n for p in area.outline for n in (p.x, p.y)] + [restrictions]
+    return dataclasses.replace(area, ext=bag([(STROKE_KEY, "fill" + "".join(f"/{n}" for n in numbers))]))
 
 
 def _region_keepout(
@@ -1014,7 +1023,9 @@ def footprint_items(
             # a keep-out of a component on copper is a rule area of its footprint (changes c0407, c0411)
             layer = ctx.layers.name(item.prefix.layer)
             locator = f"Fills6/Data#{index}"
-            _keepout(ctx, (layer,), points, record_restrictions(item), locator, section, keepouts, frame)
+            byte = record_restrictions(item)
+            area = _keepout(ctx, (layer,), points, byte, locator, section, keepouts, frame)
+            keepouts[-1] = _marked_fill(area, byte)  # change c0455: the writer gives it back as a fill
             ctx.census.map("fills")
             continue
         corners = tuple(frame.apply(point) for point in points)
@@ -1396,7 +1407,9 @@ def shapes(
         layer = ctx.layers.name(item.prefix.layer)
         if ctx.layers.is_copper(item.prefix.layer) and is_keepout(item):
             # a keep-out fill on copper is a rule area of its outline (change c0407)
-            _keepout(ctx, (layer,), _corners(kind, points), record_restrictions(item), locator, "kpo")
+            byte = record_restrictions(item)
+            area = _keepout(ctx, (layer,), _corners(kind, points), byte, locator, "kpo")
+            ctx.keepouts[-1] = _marked_fill(area, byte)  # change c0455: the writer gives it back as a fill
             ctx.census.map("fills")
             continue
         pairs = exact.pairs()

@@ -20,6 +20,11 @@ alone, which the import makes of the band its width covers (change c0407). Its n
 its restriction byte first, ``Altium.KeepOut/flag<r>/<kind>/<numbers>`` (``r`` from 0 to 31), and the writer
 gives it back as a keep-out track or arc of the area's layer with that byte (``flags``).
 
+A keep-out fill of a copper layer (change c0455) is the rule area of its four corners. Its name carries
+them with its restriction byte, ``Altium.KeepOut/flag<r>/fill/x1/y1/x2/y2/x3/y3/x4/y4``, and the writer
+gives it back as a keep-out fill of the area's layer with that byte; ``parse`` gives such a name the kind
+``fill``, whose band is its corners.
+
 Every number is in nanometres, in the frame of the rule area (a footprint's pad frame for its own areas).
 The alphabet is the one a rule-area name of the DSL takes (``dsl.items.AREA_NAME``), and a KiCad zone keeps
 its name, so the stroke survives both a KiCad file and ``import --to python``. The Altium writer gives a
@@ -45,6 +50,9 @@ PREFIX: Final = f"{LAYER}/"
 _COUNTS: Final = {"line": 5, "arc": 7, "circle": 5}
 _NUMBER: Final = r"-?\d+"
 _MARKER: Final = re.compile(rf"^{re.escape(PREFIX)}(?:flag(\d+)/)?(line|arc|circle)((?:/{_NUMBER})+)$")
+_FILL: Final = re.compile(rf"^{re.escape(PREFIX)}flag(\d+)/fill((?:/{_NUMBER}){{8}})$")
+FILL: Final = "fill"
+"""The kind ``parse`` gives a keep-out fill's marker (change c0455)."""
 EVERY_RESTRICTION: Final = 0x1F
 """The largest restriction byte: every kind restricted."""
 
@@ -65,9 +73,18 @@ def marker(graphic: Graphic, part: int = 0, *, restrictions: int | None = None) 
     return name + "/2" if part else name
 
 
+def fill_marker(corners: Sequence[Point], restrictions: int) -> str | None:
+    """The rule-area name that carries a keep-out fill of four ``corners`` (in the order of the area's
+    outline, without a closing corner) with the restriction byte ``restrictions`` (change c0455); ``None``
+    for another count of corners or a byte above 31."""
+    if len(corners) != 4 or not 0 <= restrictions <= EVERY_RESTRICTION:
+        return None
+    return f"{PREFIX}flag{restrictions}/{FILL}" + "".join(f"/{p.x}/{p.y}" for p in corners)
+
+
 def flag(name: str) -> int | None:
-    """The restriction byte of a marker name of a keep-out stroke (``flag<r>``), else ``None``."""
-    found = _MARKER.fullmatch(name)
+    """The restriction byte of a marker name of a keep-out stroke or fill (``flag<r>``), else ``None``."""
+    found = _MARKER.fullmatch(name) or _FILL.fullmatch(name)
     if found is None or found.group(1) is None:
         return None
     value = int(found.group(1))
@@ -76,7 +93,14 @@ def flag(name: str) -> int | None:
 
 def parse(name: str) -> tuple[str, tuple[Point, ...], int, bool] | None:
     """``(kind, points, width, second)`` of a marker name, ``second`` true for the second ring of a circle;
-    ``None`` for any other name (a restriction byte above 31 among them)."""
+    a keep-out fill's gives ``("fill", corners, 0, False)`` (change c0455); ``None`` for any other name (a
+    restriction byte above 31 among them)."""
+    filled = _FILL.fullmatch(name)
+    if filled is not None:
+        if int(filled.group(1)) > EVERY_RESTRICTION:
+            return None
+        numbers = [int(n) for n in filled.group(2)[1:].split("/")]
+        return FILL, tuple(Point(numbers[i], numbers[i + 1]) for i in range(0, 8, 2)), 0, False
     found = _MARKER.fullmatch(name)
     if found is None or (found.group(1) is not None and int(found.group(1)) > EVERY_RESTRICTION):
         return None
@@ -97,9 +121,11 @@ is stored in board coordinates by KiCad and turned back into the pad frame, whic
 
 def band(kind: str, points: Sequence[Point], width: int, second: bool) -> tuple[Point, ...]:
     """The ring of the band that a stroke covers, as a conversion makes its rule area (``convert``'s
-    ``_keepout_rings``): a segment's or an arc's band, or one half of a circle's."""
+    ``_keepout_rings``): a segment's or an arc's band, or one half of a circle's; a fill's corners."""
     from fenolite.geometry.bands import arc_band, segment_band
 
+    if kind == FILL:
+        return tuple(points)
     if kind == "line":
         return tuple(segment_band(points[0], points[1], width))
     if kind == "arc":
@@ -133,7 +159,23 @@ def intact(area: Keepout, name: str | None = None) -> bool:
     byte = flag(marker_name)
     if byte is not None and len(set(area.layers)) != 1:
         return False
+    if found[0] == FILL and not _rectangle(found[1]):
+        return False
     return restricts(area, EVERY_RESTRICTION if byte is None else byte) and _outline_intact(area, found)
+
+
+def _rectangle(corners: Sequence[Point]) -> bool:
+    """Whether four corners make a rectangle within ``TOLERANCE``: the two diagonals share their middle and
+    the first two edges are square (their dot product no more than ``TOLERANCE`` times the sum of their
+    lengths, in Manhattan measure), with an area."""
+    a, b, c, d = corners
+    if abs(a.x + c.x - b.x - d.x) > 2 * TOLERANCE or abs(a.y + c.y - b.y - d.y) > 2 * TOLERANCE:
+        return False
+    u, v = (b.x - a.x, b.y - a.y), (d.x - a.x, d.y - a.y)
+    size_u, size_v = abs(u[0]) + abs(u[1]), abs(v[0]) + abs(v[1])
+    if size_u <= TOLERANCE or size_v <= TOLERANCE:
+        return False
+    return abs(u[0] * v[0] + u[1] * v[1]) <= TOLERANCE * (size_u + size_v)
 
 
 def _outline_intact(area: Keepout, found: tuple[str, tuple[Point, ...], int, bool]) -> bool:
@@ -153,7 +195,8 @@ def _outline_intact(area: Keepout, found: tuple[str, tuple[Point, ...], int, boo
 def strokes(areas: Sequence[Keepout]) -> tuple[tuple[Graphic, ...], tuple[Keepout, ...], int]:
     """``(graphics, others, marked)``: the strokes that the marked rule areas of ``areas`` carry, one per
     stroke (a circle's second ring gives none), as graphics of the Keep-Out layer, or of the area's layer for
-    a keep-out stroke (``flags`` gives its byte); the other areas, among them a marked area that is no longer
+    a keep-out stroke (``flags`` gives its byte), and a keep-out fill as a filled polygon of the area's layer
+    (change c0455); the other areas, among them a marked area that is no longer
     its stroke's (``intact``) and a circle whose two rings are not both intact; and how many areas gave a
     stroke."""
     graphics: list[Graphic] = []
@@ -179,7 +222,18 @@ def strokes(areas: Sequence[Keepout]) -> tuple[tuple[Graphic, ...], tuple[Keepou
             continue
         marked += 1
         kind, points, width, second = found
-        if not second:
+        if kind == FILL:
+            graphics.append(
+                Graphic(
+                    id=area.id,
+                    provenance=area.provenance,
+                    kind="polygon",
+                    layer=area.layers[0],
+                    points=points,
+                    filled=True,
+                )
+            )
+        elif not second:
             graphics.append(
                 Graphic(
                     id=area.id,
@@ -191,6 +245,20 @@ def strokes(areas: Sequence[Keepout]) -> tuple[tuple[Graphic, ...], tuple[Keepou
                 )
             )
     return tuple(graphics), tuple(others), marked
+
+
+def read_fill(text: str) -> tuple[tuple[Point, ...], int] | None:
+    """The four corners and the restriction byte of a keep-out fill that the import records in a rule area's
+    bag (``adapter.copper.STROKE_KEY``: ``fill/<x1>/<y1>/…/<x4>/<y4>/<r>``; change c0455); ``None`` for a
+    value that is not one."""
+    kind, _, rest = text.partition("/")
+    try:
+        numbers = [int(n) for n in rest.split("/")]
+    except ValueError:
+        return None
+    if kind != FILL or len(numbers) != 9:
+        return None
+    return tuple(Point(numbers[i], numbers[i + 1]) for i in range(0, 8, 2)), numbers[8]
 
 
 def read_stroke(text: str, layer: str) -> tuple[Graphic, int] | None:
@@ -212,8 +280,8 @@ def read_stroke(text: str, layer: str) -> tuple[Graphic, int] | None:
 
 
 def flags(areas: Sequence[Keepout]) -> dict[str, int]:
-    """The restriction byte of each keep-out stroke that ``strokes`` gives of ``areas``, by the id of the
-    stroke (its first area's)."""
+    """The restriction byte of each keep-out stroke or fill that ``strokes`` gives of ``areas``, by the id of
+    the graphic (its first area's)."""
     return {area.id: byte for area in areas if (byte := flag(area.name)) is not None}
 
 
@@ -224,14 +292,17 @@ def unmarked(area: Keepout) -> Keepout:
 
 __all__ = [
     "EVERY_RESTRICTION",
+    "FILL",
     "LAYER",
     "LAYER_ID",
     "PREFIX",
+    "fill_marker",
     "flag",
     "flags",
     "intact",
     "marker",
     "parse",
+    "read_fill",
     "read_stroke",
     "restricts",
     "strokes",

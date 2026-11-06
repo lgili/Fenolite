@@ -701,7 +701,8 @@ class PcbDocSpec:
     c0450): fills read from an Altium document, which a conversion marks (``lower.fill_ids``)."""
     keepout_strokes: Mapping[str, int] = field(default_factory=lambda: {})
     """The restriction byte of each graphic of ``graphics`` that is a keep-out stroke of copper, by id
-    (change c0450; ``keepout_lines.flags``): written as a keep-out track or arc of the long form."""
+    (change c0450; ``keepout_lines.flags``): written as a keep-out track or arc of the long form, or a
+    keep-out fill of copper as a keep-out fill record (change c0455)."""
     via_protection: ViaProtection | None = None
     """The board's default via protection (change c0112): a tenting side that a via of ``vias`` leaves at
     ``None`` takes its flag from here, and from nothing (a clear flag) when this states none either."""
@@ -1214,15 +1215,33 @@ def place_component(
                             board_cutout=True,
                         )  # fmt: skip
                     )
-            elif graphic.filled and item.fill and (shape := fill_geometry(corners)) is not None:
+            elif (
+                graphic.filled
+                and (item.fill or item.keepout is not None)
+                and (shape := fill_geometry(corners)) is not None
+            ):
                 a, b, turn = shape
                 placed.fills.append(
-                    rec.fill_record(item.layer, long_id(item.layer), a, b, turn, net=net, component=index)
+                    rec.fill_record(
+                        item.layer,
+                        long_id(item.layer),
+                        a,
+                        b,
+                        turn,
+                        net=net,
+                        component=index,
+                        keepout=item.keepout,
+                    )  # a keep-out fill with its restriction byte (change c0455)
                 )
             elif graphic.filled:
-                placed.regions.append(rec.region_record(item.layer, corners, component=index, net=net))
+                # a keep-out fill that is no rectangle stays a keep-out region with its byte (change c0455)
+                placed.regions.append(
+                    rec.region_record(item.layer, corners, component=index, net=net, keepout=item.keepout)
+                )
                 placed.shapes.append(
-                    rec.region_record(item.layer, corners, shape_based=True, component=index, net=net)
+                    rec.region_record(
+                        item.layer, corners, shape_based=True, component=index, net=net, keepout=item.keepout
+                    )
                 )
             else:
                 width = rec.to_units(graphic.width)
@@ -1603,16 +1622,20 @@ def free_records(spec: PcbDocSpec, copper: _Copper) -> _Free:
                 ring = [s, Point(e.x, s.y), e, Point(s.x, e.y)]
             else:
                 ring = _ring(graphic.points)
+            byte = spec.keepout_strokes.get(graphic.id)  # a keep-out fill (change c0455)
             shape = (
                 fill_geometry([_units(frame(point)) for point in ring])
-                if graphic.id in spec.fill_ids
+                if graphic.id in spec.fill_ids or byte is not None
                 else None
             )
             if shape is not None:  # a fill read from Altium stays a fill (change c0450)
                 a, b, turn = shape
-                out.fills.append(rec.fill_record(layer, long_id(layer), a, b, turn, net=net))
+                out.fills.append(rec.fill_record(layer, long_id(layer), a, b, turn, net=net, keepout=byte))
                 continue
-            out.region(layer, ring, frame, net=net)
+            if byte is None:
+                out.region(layer, ring, frame, net=net)
+            else:  # a keep-out fill that is no rectangle stays a keep-out region with its byte (change c0455)
+                out.region(layer, ring, frame, net=net, keepout=byte)
             continue
         width = rec.to_units(graphic.width)
         byte = spec.keepout_strokes.get(graphic.id)

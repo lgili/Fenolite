@@ -654,7 +654,8 @@ def stroke_names(board: Board | None) -> dict[str, str]:
     """The marker name (``keepout_lines.marker``) of each rule area of ``board``, a board's or a footprint's,
     that a keep-out stroke of copper gave, by area id: built from the stroke in the pair ``stroke`` of its
     Altium bag (``adapter.copper.STROKE_KEY``), the first area of a stroke its first ring, and kept when the
-    area is that ring of the stroke's band (``keepout_lines.intact``; change c0450)."""
+    area is that ring of the stroke's band (``keepout_lines.intact``; change c0450). A keep-out fill's area
+    takes ``keepout_lines.fill_marker`` of its corners (change c0455)."""
     from fenolite.backends.altium import keepout_lines
     from fenolite.backends.altium.adapter.copper import STROKE_KEY
 
@@ -667,6 +668,12 @@ def stroke_names(board: Board | None) -> dict[str, str]:
             held = area.ext.get("altium")
             value = next((v for k, v in held.payload if k == STROKE_KEY), None) if held is not None else None
             if not value or not area.layers:
+                continue
+            filled = keepout_lines.read_fill(value)  # a keep-out fill (change c0455)
+            if filled is not None:
+                fill_name = keepout_lines.fill_marker(*filled)
+                if fill_name is not None and keepout_lines.intact(area, fill_name):
+                    names[area.id] = fill_name
                 continue
             found = keepout_lines.read_stroke(value, area.layers[0])
             if found is None:

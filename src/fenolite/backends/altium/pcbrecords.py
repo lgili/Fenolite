@@ -484,17 +484,23 @@ def fill_record(
     *,
     net: int = NO_INDEX,
     component: int = NO_INDEX,
+    keepout: int | None = None,
 ) -> bytes:
     """A fill (type 6; change c0450): one subrecord of 50 bytes, the form of 68 of the 70 fills of the public
     rows (S-2091): the prefix, the corners ``a`` and ``b`` in binary units, the rotation about their centre
     in degrees as a double at 29, five zero bytes, the long layer id ``long_layer`` at 42, the restriction
-    byte 0 (no keep-out) at 46 and three zero bytes."""
+    byte at 46 and three zero bytes. ``keepout``, a restriction byte (0 to 31), writes a keep-out fill
+    (change c0455): the keep-out flag and that byte, as the 11 keep-out fills of row ``-08`` hold them;
+    without it the byte is 0 (no keep-out)."""
+    if keepout is not None and not 0 <= keepout <= 0x1F:
+        raise ValueError(f"the keep-out restrictions {keepout} are outside 0 … 31")
+    head = _flagged(prefix(layer, net=net, component=component), None if keepout is None else (0, keepout))
     body = (
-        prefix(layer, net=net, component=component)
+        head
         + struct.pack("<4id", *a, *b, rotation)
         + bytes(5)
-        + struct.pack("<I", long_layer)
-        + bytes(4)
+        + struct.pack("<IB", long_layer, keepout or 0)
+        + bytes(3)
     )
     assert len(body) == FILL_SIZE
     return bytes((FILL,)) + subrecord(body)
