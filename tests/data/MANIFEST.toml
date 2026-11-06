@@ -1217,6 +1217,18 @@ corpus_id = ""
 notes = "kit sample: hatched polygons of the four styles, the grid's origin, a slanted edge, a self-touching and a self-crossing ring, authored for Fenolite (c0463, task 3.1)"
 
 [[file]]
+path = "tests/data/altium/kit/pour-hatched.json"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored record (c0463 K6.12, S-2223) of Altium 24.5's repour of the CC0 kit sample examples/kit/pour-hatched, written by tools/kit_pour_c0463.py record: per polygon its counts, area, ring hash and poured tracks of the authored sample; the saved document stays outside the repository."
+
+[[file]]
+path = "tests/data/altium/kit/repour.json"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored record (c0463 task 4.1, S-2224) of Altium 24.5's Repour All on the public rows altium-third-party-pcbdoc-01 to -08, written by tools/kit_pour_c0463.py record: per polygon counts, areas, region and vertex counts, ring hashes and message counts only, no vertex list; the saved documents stay outside the repository."
+
+[[file]]
 path = "examples/kit/tree/design.py"
 origin = "authored"
 corpus_id = ""
