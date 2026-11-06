@@ -16,6 +16,9 @@ They become two `RuleKind`s, so that they get, unchanged, the things every rule 
 
 `RuleSet.severities` is not used: it names a tool's check by code, and holds no scope.
 
+The model review approves the widened `RuleKind` (coordinator, 2026-11-06). The change rides c0462's model
+version 1.1 and does not bump `SCHEMA_VERSION` itself.
+
 | kind | sides | limits | meaning |
 |---|---|---|---|
 | `short` | `selector_a`, `selector_b` | none | the severity of a short between an item of side A and an item of side B, in either order |
@@ -84,11 +87,15 @@ c0462 lists ShortCircuit and NetAntennae as `checked`. Here they move to `RULE_K
 | ShortCircuit, `ALLOWED=FALSE` | `short`, severity `error` |
 | NetAntennae, `NETANTENNAETOLERANCE` = t | `antenna`, `max` = t, scope → `selector_a` |
 
-- Every enabled record maps, not only the relaxing ones, so that the order of the source's priorities holds.
-  This is the eight default Short-Circuit and eight Net Antennae records of the public rows.
+- **Only where it relaxes something** (coordinator's adjustment, 2026-11-06). When no enabled ShortCircuit
+  record of the document has `ALLOWED=TRUE`, none maps: a rule that forbids a short is Fenolite's built-in
+  check, and an `error` rule on every import would churn every census. When one does, every enabled
+  ShortCircuit record maps, so the source's order of priority holds. NetAntennae likewise maps only when one
+  enabled record has a tolerance above 0. A record not mapped is reported `checked` as in c0462.
+- Every record, mapped or not, is still carried (c0434), so the Altium writer writes it back unchanged.
 - `altium.rules.check-relaxed` is withdrawn: its records are now honoured.
-- The Altium writer lowers both kinds to their records. The keys are those the public records hold
-  (S-2243, a corpus census). An imported record is still carried as it was (c0434).
+- The Altium writer lowers both kinds of an authored design to their records. The keys are those the public
+  records hold (S-2243, a corpus census).
 
 ## D6: KiCad
 

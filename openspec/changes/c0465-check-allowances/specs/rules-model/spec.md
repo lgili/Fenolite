@@ -11,7 +11,8 @@ the model approved by `tools/model_review.py`.
 - `rulemap.KIND_SELECTORS` and `rulemap.KIND_SUPPORT` MUST hold both kinds. `KIND_SUPPORT` holds no major for
   `antenna`, and holds 10 for `short` only when probe `dru-short-allow` records `present` in `10.0.6.json`.
 - A rule set without these kinds MUST write the bytes it wrote before, and
-  `schemas/fenolite.model.v0/rules.json` MUST be regenerated.
+  `schemas/fenolite.model.v0/rules.json` MUST be regenerated. The kinds ride c0462's model version 1.1, with
+  the coordinator's approval of the widened `RuleKind` in `model0-approved.json`.
 
 #### Scenario: A short rule needs two sides and no limit
 - **WHEN** `uv run pytest tests/unit/model/test_rule_allowances_c0465.py -q -n 0` builds a `short` rule without

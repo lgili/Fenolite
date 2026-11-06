@@ -1,7 +1,11 @@
 ## ADDED Requirements
 
 ### Requirement: Short-Circuit and Net Antennae records map
-`read.rules.map_rules` SHALL map every enabled ShortCircuit and NetAntennae record (change c0465, design D5):
+`read.rules.map_rules` SHALL map the enabled ShortCircuit and NetAntennae records of a document that relax
+their check (change c0465, design D5):
+- When some enabled ShortCircuit record holds `ALLOWED=TRUE`, every enabled ShortCircuit record MUST map, and
+  otherwise none MUST. When some enabled NetAntennae record holds a tolerance above 0, every enabled NetAntennae
+  record MUST map, and otherwise none MUST. A record not mapped MUST stay `Unmapped` with `checked`.
 - ShortCircuit MUST give one `short` rule over its two scopes, of severity `ignore` when `ALLOWED=TRUE` and
   `error` when `ALLOWED=FALSE`, at the record's priority.
 - NetAntennae MUST give one `antenna` rule over its first scope with `max` = `NETANTENNAETOLERANCE`.
@@ -21,3 +25,8 @@
 - **WHEN** `uv run pytest tests/unit/backends/altium/test_rule_allowances_c0465.py -q -n 0` maps it
 - **THEN** it gives a `short` rule `ignore` between nets `AGND` and `DGND` governing over a `short` rule
   `error` `all`/`all`, an `antenna` rule of `max` 1 270 000 nm, no `Unmapped`, and no `check-relaxed`
+
+#### Scenario: Nothing relaxed, nothing mapped
+- **GIVEN** an authored rule file with one ShortCircuit `ALLOWED=FALSE` and one NetAntennae of tolerance 0
+- **WHEN** the same test maps it
+- **THEN** it gives no rule, and both records are `Unmapped` with `checked`

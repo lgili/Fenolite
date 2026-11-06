@@ -9,7 +9,8 @@ subjects in either order (change c0465).
 - Governed by a rule of severity `warning`, it MUST have severity `warning`.
 - With no governing rule, or one of severity `error`, it MUST stay an `error`, as before.
 - `summary["allowed"]` MUST count, per code, the findings a rule allowed, and MUST be absent when none was.
-- A design without `short` rules MUST give the report it gave before, byte for byte.
+- A design without `short` rules MUST give the report it gave before, byte for byte; a test pins the bytes of
+  an existing report.
 
 #### Scenario: Two grounds joined
 - **GIVEN** an authored board where copper of `AGND` touches copper of `DGND` and copper of `VIN` touches
