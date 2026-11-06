@@ -42,10 +42,12 @@ Rules for every task:
 - [x] 4.1 Lowering (design D6): defaults written as nothing, an `all`/`all` allowance as
   `rule_severities.shorting_items`, the rest as `rules.kind-unchecked`. Proof:
   `uv run pytest tests/unit/backends/kicad/test_rule_allowances_c0465.py -q -n 0`.
-- [ ] 4.2 Probe `dru-short-allow` on 9.0.9 and 10.0.6 (S-2244): two overlapping tracks of nets `A` and `B`,
-  and a `clearance` rule between them with a negative `min`. Record whether `shorting_items` is still
-  reported. If 10.0.6 records `present`, `KIND_SUPPORT["short"]` holds 10 and the net-pair allowance is
-  written there. Proof: the probe files and `uv run pytest tests/unit/backends/kicad/test_rulemap.py -k kind_support -q -n 0`.
+- [x] 4.2 Probe `dru-short-allow` on 9.0.9 and 10.0.6 (S-2244): two overlapping pads of nets `A` and `B`
+  (tracks without a pad are re-netted by `kicad-cli`, so they never short), and a `clearance` rule between
+  them with a negative `min`. Record whether `shorting_items` is still reported, and with
+  `dru-short-allow-clearance` whether pads of `A` and `B` closer than their clearance are still reported. If
+  10.0.6 records `present` for both, `KIND_SUPPORT["short"]` holds 10 and the net-pair allowance is written
+  there. Proof: the probe files and `uv run pytest tests/unit/backends/kicad/test_rulemap.py -k kind_support -q -n 0`.
 
 ## 5. Altium
 

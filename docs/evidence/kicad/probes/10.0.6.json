@@ -420,6 +420,8 @@
     "dru-pair-sel-underscore": "present",
     "dru-pair-skew-within-equal": "absent",
     "dru-pair-uncoupled-far": "absent",
+    "dru-short-allow": "present",
+    "dru-short-allow-clearance": "absent",
     "edge-agree": "equal",
     "edge-agree-fill": "equal",
     "edge-centre-047": "present",

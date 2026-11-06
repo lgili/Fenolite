@@ -111,10 +111,14 @@ track (S-2242). `via_dangling` (10.0 only) takes no length. A net tie is a footp
 |---|---|---|
 | `short` `error` | nothing (the default) | nothing |
 | `short` `ignore` or `warning`, both sides `all`, and no other `short` rule | `rule_severities.shorting_items` = the severity | the same |
-| any other `short` `ignore` or `warning` | loss | a `clearance` rule with a negative `min` between the sides, if probe `dru-short-allow` (task 4.2) records `present`; otherwise a loss |
+| any other `short` `ignore` or `warning` | loss | a `clearance` rule with a negative `min` between the sides, if probes `dru-short-allow` and `dru-short-allow-clearance` (task 4.2) both record `present`; otherwise a loss |
 | `antenna` with `max` 0 | nothing (the default) | nothing |
 | any other `antenna` | loss | loss |
 
+- Task 4.2 measured both majors (2026-11-06): the negative `min` silences the short (`dru-short-allow`
+  `present`), and the clearance check of the two nets with it (`dru-short-allow-clearance` `absent`). Such a
+  rule would allow any gap between the nets, which the neutral `short` rule does not say, so the row stays a
+  loss on both majors.
 - A loss is `rules.kind-unchecked` (error, droppable). With `allow_lossy` it becomes
   `rules.dropped-for-target`, as for every kind outside its `KIND_SUPPORT` entry.
 - A KiCad board read back holds no `short` and no `antenna` rule. Reading
@@ -126,7 +130,7 @@ track (S-2242). `via_dangling` (10.0 only) takes no length. A net tie is a footp
 - S-2241: Altium's Short-Circuit, whose two scopes select the target nets (electrical page).
 - S-2242: KiCad's constraint table, 9.0 and 10.0.
 - S-2243: the census of the public Short-Circuit and Net Antennae records.
-- S-2244: the probe `dru-short-allow`.
+- S-2244: the probes `dru-short-allow` and `dru-short-allow-clearance`.
 - S-2245: the kit run.
 
 The labels:

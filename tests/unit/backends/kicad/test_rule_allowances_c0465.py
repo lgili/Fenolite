@@ -73,13 +73,15 @@ def test_a_whole_board_allowance(target: int, severity: str) -> None:
     assert shorting(rules, target) == severity
 
 
-def test_a_net_pair_allowance_is_a_loss() -> None:
-    """Scenario "A whole-board allowance and a net-pair one", rule set B."""
+@pytest.mark.parametrize("target", [9, 10])
+def test_a_net_pair_allowance_is_a_loss(target: int) -> None:
+    """Scenario "A whole-board allowance and a net-pair one", rule set B. On 10 too: the negative clearance
+    minimum that silences the short silences the pair's clearance check with it (task 4.2)."""
     rules = ruleset(rule("short", Selector("net", "AGND"), Selector("net", "DGND"), severity="ignore"))
     with pytest.raises(RulesLossError) as caught:
-        lowered(rules)
+        lowered(rules, target=target)
     assert [i.code for i in caught.value.issues] == ["rules.kind-unchecked"] and caught.value.droppable
-    _, issues = lowered(rules, allow_lossy=True)
+    _, issues = lowered(rules, target=target, allow_lossy=True)
     assert [i.code for i in issues] == ["rules.dropped-for-target"]
 
 

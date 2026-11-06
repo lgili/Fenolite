@@ -223,7 +223,10 @@ recorded ``present`` on 10.0.6 and, on 2026-10-08, on 9.0.9, so it holds both ma
 length kinds hold the majors whose ``dru-kind-<kind>`` probe is recorded ``present`` (``H-K-DRU-PAIR``):
 10.0.6 and, since 2026-10-08, 9.0.9. KiCad has no rule for a short between two nets or for the length of a
 dangling track (S-2242), so ``short`` and ``antenna`` (change c0465) hold no major: their defaults and a
-board-wide allowance are written by ``lower_rules`` as design D6 of c0465 says. A modelled rule of a kind
+board-wide allowance are written by ``lower_rules`` as design D6 of c0465 says. A ``clearance`` rule with a
+negative ``min`` silences the short of its two nets on both majors (probe ``dru-short-allow``), and their
+clearance check with it (``dru-short-allow-clearance`` ``absent``, ``H-K-SHORT-ALLOW``), so it is no
+lowering of a net-pair allowance. A modelled rule of a kind
 outside its entry gives ``rules.kind-unchecked``."""
 SHORTING_CODE = "kicad.drc.shorting-items"
 """The finding code of KiCad's check of a short, whose project severity is ``shorting_items``."""

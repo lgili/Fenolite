@@ -365,6 +365,25 @@ def test_kind_support_of_no_tracks_follows_the_probes() -> None:
     assert table.KIND_SELECTORS["no_tracks"].leaves == {"net", "netclass"}
 
 
+def test_kind_support_of_short_follows_the_probes() -> None:
+    """Change c0465 task 4.2: a major holds ``short`` only when its negative-``min`` clearance silences the
+    short (``dru-short-allow``) and keeps the pair's clearance check (``dru-short-allow-clearance``)."""
+    import json
+    from pathlib import Path
+
+    from fenolite.backends.kicad import rulemap as table
+
+    folder = Path(__file__).resolve().parents[4] / "docs" / "evidence" / "kicad" / "probes"
+    expected = set()
+    for name, major in (("9.0.9", 9), ("10.0.6", 10)):
+        probes = json.loads((folder / f"{name}.json").read_text(encoding="utf-8"))["probes"]
+        assert probes["dru-short-allow"] in ("present", "absent")
+        if probes["dru-short-allow"] == probes["dru-short-allow-clearance"] == "present":
+            expected.add(major)
+    assert set(table.KIND_SUPPORT["short"]) == expected
+    assert table.KIND_SUPPORT["antenna"] == frozenset()
+
+
 # -- the area selector (change c0103) -------------------------------------------------------------------
 
 

@@ -53,7 +53,8 @@ Fenolite's own words; sources are listed in `docs/evidence/sources.md`.
 | The `opt` limit of `diff_pair_gap`, `skew` and `length` is accepted and never checked by the DRC, alone or beside `min` and `max`; KiCad's interactive tools take it as their target | S-0010, S-0038, S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRU-PAIR |
 | The later of two `diff_pair_gap` rules, and of two `length` rules, that match one row governs, as for clearance | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRU-PAIR |
 | A routed length counts a via by the board stack-up: a net of 10 mm on `F.Cu`, one 0.6 mm via and 10 mm on `B.Cu` measured 21.58 mm on 10.0.6 and 21.545 mm on 9.0.9 (scratch benches of the design of c0104, not a committed probe) | S-0020, S-0029 | INFERRED | H-K-DRU-PAIR |
-| The custom rule constraints of 9.0 and 10.0 hold none that allows a short between two nets or sets a length for a dangling track; `via_dangling` (10.0 only) takes no limit; on 10.0 a `clearance` rule with a negative `min` lets its two sides' copper overlap, and whether `shorting_items` is then still reported is not stated | S-2242 | INFERRED | H-K-SHORT-ALLOW |
+| The custom rule constraints of 9.0 and 10.0 hold none that allows a short between two nets or sets a length for a dangling track; `via_dangling` (10.0 only) takes no limit; on 10.0 a `clearance` rule with a negative `min` lets its two sides' copper overlap | S-2242 | INFERRED | H-K-SHORT-ALLOW |
+| A `clearance` rule of `min -1mm` with the condition `A.NetName == 'X' && B.NetName == 'Y'` silences `shorting_items` between overlapping pads of `X` and `Y` and keeps it for overlapping pads of two other nets (probe `dru-short-allow` `present`); it also silences the `clearance` violation of pads of `X` and `Y` 0.1 mm apart, which a `{}` project reports without it (probe `dru-short-allow-clearance` `absent`). Measured on 2026-11-06 on 10.0.6 and on 9.0.9 (pinned image, local run) | S-2244 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-SHORT-ALLOW |
 
 ## Board-wide rules and board-setup minimums
 
@@ -255,8 +256,10 @@ written; the rest is a loss.
   severity (`rulemap.board_short`). An explicit severity of `kicad.drc.shorting-items` that differs makes
   it a loss.
 - Every other `short` or `antenna` rule gives `rules.kind-unchecked` (error, droppable), or with
-  `allow_lossy` `rules.dropped-for-target`. Whether a negative `clearance` minimum on 10.0 silences
-  `shorting_items` for a net pair is probe `dru-short-allow` (`H-K-SHORT-ALLOW`).
+  `allow_lossy` `rules.dropped-for-target`. A negative `clearance` minimum between two nets silences
+  `shorting_items` for them on 9.0 and 10.0 (probe `dru-short-allow`), and silences their clearance check
+  too (probe `dru-short-allow-clearance` `absent`, `H-K-SHORT-ALLOW`), so it would allow every gap between
+  the nets as well: `KIND_SUPPORT["short"]` holds no major and a net-pair allowance is not written.
 - A board read back holds no rule of either kind; `rule_severities.shorting_items` reads as a check
   severity (c0114).
 

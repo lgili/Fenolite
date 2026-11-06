@@ -9,7 +9,9 @@ the model approved by `tools/model_review.py`.
   passes when its length is at most `max`; a longer stub is reported at the rule's severity.
 - Constructing a rule of either kind that breaks these limits MUST raise `ValueError`.
 - `rulemap.KIND_SELECTORS` and `rulemap.KIND_SUPPORT` MUST hold both kinds. `KIND_SUPPORT` holds no major for
-  `antenna`, and holds 10 for `short` only when probe `dru-short-allow` records `present` in `10.0.6.json`.
+  `antenna`, and holds 10 for `short` only when probes `dru-short-allow` and `dru-short-allow-clearance` both
+  record `present` in `10.0.6.json`: a negative `clearance` minimum that silences the short and also the
+  clearance check of the two nets is no lowering of the rule.
 - A rule set without these kinds MUST write the bytes it wrote before, and
   `schemas/fenolite.model.v1/rules.json` MUST be regenerated. The kinds ride c0462's model version 1.1, with
   the coordinator's approval of the widened `RuleKind` in `model0-approved.json`.

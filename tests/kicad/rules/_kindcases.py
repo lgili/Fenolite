@@ -40,6 +40,7 @@ from _analysis import BRACKET_NM, CreepBench, creep_bench
 from fenolite.backends.base import DrcReport
 from fenolite.backends.kicad import pro
 from fenolite.backends.kicad.lowering import lower_rules
+from fenolite.backends.kicad.mod import read_footprint
 from fenolite.backends.kicad.pcb import write_board
 from fenolite.backends.kicad.sexpr import Node, parse
 from fenolite.core.coords import Point
@@ -296,6 +297,75 @@ def no_tracks_probe() -> str:
     return rb.outcome(probe and not any(controls))
 
 
+# -- an allowed short (change c0465)
+
+SHORT_TYPES = frozenset({"shorting_items"})
+"""The DRC violation type of copper of two nets that touch (``docs/formats/kicad/rules.md``)."""
+SHORT_LABELS = ("short_allow", "short_control")
+"""The pair the negative-``min`` clearance rule names, and a pair it does not name."""
+CLEARANCE_TYPES = frozenset({"clearance"})
+"""The DRC violation type of copper of two nets closer than their clearance."""
+SHORT_NEAR_GAP = 100_000
+"""The pad gap of a third pair of ``SA_NET`` and ``SB_NET``, below the 0.2 mm clearance of a ``{}`` project:
+whether the rule also silences the clearance check of the pair it names."""
+
+
+@cache
+def short_bench() -> rb.Bench:
+    """Two pairs of stacked ``Mini_R_0603`` copies whose pads overlap by 0.1 mm: ``SA``/``SB`` and
+    ``SC``/``SD``, each copy's pads on the net ``<ref>_NET``. Pads, because ``kicad-cli`` gives copper that
+    reaches no pad the net of the copper it touches, and a short of free tracks is then no short at all.
+    A third pair, ``short_near``, puts pads of ``SA_NET`` and ``SB_NET`` ``SHORT_NEAR_GAP`` apart."""
+    made = rb.builder()
+    for label, refs in zip(SHORT_LABELS, (("SA", "SB"), ("SC", "SD")), strict=True):
+        made.parts(label, refs, gap=-100_000, target=target())
+    folder = "Mini.pretty" if target() >= 10 else "Mini_v9.pretty"
+    pads = read_footprint(rb.LIBS / folder / "Mini_R_0603.kicad_mod", library="Mini").pads
+    span = max(p.position.y + p.size.h // 2 for p in pads) - min(p.position.y - p.size.h // 2 for p in pads)
+    y, x = made.row(), (rb.LEFT + rb.RIGHT) // 2
+    for side, (ref, net, at_y) in zip("ab", (("SN1", "SA", y), ("SN2", "SB", y + span + SHORT_NEAR_GAP)),
+                                      strict=True):  # fmt: skip
+        made.part(f"short_near_{side}", ref, Point(x, at_y), target=target(), nets={"1": f"{net}_NET",
+                  "2": f"{net}_NET"})  # fmt: skip
+    return made.build()
+
+
+def short_rules(with_rule: bool) -> str:
+    """The rules text: a ``clearance`` rule of ``min -1mm`` between ``SA_NET`` and ``SB_NET``
+    (``with_rule``), and the scoped canary."""
+    rule = rule_text("fenolite_0_short", "clearance", -MM, "A.NetName == 'SA_NET' && B.NetName == 'SB_NET'")
+    return rules_text(*((rule,) if with_rule else ()))
+
+
+@cache
+def short(with_rule: bool) -> Run:
+    return run(short_bench(), short_rules(with_rule))
+
+
+def short_probe() -> str:
+    """``present`` when the negative-``min`` clearance rule silences ``shorting_items`` for the pair it
+    names: both pairs are reported without the rule, and only the pair it does not name with it, with the
+    canary in both runs (``H-K-SHORT-ALLOW``, S-2244)."""
+    plain, ruled = short(False), short(True)
+    if not (plain.canary and ruled.canary):
+        return "inconclusive"
+    if not all(plain.between(label, SHORT_TYPES) for label in SHORT_LABELS):
+        return "inconclusive"
+    if not ruled.between("short_control", SHORT_TYPES):
+        return "inconclusive"
+    return rb.outcome(not ruled.between("short_allow", SHORT_TYPES))
+
+
+def short_clearance_probe() -> str:
+    """``present`` when the clearance check of the pair the rule names survives it: the ``short_near`` pads,
+    0.1 mm apart, give a ``clearance`` violation with the rule as they do without it, with the canary in
+    both runs. ``absent`` means the rule that allows the short also allows any gap between its nets."""
+    plain, ruled = short(False), short(True)
+    if not (plain.canary and ruled.canary) or not plain.between("short_near", CLEARANCE_TYPES):
+        return "inconclusive"
+    return rb.outcome(ruled.between("short_near", CLEARANCE_TYPES))
+
+
 # -- how a courtyard rule selects a footprint
 
 
@@ -410,6 +480,8 @@ def kind_probes() -> dict[str, tuple[Callable[[], str], tuple[int, ...]]]:
     for kind in NEW_KINDS:
         probes[f"dru-kind-{kind}"] = (lambda kind=kind: kind_probe(kind), both)
     probes["dru-kind-no_tracks"] = (no_tracks_probe, both)  # change c0107
+    probes["dru-short-allow"] = (short_probe, both)  # change c0465
+    probes["dru-short-allow-clearance"] = (short_clearance_probe, both)  # change c0465
     for form in ("reference", "member"):
         probes[f"dru-courtyard-{form}"] = (lambda form=form: courtyard_probe(form), both)
     for direction in ("forward", "reverse"):
@@ -431,6 +503,9 @@ __all__ = [
     "FLOOR_KINDS",
     "FLOOR_RULES",
     "NEW_KINDS",
+    "SHORT_LABELS",
+    "SHORT_NEAR_GAP",
+    "SHORT_TYPES",
     "VIOLATION_TYPES",
     "Run",
     "board_kinds",
@@ -453,4 +528,9 @@ __all__ = [
     "no_tracks_rules",
     "rule_text",
     "rules_text",
+    "short",
+    "short_bench",
+    "short_clearance_probe",
+    "short_probe",
+    "short_rules",
 ]
