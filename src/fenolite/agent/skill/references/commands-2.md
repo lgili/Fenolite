@@ -58,7 +58,7 @@ Back to [the command index](commands.md).
 - `--out DIR`: the target folder (not the source's)
 - `--name NAME`: the file stem
 - `--altium-bodies {extruded,off}` (default `extruded`): Altium bodies: extruded (default) or none
-- `--altium-pour {computed,outline}`: Altium polygons: computed pours them with Altium's rules (default, experimental; needs the geo extra, without which the default writes the outline with a warning), outline writes them unpoured; a usage error with --to kicad
+- `--altium-pour {computed,outline}`: Altium polygons: computed pours them with Altium's rules (default, experimental; needs the geo extra, without which the conversion exits 6), outline writes them unpoured; a usage error with --to kicad
 - `--report-ids`: list item ids in the report
 - `--no-verify`: skip the read-back (evidence UNVERIFIED)
 

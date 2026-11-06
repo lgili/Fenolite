@@ -183,10 +183,11 @@ def convert_project(
     "Conversion package"). ``to`` is ``kicad`` or ``altium``; ``kicad_version`` the major of a KiCad
     target; ``bodies`` what an Altium target does with component bodies (``extruded`` or ``off``);
     ``name`` the stem of the written files; ``pour`` the pour mode of an Altium target (``computed`` or
-    ``outline``; ``None`` is ``computed``, written as ``outline`` with a warning without the ``geo``
-    extra; change c0215). ``LossyConversionError`` for a loss of a ``refuse`` kind
-    without ``allow_lossy``; ``SourceError`` (a ``ValueError``) for a source that is no project or a pair
-    of backends without a direction; ``TargetLimitError`` when the target writer cannot hold the design."""
+    ``outline``; ``None`` is ``computed``, change c0215; without the ``geo`` extra ``computed``, the default
+    included, raises ``BackendUnavailable``, change c0436). ``LossyConversionError`` for a loss of a
+    ``refuse`` kind without ``allow_lossy``; ``SourceError`` (a ``ValueError``) for a source that is no
+    project or a pair of backends without a direction; ``TargetLimitError`` when the target writer cannot
+    hold the design."""
     if bodies not in BODIES:
         raise ValueError(f"bodies is one of {', '.join(BODIES)}, got {bodies!r}")
     if pour is not None and pour not in POURS:

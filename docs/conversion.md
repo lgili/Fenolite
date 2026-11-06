@@ -185,7 +185,8 @@ The vocabulary is closed (`fenolite.convert.report.KINDS`), one table for every 
   pages up to 64 in the natural order of the references; the sheet is refused only when one part alone
   does not fit (change c0372).
 - **Changes of KiCad to Altium.** `zone-fill`: with `--altium-pour computed` (the default since change
-  c0215) the polygon is poured by Fenolite from the written document (experimental), and a polygon the engine
+  c0215; without the `geo` extra it exits 6, `FEN-6001`, change c0436) the polygon is poured by Fenolite from
+  the written document (experimental), and a polygon the engine
   refuses, or every polygon with `--altium-pour outline`, is written unpoured, and Altium fills it on a
   repour. `schematic`: the schematic is generated from the circuit on one sheet
   with generic symbols. A schematic that the writer refuses is a loss, and the writer's message stays an

@@ -123,7 +123,9 @@ def write(source: SourceProject, options: Options) -> Written:
             symbols=symbols,
             sheets="modules" if sch is not None else "flat",
             edges=edges,
-            pour=options.pour,
+            # a conversion never falls back to unpoured polygons without saying so (change c0436): the
+            # default mode is asked for explicitly, so a missing geo extra raises BackendUnavailable
+            pour=options.pour or "computed",
         )
     except CompoundTooLarge as error:
         raise TargetLimitError(

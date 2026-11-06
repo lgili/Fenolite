@@ -16,6 +16,7 @@ and the test compares them with the other major's recorded list.
 
 from __future__ import annotations
 
+import importlib.util
 import shutil
 import tempfile
 from collections import Counter
@@ -63,6 +64,8 @@ DEMO_RETARGETS: dict[str, tuple[str, str | None]] = {
 """The KiCad 9.0.9.1 demo boards of the corpus (S-0058) with the project file of their stem where the
 corpus holds one: name → (board row, project row)."""
 TIMEOUT = 900
+POUR = "computed" if importlib.util.find_spec("shapely") is not None else "outline"
+"""The pour mode of an Altium target: a conversion without the geo extra refuses ``computed`` (c0436)."""
 
 
 @cache
@@ -87,7 +90,7 @@ def triangle(source: Path, *, level: int | None = None, ignore_refs: tuple[str, 
     """Convert ``source`` to Altium, import its PCB document with ``kicad-cli`` and compare at ``level``
     (every level when ``None``); ``ignore_refs`` is passed to level 1 (a free pad reads back as a component
     with no designator, change c0160)."""
-    conversion = convert_project(source, to="altium", allow_lossy=True)
+    conversion = convert_project(source, to="altium", allow_lossy=True, pour=POUR)
     with tempfile.TemporaryDirectory(prefix="fenolite-convtri-") as name:
         folder = Path(name)
         for key, data in conversion.files.items():

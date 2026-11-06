@@ -21,6 +21,7 @@ neither conversion needs the ``geo`` extra.
 
 from __future__ import annotations
 
+import importlib.util
 import re
 import tempfile
 from collections.abc import Callable, Iterator, Mapping
@@ -41,6 +42,8 @@ TOLERANCE_MM = 0.002
 """How far a converted hit may lie from the source's, per coordinate: the Altium unit is 2.54 nm and an
 Excellon coordinate is written to the micrometre or finer."""
 Probes = dict[str, tuple[Callable[[], str], tuple[int, ...]]]
+POUR = "computed" if importlib.util.find_spec("shapely") is not None else "outline"
+"""The pour mode of an Altium target: a conversion without the geo extra refuses ``computed`` (c0436)."""
 
 
 def major() -> int:
@@ -81,7 +84,7 @@ def round_trip(target: int) -> tuple[Conversion, Conversion]:
         (source / BOARD).write_text(source_board(target).read_text(encoding="utf-8"), encoding="utf-8")
         (source / "slots.kicad_pro").write_text(PROJECT, encoding="utf-8")
         with regions():
-            altium = convert_project(source / BOARD, to="altium", allow_lossy=True)
+            altium = convert_project(source / BOARD, to="altium", allow_lossy=True, pour=POUR)
         document = _written(altium, folder / "altium")
         back = convert_project(document, to="kicad", kicad_version=target, allow_lossy=True)
     return altium, back

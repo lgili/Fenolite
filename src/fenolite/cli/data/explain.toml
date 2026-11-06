@@ -840,8 +840,8 @@ fix = "Correct the zone's outline and layers."
 see = "Build target"
 
 ["altium.pour-unavailable"]
-meaning = "The default pour mode computed needs the geo extra, which is not installed, so the polygons are written without poured copper."
-fix = "Install fenolite[geo] and build again, or ask for --altium-pour outline to write the polygons unpoured without this warning."
+meaning = "A build's default pour mode computed needs the geo extra, which is not installed, so the polygons are written without poured copper. A conversion (fenolite convert --to altium) never falls back: it exits 6 with FEN-6001 instead (change c0436)."
+fix = "Install the geo extra (pip install 'fenolite[geo]', or uv sync --extra geo in a checkout) and build again, or ask for --altium-pour outline to write the polygons unpoured without this warning."
 see = "Build target"
 
 ["altium.zone-unpoured"]

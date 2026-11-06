@@ -11,7 +11,8 @@ each file it overwrites. ``DIR`` never is the source's folder or a folder that h
 exits 7 (``FEN-7001``) with one ``convert.lossy`` issue per refused kind, and an accepted one warns once per
 lost kind (change c0429); a difference of the read-back that no
 loss explains is a ``convert.unexplained`` error, which plans no write and exits 5. ``--altium-pour
-computed`` without the ``geo`` extra exits 6 (``FEN-6001``, change c0215).
+computed``, the default, exits 6 without the ``geo`` extra (``FEN-6001``, changes c0215 and c0436): a
+conversion never writes unpoured polygons unless ``--altium-pour outline`` asks for them.
 """
 
 from __future__ import annotations
@@ -70,8 +71,8 @@ def _register(parser: argparse.ArgumentParser) -> None:
         choices=POURS,
         default=None,
         help="Altium polygons: computed pours them with Altium's rules (default, experimental; needs the geo "
-        "extra, without which the default writes the outline with a warning), outline writes them unpoured; "
-        "a usage error with --to kicad",
+        "extra, without which the conversion exits 6), outline writes them unpoured; a usage error with --to "
+        "kicad",
     )
     parser.add_argument("--report-ids", action="store_true", help="list item ids in the report")
     parser.add_argument(
@@ -135,11 +136,17 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             pour=args.altium_pour,
         )
     except BackendUnavailable as error:
+        asked = (
+            "--altium-pour computed"
+            if args.altium_pour == "computed"
+            else "the default --altium-pour computed"
+        )
         raise CliError(
             "FEN-6001",
-            "--altium-pour computed needs the geo extra, which is not installed",
+            f"{asked} pours the polygons with the geo extra, which is not installed; nothing was converted",
             where="--altium-pour",
-            hint="pip install 'fenolite[geo]', or use --altium-pour outline",
+            hint="install the geo extra (pip install 'fenolite[geo]', or uv sync --extra geo in a checkout), "
+            "or pass --altium-pour outline to write the polygons unpoured",
         ) from error
     conversion = found.conversion
     read = conversion.source
