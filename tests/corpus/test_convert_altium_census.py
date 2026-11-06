@@ -151,9 +151,9 @@ Change c0460 (2026-11-06) counts ``SmartUnions`` lost as frame-bound: one more `
 ``-02``, ``-03``, ``-04``, ``-06``, ``-07`` and ``-08``, which hold data in it (S-2190).
 
 Change c0465 (2026-11-06, tasks 5.1 and 5.2) maps the Net Antennae record of ``-04`` and ``-07``, whose
-tolerance is 1 mil (S-2243), onto an ``antenna`` rule, which the writer rebuilds and the import no longer keeps:
-KiCad 10.0 checks no antenna rule, so it is one ``rule`` loss in each row. The Short-Circuit records allow no
-short in any row and stay kept.
+tolerance is 1 mil (S-2243), onto an ``antenna`` rule, which the writer rebuilds and the import no longer
+keeps: KiCad 10.0 checks no antenna rule, so it is one ``rule`` loss in each row. The Short-Circuit records
+allow no short in any row and stay kept.
 
 Change c0407 (2026-11-05): the 12 lines and 8 arcs of the Keep-Out layer of ``-01`` are each the rule area of
 the band their width covers (they were ``graphic`` losses, open outlines that enclosed no area), and the three
