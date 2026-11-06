@@ -251,7 +251,7 @@ RULE_KIND_MAP: dict[str, KindMap] = {
         (NeutralLimits("track_width", "MINLIMIT", "PREFEREDWIDTH", "MAXLIMIT"),),
         "AnyNet",
         (
-            Condition("CHECKCONNECTEDCOPPER", ("FALSE",), read_only=True),
+            Condition("CHECKCONNECTEDCOPPER", ("FALSE", "TRUE"), read_only=True),
             Condition("IMPEDANCEPROFILEDRIVEN", ("FALSE", "TRUE"), read_only=True),
             Condition("IMPEDANCEPROFILEID", read_only=True),
             Condition("IMPEDANCEPROFILEVALUE", read_only=True),
@@ -401,6 +401,7 @@ UnmappedReason = Literal[
     "value",
     "impedance-profile",
     "template",
+    "connected-copper",
     "matrix-kind",
     "delay-units",
     "scope",
@@ -420,6 +421,7 @@ UNMAPPED_REASONS: tuple[UnmappedReason, ...] = (
     "value",
     "impedance-profile",
     "template",
+    "connected-copper",
     "matrix-kind",
     "delay-units",
     "scope",
@@ -826,6 +828,18 @@ def _templates(fields: Sequence[Field]) -> None:
     )
 
 
+def _connected_copper(fields: Sequence[Field]) -> None:
+    """Refuse a Width record with ``CHECKCONNECTEDCOPPER=TRUE`` (``rule-file.md``, "Per-layer values"): Altium
+    then judges the width of connected copper (tracks, arcs, fills, pads and vias together), which no neutral
+    rule expresses. The record stays carried; it is not mapped as a track rule."""
+    if _get(fields, "CHECKCONNECTEDCOPPER") == "TRUE":
+        raise _Refusal(
+            "connected-copper",
+            "CHECKCONNECTEDCOPPER=TRUE: Altium's connected-copper width check, "
+            "which no neutral rule expresses",
+        )
+
+
 MATCHED_GROUPS = ("CHECKNETSINDIFFPAIR", "CHECKDIFFPAIRVSDIFFPAIR", "CHECKXSIGNALS", "CHECKOTHERS")
 """The keys of the groups a Matched Lengths record compares, in the order of the record."""
 
@@ -924,6 +938,7 @@ def _map_one(
     groups = _limits(fields, kind, table)
     per_layer, absent = _layer_values(fields, table, groups, layers)
     _templates(fields)
+    _connected_copper(fields)
     if kind == "MatchedLengths":
         groups = _matched_lengths(fields)
     selector_a, selector_b, on_layers = _scopes(fields, table, layers, for_kind(document, kind))

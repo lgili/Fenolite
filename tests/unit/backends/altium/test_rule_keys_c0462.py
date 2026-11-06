@@ -188,12 +188,15 @@ def test_impedance_profile_with_every_layer_maps() -> None:
 
 
 def test_connected_copper_check_is_refused() -> None:
-    """``CHECKCONNECTEDCOPPER=TRUE`` judges the width of connected copper, which no neutral rule says."""
-    (refused,) = mapped(record("Width", *WIDTH, ("CHECKCONNECTEDCOPPER", "TRUE"))).unmapped
+    """``CHECKCONNECTEDCOPPER=TRUE`` judges the width of connected copper, which no neutral rule says: the
+    record is refused with its own reason and gives no track rule."""
+    mapping = mapped(record("Width", *WIDTH, ("CHECKCONNECTEDCOPPER", "TRUE")))
+    (refused,) = mapping.unmapped
     assert (refused.reason, refused.detail) == (
-        "keys",
-        "CHECKCONNECTEDCOPPER=TRUE is outside the table of Width",
+        "connected-copper",
+        "CHECKCONNECTEDCOPPER=TRUE: Altium's connected-copper width check, which no neutral rule expresses",
     )
+    assert mapping.ruleset.rules == ()
     assert mapped(record("Width", *WIDTH, ("CHECKCONNECTEDCOPPER", "FALSE"))).unmapped == ()
 
 

@@ -134,8 +134,11 @@ No issue of this capability MUST have the severity `error`: malformed input rais
 The rest of the requirement:
 
 - MatchedLengths MUST map to `skew` and, with a target length, to `length`.
-- An unscoped SolderMaskExpansion MUST give `Board.mask_margin`.
-- A record that relaxes a check Fenolite performs itself MUST give the warning `altium.rules.check-relaxed`, and `check` MUST honour it.
+- Unscoped and scoped SolderMaskExpansion records MUST be read by the openings' reading (`convert.openings`,
+  c0440 and c0445), not mapped to `Board.mask_margin` directly.
+- A record that relaxes a check Fenolite performs itself MUST be reported as a warning,
+  `altium.rules.check-relaxed`. `fenolite check` takes no allowance by net and no tolerance of dangling copper
+  from the design, so the relaxation is not honoured; the kind table names this limitation.
 - An `OnMid` scope on a board with no internal signal layer MUST give the info `altium.rule.applies-to-nothing` in place of `altium.rule.unmapped`. Its record MUST stay an `Unmapped` with the reason `no-layer`, one of `rules.NOT_APPLYING`: it is no unread rule, and a conversion keeps it (c0424).
 
 #### Scenario: Every corpus kind is listed

@@ -70,7 +70,7 @@ on it, S-0580).
 | RULEKIND | neutral kind | min | opt | max | net scope | further conditions |
 |---|---|---|---|---|---|---|
 | `Clearance` | `clearance` | `GAP` | — | — | `DifferentNets` | `OBJECTCLEARANCES` absent, blank, uniform or a matrix of exact cells (each one more rule); `GENERICCLEARANCE` absent or equal to `GAP`; `IGNOREPADTOPADCLEARANCEINFOOTPRINT` absent or `FALSE`; `ISMATRIX`, `SOURCERULE`, `CELLROWNAME`, `CELLROWTYPE`, `CELLCOLNAME`, `CELLCOLTYPE`, `INNERLAYERS` and `OUTERLAYERS` absent or as in "Clearance forms that map" |
-| `Width` | `track_width` | `MINLIMIT` | `PREFEREDWIDTH` | `MAXLIMIT` | `AnyNet` | per-layer keys as in "Per-layer values"; `CHECKCONNECTEDCOPPER` absent or `FALSE`; `IMPEDANCEPROFILEDRIVEN` absent, `FALSE` or `TRUE`; `IMPEDANCEPROFILEID`, `IMPEDANCEPROFILEVALUE`, `MINIMP`, `MAXIMP` and `FAVIMP` allowed and unused |
+| `Width` | `track_width` | `MINLIMIT` | `PREFEREDWIDTH` | `MAXLIMIT` | `AnyNet` | per-layer keys as in "Per-layer values"; `CHECKCONNECTEDCOPPER` absent or `FALSE` (`TRUE` is refused with `connected-copper`); `IMPEDANCEPROFILEDRIVEN` absent, `FALSE` or `TRUE`; `IMPEDANCEPROFILEID`, `IMPEDANCEPROFILEVALUE`, `MINIMP`, `MAXIMP` and `FAVIMP` allowed and unused |
 | `RoutingVias` | `via_diameter` | `MINWIDTH` | `WIDTH` | `MAXWIDTH` | `AnyNet` | `VIASTYLE` is `Through Hole`; `USEVIATEMPLATES` absent or `FALSE` (`TRUE`: "Via templates"); `VIATEMPLATEGUID#<n>` and `VIATEMPLATENAME#<n>` allowed and unused |
 | `RoutingVias` | `via_drill` | `MINHOLEWIDTH` | `HOLEWIDTH` | `MAXHOLEWIDTH` | `AnyNet` | as the row above: `VIASTYLE`, `USEVIATEMPLATES` |
 | `HoleSize` | `hole_size` | `MINLIMIT` | — | `MAXLIMIT` | `AnyNet` | `ABSOLUTEVALUES` is `TRUE`; `MINPERCENT` and `MAXPERCENT` allowed and unused |
@@ -128,7 +128,8 @@ The reading:
   profile or holds the general values. Fenolite's impedance targets are not inferred from the record.
 - `MINIMP`, `MAXIMP` and `FAVIMP` without a profile key are read and unused: the widths the record holds
   are the rule. `CHECKCONNECTEDCOPPER=TRUE` judges the width of connected copper (tracks, arcs, fills, pads
-  and vias together), which no neutral rule says: it stays `keys`.
+  and vias together), which no neutral rule says: the record is refused with `connected-copper` and stays
+  carried. It is not mapped as a track rule.
 - Without the Altium ids of the board's copper layers (a rule file), a record whose per-layer values differ
   from the general ones, or that is profile-driven, is refused with `scope`.
 - A record that holds per-layer keys is kept for an Altium write ("Kept rule records"): the lowering writes
@@ -160,7 +161,9 @@ table is reported with `no-counterpart`.
 - **checked**: `fenolite check` performs the check by itself (the finding named); the mapper reports the
   record with `checked`. A record that relaxes the check gives the warning `altium.rules.check-relaxed`: a
   Short-Circuit with `ALLOWED=TRUE` (S-2249), a Net Antennae with `NETANTENNAETOLERANCE` above zero
-  (S-2217).
+  (S-2217). The relaxation is reported only: `fenolite check` takes no allowance by net (a waiver names
+  the items of one finding, a net tie the pads of one footprint) and no tolerance of dangling copper from
+  the design, so `check` still reports the short or the antenna.
 - **carried**: no neutral rule takes the kind; the record is carried (change c0434) and reported with
   `no-counterpart`, with the reason named.
 
@@ -181,10 +184,10 @@ table is reported with `no-counterpart`.
 | `HoleSize` | neutral | `hole_size` |
 | `HoleToHoleClearance` | neutral | `hole_to_hole` |
 | `LayerPairs` | carried | the drill pairs vias must use: the model holds no rule of drill pairs |
-| `MatchedLengths` | neutral | `skew` or `diff_pair_skew` ("Matched Lengths") |
+| `MatchedLengths` | neutral | `skew` or `diff_pair_skew` ("Matched Lengths"); the 15 public records use delay units and are refused with `delay-units` |
 | `MinimumAnnularRing` | neutral | `annular_width` |
 | `MinimumSolderMaskSliver` | carried | a minimum solder mask web: no copper geometry |
-| `NetAntennae` | checked | KiCad's dangling tracks |
+| `NetAntennae` | checked | KiCad's dangling tracks; a tolerance above zero is reported (`check-relaxed`) and not honoured: the dangling check takes no tolerance |
 | `PasteMaskExpansion` | read | `convert.openings`: the paste margin of each pad (c0440) |
 | `PlaneClearance` | read | the internal planes: a conversion to KiCad counts each plane lost with its rules (c0461) |
 | `PlaneConnect` | read | the internal planes: a conversion to KiCad counts each plane lost with its rules (c0461) |
@@ -196,7 +199,7 @@ table is reported with `no-counterpart`.
 | `RoutingVias` | neutral | `via_diameter`, `via_drill` |
 | `SMDToCorner` | carried | a distance from a surface pad to a track corner: the model holds no rule of it |
 | `SMDToPlane` | carried | a distance from a surface pad to a plane connection: the model holds no rule of it |
-| `ShortCircuit` | checked | `copper.short`, and KiCad's shorting items |
+| `ShortCircuit` | checked | `copper.short`, and KiCad's shorting items; `ALLOWED=TRUE` is reported (`check-relaxed`) and not honoured: `check` takes no allowance by net |
 | `SilkToBoardRegionClearance` | carried | a silkscreen to board region clearance: no copper geometry |
 | `SilkToSilkClearance` | neutral | `silk_clearance` |
 | `SilkToSolderMaskClearance` | carried | a silkscreen to solder mask clearance: no copper geometry |
@@ -204,7 +207,7 @@ table is reported with `no-counterpart`.
 | `UnRoutedNet` | checked | KiCad's unconnected items |
 | `UnpouredPolygon` | checked | `zone.unfilled` |
 | `ViasUnderSMD` | carried | whether vias may sit in surface pads: the model holds no rule of it |
-| `Width` | neutral | `track_width` |
+| `Width` | neutral | `track_width`; `CHECKCONNECTEDCOPPER=TRUE` is refused with `connected-copper`: Altium's connected-copper width check, which no neutral rule expresses |
 
 ## Matched Lengths
 
@@ -222,6 +225,14 @@ The reading (`rules._matched_lengths`):
   (neutral `skew` compares each net with the longest of the nets it selects). Any other set of groups
   (pairs against pairs, xSignals, several groups at once) is refused with `keys`.
 - No record gives `length`: no public record holds a target length.
+
+The 15 public records, all refused with `delay-units` (`tests/corpus/test_altium_rule_kinds_c0462.py` keeps the
+count):
+
+| row | rules (`NAME`) |
+|---|---|
+| `altium-third-party-pcbdoc-07` | `Schematic Matched Net Lengths`, `DifferentialPairs` |
+| `altium-third-party-pcbdoc-08` | `XSIG-USB_DOWNLOAD`, `XSIG-USB_CONNC`, `XSIG_PCIe`, `DIFF_PAIR_INTRA`, `MIPI_RX3`, `MIPI_RX2`, `MIPI_RX4`, `MIPI_RX5`, `MIPI_RX0/1`, `XSIG-USB_M.2`, `XSIG-USB`, `XSIG-IMU`, `XSIG-SPI` |
 
 ## Rule kinds seen
 
@@ -372,7 +383,8 @@ checked in this order.
 | `keys` | a key outside the header keys, the keys before `RULEKIND` and the keys of the kind, or a further condition fails |
 | `value` | a limit the table needs is missing (`GAP`; at least one limit otherwise) or is not a length |
 | `impedance-profile` | the record takes per-layer values from an impedance profile it does not hold ("Per-layer values") |
-| `template` | the record takes its via sizes from a via template the document does not hold ("Via templates") |
+| `template` | `USEVIATEMPLATES=TRUE`: the vias take the sizes of the via templates the record names, and no permitted source says what the rule check tests then ("Via templates") |
+| `connected-copper` | a Width record with `CHECKCONNECTEDCOPPER=TRUE`: Altium's connected-copper width check, which no neutral rule expresses ("Per-layer values") |
 | `matrix-kind` | a cell of an object matrix names an object kind no neutral kind holds ("Cells of an object matrix") |
 | `delay-units` | a Matched Lengths record gives its tolerance as a delay ("Matched Lengths") |
 | `scope` | a scope is outside the closed grammar and the two are no layer condition that maps, or `SCOPE2EXPRESSION` is not `All` for a unary kind |

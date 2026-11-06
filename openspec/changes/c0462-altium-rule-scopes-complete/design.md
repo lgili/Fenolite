@@ -152,10 +152,10 @@ guide (AGENTS.md rule 6).
 | kind | reading |
 |---|---|
 | MatchedLengths | `skew` over the selected nets (tolerance → limit), and `length` when the record holds a target length |
-| SolderMaskExpansion, PasteMaskExpansion | unscoped: `Board.mask_margin` (c0445) and its paste twin, when the target holds one. Scoped: per-pad margins on the pads the scope selects. Otherwise carried. |
+| SolderMaskExpansion, PasteMaskExpansion | read by the openings' reading (`convert.openings`, c0440 and c0445), scoped or not: each pad and via takes the margin of the record governing it, and `Board.mask_margin` follows from the vias' margins. The mapper does not set `Board.mask_margin` directly. |
 | PlaneClearance, PlaneConnect | read by the internal planes' reading (c0461 counts split planes lost). Carried and listed as read by that part. |
 | PolygonConnect | read by `connectstyle` with the full grammar. `connect-scope` goes away with it. |
-| ShortCircuit, UnRoutedNet, NetAntennae, UnpouredPolygon | `fenolite check` performs these checks by itself. The record is carried. A record that relaxes one (for example `ALLOWED=TRUE` on ShortCircuit) is reported `altium.rules.check-relaxed` and honoured by `check`. |
+| ShortCircuit, UnRoutedNet, NetAntennae, UnpouredPolygon | `fenolite check` performs these checks by itself. The record is carried. A record that relaxes one (for example `ALLOWED=TRUE` on ShortCircuit) is reported as the warning `altium.rules.check-relaxed`. `check` takes no allowance by net and no dangling tolerance from the design, so it does not honour the relaxation (amended during task 4.4). |
 | the rest (fanout, routing corners/topology/priority, layer pairs, test points, height, silk, sliver, orientations, SMD to corner/plane, acute angle, vias under SMD) | carried only (c0434), listed in the table with the reason that none governs copper geometry |
 
 The table in `rule-file.md`, "Rule kinds and their reading", is closed. A test fails when a corpus kind
