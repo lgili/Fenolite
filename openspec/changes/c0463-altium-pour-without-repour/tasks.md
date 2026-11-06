@@ -73,8 +73,15 @@ Rules for every task:
   messages on every row. Proof passed. Rows 03, 05 and 07 saved exactly Altium 24.5's repour; on 01, 02, 04,
   06 and 08 some rings differ, by at most 0.13% of a polygon's area, so no saved pour is stale enough to
   explain the M2 failures of rows 04 and 07.
-- [ ] 4.2 `tests/corpus/test_altium_pour_repour_c0463.py`, with stale saved pours named. Proof:
+- [x] 4.2 `tests/corpus/test_altium_pour_repour_c0463.py`, with stale saved pours named. Proof:
   `FENOLITE_HEAVY=1 uv run pytest tests/corpus/test_altium_pour_repour_c0463.py -q -n 0`.
+  Done (2026-11-06): with the corpus only, the record is checked against each source and the stale
+  polygons are pinned (2 on row 01, 6 on 02, 8 on 04, 6 on 06, 5 on 08); with
+  `FENOLITE_ALTIUM_REPOUR_DIR` naming the run's folder, each saved board is checked against the record and
+  Fenolite's pour of it is compared by M1 to M4 with Altium's regions. Altium saves the split-plane polygons
+  of row 01 in another order; they pour nothing and are compared as a set. The oracle's pins are this
+  branch's (the census's refusals, rows 03 and 05 compared); 4.3 repins them on `cac/lote-29`. Proof passed
+  (25 tests with the folder, 8 and 17 skipped without it).
 - [ ] 4.3 Repin the census to no refusals. Proof:
   `FENOLITE_HEAVY=1 uv run pytest tests/corpus/test_altium_pour_census.py -q -n 2`.
 

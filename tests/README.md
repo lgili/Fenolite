@@ -26,6 +26,7 @@ checks and the tests of `unit/`, `residue/` and `consistency/` that need no exte
 | `KICAD10_FOOTPRINT_DIR`, `KICAD10_SYMBOL_DIR` (or `KICAD9_*`) | official library folders for `needs_libs`; they take precedence over the install |
 | `FENOLITE_KICAD_INSTALL_DIR=/path` | the KiCad share folder to use instead of the default install (a missing path counts as no install) |
 | `FENOLITE_CENSUS_OUT=/path/census.json` | where `tests/libs/` writes its counts (never a tracked file) |
+| `FENOLITE_ALTIUM_REPOUR_DIR=/path` | the folder of a Repour run (`tools/kit_pour_c0463.py`); without it the tests of `test_altium_pour_repour_c0463.py` that need Altium's saved boards skip |
 
 ## Parallel runs
 
