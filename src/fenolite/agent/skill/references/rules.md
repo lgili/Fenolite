@@ -6,8 +6,8 @@ summary: Net classes against minimums, rules with selectors, the stack-up, whose
 
 # Design rules: classes, minimums and selectors
 
-Fenolite ships no design-rule value. Every limit comes from the script, whose author takes it from the
-fabricator's capabilities and the product's requirements. **Every number on this page is an example**:
+Fenolite ships no design-rule value: every limit comes from the script, whose author takes it from the
+fabricator and the product. **Every number on this page is an example**:
 it shows where a value goes, not what it should be.
 
 ## Three kinds of statement
@@ -18,7 +18,7 @@ it shows where a value goes, not what it should be.
 | `design.rules.minimum(...)` | what the check must refuse, for the board or for one class | KiCad's design-rule check, `fenolite check` |
 | `design.rules.rule(name, kind, ...)` | one rule of any kind, for the items a selector names | the same |
 
-A class is a wish and a minimum a limit. A track of a class with `track_width` 0.5 mm (example) is drawn
+A class is a wish and a minimum a limit. A track of a class with `track_width` 0.5 mm is drawn
 0.5 mm wide; only a minimum makes a narrower one a finding.
 
 ## A script with rules
@@ -90,41 +90,41 @@ d1.place(mm(15), mm(6), rot=180)
   clearance of a class. A class with a larger clearance is then checked against the board minimum
   only, and the build warns (`kicad.project.class-shadowed`). Restate the class value as a class
   minimum, as the script does for `PWR`.
-- Declare the board minimums in every script: without them the check has no limit of yours to hold
-  the copper against.
+- Declare the board minimums in every script: without them no limit of yours holds the copper.
 
 ## Rules with selectors
 
 `design.rules.rule(name, kind, where=, between=, min=, opt=, max=, severity=, priority=, layers=)`:
 
 - **Kinds:** the six of `minimum()`, and `hole_to_hole`, `hole_clearance`, `annular_width`,
-  `courtyard_clearance`, `silk_clearance` and `creepage`.
+  `courtyard_clearance`, `silk_clearance` and `creepage`. Allowances: `short` (`between=`, no limit;
+  `severity="ignore"` allows the short) and `antenna` (`max=` alone: the longest stub that passes);
+  `check` lists what they accept as `info`.
 - **Selectors** from `select`: `select.net(name)`, `select.netclass(name)`, `select.ref(part)`,
   `select.item("track")` (or `"via"`, `"pad"`, `"zone"`), `select.no_net()` (no net), `select.ALL`,
   the default; `&`, `|`, `~` combine them; names may hold `*`.
-- **`between=`** names the second item of a `clearance` or `creepage` rule, as another class's nets.
+- **`between=`**: the second item of a `clearance`, `creepage` or `short` rule.
 - **`severity`**: `error`, `warning` or `ignore`.
-- What a target cannot check stops the build with exit 7, never dropped in silence. A `creepage`
-  rule is written for KiCad 10 only (page `recovery`, exit 7).
+- What a target cannot check stops the build with exit 7, never in silence. A `creepage`
+  rule is written for KiCad 10 only (page `recovery`).
 - **`design.rules.severity(code, level)`** sets the severity (`error`, `warning` or `ignore`) of one
   check of KiCad's DRC, named by the code `check` prints (`kicad.drc.<type>`). A `copper.*` finding
   takes none, and `kicad.drc.clearance` cannot be ignored.
-- **`design.waive(code, *items, reason=)`** accepts one finding of `check` or of the build's copper
-  guard, named by its code and its items' `where` (page `checks`).
+- **`design.waive(code, *items, reason=)`** accepts one finding of `check` or of the copper guard,
+  named by its code and its items' `where` (page `checks`).
 
 ## The stack-up
 
 `design.stackup(...)` declares the build-up from the top face to the bottom face, with entries of
 `stack`: `stack.mask`, `stack.copper`, `stack.core`, `stack.prepreg`, `stack.silkscreen`. There is one
 `stack.copper` per copper layer of `board(copper=...)`, with a core or a prepreg between two of them. A
-thickness is a length with a unit (`"35um"`). `epsilon_r` and `loss_tangent` are decimal texts, never
-floats. Fenolite supplies no thickness and no material; a script without `stackup()` builds without one.
+thickness is a length with a unit (`"35um"`); `epsilon_r` and `loss_tangent` are decimal texts. Fenolite
+supplies no thickness and no material; a script without `stackup()` builds without one.
 
 A preset gives the whole build-up as one public fabricator page states it: `stack.preset(name)`
 returns its entries and `stack.PRESETS` lists the names (`two-layer-1.6mm`, `four-layer-1.6mm`,
 `six-layer-1.6mm`). The board's copper count must be the preset's, and the finish is still yours. A
-preset is what one page said when it was read (`INFERRED`); your fabricator's sheet for your order
-counts.
+preset is what one page said when read (`INFERRED`); your fabricator's sheet counts.
 
 ```fenolite-design
 from fenolite.dsl import Design, Net, Part, connect, mm, stack
@@ -191,7 +191,7 @@ r1.place(mm(18), mm(10))
 - `impedance_controlled=True` on the stack-up makes the job file tell the fabricator; without it the
   build warns (`build.impedance-stackup`).
 - `fenolite impedance` lists the targets for the fabricator; `--estimate` adds rough `INFERRED`
-  estimates of single-ended lines, never written into the design:
+  single-ended estimates, never written into the design:
 
 ```fenolite-cmd
 fenolite impedance blink/build --estimate --json

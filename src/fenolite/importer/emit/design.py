@@ -627,6 +627,10 @@ def _limits_said(rule: Rule) -> bool:
     if kind not in RULE_KINDS or (rule.selector_b is not None and kind not in BINARY_KINDS):
         return False
     given = [value for value in (rule.min, rule.opt, rule.max) if value is not None]
+    if kind == "short":  # change c0465: two sides, no limit
+        return rule.selector_b is not None and not given
+    if kind == "antenna":  # max alone, 0 or more
+        return (rule.min, rule.opt) == (None, None) and rule.max is not None and rule.max >= 0
     if kind in NO_LIMIT_KINDS:
         return not given and bool(rule.layers)
     if not given or (rule.min is not None and rule.min < 0 and kind not in NEGATIVE_MIN_KINDS):

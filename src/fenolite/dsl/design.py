@@ -206,8 +206,12 @@ class NearSpec:
 
 RULE_KINDS: tuple[str, ...] = get_args(RuleKind)
 RULE_SEVERITIES: tuple[str, ...] = get_args(RuleSeverity)
-BINARY_KINDS: frozenset[str] = frozenset({"clearance", "creepage"})
-"""The rule kinds that take a second selector (``between``)."""
+BINARY_KINDS: frozenset[str] = frozenset({"clearance", "creepage", "short"})
+"""The rule kinds that take a second selector (``between``); a ``short`` rule needs one (change c0465)."""
+ALLOWANCE_KINDS: frozenset[str] = frozenset({"short", "antenna"})
+"""The kinds of change c0465. A ``short`` rule takes ``between`` and no limit: its ``severity`` says what a
+short between the two sides is, and ``ignore`` allows it. An ``antenna`` rule takes ``max`` alone, 0 or
+more: the longest open-ended stub of the selected copper that passes."""
 NEGATIVE_MIN_KINDS: frozenset[str] = frozenset({"silk_clearance"})
 """The rule kinds whose ``min`` may be below zero: KiCad 9.0.9 and 10.0.6 read a negative ``silk_clearance``
 minimum and let silkscreen items overlap by up to that much (``rules.md``, ``H-K-DRU-NEG-SILK``; change
@@ -479,9 +483,9 @@ class Rules:
         priority: int | None = None,
     ) -> None:
         """Declare one design rule of any model kind. ``where`` selects the items (``fenolite.dsl.select``),
-        ``between`` the second item of a ``clearance`` or ``creepage`` rule. Priority 0 is written first and
-        governs least; among the others, 1 governs most. What depends on the target (the limits a kind
-        takes, the majors that check it, globs, layer names) is judged when the rules are lowered."""
+        ``between`` the second item of a ``clearance``, ``creepage`` or ``short`` rule. Priority 0 is written
+        first and governs least; among the others, 1 governs most. What depends on the target (the limits a
+        kind takes, the majors that check it, globs, layer names) is judged when the rules are lowered."""
         if not isinstance(name, str) or not name:  # pyright: ignore[reportUnnecessaryIsInstance]
             raise DslError(f"rule(): a rule name must be a non-empty string, not {name!r}")
         if name in self.named:
@@ -494,7 +498,12 @@ class Rules:
             raise DslError(f"rule() {name!r}: between must be a selector of fenolite.dsl.select")
         if between is not None and kind not in BINARY_KINDS:
             raise DslError(
-                f"rule() {name!r}: between is taken by clearance and creepage rules, not by {kind}"
+                f"rule() {name!r}: between is taken by clearance, creepage and short rules, not by {kind}"
+            )
+        if between is None and kind == "short":
+            raise DslError(
+                f"rule() {name!r}: a short rule needs between, the other side of the short, for example "
+                'between=select.net("DGND")'
             )
         if not isinstance(layers, tuple) or not all(isinstance(x, str) and x for x in layers):  # pyright: ignore[reportUnnecessaryIsInstance]
             raise DslError(f"rule() {name!r}: layers must be a tuple of layer names, not {layers!r}")
@@ -508,7 +517,18 @@ class Rules:
         for label, value in (("min", min), ("opt", opt), ("max", max)):
             limits[label] = None if value is None else as_nm(value, name=f"rule() {name!r}: {label}")
         given = [(label, value) for label, value in limits.items() if value is not None]
-        if kind in NO_LIMIT_KINDS:
+        if kind == "short":
+            if given:
+                raise DslError(
+                    f"rule() {name!r}: a short rule takes no limit, so {given[0][0]} is refused; its "
+                    'severity says what a short is (severity="ignore" allows it)'
+                )
+        elif kind == "antenna":
+            if [label for label, _ in given] != ["max"]:
+                raise DslError(f"rule() {name!r}: an antenna rule takes max alone, for example max=mm(1.5)")
+            if cast(Nm, limits["max"]) < 0:
+                raise DslError(f"rule() {name!r}: max must not be negative")
+        elif kind in NO_LIMIT_KINDS:
             if given:
                 raise DslError(f"rule() {name!r}: a {kind} rule takes no limit, so {given[0][0]} is refused")
             if not layers:
@@ -520,7 +540,7 @@ class Rules:
             raise DslError(f"rule() {name!r}: min must not be negative (a {allowed} rule may hold one)")
         for label in ("opt", "max"):
             value = limits[label]
-            if value is not None and value <= 0:
+            if value is not None and value <= 0 and kind != "antenna":
                 raise DslError(f"rule() {name!r}: {label} must be above 0")
         if any(a > b for (_, a), (_, b) in zip(given, given[1:], strict=False)):
             raise DslError(f"rule() {name!r}: the limits must rise from min through opt to max")

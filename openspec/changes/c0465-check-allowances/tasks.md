@@ -23,7 +23,7 @@ Rules for every task:
   approval, then regenerate the schemas and update `docs/design-model.md`. Proof:
   `uv run pytest tests/unit/model/test_rule_allowances_c0465.py -q -n 0`, `uv run python tools/model_review.py --check`,
   `uv run python tools/gen_schemas.py --check`.
-- [ ] 2.2 `design.rules.rule()` takes both kinds; agent guide lines. Proof:
+- [x] 2.2 `design.rules.rule()` takes both kinds; agent guide lines. Proof:
   `uv run pytest tests/unit/dsl/test_rule_allowances_c0465.py tests/unit/agent/test_pages.py -q -n 0`,
   `uv run python tools/gen_agent_guide.py --check`.
 
