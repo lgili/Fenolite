@@ -22,9 +22,14 @@
   same with an authored body on `D1`), with their sources, under
   `~/fenolite-altium-checks/claude-2026-11-06/c0453-flip/`. Proof: the files read back with `D1`'s frame
   as in 2.1 and its body as in 2.2.
-- [ ] 3.2 The VM agent's run (open, save, reopen, read) of the two files and of the c0430 flip as a control,
+- [x] 3.2 The VM agent's run (open, save, reopen, read) of the two files and of the c0430 flip as a control,
   recorded as S-2123 with its result. Proof: the agent's report with the side of `D1`'s pads, designator
   and body after the reopen.
+  Done 2026-11-06 (S-2123): 4 cases, no dialog; expectations hold after the reopen; the control passes.
+- [ ] 3.3 Write a flipped body as Altium's own flip does (S-2123): `BODYPROJECTION=1` with `MODEL.3D.ROTZ`
+  and `MODEL.2D.ROTATION` of the top body, not 180/180, so Altium's first save changes no byte of it. Proof:
+  `uv run pytest tests/unit/backends/altium/edit/test_flip_frame.py -q -n 0` and the VM reopen of
+  `c0453-flip-body.PcbDoc` with its body bytes unchanged.
 
 ## 4. Close
 
