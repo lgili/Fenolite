@@ -76,6 +76,7 @@ from fenolite.backends.kicad._libread import (
     child_locators,
     leading_atoms,
     load_source,
+    truetype_font,
 )
 from fenolite.backends.kicad._lowering import lower_outline
 from fenolite.backends.kicad.layers import expand_layers, has_wildcard, layer_kind, undeclared_layers
@@ -1613,6 +1614,7 @@ class _Reader:
         h_justify, v_justify, mirrored = field_justify(effects)
         layers = layer.atoms()
         ids = uuid.atoms() if uuid is not None else ()
+        truetype = truetype_font(font)  # change c0460: a TrueType field holds its face, bold and italic
         field = FootprintField(
             id=derived_id("fld", "kicad", f"{key}:field:{name}"),
             native_ids={"kicad": ids[0].value} if ids else {},
@@ -1627,6 +1629,9 @@ class _Reader:
             h_justify=h_justify,
             v_justify=v_justify,
             mirrored=mirrored,
+            bold=truetype[1] if truetype is not None else None,
+            italic=truetype[2] if truetype is not None else None,
+            face=truetype[0] if truetype is not None else None,
         )
         self.check(item, loc, slots, _emit_field(field, rotation), FIELD_CHAIN)
         return dataclasses.replace(field, ext={"kicad": slotlib.to_ext(slots)})
@@ -1996,6 +2001,7 @@ class _Reader:
         assert effects is not None
         h_justify, v_justify, _mirrored = field_justify(effects)
         ident, native_ids = self.ids.of("txt", "gr_text", item)
+        face, bold, italic = truetype_font(font) or ("", False, False)  # change c0460
         text = Text(
             id=ident,
             native_ids=native_ids,
@@ -2008,6 +2014,9 @@ class _Reader:
             thickness=self.nm_of(thickness_node, f"{font_loc}/thickness[0]"),
             h_justify=h_justify,
             v_justify=v_justify,
+            bold=bold,
+            italic=italic,
+            face=face,
         )
         self.check(item, loc, slots, _emit_text(text), chain)
         return dataclasses.replace(text, ext={"kicad": slotlib.to_ext(slots)})

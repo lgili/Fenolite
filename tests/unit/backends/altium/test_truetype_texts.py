@@ -97,6 +97,9 @@ def test_truetype_texts_read_back_with_their_font(tmp_path: Path) -> None:
 def test_stroke_styles_and_long_faces_are_still_refused() -> None:
     assert pcbdoc.text_problem_of(_free(face=FACE, bold=True, italic=True)) is None
     assert "bold" in (pcbdoc.text_problem_of(_free(bold=True)) or "")
+    # KiCad's own stroke font by name is no TrueType font: its bold is still refused
+    assert "bold" in (pcbdoc.text_problem_of(_free(face=pcbdoc.KICAD_STROKE_FACE, bold=True)) or "")
+    assert pcbdoc.text_font(_free(face=pcbdoc.KICAD_STROKE_FACE)) is None
     assert "knockout" in (pcbdoc.text_problem_of(_free(face=FACE, knockout=True)) or "")
     long = "F" * (pcbdoc.FONT_NAME_CHARS + 1)
     assert "longer" in (pcbdoc.text_problem_of(_free(face=long)) or "")
@@ -110,3 +113,26 @@ def test_stroke_styles_and_long_faces_are_still_refused() -> None:
             wide_index=0,
             font=pcbdoc.TextFont(long),
         )
+
+
+def test_truetype_texts_survive_a_trip_through_kicad(tmp_path: Path) -> None:
+    """Task 1.3 (option a): converted to KiCad and back, the free text and the reference field are TrueType
+    records again, with their face, bold and italic; the comment stays a stroke text."""
+    from fenolite.convert import convert_project
+    from fenolite.convert.sources import read_source
+
+    source = tmp_path / "altium" / "tt.PcbDoc"
+    source.parent.mkdir()
+    source.write_bytes(_written(_design(_free(face=FACE, bold=True))))
+    there = convert_project(read_source(source), to="kicad", allow_lossy=True)
+    for name, data in there.files.items():
+        (tmp_path / "kicad" / name).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / "kicad" / name).write_bytes(data)
+    back = convert_project(read_source(tmp_path / "kicad" / there.read_back), to="altium", allow_lossy=True)
+    (document,) = [data for name, data in back.files.items() if name.endswith(".PcbDoc")]
+    records = _records(document)
+    free = next(item for item in records if item.text == "TT")
+    assert (free.font_type, free.bold, free.italic, free.font_name) == (1, True, False, FACE)
+    designator = next(item for item in records if item.is_designator and item.font_type == 1)
+    assert (designator.bold, designator.italic, designator.font_name) == (False, True, FACE)
+    assert all(item.font_type == 0 for item in records if item.is_comment)

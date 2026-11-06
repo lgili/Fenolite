@@ -338,7 +338,8 @@ class FootprintField(Entity):
     mirrored: bool = False
     bold: bool | None = None
     """A bold font for the field (change c0277); ``None`` keeps the font the footprint gives. A KiCad reader
-    does not project it: the field's ``effects`` stay as read, and a value set here is written into them."""
+    projects it only for a field whose font names a face (change c0460); otherwise the field's ``effects``
+    stay as read. A value set here is written into them."""
     italic: bool | None = None
     """An italic font for the field, as ``bold`` (change c0277)."""
     face: str | None = None
@@ -683,7 +684,8 @@ class Text(Entity):
     knockout: bool = False
     """The text is cut out of a filled box on its layer, a copper or silkscreen layer (change c0277). The
     four fields from here are left out of the canonical JSON when unset; a KiCad reader keeps them in the
-    text's slots and does not project them."""
+    text's slots, and projects ``bold``, ``italic`` and ``face`` of a text whose font names a face (change
+    c0460)."""
     bold: bool = False
     italic: bool = False
     face: str = ""

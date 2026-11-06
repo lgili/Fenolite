@@ -1082,12 +1082,23 @@ TRUETYPE_FONT = 1
 """The font type byte of a TrueType text (``pcb-records.md``, "Text"; 0 is a stroke text)."""
 
 
+KICAD_STROKE_FACE = "KiCad Font"
+"""The face name of KiCad's own stroke font (``docs/formats/kicad/board.md``): a text that names it is a
+stroke text, not a TrueType text of that name (change c0460)."""
+
+
+def truetype_face(item: Text | FootprintField) -> str:
+    """The TrueType face of a text or field: its face, but ``""`` for none and for ``KICAD_STROKE_FACE``."""
+    return item.face if item.face and item.face != KICAD_STROKE_FACE else ""
+
+
 def text_font(item: Text | FootprintField) -> TextFont | None:
     """The TrueType font of a text or field (change c0460): its face with its bold and italic, or ``None``
-    for a stroke text (no face)."""
-    if not item.face:
+    for a stroke text (no face, or KiCad's stroke font by name)."""
+    face = truetype_face(item)
+    if not face:
         return None
-    return TextFont(item.face, bool(item.bold), bool(item.italic))
+    return TextFont(face, bool(item.bold), bool(item.italic))
 
 
 def short_text(text: str) -> bytes:
@@ -1107,7 +1118,7 @@ def text_problem_of(text: Text, *, footprint: bool = False) -> str | None:
         return "the text is empty"
     # change c0460: a face makes a TrueType text, which holds bold and italic; a stroke text holds neither
     styles = [name for name in ("knockout", "bold", "italic") if getattr(text, name)]
-    if text.face:
+    if truetype_face(text):
         styles = [name for name in styles if name == "knockout"]
         if len(text.face) > FONT_NAME_CHARS:
             return (

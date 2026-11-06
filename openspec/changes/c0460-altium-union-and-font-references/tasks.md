@@ -6,10 +6,11 @@
   footprint texts, fields); `uv run pytest tests/unit/backends/altium/test_truetype_texts.py`.
 - [x] 1.2 The writer writes a text or field with a face as font type 1 with its name, bold and italic;
   `text_problem_of` no longer refuses it; same proof.
-- [ ] 1.3 The conversion back to Altium keeps a text's font. The KiCad reader leaves `face`, `bold` and
-  `italic` in the text's slots (change c0277) and does not project them, so a round trip through KiCad still
-  writes stroke texts. Either the KiCad reader projects them, or the conversion to Altium reads them from
-  the slots; the choice is open.
+- [x] 1.3 The conversion back to Altium keeps a text's font. The KiCad reader left `face`, `bold` and
+  `italic` in the text's slots (change c0277), so a round trip through KiCad wrote stroke texts. Chosen
+  (coordinator, 2026-11-06): the KiCad reader projects them for a text whose font names a face (board
+  texts, footprint texts, fields); a stroke text keeps them in its slots and its canonical JSON. Proof:
+  `uv run pytest tests/unit/convert/test_truetype_kicad_c0460.py tests/unit/backends/altium/test_truetype_texts.py -n 0`.
 
 ## 2. Union members
 

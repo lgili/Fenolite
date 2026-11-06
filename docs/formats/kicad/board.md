@@ -910,7 +910,11 @@ token inside opaque content.
   or `face` writes them in its font in the order of the fact row above, the flags as `(bold yes)` and
   `(italic yes)`. A text on a copper layer is written like any other; the copper check leaves it out
   (`copper.text-unchecked`, info) and KiCad's DRC judges it (`H-K-BOARD-TEXT`). The reader does not project
-  `knockout`, `bold`, `italic` or `face`: a read text keeps them in its slots.
+  `knockout`. Since change c0460 it projects `face`, `bold` and `italic` of a text whose font names a face (a
+  TrueType text; the face `KiCad Font` names KiCad's own stroke font and is none): board texts, footprint texts and fields, so a text read from KiCad holds the font a text
+  read from Altium holds. A text in KiCad's stroke font keeps `bold` and `italic` in its slots, and its
+  canonical JSON is unchanged. A read board text still writes its font from its slots; a field's effects are
+  modelled, so it writes the face it holds.
 - **Several lines and an empty text** are written as the string atom holds them (`\n` escaped, as KiCad
   writes it); the reader reads them back unchanged.
 - **Extension offset.** A created dimension writes `Dimension.extension_offset` in its `style`, 0.5 mm when it
