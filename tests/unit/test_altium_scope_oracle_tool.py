@@ -44,7 +44,8 @@ def test_scope_lines() -> None:
 def test_counts_read_back() -> None:
     text = "\n".join(
         [
-            "1 board track 12", "1 board via 0", "1 child polygon track 1", "1 child polygon track 1",
+            "1 copper track 9", "1 board track 12", "1 board via 0", "1 child polygon track 1",
+            "1 child polygon track 1",
             "1 child component pad 1", "1 done", "2 skipped",
         ]
     )  # fmt: skip
@@ -53,10 +54,11 @@ def test_counts_read_back() -> None:
         {
             "scope": "InNet('GND')",
             "board": {"track": 12, "via": 0},
+            "copper": {"track": 9},
             "child": {"polygon/track": 2, "component/pad": 1},
             "state": "done",
         },
-        {"scope": "IsPad || IsVia", "board": {}, "child": {}, "state": "skipped"},
+        {"scope": "IsPad || IsVia", "board": {}, "copper": {}, "child": {}, "state": "skipped"},
     ]
 
 
@@ -76,6 +78,7 @@ def test_the_count_procedure_runs_no_process() -> None:
     body = text[text.index(f"Procedure {tool.COUNT_PROCEDURE};") :]
     assert "RunProcess" not in body and tool.CURRENT in body and "'.counts-' + Key + '.txt'" in body
     assert body.index("Writeln(OutFile, Key + ' done')") < body.index("ClearAll(Board)")
+    assert "MkSet(eTopLayer, eMidLayer1," in text and "eInternalPlane16, eMultiLayer)" in text
 
 
 def test_per_scope_counts(tmp_path: Path) -> None:

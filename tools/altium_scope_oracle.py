@@ -27,9 +27,10 @@ measure; ``--extra x<k>=<scope>`` adds a scope run beside the plan, read from
 
 For each scope the script clears every selection itself (``Selected``), runs the server process
 ``PCB:RunQuery`` with ``Expr``, ``Select`` and ``Apply``, and counts the selected objects of each kind: a
-``board`` line per kind the board iterator returns, and a ``child`` line per kind of the children of each
-polygon and component that a group iterator returns, since no public page says whether the board iterator
-returns them. A scope that holds ``|``, which separates the parameters of a process, is written ``skipped``.
+``copper`` line per kind on the copper layers, a ``board`` line per kind on every layer, and a ``child`` line
+per kind of the children of each polygon and component that a group iterator returns. The first by-hand run
+(2026-11-06) shows that the board iterator returns a component's children, silk included, hence the copper
+lines. A scope that holds ``|``, which separates the parameters of a process, is written ``skipped``.
 
 Every routine, method and constant of the script is in ``SCRIPT_CALLS`` with the public source that names
 it (``docs/evidence/sources.md``). The parameters of ``PCB:RunQuery`` come from a page that could not be
@@ -82,6 +83,15 @@ KINDS: Mapping[str, str] = MappingProxyType(
     }
 )
 """The ``TObjectId`` constants the script counts (S-2215, PCB API Types) → the kind written in the counts."""
+COPPER = (
+    "eTopLayer",
+    *(f"eMidLayer{k}" for k in range(1, 31)),
+    "eBottomLayer",
+    *(f"eInternalPlane{k}" for k in range(1, 17)),
+    "eMultiLayer",
+)
+"""The ``TLayer`` constants of the copper layers (S-2215, PCB API Types): a ``copper`` line counts the
+selected objects on them alone, which Fenolite's selectors govern; a ``board`` line counts every layer."""
 GROUPS = ("ePolyObject", "eComponentObject")
 """The kinds whose children a group iterator returns (S-2215, ``GroupIterator_Create``)."""
 
@@ -105,6 +115,7 @@ SCRIPT_CALLS: Mapping[str, str] = MappingProxyType(
         "ObjectId": "S-2215",
         "Selected": "S-2215",
         **dict.fromkeys(KINDS, "S-2215"),
+        **dict.fromkeys(COPPER, "S-2215"),
         "ResetParameters": "S-0506",
         "AddStringParameter": "S-0506",
         "RunProcess": "S-0506",
@@ -272,6 +283,7 @@ def scope_lines(scopes: Sequence[str]) -> str:
 def script_text() -> str:
     """The DelphiScript of the step; every name it calls is in ``SCRIPT_CALLS``."""
     kinds = ", ".join(KINDS)
+    copper = ", ".join(COPPER)
     names = "\n".join(f"  If Id = {constant} Then Result := '{kind}';" for constant, kind in KINDS.items())
     groups = " Or ".join(f"(Parent.ObjectId = {kind})" for kind in GROUPS)
     return f"""{{ Fenolite, change c0462 task 5.1: Altium's PCB filter counts per object kind for each
@@ -300,9 +312,28 @@ Begin
   Board.BoardIterator_Destroy(Iterator);
 End;
 
+Procedure CountCopper(Board, Kind, Key, OutFile);
+Var Iterator, Item, Count;
+Begin
+  Count := 0;
+  Iterator := Board.BoardIterator_Create;
+  Iterator.AddFilter_ObjectSet(MkSet(Kind));
+  Iterator.AddFilter_LayerSet(MkSet({copper}));
+  Iterator.AddFilter_Method(eProcessAll);
+  Item := Iterator.FirstPCBObject;
+  While Item <> Nil Do
+  Begin
+    If Item.Selected Then Count := Count + 1;
+    Item := Iterator.NextPCBObject;
+  End;
+  Board.BoardIterator_Destroy(Iterator);
+  Writeln(OutFile, Key + ' copper ' + KindName(Kind) + ' ' + FloatToStr(Count));
+End;
+
 Procedure CountKind(Board, Kind, Key, OutFile);
 Var Iterator, Item, Count;
 Begin
+  CountCopper(Board, Kind, Key, OutFile);
   Count := 0;
   Iterator := Board.BoardIterator_Create;
   Iterator.AddFilter_ObjectSet(MkSet(Kind));
@@ -428,7 +459,7 @@ KEYWORDS = frozenset(
 
 def called_names(text: str) -> set[str]:
     """The names of ``text`` that are not its own procedures, variables or parameters, nor a keyword."""
-    own = {"KindName", "ClearAll", "CountKind", "CountChildren", PROCEDURE, COUNT_PROCEDURE}
+    own = {"KindName", "ClearAll", "CountKind", "CountCopper", "CountChildren", PROCEDURE, COUNT_PROCEDURE}
     own |= set("Id Board Iterator Item Children Child Kind Key OutFile Count Parent Clear".split())
     own |= {"InFile", "Line", "Space", "Expr"}
     body = re.sub(r"'[^']*'", "", re.sub(r"\{[^}]*\}", "", text))
@@ -436,7 +467,7 @@ def called_names(text: str) -> set[str]:
 
 
 _COUNT = re.compile(
-    r"(?P<n>[0-9]+) (?:(?P<board>board) (?P<kind>[a-z]+) (?P<count>[0-9]+)"
+    r"(?P<n>[0-9]+) (?:(?P<board>board|copper) (?P<kind>[a-z]+) (?P<count>[0-9]+)"
     r"|(?P<child>child) (?P<parent>[a-z]+) (?P<ckind>[a-z]+) 1|(?P<state>done|skipped))"
 )
 
@@ -454,9 +485,11 @@ def parse_counts(text: str, scopes: Sequence[str]) -> list[dict[str, object]]:
         n = int(found["n"])
         if not 1 <= n <= len(scopes):
             raise ValueError(f"scope {n} is not in the plan")
-        entry = entries.setdefault(n, {"scope": scopes[n - 1], "board": {}, "child": {}, "state": None})
+        entry = entries.setdefault(
+            n, {"scope": scopes[n - 1], "board": {}, "copper": {}, "child": {}, "state": None}
+        )
         if found["board"]:
-            cast(dict[str, int], entry["board"])[found["kind"]] = int(found["count"])
+            cast(dict[str, int], entry[found["board"]])[found["kind"]] = int(found["count"])
         elif found["child"]:
             child = cast(dict[str, int], entry["child"])
             key = f"{found['parent']}/{found['ckind']}"
