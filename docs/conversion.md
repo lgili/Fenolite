@@ -281,7 +281,14 @@ the verification kit and the author reports (`docs/altium-kit.md`).
 The conversion writes a derived `<name>.PcbLib`: one footprint per name after the last `:` of its
 reference, chosen from the first instance in reference order in its local frame. Every board component
 links this library. Edited pads or graphics remain on the PCB and are counted `changed` under
-`footprint`. Long names that share a compound storage key use distinct storage keys in `SectionKeys`;
+`footprint`. A component whose KiCad footprint holds the hidden properties `Altium Footprint` and `Altium
+Symbol` (an Altium conversion wrote them, change c0451) takes those links back while its footprint is still
+the one derived from the source pattern: its footprint goes to a `.PcbLib` and its symbol to a `.SchLib`
+named as the source names them, which the project lists, and the two properties reach no parameter. A
+board text `${NAME}` is written `.NAME`, and `${NAME}` inside other text `'.NAME'`; `${CURRENT_DATE}`,
+`${FILENAME}`, `${FILEPATH}` and `${LAYER}` are `.Print_Date`, `.Pcb_File_Name_No_Path`, `.Pcb_File_Name` and
+`.Layer_Name`; each is a `text` change, and the project's text variables are the project file's
+`[Parameter<n>]` entries. Long names that share a compound storage key use distinct storage keys in `SectionKeys`;
 the full footprint names are preserved. Bodies follow `--altium-bodies extruded|off`.
 
 Plain per-layer pads use Top-Middle-Bottom or Full Stack records. Connector pads use a surface record
@@ -398,8 +405,10 @@ text, is written `${NAME}` when `NAME` is a project parameter. A board document 
 parameters of the one `.PrjPcb` that lists it, up to three folders up; the board's own variables win. The
 predefined strings `.Layer_Name`, `.Pcb_File_Name`, `.Pcb_File_Name_No_Path` and `.Print_Date` (S-1871), in
 any letter case, are written `${LAYER}`, `${FILEPATH}`, `${FILENAME}` and `${CURRENT_DATE}` (S-1870); a
-project parameter of the same name wins. Each is a `text` change; every other special string is written as
-typed, also a `text` change. When the circuit holds one designator on several parts and at most one is on
+project parameter of the same name wins. Each is a `text` change; every other special string whose name is
+a variable name is written `${NAME}`, a variable the project does not define (change c0451), and one whose
+name is not (a space, say) as typed, each a `text` change. Each component's footprint and symbol links of
+the source are the hidden footprint properties `Altium Footprint` and `Altium Symbol` (change c0451). When the circuit holds one designator on several parts and at most one is on
 the board, that part (or the first) keeps it and each other becomes `<ref>_<n>` on the generated schematic, a
 `schematic` change; the schematic is written. When several parts on the board share one, the board keeps
 them and the schematic is a `schematic` loss.

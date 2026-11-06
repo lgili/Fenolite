@@ -289,6 +289,10 @@ is which values the records get.
   starts with `FREE_`, `libnames.FREE_PAD_PREFIX`; change c0447), which is counted changed. Before
   c0447 the second form was written as a component with designator `''`, whose Designator and Comment
   texts lay at (-1000, -1000) mil and broke Board Outline Clearance (S-2060).
+- **Empty texts.** A component whose model places a `Value` field gets its comment text record also
+  when the comment is empty, with that place and shown flag: `altium-third-party-pcbdoc-01` holds four
+  such records (S-2101, CORPUS-VERIFIED). A footprint text without characters is written as a text
+  record without characters (change c0451); a board text without characters is refused.
 - **Texts outside 7-bit ASCII.** A designator or a comment that the 8-bit string cannot hold is written
   as a free text is: the 8-bit string with `?` for each character outside ISO-8859-1, and the text
   itself as the wide string.

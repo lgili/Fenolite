@@ -579,6 +579,7 @@ def write_project(
     form: SchematicForm = DEFAULT_FORM,
     symbols: Mapping[str, AltiumSymbol] | None = None,
     footprints: Sequence[LibFootprint] = (),
+    extra_footprints: Mapping[str, Sequence[LibFootprint]] | None = None,
     pcb: PcbDocSpec | None = None,
     sheets: SheetMode = DEFAULT_SHEETS,
     outjob: bytes | None = None,
@@ -600,8 +601,9 @@ def write_project(
     ``project`` is true, ``<name>.PrjPcb`` listing them, as bytes; no file is written. ``symbols`` maps a
     lib id to its library symbol; a lib id missing from it gets its generic symbol. The binary form and
     every library raise ``cfb.CompoundTooLarge`` past the compound file's size limit. ``footprints`` (change
-    c0035) are written into ``<name>.PcbLib`` when not empty, and ``pcb`` into ``<name>.PcbDoc``; the
-    project file lists both; their size limit raises ``PcbTooLarge``. With ``sheets="modules"`` (change
+    c0035) are written into ``<name>.PcbLib`` when not empty, ``extra_footprints`` into the file each key
+    names (change c0451), and ``pcb`` into ``<name>.PcbDoc``; the project file lists them; their size
+    limit raises ``PcbTooLarge``. With ``sheets="modules"`` (change
     c0037) ``<name>.SchDoc`` is the top sheet, each top-level module gets ``<name>_<module>.SchDoc``, each
     sheet with a harness block gets ``<sheet stem>.Harness``, and the project file lists them all; the
     libraries do not depend on the mode. A design with a net class (change c0048) gets the net class
@@ -665,6 +667,7 @@ def write_project(
     listed = list(libraries)
     if footprints:
         listed.append(f"{name}.PcbLib")
+    listed.extend(sorted(extra_footprints or {}))
     if project:
         files[f"{name}.PrjPcb"] = write_prjpcb(
             schematic=f"{name}.SchDoc",
@@ -707,6 +710,11 @@ def write_project(
             )
         except CompoundTooLarge as error:
             raise PcbTooLarge(f"{name}.PcbLib", error) from error
+    for file, found in sorted((extra_footprints or {}).items()):  # change c0451: a source's libraries
+        try:
+            files[file] = write_pcblib(found, filename=file, disambiguate_storages=read_circuit)
+        except CompoundTooLarge as error:
+            raise PcbTooLarge(file, error) from error
     if pcb is not None:
         # Native compilation links a multipart component through its last written part (c0166).
         # Keep the PCB link in step with the actual sheet plans, including resolved symbol units.

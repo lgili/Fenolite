@@ -107,7 +107,7 @@ def test_a_board_without_its_project_keeps_no_parameters(tmp_path: Path) -> None
 def test_predefined_special_strings_take_kicad_variables() -> None:
     """``.Layer_Name``, ``.Pcb_File_Name``, ``.Pcb_File_Name_No_Path`` and ``.Print_Date`` in any letter
     case become ``${LAYER}``, ``${FILEPATH}``, ``${FILENAME}`` and ``${CURRENT_DATE}``; a project parameter of
-    the same name wins; other names stay as typed."""
+    the same name wins; another name is a variable the project does not define (change c0451)."""
     from fenolite.convert.altium_strings import special_text
 
     assert special_text(".Layer_Name", {}) == ("${LAYER}", ())
@@ -118,4 +118,4 @@ def test_predefined_special_strings_take_kicad_variables() -> None:
     )
     assert special_text(".Pcb_File_Name", {}) == ("${FILEPATH}", ())
     assert special_text(".Layer_Name", {"Layer_Name": "x"}) == ("${Layer_Name}", ())
-    assert special_text(".Arc_Count", {}) == (".Arc_Count", (".Arc_Count",))
+    assert special_text(".Arc_Count", {}) == ("${Arc_Count}", (".Arc_Count",))  # change c0451

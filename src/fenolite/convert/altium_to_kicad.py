@@ -660,7 +660,10 @@ def prepare(source: SourceProject, name: str, target: int, ledger: Ledger) -> De
     used: set[str] = set()
     footprints: list[FootprintInstance] = []
     links: dict[str, str] = {}
+    source_links: dict[str, str] = {}  # change c0451: the source's link, carried as a KiCad property
     for fp in sorted(board.footprints, key=lambda f: (refs.get(f.component_id, ""), f.id)):
+        if fp.lib_ref:
+            source_links.setdefault(fp.component_id, fp.lib_ref)
         raw = fp.lib_ref or f"{FREE_PAD_PREFIX}{fp.id}"
         if raw not in allocated:
             candidate = _name(raw.rsplit(":", 1)[-1], allow_space=True)
@@ -713,12 +716,17 @@ def prepare(source: SourceProject, name: str, target: int, ledger: Ledger) -> De
         dataclasses.replace(c, lib_footprint_ref=links.get(c.id, c.lib_footprint_ref))
         for c in design.circuit.components
     )
-    return dataclasses.replace(
-        design,
-        header=dataclasses.replace(design.header, name=name),
-        board=board,
-        rules=rules,
-        circuit=dataclasses.replace(design.circuit, components=components),
+    from fenolite.convert import altium_links  # change c0451: the source's links through KiCad
+
+    return altium_links.carry(
+        dataclasses.replace(
+            design,
+            header=dataclasses.replace(design.header, name=name),
+            board=board,
+            rules=rules,
+            circuit=dataclasses.replace(design.circuit, components=components),
+        ),
+        source_links,
     )
 
 

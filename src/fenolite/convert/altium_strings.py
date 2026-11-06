@@ -19,6 +19,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from fenolite.model.board import Board, Text
+from fenolite.model.design import Design
+from fenolite.model.presentation import PARAM_NAME
 
 if TYPE_CHECKING:
     from fenolite.convert.altium_to_kicad import Ledger
@@ -26,6 +28,13 @@ if TYPE_CHECKING:
 QUOTED = re.compile(r"'\.([^']+)'")
 """One special string inside other text: a name after ``.``, enclosed in apostrophes."""
 UNMAPPED = "the special string {names} names no project parameter: written as typed"
+UNDEFINED = (
+    "the special string {names} names no project parameter: written as a KiCad text variable the project "
+    "does not define"
+)
+"""The reason of a special string whose name is a variable name and that names no project parameter and no
+predefined string (change c0451): ``${NAME}``, which a KiCad user may define and the way back writes as
+``.NAME`` again."""
 PREDEFINED = {
     "layer_name": "LAYER",
     "pcb_file_name": "FILEPATH",
@@ -47,6 +56,11 @@ def _variable(name: str, params: Mapping[str, str]) -> str | None:
     return "${" + known + "}" if known is not None else None
 
 
+def _undefined(name: str) -> str | None:
+    """``${NAME}`` for a special string of no project parameter whose name is a variable name (c0451)."""
+    return "${" + name + "}" if PARAM_NAME.fullmatch(name) else None
+
+
 def special_text(text: str, params: Mapping[str, str]) -> tuple[str, tuple[str, ...]]:
     """``text`` with each special string that names a key of ``params`` written as ``${NAME}``, each
     predefined one of ``PREDEFINED`` as its KiCad variable, and the names of the other special strings,
@@ -61,7 +75,7 @@ def _special(text: str, params: Mapping[str, str]) -> tuple[str, tuple[str, ...]
     if text.startswith(".") and "'" not in text:
         found = _variable(text[1:], params)
         if found is None:
-            return text, (text,), ()
+            return _undefined(text[1:]) or text, (text,), ()
         return found, (), (() if text[1:] in params else (text,))
     others: list[str] = []
 
@@ -70,7 +84,7 @@ def _special(text: str, params: Mapping[str, str]) -> tuple[str, tuple[str, ...]
         found = _variable(name, params)
         if found is None:
             others.append("." + name)
-            return match.group(0)
+            return _undefined(name) or match.group(0)
         if name not in params:
             mapped.append("." + name)
         return found
@@ -87,10 +101,72 @@ def board_strings(board: Board, ledger: Ledger) -> Board:
         written, others, mapped = _special(text.text, params)
         if mapped:
             ledger.change("text", text.id, MAPPED.format(names=", ".join(mapped)))
-        if others:
-            ledger.change("text", text.id, UNMAPPED.format(names=", ".join(others)))
+        undefined = [name for name in others if PARAM_NAME.fullmatch(name[1:])]
+        typed = [name for name in others if name not in undefined]
+        if undefined:
+            ledger.change("text", text.id, UNDEFINED.format(names=", ".join(undefined)))
+        if typed:
+            ledger.change("text", text.id, UNMAPPED.format(names=", ".join(typed)))
         texts.append(dataclasses.replace(text, text=written) if written != text.text else text)
     return dataclasses.replace(board, texts=tuple(texts))
+
+
+KICAD_PREDEFINED = {
+    "CURRENT_DATE": "Print_Date",
+    "FILENAME": "Pcb_File_Name_No_Path",
+    "FILEPATH": "Pcb_File_Name",
+    "LAYER": "Layer_Name",
+}
+"""KiCad's board variables of ``PREDEFINED`` → the predefined special string of the same meaning, in the case
+the Altium documentation writes it (S-1871; change c0451)."""
+VARIABLE = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
+"""One KiCad text variable whose name is a variable name."""
+BACK = "the KiCad text variable {names} is written as the special string of its name"
+
+
+def altium_text(text: str) -> tuple[str, tuple[str, ...]]:
+    """``text`` (a KiCad board text) with a text that is one ``${NAME}`` written as ``.NAME`` and each
+    ``${NAME}`` inside other text as ``'.NAME'``, a predefined board variable as its special string
+    (``KICAD_PREDEFINED``), and the variables written (change c0451)."""
+    found: list[str] = []
+
+    def name_of(match: re.Match[str]) -> str:
+        name = match.group(1)
+        found.append(match.group(0))
+        return KICAD_PREDEFINED.get(name, name)
+
+    whole = VARIABLE.fullmatch(text)
+    if whole is not None:
+        return "." + name_of(whole), tuple(found)
+    return VARIABLE.sub(lambda match: "'." + name_of(match) + "'", text), tuple(found)
+
+
+def altium_strings(design: Design) -> tuple[Design, dict[str, tuple[str, ...]]]:
+    """``design`` (read from a KiCad project) whose board texts hold their text variables as special strings
+    (``altium_text``), and the ids of the changed texts by reason."""
+    board = design.board
+    if board is None:
+        return design, {}
+    texts: list[Text] = []
+    changed: dict[str, list[str]] = {}
+    for text in board.texts:
+        written, names = altium_text(text.text)
+        if names:
+            changed.setdefault(BACK.format(names=", ".join(names)), []).append(text.id)
+            text = dataclasses.replace(text, text=written)
+        texts.append(text)
+    if not changed:
+        return design, {}
+    board = dataclasses.replace(board, texts=tuple(texts))
+    return dataclasses.replace(design, board=board), {k: tuple(v) for k, v in changed.items()}
+
+
+def project_parameter_pairs(design: Design) -> tuple[tuple[str, str], ...]:
+    """The text variables of the board (a KiCad project's), as the ``[Parameter<n>]`` entries of an Altium
+    project, in their order (change c0451)."""
+    board = design.board
+    block = board.title_block if board is not None else None
+    return tuple(block.params.items()) if block is not None else ()
 
 
 def owning_project(document: Path) -> Path | None:

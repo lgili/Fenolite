@@ -1298,7 +1298,7 @@ def _footprint_items(
             places[field.name] = place(field, f"the place of the field {field.name}")
     texts: list[pcbdoc.ComponentText] = []
     for text in fp.texts:
-        problem = pcbdoc.text_problem_of(text)
+        problem = pcbdoc.text_problem_of(text, footprint=True)
         if problem is not None:
             account.skip("footprint-text", text.id, problem)
             continue
@@ -2215,6 +2215,7 @@ def write_design(
     edges: Outline | None = None,
     pour: PourMode | None = None,
     source_rules: Sequence[tuple[int, tuple[tuple[str, str], ...]]] = (),
+    parameters: Sequence[tuple[str, str]] = (),
 ) -> ProjectWrite:
     """The files of an Altium project written from ``design`` alone: ``<name>.PcbDoc`` when the design holds a
     board with an outline or an item, and ``<name>.SchDoc`` with its libraries and ``<name>.PrjPcb`` when the
@@ -2228,7 +2229,9 @@ def write_design(
     extra; an explicit ``computed`` raises ``BackendUnavailable`` then; a rewrite (``rewrite``) pours every
     polygon again. ``source_rules`` (change c0434) are the rule records of the Altium document a conversion
     started from, each its kind number and its keys from ``RULEKIND`` on: the document holds them as they
-    are, then only the rules of ``design`` that none of them gave (``PcbDocSpec.source_rules``)."""
+    are, then only the rules of ``design`` that none of them gave (``PcbDocSpec.source_rules``).
+    ``parameters`` are written as the project file's ``[Parameter<n>]`` entries (change c0451: the text
+    variables of a converted KiCad project)."""
     refuse_bom_only(design)
     if schematic is not None:
         refuse_bom_only(schematic)
@@ -2262,6 +2265,16 @@ def write_design(
     library: tuple[pcblib.LibFootprint, ...] = ()
     if derive_library:
         inputs, library = derived_library(design, inputs)
+    # change c0451: a footprint of a source library goes to that library's file, the others to <name>.PcbLib
+    homes = {c.footprint.defn.id: c.footprint_library for c in inputs.pcb.components} if inputs.pcb else {}
+    by_file: dict[str, list[pcblib.LibFootprint]] = {}
+    for found_footprint in library:
+        home = homes.get(found_footprint.defn.id, "")
+        by_file.setdefault(home if home and derive_library else f"{inputs.name}.PcbLib", []).append(
+            found_footprint
+        )
+    library = tuple(by_file.pop(f"{inputs.name}.PcbLib", ()))
+    extra_libraries = {file: tuple(found) for file, found in by_file.items()}
     lost = [found for found in issues if found.where in LOSS_KINDS]
     if lost and not allow_lossy:
         also = [found for found in issues if found.code == NOT_LOWERED and found.where not in LOSS_KINDS]
@@ -2281,6 +2294,7 @@ def write_design(
                     issues=issues,
                     pcb=inputs.pcb,
                     footprints=library,
+                    extra_footprints=extra_libraries,
                     symbols=symbols,
                     sheets=sheets,
                     extra_modules=tuple(m.path for m in schematic.circuit.modules)
@@ -2289,6 +2303,7 @@ def write_design(
                     read_circuit=True,
                     pour=mode,
                     pour_results=results,
+                    title_parameters=parameters,
                 )
             )
         except CompoundTooLarge:
@@ -2319,6 +2334,9 @@ def write_design(
         files[f"{name}.PcbLib"] = pcblib.write_pcblib(
             library, filename=f"{name}.PcbLib", disambiguate_storages=True
         )
+    for file, found_footprints in extra_libraries.items():
+        if file not in files:
+            files[file] = pcblib.write_pcblib(found_footprints, filename=file, disambiguate_storages=True)
     return ProjectWrite(MappingProxyType(dict(sorted(files.items()))), tuple(issues), inputs, found, mode)
 
 
@@ -2338,18 +2356,28 @@ def _shape(value: object) -> object:
 def derived_library(
     design: Design, inputs: AltiumInputs
 ) -> tuple[AltiumInputs, tuple[pcblib.LibFootprint, ...]]:
-    """One library definition per pattern, chosen by reference order; board instances retain their edits."""
+    """One library definition per pattern and library file, chosen by reference order; board instances
+    retain their edits. A footprint whose link names an Altium library (``project.is_altium_footprint``: the
+    link a conversion gave back from the source, change c0451) goes to that library file, every other one
+    to ``<name>.PcbLib``; each component links the file of its footprint."""
     if inputs.pcb is None or design.board is None:
         return inputs, ()
     footprints = {fp.id: fp for fp in design.board.footprints}
-    library: dict[str, pcblib.LibFootprint] = {}
-    shapes: dict[str, object] = {}
+    own = f"{inputs.name}.PcbLib"
+
+    def file_of(fp: FootprintInstance) -> str:
+        return fp.lib_ref.partition(":")[0] if project.is_altium_footprint(fp.lib_ref) else own
+
+    library: dict[tuple[str, str], pcblib.LibFootprint] = {}
+    shapes: dict[tuple[str, str], object] = {}
+    files: dict[str, str] = {}
     changed: list[str] = []
     for placed in sorted(inputs.pcb.components, key=lambda c: (c.ref, c.unique_id)):
         fp = footprints.get(placed.footprint.defn.id)
         if fp is None:
             continue
-        pattern = placed.footprint.defn.name
+        files[placed.ref] = file_of(fp)
+        pattern = (files[placed.ref], placed.footprint.defn.name)
         bottom = fp.side == "bottom"
         shape = _shape(
             (
@@ -2373,7 +2401,7 @@ def derived_library(
             )
             for item in placed.items
         )
-        empty = pcblib.LibFootprint(FootprintDef(id=fp.id, name=pattern))
+        empty = pcblib.LibFootprint(FootprintDef(id=fp.id, name=pattern[1]))
         local = dataclasses.replace(
             placed, footprint=empty, at=Point(0, 0), rotation=0, side="top", items=items, arc_records={}
         )
@@ -2432,7 +2460,7 @@ def derived_library(
     linked = tuple(
         dataclasses.replace(
             c,
-            footprint_library=f"{inputs.name}.PcbLib",
+            footprint_library=files.get(c.ref, own),
             component_library=project.schlib_name(part.lib_symbol_ref, design=inputs.name),
             lib_reference=part.lib_symbol_ref.rpartition(":")[2],
         )
@@ -2444,7 +2472,7 @@ def derived_library(
     circuit = dataclasses.replace(
         inputs.schematic.circuit,
         components=tuple(
-            dataclasses.replace(c, lib_footprint_ref=f"{inputs.name}.PcbLib:{refs[c.ref]}")
+            dataclasses.replace(c, lib_footprint_ref=f"{files.get(c.ref, own)}:{refs[c.ref]}")
             if c.ref in refs
             else c
             for c in inputs.schematic.circuit.components

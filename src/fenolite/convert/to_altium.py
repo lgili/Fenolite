@@ -24,7 +24,7 @@ from fenolite.backends.altium import lower
 from fenolite.backends.altium.cfb import CompoundTooLarge
 from fenolite.backends.kicad import fpitems
 from fenolite.backends.kicad.outline import edge_outline
-from fenolite.convert import pads, schematic
+from fenolite.convert import altium_links, altium_strings, pads, schematic
 from fenolite.convert.direction import Direction, Options, TargetLimitError, Written
 from fenolite.convert.report import SOURCE_RULE_LOST, ConversionReport, census
 from fenolite.convert.sources import ALTIUM, KICAD, SourceProject
@@ -196,7 +196,10 @@ def write(source: SourceProject, options: Options) -> Written:
     design = with_mask_margin(pads.project(fpitems.with_graphic_nets(projected)), source)
     carried = _carried(source, design)  # change c0434: the source's own rule records
     design = carried.design
-    sch, symbols, changed_comments = schematic.inputs(source, design)
+    links = altium_links.symbol_links(design)  # change c0451: the source's links of an Altium conversion
+    design = altium_links.restore(design)
+    design, strings = altium_strings.altium_strings(design)  # change c0451: ${NAME} as .NAME
+    sch, symbols, changed_comments = schematic.inputs(source, design, links)
     board = design.board
     # the edges as an outline (change c0170): the board ring as before, each inner ring a cut-out region
     edges = edge_outline(design) if board is not None and board.outline is None else None
@@ -215,6 +218,7 @@ def write(source: SourceProject, options: Options) -> Written:
             # default mode is asked for explicitly, so a missing geo extra raises BackendUnavailable
             pour=options.pour or "computed",
             source_rules=carried.records,
+            parameters=altium_strings.project_parameter_pairs(design),
         )
     except CompoundTooLarge as error:
         raise TargetLimitError(
@@ -232,6 +236,8 @@ def write(source: SourceProject, options: Options) -> Written:
     }
     for kind, reasons in inputs.changed.items():
         changed[kind] = {**changed.get(kind, {}), **reasons}
+    if strings:
+        changed["text"] = {**changed.get("text", {}), **strings}
     if ZONE_FILL in changed:
         changed[ZONE_FILL] = _zone_fills(changed[ZONE_FILL], written)
     if changed_comments:

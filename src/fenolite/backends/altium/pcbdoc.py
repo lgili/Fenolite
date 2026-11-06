@@ -913,11 +913,12 @@ def short_text(text: str) -> bytes:
     return bytes((len(data),)) + data
 
 
-def text_problem_of(text: Text) -> str | None:
-    """Why a free text cannot be written, or ``None``: an empty string, a control character or a line
-    break, a height or stroke width that is not positive, or a style of change c0277 (knockout, bold,
-    italic, a font face) that the text record of the writer does not hold."""
-    if not text.text:
+def text_problem_of(text: Text, *, footprint: bool = False) -> str | None:
+    """Why a free text cannot be written, or ``None``: an empty string (a board text; a ``footprint`` text
+    may be empty, as a saved document holds it, change c0451), a control character or a line break, a
+    height or stroke width that is not positive, or a style of change c0277 (knockout, bold, italic, a
+    font face) that the text record of the writer does not hold."""
+    if not text.text and not footprint:
         return "the text is empty"
     styles = [name for name in ("knockout", "bold", "italic") if getattr(text, name)]
     if text.face:
@@ -2136,10 +2137,12 @@ def _write(
             (component.ref, True, Point(middle, y1 + DESIGNATOR_RISE)),
             (component.comment, False, Point(middle, y0 - COMMENT_DROP)),
         ):
-            if not text:  # a component of a model that was read may have no designator or comment
+            place = component.designator_place if designator else component.comment_place
+            # a component of a model that was read may have no designator or comment; an empty comment
+            # whose field the model places is written, as a saved document holds it (change c0451)
+            if not text and (designator or place is None):
                 continue
             number = len(texts)
-            place = component.designator_place if designator else component.comment_place
             if place is None:
                 texts.append(
                     text_record(
