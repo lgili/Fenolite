@@ -388,10 +388,12 @@ def has_copper(design: Design) -> bool:
 @dataclass(frozen=True, slots=True)
 class NetPairing:
     """The nets that level 2 pairs: each pair of net ids ``(a, b)`` whose blocks of ``REF-PIN`` elements
-    are equal, and the elements both sides hold (those of the components that level 1 compared)."""
+    are equal, the elements both sides hold (those of the components that level 1 compared), and the
+    elements that only one side holds (change c0444): a pad that a conversion lost, say."""
 
     pairs: tuple[tuple[str, str], ...] = ()
     elements: frozenset[str] = frozenset()
+    one_sided: frozenset[str] = frozenset()
 
 
 def pair_nets(a: Design, b: Design, refs: Sequence[str]) -> NetPairing:
@@ -422,7 +424,7 @@ def pair_nets(a: Design, b: Design, refs: Sequence[str]) -> NetPairing:
         if block and other is not None and other not in taken:
             pairs.append((net, other))
             taken.add(other)
-    return NetPairing(tuple(pairs), common)
+    return NetPairing(tuple(pairs), common, frozenset(numbered_a ^ numbered_b))
 
 
 # --- one net on one side ---------------------------------------------------------------------------
@@ -463,13 +465,22 @@ class NetRouting:
         return Counter({pads: found.count for pads, found in self.joined.items() if pads})
 
 
-def net_routing(name: str, held: Sequence[Piece], elements: frozenset[str], unfilled: bool) -> NetRouting:
-    """The pieces ``held`` of a net as level 5 compares them: only the pads of ``elements`` count."""
+def net_routing(
+    name: str,
+    held: Sequence[Piece],
+    elements: frozenset[str],
+    unfilled: bool,
+    one_sided: frozenset[str] = frozenset(),
+) -> NetRouting:
+    """The pieces ``held`` of a net as level 5 compares them: the pads of ``elements`` count, and a pad of
+    ``one_sided`` (held by this side only) counts in a piece that holds copper (change c0444). A track,
+    arc, via or fill that reaches a pad the other side lacks then joins a pad set the other side does not
+    hold: the other side's copper ends at nothing there."""
     count: Counter[tuple[str, ...]] = Counter()
     vias: dict[tuple[str, ...], Counter[str]] = defaultdict(Counter)
     lengths: dict[tuple[str, ...], Counter[str]] = defaultdict(Counter)
     for piece in held:
-        pads = tuple(pad for pad in piece.pads if pad in elements)
+        pads = tuple(pad for pad in piece.pads if pad in elements or (piece.copper and pad in one_sided))
         if not pads and not piece.copper:
             continue  # a pad of a component that is not compared, with nothing on it
         count[pads] += 1
@@ -727,9 +738,15 @@ def level_routing(
     totals = {key: {"a": 0, "b": 0} for key in ("pieces", "vias", "length")}
     for net_a, net_b in pairing.pairs:
         one = net_routing(
-            names_a.get(net_a, net_a), held_a.get(net_a, ()), pairing.elements, net_a in held_a.unfilled_nets
+            names_a.get(net_a, net_a),
+            held_a.get(net_a, ()),
+            pairing.elements,
+            net_a in held_a.unfilled_nets,
+            pairing.one_sided,
         )
-        other = net_routing("", held_b.get(net_b, ()), pairing.elements, net_b in held_b.unfilled_nets)
+        other = net_routing(
+            "", held_b.get(net_b, ()), pairing.elements, net_b in held_b.unfilled_nets, pairing.one_sided
+        )
         if not one.copper and not other.copper:
             continue
         compared += 1

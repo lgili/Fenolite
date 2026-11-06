@@ -395,6 +395,12 @@ corpus_id = ""
 notes = "authored two-layer board holding one two-pad net tie whose F.Cu line joins its pads on nets A and B, for change c0431"
 
 [[file]]
+path = "tests/data/kicad/convert/roundrect_roundtrip.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "authored two-layer board with R1 (two rounded-rectangle pads, ratio 0.2) routed to J1 on nets A and B, B through two vias and B.Cu, for the Altium round trip of change c0444"
+
+[[file]]
 path = "tests/data/kicad/drc/report_mils.json"
 origin = "authored"
 corpus_id = ""

@@ -165,7 +165,7 @@ For each paired net with copper, in this order:
 |---|---|---|---|
 | `route-unjudged` | info (notice) | a side holds a zone without a fill on the net and more than one piece | the net is left |
 | `route-missing` | error | one side has copper on the net (a track, an arc, a via or a fill) and the other has none | the net is left |
-| `route-connectivity` | error | the pad sets of the pieces, as multisets: the same pads are joined on both sides | the net is left |
+| `route-connectivity` | error | the pad sets of the pieces, as multisets: the same pads are joined on both sides; a pad that only one side holds counts on that side when copper reaches it (c0444) | the net is left |
 | `route-vias` | error | per pad set, the via counts per pair of copper spans | |
 | `route-length` | error | per pad set, the routed length per copper span, within the tolerance | |
 | `route-stub` | warning (notice) | the pieces without a pad (stubs, lone vias): their number and their total length | |
