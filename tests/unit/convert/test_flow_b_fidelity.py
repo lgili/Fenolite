@@ -25,7 +25,7 @@ def _hole(k: int, x: int) -> str:
     uuid = f"{k}0000000-0435-4000-8000-00000000000"
     font = "(effects (font (size 1 1) (thickness 0.15)))"
     return (
-        '\t(footprint "Fenolite_Test:MountingHole_3.2mm"\n\t\t(layer "F.Cu")\n'
+        '\t(footprint "Fenolite_Holes:NPTH_3.2mm"\n\t\t(layer "F.Cu")\n'
         f'\t\t(uuid "{uuid}1")\n\t\t(at {x} 25)\n'
         f'\t\t(property "Reference" "" (at 0 -4 0) (layer "F.SilkS") (uuid "{uuid}2") {font})\n'
         f'\t\t(property "Value" "MountingHole" (at 0 4 0) (layer "F.Fab") (uuid "{uuid}3") {font})\n'
@@ -74,7 +74,7 @@ def test_flow_b_is_equivalent_to_its_source(tmp_path: Path) -> None:
     back = AltiumBackend().read(result).design
     assert back.board is not None and len(back.board.holes) == 2
     refs = sorted(c.ref for c in back.circuit.components)
-    assert refs == ["", "", "D1", "R1"]  # the mounting holes; no component for a free hole
+    assert refs == ["D1", "R1"]  # no component for a free hole (the source holds generated holes, c0433)
     reply = run("equivalent", str(source), str(result), "--json", cwd=tmp_path)
     assert reply.exit_code == 0, (reply.error, (reply.result or {}).get("differences"))
 
