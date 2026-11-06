@@ -31,7 +31,7 @@
 - [x] 4.2 `pcb-bodies.md` ("Written form of a model body", the box rows), `docs/conversion.md`,
   `docs/formats/step/part21.md` ("Box of a model"), `sources.md` (S-2080 to S-2082), `H-G-STEP-BOX`,
   CHANGELOG.
-- [x] 4.3 Altium opens a round trip with its models (altium-rounds-2; S-2084).
+- [x] 4.3 Altium opens a round trip with its models (altium-rounds-2; S-2084, S-2085).
   Kit run on NG6011 (2026-11-06): U1 seemed to get the LM3644 model. The bytes were U1's own TPS63050
   model; the KiCad file was named after U1's footprint, `LM3644YFFR`. Fixed: an embedded model's file is
   named by its record `NAME` (`convert.models.model_stem`), pinned by
@@ -53,3 +53,6 @@
   Clean read after an Altium relaunch (S-2084, AD 24.5.2.23, 2026-11-06): the same `c0449-rt2/04` opens
   with 0 dialogs and 0 messages, 13 STEP bodies, and U1, J1 and D1 show their records' `MODEL.NAME` with
   the source's heights. The names of the earlier read came from Altium's in-session model cache.
+  Cache check (S-2085, same day): in one session, the first round trip `c0449-rt/04` and then a round
+  trip written on `cac/lote-29` with the carried identities, `c0449-rt3`. Each shows its own file's
+  model names, since `c0449-rt3` keeps the source's 3 model `ID`s and shares none with the first.
