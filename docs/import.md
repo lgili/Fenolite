@@ -168,7 +168,7 @@ Never silently. The kinds today:
 | `dimension`, `dimension-style` | a dimension on a layer the DSL does not take, or one whose `format` or `style` holds what `design.dimension()`, `radial_dimension()`, `leader()` or `center_mark()` does not write (a prefix, a text position…) |
 | `image` | a board image whose data is not a PNG, on a layer the DSL does not take, or with a scale that is not a plain decimal; another image becomes `design.image()` and its file `images/<layer>-<n>.png` (change c0277) |
 | `stackup`, `title-block` | a stack-up row or a title-block field the DSL refuses (a silkscreen row with a dielectric constant or a loss tangent) |
-| `custom-rule` | a `.kicad_dru` rule whose selector the DSL cannot write (a layer leaf, an undeclared class) |
+| `custom-rule` | a `.kicad_dru` rule whose selector the DSL cannot write (a layer leaf, an undeclared class) and whose text the source does not hold. Since change c0427 the rules of a constraint kind that holds such a rule are kept as written instead, every rule of that kind, as `design.verbatim("rule/<n>", <text>, target="kicad_dru")` in file order, so the later rule still governs (`H-K-DRU-ORDER`); the other kinds stay `design.rules` calls. A `silk_clearance` minimum below zero, which an Altium silk to silk rule may hold, is a `design.rules.rule()` call (`H-K-DRU-NEG-SILK`) |
 | `zone-setting`, `zone-name`, `zone-layer`, `zone-outline`, `rule-area-name`, `rule-area-layer`, `rule-area-placement` | a zone hatch, a zone name of spaces only (a repeated or padded name is written with `name=` beside the zone's `key=`, change c0375), a zone or area off the copper layers or without an outline, an area name the DSL refuses, a placement area that places by another source than a sheet |
 | `drawing`, `drawing-layer`, `text`, `text-layer` | a drawing the DSL calls refuse (a hidden text, a mirror that does not follow the layer side, a knockout off copper and silkscreen, a dashed stroke, a copper graphic on a net the code does not declare), or one on a layer they do not take |
 | `copper-without-net`, `zero-length-track`, `degenerate-arc`, `via-protection`, `via-span`, `copper-layer`, `copper-count` | copper no table holds: a via on no net (a track or arc on no net is a table without `net=`, change c0375), an arc whose start and end are one point |
@@ -177,6 +177,16 @@ Never silently. The kinds today:
 | `pad-net-unnumbered`, `pad-net-conflict`, `outline` | a pad on a net without a number, a pad number on two nets or on a net and on no net (the DSL joins every pad of a pin; c0425), no closed outline |
 | `outline-width` | root `Edge.Cuts` items drawn with another stroke than the 0.1 mm a DSL board writes (one row per width; c0281) |
 | `layer-table` | non-copper rows the DSL cannot preserve: unknown names, a missing required `Edge.Cuts`, or gaps in declared `User.n` rows; supported shorter standard tables use `technical_layers=` (c0324) |
+
+Change c0427 also expresses three things the import of an Altium board left out:
+
+- a copper graphic on a net nothing else names (a fill or region on a board-only net) declares that net,
+  so the graphic is code with `net=`;
+- a polygon on `F.Paste` or `B.Paste` (an Altium paste region) is `design.polygon()`: a drawing may be on a
+  paste layer (`H-K-PASTE-DRAWING`);
+- a text's CR LF line breaks are line feeds (`H-A-TEXT-CRLF`), and a board cut-out that crosses the board
+  shape is a notch of the shape (`altium.import.cutout-notch`, `H-A-CUTOUT-NOTCH`), where before it made an
+  outline KiCad calls invalid.
 
 Change c0277 (verbatim items and the DSL coverage holes) is not merged yet: until it is, its kinds stay in
 this list, and each item it makes expressible removes its row. Since its first part the import also writes

@@ -44,6 +44,7 @@ IMPORT_ISSUE_CODES: dict[str, Severity] = {
     "altium.import.inexact": "info",
     "altium.import.multi-class": "info",
     "altium.import.zone-arc": "info",
+    "altium.import.cutout-notch": "info",
     "altium.import.copper-shape": "info",
     "altium.import.scope": "info",
     "altium.import.option-ignored": "info",

@@ -1073,7 +1073,7 @@ def footprint_items(
                     ),
                     provenance=ctx.provenance(locator),
                     ext=bag(exact.pairs()),
-                    text=item.text,
+                    text=lines(item.text),
                     position=position,
                     layer=layer,
                     size=Size(height, height),
@@ -1382,6 +1382,13 @@ def shapes(
     return found
 
 
+def lines(text: str) -> str:
+    """``text`` with its CR LF line breaks as the model's LF (change c0427): a multi-line text of a PCB
+    document separates its lines with CR LF, as a Draftsman text does (``pcb-records.md``,
+    ``H-A-TEXT-CRLF``), and the model, KiCad and the DSL break a line at LF."""
+    return text.replace("\r\n", "\n")
+
+
 def texts(doc: PcbDocument, ctx: Context, owned: Collection[int] = ()) -> list[Text]:
     """The free texts; the text is the wide string when the record names one (the reader resolved it).
     A free text on an internal plane gives nothing."""
@@ -1410,7 +1417,7 @@ def texts(doc: PcbDocument, ctx: Context, owned: Collection[int] = ()) -> list[T
                 ),
                 provenance=ctx.provenance(locator),
                 ext=bag(exact.pairs()),
-                text=item.text,
+                text=lines(item.text),
                 position=position,
                 layer=layer,
                 size=Size(height, height),
@@ -1487,12 +1494,73 @@ def outline(vertices: Sequence[OutlineVertex], ctx: Context, locator: str = "Boa
     return found
 
 
+NOTCH_LOCATOR = "Board6/Data#0:notch"
+"""The locator of the edges of a board shape cut by a board cut-out that crosses it (change c0427)."""
+
+
+def notched(
+    edge: Sequence[Graphic], graphics: Sequence[Graphic], ctx: Context
+) -> tuple[list[Graphic], list[Graphic]]:
+    """The board shape ``edge`` and the other ``graphics``, with every board cut-out that crosses a straight
+    board shape taken out of it (change c0427). A Board Cutout is a negative area within the board shape
+    (``pcb-records.md``, ``H-A-CUTOUT-REGION``), so one that reaches over the edge is a notch; KiCad holds
+    the two crossing rings as an invalid outline (``H-K-OUTLINE-INVALID``). The shape becomes the lines of
+    the one ring left, and the cut-out goes, with ``altium.import.cutout-notch``. A shape with an arc, a
+    difference that is not one ring without holes, or no boolean backend (the ``geo`` extra) leaves both
+    as they are."""
+    from fenolite.geometry.boolean import select_backend
+    from fenolite.geometry.errors import BackendUnavailable, GeometryError
+    from fenolite.geometry.polygon import Polygon
+    from fenolite.geometry.predicates import Location, point_in_ring
+
+    if not edge or any(g.kind != "line" for g in edge):
+        return list(edge), list(graphics)
+    ring = [g.points[0] for g in edge]
+    if any(a.points[1] != b.points[0] for a, b in zip(edge, (*edge[1:], edge[0]), strict=True)):
+        return list(edge), list(graphics)
+    crossing = [
+        g
+        for g in graphics
+        if g.layer == EDGE and g.kind == "polygon" and not g.filled
+        and {point_in_ring(p, ring) for p in g.points} >= {Location.INSIDE, Location.OUTSIDE}
+    ]  # fmt: skip
+    if not crossing:
+        return list(edge), list(graphics)
+    try:
+        backend = select_backend(operation="difference")
+        found = backend.difference(Polygon(tuple(ring)), [Polygon(tuple(g.points)) for g in crossing])
+    except (BackendUnavailable, GeometryError):
+        return list(edge), list(graphics)
+    if len(found) != 1 or found[0].holes:
+        return list(edge), list(graphics)
+    points = list(found[0].outer)
+    lines = [
+        _graphic(ctx, "line", EDGE, (a, b), width=0, filled=False, locator=f"{NOTCH_LOCATOR}:V{k}", pairs=[])
+        for k, (a, b) in enumerate(zip(points, (*points[1:], points[0]), strict=True))
+        if a != b
+    ]
+    for cut in crossing:
+        where = cut.provenance.locator if cut.provenance is not None else ""
+        ctx.issues.append(
+            issue(
+                "altium.import.cutout-notch",
+                "a board cut-out crosses the board shape; the shape is cut by it, as a notch",
+                where,
+            )
+        )
+    taken = {id(g) for g in crossing}
+    return lines, [g for g in graphics if id(g) not in taken]
+
+
 __all__ = [
     "KEEPOUT_LAYER_ID",
+    "NOTCH_LOCATOR",
     "arcs",
     "definition_graphics",
     "keepout_layer_restrictions",
     "layer_of_text",
+    "lines",
+    "notched",
     "outline",
     "region_points",
     "shapes",

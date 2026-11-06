@@ -294,6 +294,11 @@ meaning = "Count of fills and regions on copper, imported as copper graphics of 
 fix = "Nothing to do; the shapes are copper graphics of their net, not zones."
 see = "Altium import"
 
+["altium.import.cutout-notch"]
+meaning = "A board cut-out crosses the board shape, so the board is the shape less the cut-out: the shape is cut by it, as a notch in its edge, and the cut-out is not kept as a ring of its own (KiCad reports two crossing rings as an invalid outline)."
+fix = "Nothing to do; to keep a cut-out as a hole, draw it inside the board shape in Altium."
+see = "Altium import"
+
 ["altium.import.document-skipped"]
 meaning = "A document of a project is outside the project folder, missing or unreadable; the design is built from the rest."
 fix = "Put the document inside the project folder, or correct its path in the project file."

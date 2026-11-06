@@ -10457,6 +10457,12 @@
         "info"
       ]
     },
+    "altium.import.cutout-notch": {
+      "experimental": false,
+      "severities": [
+        "info"
+      ]
+    },
     "altium.import.document-skipped": {
       "experimental": false,
       "severities": [

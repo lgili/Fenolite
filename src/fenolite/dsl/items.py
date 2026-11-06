@@ -39,11 +39,19 @@ FORBID: Mapping[str, str] = MappingProxyType(
 )
 """The values of ``rule_area(forbid=…)`` and the ``Keepout`` field each sets. ``footprints`` makes the
 area a placement keep-out, which the legality check of ``place`` and ``build`` judges (change c0113)."""
-DRAWING_LAYER_KINDS: tuple[LayerKind, ...] = ("silkscreen", "soldermask", "fabrication", "user")
-"""The kinds of layer a drawing may be on. A text and a graphic may also be on a copper layer of the board
-(change c0277): KiCad's DRC judges a copper text over a track (``H-K-BOARD-TEXT``), which the copper check,
-drawing no glyphs, leaves out (``copper.text-unchecked``); a copper graphic takes a net, and the copper
-check judges it with its geometry and net."""
+DRAWING_LAYER_KINDS: tuple[LayerKind, ...] = (
+    "silkscreen",
+    "soldermask",
+    "solderpaste",
+    "fabrication",
+    "user",
+)
+"""The kinds of layer a drawing may be on. A paste layer takes one since change c0427: an Altium paste
+region is a polygon on ``F.Paste`` or ``B.Paste``, which KiCad 10.0.6 loads (``H-K-PASTE-DRAWING``). A
+text and a graphic may also be on a copper layer of the board (change c0277): KiCad's DRC judges a
+copper text over a track (``H-K-BOARD-TEXT``), which the copper check, drawing no glyphs, leaves out
+(``copper.text-unchecked``); a copper graphic takes a net, and the copper check judges it with its
+geometry and net."""
 KNOCKOUT_KINDS: tuple[LayerKind, ...] = ("copper", "silkscreen")
 """The kinds of layer a knocked-out text may be on."""
 BOARD_LAYER_KINDS: Mapping[str, LayerKind] = MappingProxyType(

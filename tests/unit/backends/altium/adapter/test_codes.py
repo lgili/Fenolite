@@ -24,12 +24,12 @@ INFOS = {
     "altium.import.copper-shape", "altium.import.scope", "altium.import.option-ignored",
     "altium.import.bus-member", "altium.import.harness-entry", "altium.import.extra-board",
     "altium.import.linked-by-designator", "altium.import.pcb-only-net", "altium.import.rule-unmapped",
-    "altium.import.unmapped", "altium.import.channels", "altium.import.pin-map",
+    "altium.import.unmapped", "altium.import.channels", "altium.import.pin-map", "altium.import.cutout-notch",
 }  # fmt: skip
 
 
 def test_every_code_has_one_severity_and_the_prefix() -> None:
-    assert len(IMPORT_ISSUE_CODES) == 39  # c0193 adds altium.import.model-unread
+    assert len(IMPORT_ISSUE_CODES) == 40  # c0427 adds altium.import.cutout-notch
     for code, severity in IMPORT_ISSUE_CODES.items():
         assert code.startswith("altium.import.") and ISSUE_CODE.match(code), code
         expected = "error" if code in ERRORS else ("info" if code in INFOS else "warning")

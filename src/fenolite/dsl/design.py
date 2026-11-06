@@ -208,6 +208,10 @@ RULE_KINDS: tuple[str, ...] = get_args(RuleKind)
 RULE_SEVERITIES: tuple[str, ...] = get_args(RuleSeverity)
 BINARY_KINDS: frozenset[str] = frozenset({"clearance", "creepage"})
 """The rule kinds that take a second selector (``between``)."""
+NEGATIVE_MIN_KINDS: frozenset[str] = frozenset({"silk_clearance"})
+"""The rule kinds whose ``min`` may be below zero: KiCad 9.0.9 and 10.0.6 read a negative ``silk_clearance``
+minimum and let silkscreen items overlap by up to that much (``rules.md``, ``H-K-DRU-NEG-SILK``; change
+c0427). An Altium silk to silk rule may hold one."""
 NO_LIMIT_KINDS: frozenset[str] = frozenset({"no_tracks"})
 """The rule kinds that take no limit and need ``layers``: a track layer rule keeps the tracks of the
 selected items off those layers (it is not the ``no_tracks`` flag of a keep-out, which forbids tracks
@@ -511,8 +515,9 @@ class Rules:
                 raise DslError(f'rule() {name!r}: a {kind} rule needs layers, for example layers=("In1.Cu",)')
         elif not given:
             raise DslError(f"rule() {name!r}: give at least one limit, for example min=mm(0.2)")
-        if limits["min"] is not None and limits["min"] < 0:
-            raise DslError(f"rule() {name!r}: min must not be negative")
+        if limits["min"] is not None and limits["min"] < 0 and kind not in NEGATIVE_MIN_KINDS:
+            allowed = ", ".join(sorted(NEGATIVE_MIN_KINDS))
+            raise DslError(f"rule() {name!r}: min must not be negative (a {allowed} rule may hold one)")
         for label in ("opt", "max"):
             value = limits[label]
             if value is not None and value <= 0:

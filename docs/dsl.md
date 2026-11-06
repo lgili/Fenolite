@@ -1715,7 +1715,9 @@ design.rules.rule(
   least; among the others, 1 governs most, because KiCad applies the last matching rule.
 - **`layers`** is a tuple of KiCad layer names, for the kinds that take a layer clause.
 - **What each kind takes.** `courtyard_clearance` takes references only and selects whole footprints;
-  `silk_clearance` is board-wide; `creepage` takes nets and classes on both sides; the three hole and ring
+  `silk_clearance` is board-wide, and its `min` may be below zero, which lets silkscreen overlap by up to
+  that much (KiCad 9.0.9 and 10.0.6 read it, `H-K-DRU-NEG-SILK`; change c0427); every other `min` is at
+  least 0; `creepage` takes nets and classes on both sides; the three hole and ring
   kinds take any selector on one side and no layers.
 - **Errors at the call** (`DslError`, nothing recorded): an unknown kind, no limit, a bare number, a
   negative `min`, falling limits, `between` on another kind, a repeated name, an undeclared class, an unknown
@@ -1961,8 +1963,8 @@ design.polygon("flag", [(mm(10), mm(2)), (mm(12), mm(2)), (mm(11), mm(4))], laye
 design.dimension("width", (mm(0), mm(0)), (mm(50), mm(0)), offset=mm(-5))
 ```
 
-- **Layers.** A drawing goes on a silkscreen, solder-mask, fabrication or user layer: `F.SilkS`, `B.SilkS`,
-  `F.Mask`, `B.Mask`, `F.Fab`, `B.Fab`, `Dwgs.User`, `Cmts.User`, `Eco1.User` and `Eco2.User`, and the user
+- **Layers.** A drawing goes on a silkscreen, solder-mask, solder-paste, fabrication or user layer:
+  `F.SilkS`, `B.SilkS`, `F.Mask`, `B.Mask`, `F.Paste`, `B.Paste` (change c0427), `F.Fab`, `B.Fab`, `Dwgs.User`, `Cmts.User`, `Eco1.User` and `Eco2.User`, and the user
   layers `design.user_layers()` declares. A text may also go on a copper layer of the board (change c0277):
   KiCad reports a copper text across a track as a short, and the copper check, which draws no glyphs,
   leaves it out (`copper.text-unchecked`, info). A graphic may go on a copper layer too and take

@@ -122,6 +122,10 @@ class Source:
     """Reference to native sheet file/element identity across an in-memory backend conversion."""
     native_rules_text: str | None = None
     """Full original DRU only when native rule items lie outside the typed reader (c0359)."""
+    rule_texts: Mapping[str, str] = field(default_factory=lambda: {})
+    """The text of each rule of the custom rules file by its locator (``/kicad_dru/rule[<n>]``, as a lifted
+    rule's provenance gives it): what the code keeps as a ``kicad_dru`` verbatim item when no
+    ``design.rules`` call says the rule (change c0427)."""
     project_text: str | None = None
     """Checked native project bytes decoded as UTF-8 for explicit import emission; not canonical data."""
     project_resources: Mapping[str, str] = field(default_factory=lambda: {})
@@ -158,6 +162,18 @@ def _board_path(path: Path) -> Path:
             hint="pass the project of a board",
         )
     return board
+
+
+def _rule_texts(text: str) -> dict[str, str]:
+    """Each item of a rules file by the locator ``dru.read_rules`` gives it (``/kicad_dru/<head>[<n>]``)."""
+    found: dict[str, str] = {}
+    heads: dict[str, int] = {}
+    for item in parse_rules(text).items:
+        if isinstance(item, RuleItem):
+            head = item.node.name
+            found[f"/kicad_dru/{head}[{heads.get(head, 0)}]"] = item.text
+            heads[head] = heads.get(head, 0) + 1
+    return found
 
 
 def read_kicad(path: Path, *, upgrade: Upgrader | None = None) -> Source:
@@ -210,6 +226,7 @@ def read_kicad(path: Path, *, upgrade: Upgrader | None = None) -> Source:
         design = apply_project(design, found, issues=issues)
         minimums = project_minimums(found.data, issues=issues)
     rules: tuple[Rule, ...] = ()
+    rule_texts: dict[str, str] = {}
     native_rules_text = None
     dru = folder / f"{stem}.kicad_dru"
     if dru.is_file():
@@ -219,6 +236,7 @@ def read_kicad(path: Path, *, upgrade: Upgrader | None = None) -> Source:
         native_rules_text = raw.decode("utf-8")
         ruleset = read_rules(native_rules_text, file=dru.name, issues=issues)
         rules = ruleset.rules
+        rule_texts = _rule_texts(native_rules_text)
         # Fully modelled rule programs keep their existing editable DSL conversion.
         if sum(isinstance(item, RuleItem) for item in parse_rules(native_rules_text).items) == len(rules):
             native_rules_text = None
@@ -247,6 +265,7 @@ def read_kicad(path: Path, *, upgrade: Upgrader | None = None) -> Source:
             upgrades=tuple(upgrades),
             minimums=minimums,
             custom_rules=rules,
+            rule_texts=rule_texts,
             sheets=sheets,
             issues=tuple(i for i in issues if i.severity != "error"),
             paths=tuple(paths),

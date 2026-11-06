@@ -415,6 +415,7 @@ def read_board(doc: PcbDocument, *, file: str, sha256: str, ids: Ids) -> BoardIm
     shape_graphics = copper.shapes(doc, ctx, zone_polygons, placed)
     found_texts = copper.texts(doc, ctx, placed)
     edge = copper.outline(doc.board.outline, ctx)
+    edge, shape_graphics = copper.notched(edge, shape_graphics, ctx)  # change c0427
 
     multi = 0
     model_nets: list[Net] = []

@@ -29,7 +29,7 @@ from fenolite.backends.kicad.pro import project_minimums, template
 from fenolite.backends.kicad.sexpr import Atom, AtomKind, Node
 from fenolite.core.coords import Point
 from fenolite.core.errors import FormatError, Issue
-from fenolite.dsl.items import BOARD_LAYER_KINDS
+from fenolite.dsl.items import BOARD_LAYER_KINDS, DRAWING_LAYER_KINDS
 from fenolite.importer import coverage
 from fenolite.importer.codes import issue
 from fenolite.importer.coverage import Ledger, Unexpressed
@@ -101,8 +101,8 @@ SKIPPED_PROPERTIES = frozenset(
     {"reference", "value", "footprint", "datasheet", "description", "sheetfile", "sheetname"}
 )
 """Property names (case-folded) that the footprint library or KiCad gives, not the part."""
-DRAWING_KINDS = ("silkscreen", "soldermask", "fabrication", "user")
-"""The layer kinds a DSL drawing may be on (``dsl.items.DRAWING_LAYER_KINDS``)."""
+DRAWING_KINDS = DRAWING_LAYER_KINDS
+"""The layer kinds a DSL drawing may be on."""
 FORBID = (
     ("tracks", "no_tracks"),
     ("vias", "no_vias"),
@@ -609,8 +609,29 @@ def _selector(selector: Selector, classes: set[str], parent: int = 0) -> str | N
     return None
 
 
+def _limits_said(rule: Rule) -> bool:
+    """Whether ``design.rules.rule()`` takes the kind, the second selector and the limits of ``rule`` (the
+    checks of ``RulesBuilder.rule``), so that the code never holds a call its build refuses (change c0427)."""
+    from fenolite.dsl.design import BINARY_KINDS, NEGATIVE_MIN_KINDS, NO_LIMIT_KINDS, RULE_KINDS
+
+    kind = str(rule.kind)
+    if kind not in RULE_KINDS or (rule.selector_b is not None and kind not in BINARY_KINDS):
+        return False
+    given = [value for value in (rule.min, rule.opt, rule.max) if value is not None]
+    if kind in NO_LIMIT_KINDS:
+        return not given and bool(rule.layers)
+    if not given or (rule.min is not None and rule.min < 0 and kind not in NEGATIVE_MIN_KINDS):
+        return False
+    if any(value is not None and value <= 0 for value in (rule.opt, rule.max)):
+        return False
+    return all(a <= b for a, b in zip(given, given[1:], strict=False))
+
+
 def _rule_call(rule: Rule, classes: set[str], taken: set[str]) -> Call | None:
-    """``design.rules.rule()`` of a custom rule, or ``None`` when its selectors cannot be written."""
+    """``design.rules.rule()`` of a custom rule, or ``None`` when its selectors or limits cannot be
+    written."""
+    if not _limits_said(rule):
+        return None
     where = _selector(rule.selector_a, classes)
     between = None if rule.selector_b is None else _selector(rule.selector_b, classes)
     if where is None or (rule.selector_b is not None and between is None):
@@ -679,7 +700,10 @@ def _minimums(source: Source, classes: set[str], ledger: Ledger, writer: _Writer
     others: list[Call] = []
     taken: set[str] = set()
     rules = _ranked(source.custom_rules)
+    native = _native_kinds(source, rules, classes)
     for rule in rules:
+        if str(rule.kind) in native:
+            continue
         found = _minimum_of(rule, classes)
         if found is not None and not _foldable(rule, found[0], rules):
             found = None
@@ -711,7 +735,52 @@ def _minimums(source: Source, classes: set[str], ledger: Ledger, writer: _Writer
     if any("select." in flat(call) for call in others):
         writer.imports.add("select")
     out += [statement(call) for call in others]
+    out += _native_rules(source, rules, native)
     return out
+
+
+def _native_kinds(source: Source, rules: Sequence[Rule], classes: set[str]) -> frozenset[str]:
+    """The rule kinds the code keeps as written (change c0427): those of a custom rule that no
+    ``design.rules`` call can say and whose text the source holds. Every rule of such a kind is then kept as
+    a ``kicad_dru`` verbatim item, in file order, because the later of two rules of one constraint governs
+    (``rules.md``, ``H-K-DRU-ORDER``) and a verbatim rule is written after every ``design.rules`` rule. A
+    project that keeps its whole rules file natively (c0359) keeps them there."""
+    if source.native_rules_text is not None:
+        return frozenset()
+    taken: set[str] = set()
+    found: set[str] = set()
+    for rule in rules:
+        if _rule_call(rule, classes, taken) is None:
+            found.add(str(rule.kind))
+    # a kind goes native only when the source holds the text of each of its rules
+    return frozenset(
+        kind for kind in found if all(_rule_text(source, r) is not None for r in rules if str(r.kind) == kind)
+    )
+
+
+def _rule_text(source: Source, rule: Rule) -> str | None:
+    locator = rule.provenance.locator if rule.provenance is not None else ""
+    return source.rule_texts.get(locator)
+
+
+def _native_rules(source: Source, rules: Sequence[Rule], kinds: frozenset[str]) -> list[list[str]]:
+    """``design.verbatim(..., target="kicad_dru")`` of every rule of ``kinds``, in file order, keyed
+    ``rule/<n>``."""
+    out: list[list[str]] = []
+    ordered = sorted(
+        (rule for rule in rules if str(rule.kind) in kinds),
+        key=lambda rule: _file_index(rule.provenance.locator if rule.provenance is not None else ""),
+    )
+    for index, rule in enumerate(ordered, start=1):
+        held = cast(str, _rule_text(source, rule))  # _native_kinds took only kinds with every text
+        call = Call("design.verbatim", (text(f"rule/{index}"), text(held)), (("target", text("kicad_dru")),))
+        out.append(statement(call))
+    return out
+
+
+def _file_index(locator: str) -> int:
+    found = re.search(r"\[(\d+)\]$", locator)
+    return int(found.group(1)) if found else 0
 
 
 def _zone_args(zone: Zone, ledger: Ledger) -> list[tuple[str, Expr]]:
@@ -1513,7 +1582,7 @@ def emit(source: Source, options: Options) -> Emission:
     numbers = net_numbers(design)
     copper_layers = {layer.name for layer in board.layers if layer.kind == "copper"}
     graphic_nets = (graphic_net(g, numbers) for g in board.graphics if g.layer in copper_layers)
-    used_nets |= {found for found in graphic_nets if found and found in names.values()}
+    used_nets |= {found for found in graphic_nets if found}  # a net only a copper graphic names too (c0427)
     net_vars: dict[str, str] = {}
     net_lines: list[list[str]] = []
     for net in sorted(used_nets):

@@ -139,7 +139,7 @@ def test_refused_drawing_calls() -> None:
         (lambda: d.text("t5", "A", (mm(1), mm(1)), justify="middle"), "justify"),
         (lambda: d.text("bad key", "A", (mm(1), mm(1))), "key"),
         (lambda: d.line("l2", origin, right, layer="F.CrtYd", width=mm(0.1)), "F.CrtYd"),
-        (lambda: d.line("l3", origin, right, layer="F.Paste", width=mm(0.1)), "F.Paste"),
+        (lambda: d.line("l3", origin, right, layer="F.Adhes", width=mm(0.1)), "F.Adhes"),  # F.Paste: c0427
         (lambda: d.line("l4", origin, right, layer="F.Fab", width=mm(0)), "width"),
         (lambda: d.rect("r1", origin, right, layer="F.Fab", width=mm(0.1)), "start and end"),
         (lambda: d.rect("r2", origin, (mm(1), mm(1)), layer="F.Fab", width=mm(0)), "width"),
