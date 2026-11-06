@@ -9,12 +9,12 @@ Rules for every task:
 
 ## 1. Evidence
 
-- [ ] 1.1 Record S-2240 (Altium Net Antennae constraints), S-2241 (Altium Short-Circuit constraint settings) and
+- [x] 1.1 Record S-2240 (Altium Net Antennae constraints), S-2241 (Altium Short-Circuit constraint settings) and
   S-2242 (KiCad's custom rule constraint table, 9.0 and 10.0) in `docs/evidence/sources.md`. Add their facts
   to `docs/formats/altium/rule-file.md` and `docs/formats/kicad/rules.md`, with the hypotheses
   `H-A-RULE-ANTENNA`, `H-A-RULE-SHORT` and `H-K-SHORT-ALLOW`. Proof:
   `uv run pytest tests/unit/test_legal_docs.py tests/unit/test_format_facts.py -q -n 0`.
-- [ ] 1.2 S-2243: a census of the keys of the public ShortCircuit and NetAntennae records (counts only).
+- [x] 1.2 S-2243: a census of the keys of the public ShortCircuit and NetAntennae records (counts only).
   Proof: the census script's output, recorded in the row.
 
 ## 2. Model

@@ -53,6 +53,7 @@ Fenolite's own words; sources are listed in `docs/evidence/sources.md`.
 | The `opt` limit of `diff_pair_gap`, `skew` and `length` is accepted and never checked by the DRC, alone or beside `min` and `max`; KiCad's interactive tools take it as their target | S-0010, S-0038, S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRU-PAIR |
 | The later of two `diff_pair_gap` rules, and of two `length` rules, that match one row governs, as for clearance | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRU-PAIR |
 | A routed length counts a via by the board stack-up: a net of 10 mm on `F.Cu`, one 0.6 mm via and 10 mm on `B.Cu` measured 21.58 mm on 10.0.6 and 21.545 mm on 9.0.9 (scratch benches of the design of c0104, not a committed probe) | S-0020, S-0029 | INFERRED | H-K-DRU-PAIR |
+| The custom rule constraints of 9.0 and 10.0 hold none that allows a short between two nets or sets a length for a dangling track; `via_dangling` (10.0 only) takes no limit; on 10.0 a `clearance` rule with a negative `min` lets its two sides' copper overlap, and whether `shorting_items` is then still reported is not stated | S-2242 | INFERRED | H-K-SHORT-ALLOW |
 
 ## Board-wide rules and board-setup minimums
 
