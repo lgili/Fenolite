@@ -2388,11 +2388,11 @@ CANONICAL_ORDER: Mapping[str, tuple[str, ...]] = MappingProxyType(
         "gr_circle": ("center", "end", "stroke", "fill", "layer", "net", "uuid"),
         "gr_rect": ("start", "end", "stroke", "fill", "layer", "net", "uuid"),
         "gr_poly": ("pts", "stroke", "fill", "layer", "net", "uuid"),
-        "fp_line": ("start", "end", "stroke", "layer", "uuid"),
-        "fp_arc": ("start", "mid", "end", "stroke", "layer", "uuid"),
-        "fp_circle": ("center", "end", "stroke", "fill", "layer", "uuid"),
-        "fp_rect": ("start", "end", "stroke", "fill", "layer", "uuid"),
-        "fp_poly": ("pts", "stroke", "fill", "layer", "uuid"),
+        "fp_line": ("start", "end", "stroke", "layer", "net", "uuid"),
+        "fp_arc": ("start", "mid", "end", "stroke", "layer", "net", "uuid"),
+        "fp_circle": ("center", "end", "stroke", "fill", "layer", "net", "uuid"),
+        "fp_rect": ("start", "end", "stroke", "fill", "layer", "net", "uuid"),
+        "fp_poly": ("pts", "stroke", "fill", "layer", "net", "uuid"),
         "stroke": ("width", "type"),
         "gr_text": (*TEXT_POSITIONAL, "at", "layer", "uuid", "effects"),
         "fp_text": ("kind", *TEXT_POSITIONAL, "at", "layer", "uuid", "effects"),
@@ -2745,9 +2745,13 @@ def _child_locator(entity: Entity, slots: Sequence[Slot], index: int, head: str,
     return f"{_locator(entity)}/{head}[{k}]"
 
 
-def _netless(graphic: Graphic) -> Graphic:
-    """A footprint graphic as a created footprint writes it: an ``fp_*`` child holds no net."""
-    return dataclasses.replace(graphic, net_id=None) if graphic.net_id is not None else graphic
+def _footprint_graphic(graphic: Graphic) -> Graphic:
+    """A footprint graphic as a created footprint writes it: an ``fp_*`` child on a copper layer keeps the
+    net of its copper as ``(net …)``, which KiCad keeps on a save (change c0454; ``board.md``, "Board items of
+    an import"); one on any other layer holds no net."""
+    if graphic.net_id is None or graphic.layer.endswith(".Cu"):
+        return graphic
+    return dataclasses.replace(graphic, net_id=None)
 
 
 def _fp_text(text: Text, rotation: Udeg) -> Node:
@@ -3173,7 +3177,7 @@ class _Writer:
         # a created footprint writes its own graphics (lines, arcs, circles, rectangles, polygons) in its
         # frame, as an imported footprint holds them (change c0409); a read one keeps them in its slots
         graphics = _write_order(fp.graphics) if created else []
-        items["graphics"] = [self.entity(_netless(g), _FP_HEADS[g.kind]) for g in graphics]
+        items["graphics"] = [self.entity(_footprint_graphic(g), _FP_HEADS[g.kind]) for g in graphics]
         # a created footprint writes its own texts as ``fp_text user`` after its graphics, as KiCad 10.0.6
         # saves them (change c0422); a read one keeps them in its slots
         items["texts"] = [_fp_text(t, fp.rotation) for t in _write_order(fp.texts)] if created else []

@@ -923,6 +923,7 @@ token inside opaque content.
 |---|---|---|---|
 | A via's `(free yes)` follows its `layers` and comes before its protection children (`tenting` …) | S-0058 (`CM5_MINIMA_3`, `One-Air-Max`, `RoyalBlue54L-Feather` at 10.0.6) | INFERRED | H-K-PCB-WRITE |
 | A graphic on a copper layer holds `(net …)` after its `layer`: the net number on a 9.0 board (`One-Air-Max`); a 10.0 board names its nets in every reference, so the writer names it there | S-0058 | INFERRED | H-K-COPPER-ART |
+| A footprint's `fp_poly` on a copper layer may hold `(net "…")` after its `layer` as well: 10.0.6's `pcb upgrade --force` keeps it there, and its DRC names that net on the item (`Polygon [5V] of L3`). It still reports such copper that touches other copper as `shorting_items`, whether it holds a net or not. A created footprint writes the net of its copper graphics so (change c0454); a graphic on any other layer holds none | S-2131 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-11-06) | H-K-COPPER-ART |
 | A filled shape without an outline is written with `(stroke (width -0.000001) (type solid))` | S-0058 (`CM5_MINIMA_3`) | INFERRED | H-K-PCB-WRITE |
 | A dimension's `units` codes are 0 inches, 1 mils, 2 millimetres and 3 automatic | S-0001, S-0058 (`tinytapeout-demo`) | INFERRED | H-K-DIM |
 | `board_only` follows the type atom of `attr` (`(attr through_hole board_only exclude_from_pos_files exclude_from_bom)`) | S-0058 (150 footprints) | INFERRED | H-K-PCB-WRITE |

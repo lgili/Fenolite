@@ -338,6 +338,9 @@ class ComponentGraphic:
     cutout: bool = False
     """Whether the graphic, a closed outline of ``Edge.Cuts``, is a board cut-out of the component (change
     c0443): one region of ``pcbrecords.cutout_region`` with the component's index."""
+    net: str | None = None
+    """The name of the net of a copper graphic (change c0454): its records hold that net's index, as a pad's
+    do; ``None`` writes them without a net (``0xFFFF``)."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -1035,6 +1038,7 @@ def place_component(
     plain = Transform.placement(component.at, component.rotation)
     for item in component.items:  # as the instance holds them: no mirror, no layer flip (change c0126)
         graphic = item.graphic
+        net = nets.get(item.net, rec.NO_INDEX) if item.net is not None else rec.NO_INDEX
         where = [frame(plain.apply(p)) for p in graphic.points]
         if graphic.kind in ("rect", "polygon"):
             if graphic.kind == "rect":
@@ -1055,24 +1059,32 @@ def place_component(
                         )  # fmt: skip
                     )
             elif graphic.filled:
-                placed.regions.append(rec.region_record(item.layer, corners, component=index))
+                placed.regions.append(rec.region_record(item.layer, corners, component=index, net=net))
                 placed.shapes.append(
-                    rec.region_record(item.layer, corners, shape_based=True, component=index)
+                    rec.region_record(item.layer, corners, shape_based=True, component=index, net=net)
                 )
             else:
                 width = rec.to_units(graphic.width)
                 for number, corner in enumerate(corners):
                     following = corners[(number + 1) % len(corners)]
-                    tracks.append(rec.track_record(item.layer, corner, following, width, component=index))
+                    tracks.append(
+                        rec.track_record(item.layer, corner, following, width, net=net, component=index)
+                    )
         elif graphic.kind == "line":
             a, b = (_units(point) for point in where)
-            tracks.append(rec.track_record(item.layer, a, b, rec.to_units(graphic.width), component=index))
+            tracks.append(
+                rec.track_record(item.layer, a, b, rec.to_units(graphic.width), net=net, component=index)
+            )
         elif graphic.kind == "circle":
             geometry = rec.circle_geometry(where[0], where[1])
-            arcs.append(rec.arc_record(item.layer, geometry, rec.to_units(graphic.width), component=index))
+            arcs.append(
+                rec.arc_record(item.layer, geometry, rec.to_units(graphic.width), net=net, component=index)
+            )
         else:
             geometry = item.arc or rec.arc_from_points(*where)
-            arcs.append(rec.arc_record(item.layer, geometry, rec.to_units(graphic.width), component=index))
+            arcs.append(
+                rec.arc_record(item.layer, geometry, rec.to_units(graphic.width), net=net, component=index)
+            )
     return placed
 
 

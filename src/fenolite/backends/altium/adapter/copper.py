@@ -848,7 +848,8 @@ def footprint_items(
     every point is footprint-local and a bottom footprint holds mirrored coordinates; ``rotation`` is the
     footprint's angle, which a text's angle is taken relative to. ``native`` names the footprint in the
     section of the content ids. The mapping of a record is that of ``definition_graphics``; an arc keeps
-    its record in the pair ``arc``, and a graphic on a copper layer its net name in the pair ``net``. The
+    its record in the pair ``arc``, and a graphic on a copper layer its net name in the pair ``net`` and the
+    id of that net in ``net_id`` (change c0454). The
     first designator text and the first comment text give the fields ``Reference`` and ``Value``, shown
     as ``name_on`` and ``comment_on`` say; every other text is a ``Text``. A primitive on an internal
     plane gives no item and stays counted as ``footprint-graphics``."""
@@ -874,8 +875,10 @@ def footprint_items(
         locator: str,
         pairs: list[tuple[str, str]],
     ) -> None:
+        net_id = None
         if ctx.layers.is_copper(layer_id):
             pairs = pairs + _net_pair(ctx, net)
+            net_id = ctx.net(net)  # the copper of its net, as a free shape's (change c0454)
         local = tuple(frame.apply(point) for point in points)
         graphics.append(
             _graphic(
@@ -888,6 +891,7 @@ def footprint_items(
                 locator=locator,
                 pairs=pairs,
                 section=section,
+                net_id=net_id,
             )
         )
 
@@ -992,8 +996,10 @@ def footprint_items(
             ("rect", (corners[0], corners[2])) if _is_rect(corners) else ("polygon", corners)
         )
         pairs = exact.pairs()
+        net_id = None
         if ctx.layers.is_copper(item.prefix.layer):
             pairs += _net_pair(ctx, item.prefix.net)
+            net_id = ctx.net(item.prefix.net)  # change c0454
         graphics.append(
             _graphic(
                 ctx,
@@ -1005,6 +1011,7 @@ def footprint_items(
                 locator=f"Fills6/Data#{index}",
                 pairs=pairs,
                 section=section,
+                net_id=net_id,
             )
         )
         ctx.census.map("fills")
@@ -1040,7 +1047,8 @@ def footprint_items(
         # a fill of the same corners gives: the writer writes a filled rectangle as a region, and the two
         # are one shape in the model.
         shape = ("rect", (local[0], local[2])) if len(local) == 4 and _is_rect(local) else ("polygon", local)
-        pairs = _net_pair(ctx, item.prefix.net) if ctx.layers.is_copper(item.prefix.layer) else []
+        copper = ctx.layers.is_copper(item.prefix.layer)
+        pairs = _net_pair(ctx, item.prefix.net) if copper else []
         graphics.append(
             _graphic(
                 ctx,
@@ -1052,6 +1060,7 @@ def footprint_items(
                 locator=locator,
                 pairs=pairs,
                 section=section,
+                net_id=ctx.net(item.prefix.net) if copper else None,  # change c0454
             )
         )
         ctx.census.map("regions")

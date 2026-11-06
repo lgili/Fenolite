@@ -305,19 +305,66 @@ def graphic_net_name(graphic: Graphic, numbers: Mapping[int, str]) -> str | None
         if not isinstance(slot, Opaque):
             continue
         child = slotlib.opaque_child(slot)
-        if not isinstance(child, Node) or child.name != "net" or child.nodes() or len(child.atoms()) != 1:
-            continue
-        atom = child.atoms()[0]
-        if atom.value.isdigit() and atom.kind != AtomKind.STRING:
-            return numbers.get(int(atom.value)) or None
-        return atom.value or None
+        if isinstance(child, Node) and _is_net(child):
+            return _net_name(child, numbers)
     return None
 
 
+def _is_net(child: Node) -> bool:
+    return child.name == "net" and not child.nodes() and len(child.atoms()) == 1
+
+
+def _net_name(child: Node, numbers: Mapping[int, str]) -> str | None:
+    """The net a ``(net …)`` child names: ``(net "GND")`` of a 10.0 board, ``(net 1)`` of a 9.0 one."""
+    atom = child.atoms()[0]
+    if atom.value.isdigit() and atom.kind != AtomKind.STRING:
+        return numbers.get(int(atom.value)) or None
+    return atom.value or None
+
+
+def footprint_graphic_nets(footprint: FootprintInstance, numbers: Mapping[int, str]) -> dict[str, str]:
+    """The net name of each projected copper graphic of a board footprint (change c0454), by the graphic's
+    id: the ``(net …)`` child of the drawn child it projects (``drawn_children``). A projection holds no
+    slots of its own, so its net is read from the footprint's child."""
+    found: dict[str, str] = {}
+    for drawn in drawn_children(footprint):
+        if not isinstance(drawn.item, Graphic):
+            continue
+        for child in drawn.node.nodes():
+            if _is_net(child):
+                name = _net_name(child, numbers)
+                if name is not None:
+                    found[drawn.item.id] = name
+    return found
+
+
+def _netted(
+    graphics: Sequence[Graphic],
+    numbers: Mapping[int, str],
+    ids: Mapping[str, str],
+    named: Mapping[str, str] | None = None,
+) -> tuple[Graphic, ...] | None:
+    """``graphics`` whose copper graphics without a ``net_id`` take the id of the net their slot names, or
+    that ``named`` gives their id, or ``None`` when none changes."""
+    changed = False
+    found: list[Graphic] = []
+    for graphic in graphics:
+        name = None
+        if graphic.net_id is None and graphic.layer.endswith(".Cu"):
+            name = (named or {}).get(graphic.id) or graphic_net_name(graphic, numbers)
+        if name is not None and name in ids:
+            found.append(dataclasses.replace(graphic, net_id=ids[name]))
+            changed = True
+        else:
+            found.append(graphic)
+    return tuple(found) if changed else None
+
+
 def with_graphic_nets(design: Design) -> Design:
-    """``design`` whose board graphics on a copper layer without a ``net_id`` take the id of the net their
-    KiCad slot names (``graphic_net_name``; change c0412), so that a writer of copper sees the net. A graphic
-    whose slot names no net of the circuit is left as it is."""
+    """``design`` whose graphics on a copper layer without a ``net_id`` take the id of the net their KiCad
+    slot names (``graphic_net_name``), so that a writer of copper sees the net: the board's graphics (change
+    c0412) and those of its footprints (change c0454). A graphic whose slot names no net of the circuit is
+    left as it is."""
     board = design.board
     if board is None:
         return design
@@ -328,22 +375,21 @@ def with_graphic_nets(design: Design) -> Design:
         if number.isdigit():
             numbers[int(number)] = net.name
     ids = {net.name: net.id for net in design.circuit.nets}
-    changed = False
-    graphics: list[Graphic] = []
-    for graphic in board.graphics:
-        name = (
-            graphic_net_name(graphic, numbers)
-            if graphic.net_id is None and graphic.layer.endswith(".Cu")
-            else None
-        )
-        if name is not None and name in ids:
-            graphics.append(dataclasses.replace(graphic, net_id=ids[name]))
-            changed = True
-        else:
-            graphics.append(graphic)
-    if not changed:
+    graphics = _netted(board.graphics, numbers, ids)
+    footprints: list[FootprintInstance] = []
+    moved = False
+    for fp in board.footprints:
+        own = _netted(fp.graphics, numbers, ids, footprint_graphic_nets(fp, numbers))
+        footprints.append(fp if own is None else dataclasses.replace(fp, graphics=own))
+        moved = moved or own is not None
+    if graphics is None and not moved:
         return design
-    return dataclasses.replace(design, board=dataclasses.replace(board, graphics=tuple(graphics)))
+    board = dataclasses.replace(
+        board,
+        graphics=board.graphics if graphics is None else graphics,
+        footprints=tuple(footprints) if moved else board.footprints,
+    )
+    return dataclasses.replace(design, board=board)
 
 
 def projection_problems(footprint: FootprintInstance) -> list[tuple[str, str]]:

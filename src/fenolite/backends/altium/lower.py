@@ -1089,6 +1089,21 @@ def net_tie_copper_problem(
     return None if problem is None else f"a net-tie graphic: {problem}"
 
 
+def netted_copper_problem(
+    graphic: Graphic, copper_ids: Mapping[str, int], *, arc_known: bool = False
+) -> str | None:
+    """Why the copper graphic ``graphic`` of a footprint, which holds a net of the written board, is not
+    written as a component item of that net (change c0454), or ``None``: its layer is no signal layer of
+    ``copper_ids``, or no record holds it (``pcbdoc.graphic_problem``)."""
+    layer = copper_ids.get(graphic.layer)
+    if layer is None:
+        return f"the layer {graphic.layer} of a footprint's copper is not a copper layer of the written stack"
+    if layer >= rec.FIRST_PLANE:
+        return f"the layer {graphic.layer} of a footprint's copper is a plane, which holds no track"
+    problem = pcbdoc.graphic_problem(graphic, arc_known=arc_known, copper=(graphic.layer,))
+    return None if problem is None else f"a footprint's copper: {problem}"
+
+
 @dataclass(frozen=True, slots=True)
 class _Items:
     """What ``_footprint_items`` gives the placed component of one instance."""
@@ -1182,6 +1197,7 @@ def _footprint_items(
     frame: pcbdoc.Frame,
     account: _Account,
     copper_ids: Mapping[str, int] | None = None,
+    net_names: Mapping[str, str] | None = None,
 ) -> _Items:
     """The graphics, the fields ``Reference`` and ``Value`` and the texts of ``fp`` as the document writes
     them (capability altium-pcb-writer, "Footprint items of a written component"; change c0126).
@@ -1200,7 +1216,9 @@ def _footprint_items(
     ``copper_ids`` (the Altium id of each copper layer of the written stack) is a component item on that
     layer, without a net, as KiCad holds it; Altium's DRC ignores the shorts inside a Net Tie component
     (S-1900). Only a graphic on a plane, or one that ``pcbdoc.graphic_problem`` refuses, stays counted
-    under ``footprint-copper``."""
+    under ``footprint-copper``. A copper graphic of any other footprint whose ``net_id`` names a net of the
+    written board (``net_names``, net id to name) is a component item of that net on its signal layer
+    (change c0454; ``netted_copper_problem``), as the source document held it."""
     bottom = fp.side == "bottom"
     to_board = Transform.placement(fp.position, fp.rotation)
     graphics: list[Graphic] = []
@@ -1219,10 +1237,14 @@ def _footprint_items(
         if graphic.kind == "arc":
             kept = kept_arc(graphic, tuple(to_board.apply(p) for p in graphic.points), frame)
         if graphic.layer.endswith(".Cu") or graphic.layer in copper:
-            reason = net_tie_copper_problem(fp, graphic, copper_ids or {}, arc_known=kept is not None)
+            net = (net_names or {}).get(graphic.net_id or "") if not fp.net_ties else None
+            if net is not None:
+                reason = netted_copper_problem(graphic, copper_ids or {}, arc_known=kept is not None)
+            else:
+                reason = net_tie_copper_problem(fp, graphic, copper_ids or {}, arc_known=kept is not None)
             if reason is None:
                 layer = (copper_ids or {})[graphic.layer]
-                items.append(pcbdoc.ComponentGraphic(graphic, layer, kept))
+                items.append(pcbdoc.ComponentGraphic(graphic, layer, kept, net=net))
                 account.wrote("footprint-copper")
             else:
                 account.skip("footprint-copper", graphic.id, reason)
@@ -1426,7 +1448,7 @@ def _footprints(
         own = _Items()
         if frame is not None and (fp.graphics or fp.texts or fp.fields):
             ids = {**rec.BOARD_LAYER_MAP, **(layer_ids or {})}
-            own = _footprint_items(fp, ids, copper, frame, account, copper_ids)
+            own = _footprint_items(fp, ids, copper, frame, account, copper_ids, net_names)
         areas = fp
         if frame is not None:
             strokes, areas = _keepout_strokes(fp, frame, account)
