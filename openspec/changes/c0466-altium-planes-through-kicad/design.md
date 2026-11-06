@@ -70,7 +70,8 @@ against the KiCad design.
 The restored planes reach the writer as `write_design(planes=…)`, which passes to `PcbDocSpec`:
 - `plane_splits`: by layer id, each split's net and points, moved by the board's translation, which is the
   current corner minus the carried one;
-- `plane_names`: by layer id, the row's user name when it is a writable field;
+- `copper_names` (named `plane_names` until task 5.1): by layer id, the row's user name when it is a
+  writable field; task 5.1 gives signal layers theirs too (D5);
 - the pull-backs in `StackSpec.pullbacks`.
 
 ### D4. The writer
@@ -94,3 +95,20 @@ against the source's.
 - **An edited board.** A board moved in KiCad moves its splits by the corner translation. A board reshaped
   in KiCad keeps the source's splits, which Altium clips with the outline.
 - **The name.** The user name is what KiCad shows, so a rename in KiCad renames the plane in Altium.
+
+### D5. Signal layer names (task 5.1)
+
+The round trip of row `-04` wrote its inner signal layers `Internal Layer 1/2` as `Mid-Layer 1/2` (S-2191);
+rows `-01` (`Component Side`, `Solder Side`) and `-07` (`Layer 1` to `Layer 4`) lost theirs the same way
+(S-2254). KiCad's row user name is the slot: `copper_rows` (formerly `plane_rows`) gives a signal row its
+Altium name when it differs from `written_name`, the name the writer gives that row anyway, so a board
+whose names are Altium's defaults keeps bare rows. On the way back `lower._copper_names` reads the user name
+of every copper row, not only of a converted board's: a KiCad board's own user names name its Altium
+layers too, as its mechanical rows' names do (change c0412). A name a property record cannot hold, the
+name of another Altium layer (`pcbrecords.LAYER_NAMES`) or one two layers take is left out, so no two
+layers share a name. `docboard.board_text` replaces the default name in each key that holds it
+(`LAYER<id>NAME`, `LAYER_V8_<k>NAME`, `V9_STACK_LAYER<k>_NAME`, `V9_CACHE_LAYER<k>_NAME`; S-2255).
+
+KiCad names a row's Gerber file after its user name (S-2256): a converted board whose layers have their own
+names plots `<board>-Internal Layer 1.g1` where it plotted `<board>-In1_Cu.g1`. The file function is
+unchanged.

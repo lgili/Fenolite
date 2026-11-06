@@ -66,19 +66,29 @@ def plane_id(layer: Layer) -> int | None:
     return int(ident) if ident.isdecimal() and 39 <= int(ident) <= 54 else None
 
 
-def plane_rows(table: Sequence[Layer], sources: Mapping[str, Layer]) -> tuple[Layer, ...]:
+def written_name(row: str) -> str | None:
+    """The Altium name the writer gives the copper row ``row`` of a KiCad board when nothing names it:
+    ``Top Layer``, ``Bottom Layer`` and ``Mid-Layer <k>`` for ``In<k>.Cu`` (``pcbrecords.copper_stack``);
+    ``None`` for any other row."""
+    found = re.fullmatch(r"In(\d+)\.Cu", row)
+    if found is not None:
+        return f"Mid-Layer {found.group(1)}"
+    return {"F.Cu": "Top Layer", "B.Cu": "Bottom Layer"}.get(row)
+
+
+def copper_rows(table: Sequence[Layer], sources: Mapping[str, Layer]) -> tuple[Layer, ...]:
     """The KiCad rows ``table`` with each row that an internal plane of ``sources`` (by row name) reaches
     typed ``power`` and named after the plane's Altium name, as KiCad's own import makes it (change c0466,
-    S-2201); every other row as it is."""
+    S-2201), and each copper row that a signal layer reaches named after its Altium name when the writer
+    would write another (``written_name``, S-2254); every other row as it is."""
     planes = {name: layer for name, layer in sources.items() if plane_id(layer) is not None}
-    if not planes:
-        return tuple(table)
+    typed = layers.with_plane_types(table, tuple(planes)) if planes else tuple(table)
     made: list[Layer] = []
-    for row in layers.with_plane_types(table, tuple(planes)):
-        source = planes.get(row.name)
+    for row in typed:
+        source = sources.get(row.name)
         bag = source.ext.get("altium") if source is not None else None
         name = dict(bag.payload).get("altium_name", "") if bag is not None else ""
-        if name and row.kind == "copper":
+        if name and row.kind == "copper" and (row.name in planes or name != written_name(row.name)):
             pairs = (*(p for p in row.ext["kicad"].payload if p[0] != "user_name"), ("user_name", name))
             row = dataclasses.replace(row, ext={**row.ext, "kicad": ExtBag(None, pairs)})
         made.append(row)
@@ -87,8 +97,8 @@ def plane_rows(table: Sequence[Layer], sources: Mapping[str, Layer]) -> tuple[La
 
 def map_layers(design: Design, target: int, ledger: Ledger, source: Design | None = None) -> Design:
     """``design`` on KiCad's rows for ``target``. ``source`` is the import whose copper layers still hold
-    their ``altium`` bags (``design``'s are cleaned): its internal planes become ``power`` rows (change
-    c0466, ``plane_rows``)."""
+    their ``altium`` bags (``design``'s are cleaned): its internal planes become ``power`` rows and its copper
+    layers keep their Altium names (change c0466, ``copper_rows``)."""
     board = design.board
     if board is None:
         raise ValueError("Altium conversion requires a board")
@@ -110,7 +120,7 @@ def map_layers(design: Design, target: int, ledger: Ledger, source: Design | Non
     for old, new in zip(copper, mapped_copper, strict=True):
         mapping[old.name] = new
     originals = {x.name: x for x in source.board.layers} if source is not None and source.board else {}
-    table = plane_rows(table, {mapping[layer.name]: originals.get(layer.name, layer) for layer in copper})
+    table = copper_rows(table, {mapping[layer.name]: originals.get(layer.name, layer) for layer in copper})
     if len(copper) != count:
         ledger.change(
             "stackup",

@@ -46,3 +46,18 @@ per-layer rule that the source does not hold.
 - **WHEN** it is converted to Altium
 - **THEN** `In1.Cu` is written as Mid-Layer 1
 - **AND** the report holds one `plane` loss for it
+
+### Requirement: Altium signal layer names through KiCad
+
+A conversion of an Altium design to KiCad SHALL give each copper row that a signal layer reaches the
+layer's Altium name as user name when the Altium writer would write another name for that row (`Top
+Layer`, `Bottom Layer`, `Mid-Layer <k>` for `In<k>.Cu`). A conversion back SHALL write the layer with that
+name.
+
+#### Scenario: Signal layer names come back from KiCad
+
+- **GIVEN** the public row `altium-third-party-pcbdoc-04`, whose inner signal layers are named `Internal Layer
+  1` and `Internal Layer 2`
+- **WHEN** it is converted to KiCad and the KiCad board back to Altium
+- **THEN** the KiCad rows `In1.Cu` and `In2.Cu` carry those user names, and the written document names its
+  Mid-Layer 1 and 2 so

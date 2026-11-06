@@ -45,7 +45,7 @@ def _document(tmp_path: Path) -> Path:
         stack=stack,
         nets=("GND", "SIG", "VCC"),
         plane_splits={39: (("GND", LEFT), ("VCC", RIGHT))},
-        plane_names={39: "Ground Plane"},
+        copper_names={39: "Ground Plane"},
         tracks=tuple(
             Track(id=f"trk_{net}", start=at(5, y), end=at(20, y), width=254_000, layer="F.Cu", net_id=net)
             for net, y in (("GND", 5), ("SIG", 10), ("VCC", 15))
@@ -213,3 +213,55 @@ def test_row_planes_survive_kicad(tmp_path: Path, row: str) -> None:
     rules = [read_source(path).design.rules for path in (source, back)]
     widths = [Counter(r.kind for r in found.rules)["track_width"] for found in rules if found is not None]
     assert widths == [1, 1]
+
+
+SIGNAL_ROWS = {
+    "altium-third-party-pcbdoc-01": [
+        (1, "Component Side"),
+        (39, "Ground Plane"),
+        (40, "Power Plane"),
+        (32, "Solder Side"),
+    ],
+    "altium-third-party-pcbdoc-04": [
+        (1, "Top Layer"),
+        (2, "Internal Layer 1"),
+        (3, "Internal Layer 2"),
+        (32, "Bottom Layer"),
+    ],
+    "altium-third-party-pcbdoc-07": [(1, "Layer 1"), (2, "Layer 2"), (3, "Layer 3"), (32, "Layer 4")],
+}
+"""The written copper chain of each row (S-2254): its signal layers keep their names; the writer writes the
+k-th inner signal layer as Mid-Layer k, so row ``-07``'s inner layers 3 and 5 are written as 2 and 3."""
+
+
+@pytest.mark.needs_corpus
+@pytest.mark.parametrize("row", sorted(SIGNAL_ROWS))
+def test_row_copper_names_survive_kicad(tmp_path: Path, row: str) -> None:
+    """Scenario "Signal layer names come back from KiCad": a signal layer that the writer would name
+    otherwise is a KiCad row with its Altium name as user name, and the written document names it so."""
+    from _corpus import manifest_items, require
+
+    (item,) = [i for i in manifest_items("altium-pcbdoc") if i.id == row]
+    source = require(item)
+    text, written, _ = _round_trip(tmp_path, source)
+    original = read_pcbdoc(source.read_bytes())
+    assert [name for _, name in _chain(written)] == [name for _, name in _chain(original)]
+    assert _chain(written) == SIGNAL_ROWS[row]
+    named = re.findall(r'\(\d+ "(?:F|B|In\d+)\.Cu" signal "([^"]*)"\)', text)
+    assert named == [n for i, n in SIGNAL_ROWS[row] if i <= 32 and n not in ("Top Layer", "Bottom Layer")]
+
+
+def test_a_kicad_rows_user_name_names_its_altium_layer(tmp_path: Path) -> None:
+    """Scenario "A KiCad row's user name names its layer": ``F.Cu`` named ``Component Side`` is written so;
+    ``B.Cu`` named after another Altium layer (``Top Overlay``) keeps ``Bottom Layer``."""
+    from _convert import TWO_LAYER
+
+    text = TWO_LAYER.read_text("utf-8")
+    text = text.replace('(0 "F.Cu" signal)', '(0 "F.Cu" signal "Component Side")', 1)
+    text = text.replace('(2 "B.Cu" signal)', '(2 "B.Cu" signal "Top Overlay")', 1)
+    board = tmp_path / "board" / TWO_LAYER.name
+    board.parent.mkdir()
+    board.write_text(text, "utf-8")
+    back = convert_project(read_source(board), to="altium", allow_lossy=True)
+    (written,) = [data for name, data in back.files.items() if name.endswith(".PcbDoc")]
+    assert _chain(read_pcbdoc(written)) == [(1, "Component Side"), (32, "Bottom Layer")]

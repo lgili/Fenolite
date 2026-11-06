@@ -745,9 +745,10 @@ class PcbDocSpec:
     """Internal plane id → its ``Split Plane`` polygons that a conversion carried through KiCad (change
     c0466, ``convert.altium_planes``): each a net name and its ring in the frame of the design. A plane with
     splits is written with them instead of the board outline, and may be ``(Multiple Nets)``."""
-    plane_names: Mapping[int, str] = field(default_factory=lambda: {})
-    """Internal plane id → the name the plane is written with (change c0466) instead of ``Internal Plane
-    <k>``."""
+    copper_names: Mapping[int, str] = field(default_factory=lambda: {})
+    """Copper layer id → the name the layer is written with instead of Altium's (``pcbrecords.LAYER_NAMES``):
+    an internal plane's (39 … 54) and a signal layer's (1 … 32) name a conversion carried through KiCad
+    (change c0466, S-2254)."""
     kept_storages: Mapping[str, tuple[bytes, bytes]] = field(default_factory=lambda: {})
     """Storages a conversion carried from an Altium document through KiCad (change c0450,
     ``convert.altium_storages``), by name: their ``Header`` and ``Data`` streams, written as they were. The
@@ -888,7 +889,7 @@ def board_record(
     pin_pairs: Sequence[Field] = (),
     settings: Sequence[Field] = (),
     mechanical: Sequence[int] | None = None,
-    plane_names: Mapping[int, str] | None = None,
+    copper_names: Mapping[int, str] | None = None,
 ) -> bytes:
     """The one ``Board6`` record (``docboard``): the outline in the Altium frame, the origin at the board's
     lower-left corner, the layers that primitives lie on. ``frame`` and ``origin`` (change c0090) replace
@@ -929,7 +930,7 @@ def board_record(
         pin_pairs=pin_pairs,
         settings=settings,
         mechanical=mechanical,
-        plane_names=plane_names,
+        copper_names=copper_names,
     )
     return rec.text_block(text)
 
@@ -2691,7 +2692,7 @@ def _write(
                     frame=spec.frame,
                     origin=spec.origin,
                     layer_names=_layer_names(spec, drawn, settings),
-                    plane_names=spec.plane_names,
+                    copper_names=spec.copper_names,
                     pin_pairs=_pin_pair_fields(pin_pairs[1]) if pin_pairs is not None else (),
                     settings=settings,
                     mechanical=_mechanical_enabled(used, settings),

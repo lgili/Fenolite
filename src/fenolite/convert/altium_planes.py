@@ -4,7 +4,7 @@
 design-conversion, "Altium internal planes through KiCad and back").
 
 KiCad's file has no slot for a layer's net. A conversion to KiCad types each internal plane's row ``power``
-and names it after the plane (``altium_to_kicad.plane_rows``), and writes in the board property
+and names it after the plane (``altium_to_kicad.copper_rows``), and writes in the board property
 ``PROPERTY`` (``backends.kicad.boardcarrier``) each plane's row, its ``PLANE<k>NETNAME`` text, its pull-back
 and its ``Split Plane`` polygons (each a net and a straight ring in the frame of the design), with the low
 corner of the board's edge. The conversion back (``restored``) gives each plane whose row is still a
@@ -102,7 +102,7 @@ def _pullback(fields: Mapping[str, str], index: int) -> int:
 
 def found(source: Design, target: Design, document: Any) -> Carried:
     """The planes of the imported ``source`` to carry into ``target``, its KiCad conversion, whose rows
-    ``altium_to_kicad.plane_rows`` typed: each internal plane of the chain, in order, paired with the
+    ``altium_to_kicad.copper_rows`` typed: each internal plane of the chain, in order, paired with the
     ``power`` rows of ``target`` in order, whose net is a net of the design, or ``(Multiple Nets)`` with
     splits; whose splits each name a net of the design; and whose splits hold no arc vertex. ``document`` is
     the source's PCB document as read (``read.pcb.PcbDocument``), or ``None``, which carries no split."""

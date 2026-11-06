@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import dataclasses
 import re
+from collections import Counter
 from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
@@ -562,6 +563,34 @@ def kept_arc(entity: object, points: Sequence[Point], frame: pcbdoc.Frame) -> re
         if abs(at.x - read.x) > ARC_TOLERANCE or abs(at.y + read.y) > ARC_TOLERANCE:
             return None
     return rec.ArcGeometry(cx, cy, radius, start, end)
+
+
+def _copper_names(
+    board: Board, ids: Mapping[str, int], planes: Collection[str], carried: Mapping[str, CarriedPlane]
+) -> dict[int, str]:
+    """The names of the written copper layers by id (``PcbDocSpec.copper_names``): a carried plane's name
+    (change c0466), and for a signal row its KiCad user name (S-2254), which a conversion of an Altium
+    design gives a row whose Altium name the writer would not write. A name that a record cannot hold,
+    that names another layer of Altium's (``pcbrecords.LAYER_NAMES``) or that two layers take is left out:
+    the layer keeps Altium's."""
+    users: dict[str, str] = {}
+    for layer in board.layers:
+        bag = layer.ext.get("kicad")
+        name = dict(bag.payload).get("user_name") if bag is not None else None
+        if name and layer.name in ids:
+            users[layer.name] = name
+    names: dict[int, str] = {}
+    for row, ident in ids.items():
+        if row in planes:
+            plane = carried.get(row)
+            name = plane.name if plane is not None else None
+        else:
+            name = users.get(row)
+        if name and name != rec.LAYER_NAMES[ident] and _field_ok(name):
+            names[ident] = name
+    taken = Counter(names.values())
+    others = {name for ident, name in rec.LAYER_NAMES.items() if ident not in names}
+    return {ident: name for ident, name in names.items() if taken[name] == 1 and name not in others}
 
 
 def _field_ok(text: str) -> bool:
@@ -2389,13 +2418,7 @@ def _document(
         plane_splits=MappingProxyType(
             {plane_ids[n]: p.splits for n, p in carried_planes.items() if n in planes and p.splits}
         ),
-        plane_names=MappingProxyType(
-            {
-                plane_ids[n]: p.name
-                for n, p in carried_planes.items()
-                if n in planes and p.name and _field_ok(p.name)
-            }
-        ),
+        copper_names=MappingProxyType(_copper_names(board, plane_ids, planes, carried_planes)),
         fill_ids=frozenset(g.id for g in graphics if fills.is_fill(g)),
         keepout_strokes=MappingProxyType(
             {g.id: byte for g in graphics if (byte := stroke_flags.get(g.id)) is not None}

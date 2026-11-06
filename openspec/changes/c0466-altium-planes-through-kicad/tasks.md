@@ -27,3 +27,14 @@
 - [x] 4.1 Rows in `pcb-copper.md` and `board.md`, S-2250 to S-2252, and the CHANGELOG.
 - [ ] 4.2 Kit: Altium opens the round trip of rows `-01` and `-02` with their planes and splits, and Plane
   Connect finds the pads of the planes' nets connected.
+
+## 5. Signal layer names (S-2254 to S-2256)
+
+- [x] 5.1 `copper_rows` gives a copper row that a signal layer reaches its Altium name as KiCad user name
+  when the writer would write another (`written_name`); the writer names each signal layer after its
+  row's user name (`PcbDocSpec.copper_names`, formerly `plane_names`), leaving out a name a record cannot
+  hold, one of another Altium layer and one two layers take. The round trip of row `-04` wrote
+  `Internal Layer 1/2` as `Mid-Layer 1/2` (S-2191). Proof:
+  `uv run pytest tests/unit/convert/test_altium_planes_c0466.py -n 0 -k "copper_names or user_name"`.
+- [x] 5.2 Evidence: census of the copper names of the public rows (S-2254), their round trips (S-2255) and
+  KiCad 10.0.6 on the named signal rows (S-2256); rows in `pcb-copper.md` and `board.md`; CHANGELOG.

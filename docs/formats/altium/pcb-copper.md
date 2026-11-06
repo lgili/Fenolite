@@ -323,7 +323,11 @@ track and via flags above). Altium Designer's own view of a written lock is step
   conversion back writes each carried plane whose row is still `power` and whose nets the design holds as a
   plane again: its net (`(Multiple Nets)` allowed with splits), its pull-back as `PULLBACKDISTANCE`, the
   row's user name for `Internal Plane <k>`, and its splits, moved by the corner's translation, in place of
-  the outline polygon. Any other carried plane is a `plane` loss and is written as a signal layer. The
+  the outline polygon. Any other carried plane is a `plane` loss and is written as a signal layer. A copper
+  row that a signal layer reaches takes the layer's Altium name as user name when the writer would write
+  another (`Top Layer`, `Bottom Layer`, `Mid-Layer <k>` for `In<k>.Cu`), and the writer names a signal layer
+  after its KiCad row's user name unless a record cannot hold it, it names another Altium layer or two
+  layers take it (S-2254, S-2255). The
   plane's copper is still not in KiCad (change c0461), and the legacy `PLANE<k>PULLBACK` keys are not
   written (S-2251, S-2252).
 - **Tracks and arcs.** The short forms (36 and 47 bytes) with flags `0C 00`, or `08 00` for a locked
