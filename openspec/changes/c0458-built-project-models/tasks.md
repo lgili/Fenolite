@@ -21,4 +21,6 @@
 - [x] 4.1 `docs/dsl.md`, `docs/conversion.md`, `docs/formats/kicad/libraries.md`, the two ledger rows of
   `docs/evidence/conversion.md` (counted by converting the two boards, not by the census), S-2170, CHANGELOG.
   Proof: `uv run pytest tests/unit/test_format_facts.py tests/unit/verify/test_cited_ids.py -q`.
-- [ ] 4.2 The maintainer's board: flow A after a rebuild keeps its models (relayed by the coordinating session).
+- [x] 4.2 The maintainer's board: flow A after a rebuild keeps its models (relayed by the coordinating session).
+  - 2026-11-06 (sweep at 332b79837, relayed): 182 of 183 models come back; the one lost is a STEP model with no
+    edge box, reported as a loss of the conversion report, not a silent drop.
