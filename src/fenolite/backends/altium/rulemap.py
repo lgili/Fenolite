@@ -29,6 +29,7 @@ from fenolite.model.rules import Rule, RuleKind, Selector
 EVIDENCE = Evidence(
     Level.INFERRED,
     hypotheses=(
+        "H-A-RULE-ANTENNA",
         "H-A-RULE-CLEARANCE-CELLS",
         "H-A-RULE-CLEARANCE-FORMS",
         "H-A-RULE-FILE",
@@ -36,6 +37,7 @@ EVIDENCE = Evidence(
         "H-A-RULE-PRIORITY",
         "H-A-RULE-READBACK",
         "H-A-RULE-SCOPE",
+        "H-A-RULE-SHORT",
     ),
 )
 
@@ -168,15 +170,22 @@ TABLE: tuple[RuleRow, ...] = (
     ),
     RuleRow(
         "short",
-        "value-unsupported",
-        note="the ShortCircuit record (kind number 15, key ALLOWED, S-2243) is not written yet: change c0465 "
-        "writes it once the reader maps it",
+        EXACT,
+        "ShortCircuit",
+        15,
+        (),
+        ("ALLOWED",),
+        scopes=(*_UNARY, "pair"),
+        note="ALLOWED=TRUE for severity ignore, FALSE for error; a warning has no record (c0465, S-2243)",
     ),
     RuleRow(
         "antenna",
-        "value-unsupported",
-        note="the NetAntennae record (kind number 56, key NETANTENNAETOLERANCE, S-2243) is not written yet: "
-        "change c0465 writes it once the reader maps it",
+        EXACT,
+        "NetAntennae",
+        56,
+        ("max",),
+        ("NETANTENNAETOLERANCE",),
+        note="NETANTENNAETOLERANCE is the max of the first scope (change c0465, S-2243)",
     ),
     *(
         RuleRow(
@@ -198,6 +207,8 @@ KIND_ORDER: tuple[str, ...] = (
     "BoardOutlineClearance",
     "HoleToHoleClearance",
     "MinimumAnnularRing",
+    "ShortCircuit",
+    "NetAntennae",
 )
 """The Altium kinds in the order their rules are written: the three kinds of change c0038 first."""
 _ROWS: dict[str, RuleRow] = {row.neutral: row for row in TABLE}
@@ -227,8 +238,12 @@ _LENGTH_KEYS: dict[tuple[str, str], tuple[str, ...]] = {
     ("hole_size", "max"): ("MAXLIMIT",),
     ("hole_to_hole", "min"): ("GAP",),
     ("annular_width", "min"): ("MINIMUMRING",),
+    ("antenna", "max"): ("NETANTENNAETOLERANCE",),
 }
 """(neutral kind, limit) → the keys that hold the limit."""
+SHORT_ALLOWED: dict[str, str] = {"ignore": "TRUE", "error": "FALSE"}
+"""The ``ALLOWED`` key of a Short-Circuit record by the severity of its ``short`` rule (change c0465, design
+D5; S-2243)."""
 _VIA_PARTNER: dict[str, RuleKind] = {"via_diameter": "via_drill", "via_drill": "via_diameter"}
 
 
@@ -390,7 +405,19 @@ def scope_of(selector: Selector | None, row: RuleRow) -> tuple[str, str]:
 
 def _lengths(rule: Rule, row: RuleRow) -> dict[str, str]:
     """The length keys of ``rule`` as mil text. Refused: a severity other than ``error``, a limit the row
-    does not take, a missing limit, and a positive value below the PCB unit or outside its range."""
+    does not take, a missing limit, and a positive value below the PCB unit or outside its range. A
+    ``short`` rule has no limit: its severity is its ``ALLOWED`` key (change c0465, design D5), ``TRUE`` for
+    ``ignore`` and ``FALSE`` for ``error``."""
+    if rule.kind == "short" and rule.severity in SHORT_ALLOWED:
+        if any(value is not None for value in (rule.min, rule.opt, rule.max)):
+            raise _Refused("value-unsupported", "a ShortCircuit record holds no limit")
+        return {"ALLOWED": SHORT_ALLOWED[rule.severity]}
+    if rule.kind == "short":
+        raise _Refused(
+            "value-unsupported",
+            f"the severity {rule.severity} has no place in a ShortCircuit record, which allows the short "
+            "(ignore) or not (error)",
+        )
     if rule.severity != "error":
         raise _Refused(
             "value-unsupported",

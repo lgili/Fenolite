@@ -570,14 +570,21 @@ def test_kinds_read_elsewhere_checked_and_carried() -> None:
     assert all(issue.code == "altium.rule.unmapped" for issue in mapped(*records).issues)
 
 
-def test_a_record_that_relaxes_a_check_is_reported() -> None:
-    """Scenario: ``ALLOWED=TRUE`` on Short-Circuit, a tolerance on Net Antennae; a disabled one is silent."""
+def test_a_record_that_relaxes_a_check_maps() -> None:
+    """``ALLOWED=TRUE`` on Short-Circuit, a tolerance on Net Antennae: since change c0465 (design D5) the
+    records map and the warning ``altium.rules.check-relaxed`` is withdrawn; a disabled one stays unmapped."""
     records = [
         record("ShortCircuit", ("ALLOWED", "TRUE"), SCOPE2EXPRESSION="InNet('B')"),
         record("NetAntennae", ("NETANTENNAETOLERANCE", "1mil")),
         record("NetAntennae", ("NETANTENNAETOLERANCE", "0mil"), PRIORITY="2"),
         record("ShortCircuit", ("ALLOWED", "TRUE"), ENABLED="FALSE", PRIORITY="2"),
     ]
-    relaxed = [i for i in mapped(*records).issues if i.code == "altium.rules.check-relaxed"]
-    assert [(i.severity, i.where) for i in relaxed] == [("warning", "keys#0"), ("warning", "keys#1")]
-    assert "ALLOWED=TRUE" in relaxed[0].message and "NETANTENNAETOLERANCE=1mil" in relaxed[1].message
+    mapping = mapped(*records)
+    assert not [i for i in mapping.issues if i.code == "altium.rules.check-relaxed"]
+    assert [(r.kind, r.severity, r.max) for r in mapping.ruleset.rules] == [
+        ("short", "ignore", None),
+        ("antenna", "error", 25_400),
+        ("antenna", "error", 0),
+    ]
+    assert mapping.ruleset.rules[0].selector_b == Selector("net", "B")
+    assert [(u.kind, u.reason) for u in mapping.unmapped] == [("ShortCircuit", "disabled")]

@@ -208,6 +208,8 @@ def every_kind(design: Design) -> Design:
     design.rules.rule("holes", "hole_size", min=mm(0.3), max=mm(6))
     design.rules.rule("apart", "hole_to_hole", min=mm(0.25))
     design.rules.rule("ring", "annular_width", min=mm(0.125))
+    design.rules.rule("join", "short", where=netclass("PWR"), between=netclass("PWR"), severity="ignore")
+    design.rules.rule("stub", "antenna", max=mm(1.27))
     return design
 
 

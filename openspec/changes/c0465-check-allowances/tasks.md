@@ -51,11 +51,16 @@ Rules for every task:
 
 ## 5. Altium
 
-- [ ] 5.1 Rebase onto c0462. ShortCircuit and NetAntennae records map (design D5); `check-relaxed` is
+- [x] 5.1 Rebase onto c0462. ShortCircuit and NetAntennae records map (design D5); `check-relaxed` is
   withdrawn; the kind table lists both as neutral. Proof:
   `uv run pytest tests/unit/backends/altium/test_rule_allowances_c0465.py tests/unit/backends/altium/read/test_rule_map.py tests/corpus/test_altium_rule_kinds_c0462.py -q -n 0`.
-- [ ] 5.2 The Altium writer writes both kinds with the keys of S-2243. Proof: the same file, `-k write`, and
+- [x] 5.2 The Altium writer writes both kinds with the keys of S-2243. Proof: the same file, `-k write`, and
   `uv run pytest tests/unit/backends/altium/test_rulemap.py -q -n 0`.
+  Done 2026-11-06: `short` is a ShortCircuit record (number 15) whose `ALLOWED` is its severity (`TRUE` for
+  `ignore`, `FALSE` for `error`, a `warning` refused `value-unsupported`), `antenna` a NetAntennae record
+  (number 56) whose `NETANTENNAETOLERANCE` is its `max`. Both join `KIND_ORDER` and `WRITTEN_KINDS`, so the
+  import keeps only the records it does not map. A set that relaxes nothing is written and lifts back as
+  `checked`; the generated round trip says so.
 
 ## 6. Acceptance
 

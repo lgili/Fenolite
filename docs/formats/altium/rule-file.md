@@ -167,11 +167,12 @@ table is reported with `no-counterpart`.
 - **read**: another part of the backend reads the record (named); the mapper reports it with
   `read-elsewhere`.
 - **checked**: `fenolite check` performs the check by itself (the finding named); the mapper reports the
-  record with `checked`. A record that relaxes the check gives the warning `altium.rules.check-relaxed`: a
-  Short-Circuit with `ALLOWED=TRUE` (S-2249), a Net Antennae with `NETANTENNAETOLERANCE` above zero
-  (S-2217). The relaxation is reported only: `fenolite check` takes no allowance by net (a waiver names
-  the items of one finding, a net tie the pads of one footprint) and no tolerance of dangling copper from
-  the design, so `check` still reports the short or the antenna.
+  record with `checked`.
+- Short-Circuit and Net Antennae (change c0465, design D5) are **neutral** kinds that relax a check
+  `fenolite check` performs (`rules.ALLOWANCE_KINDS`). Their enabled records map only when one of them
+  relaxes it: a Short-Circuit with `ALLOWED=TRUE`, a Net Antennae with `NETANTENNAETOLERANCE` above zero.
+  Otherwise each is reported with `checked`, since a rule that forbids a short or allows no antenna is the
+  check Fenolite performs anyway. The warning `altium.rules.check-relaxed` of change c0462 is withdrawn.
 - **carried**: no neutral rule takes the kind; the record is carried (change c0434) and reported with
   `no-counterpart`, with the reason named.
 
@@ -195,7 +196,7 @@ table is reported with `no-counterpart`.
 | `MatchedLengths` | neutral | `skew` or `diff_pair_skew` ("Matched Lengths"); the 15 public records use delay units and are refused with `delay-units` |
 | `MinimumAnnularRing` | neutral | `annular_width` |
 | `MinimumSolderMaskSliver` | carried | a minimum solder mask web: no copper geometry |
-| `NetAntennae` | checked | KiCad's dangling tracks; a tolerance above zero is reported (`check-relaxed`) and not honoured: the dangling check takes no tolerance |
+| `NetAntennae` | neutral | `antenna`, `max` = `NETANTENNAETOLERANCE`, over the first scope (change c0465); mapped only when one enabled record of the document has a tolerance above zero, else `checked` (KiCad's dangling tracks) |
 | `PasteMaskExpansion` | read | `convert.openings`: the paste margin of each pad (c0440) |
 | `PlaneClearance` | read | the internal planes: a conversion to KiCad counts each plane lost with its rules (c0461) |
 | `PlaneConnect` | read | the internal planes: a conversion to KiCad counts each plane lost with its rules (c0461) |
@@ -207,7 +208,7 @@ table is reported with `no-counterpart`.
 | `RoutingVias` | neutral | `via_diameter`, `via_drill` |
 | `SMDToCorner` | carried | a distance from a surface pad to a track corner: the model holds no rule of it |
 | `SMDToPlane` | carried | a distance from a surface pad to a plane connection: the model holds no rule of it |
-| `ShortCircuit` | checked | `copper.short`, and KiCad's shorting items; `ALLOWED=TRUE` is reported (`check-relaxed`) and not honoured: `check` takes no allowance by net |
+| `ShortCircuit` | neutral | `short` over the two scopes, `ignore` for `ALLOWED=TRUE` and `error` for `FALSE` (change c0465); mapped only when one enabled record of the document has `ALLOWED=TRUE`, else `checked` (`copper.short`, and KiCad's shorting items) |
 | `SilkToBoardRegionClearance` | carried | a silkscreen to board region clearance: no copper geometry |
 | `SilkToSilkClearance` | neutral | `silk_clearance` |
 | `SilkToSolderMaskClearance` | carried | a silkscreen to solder mask clearance: no copper geometry |

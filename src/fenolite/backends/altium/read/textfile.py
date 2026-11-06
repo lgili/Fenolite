@@ -55,7 +55,6 @@ TEXT_READ_CODES: dict[str, Severity] = {
     "altium.rule.unmapped": "info",
     "altium.rule.applies-to-nothing": "info",
     "altium.rules.layer-absent": "info",
-    "altium.rules.check-relaxed": "warning",
     "altium.stackup.unknown-form": "warning",
     "altium.stackup.length-unreadable": "warning",
 }

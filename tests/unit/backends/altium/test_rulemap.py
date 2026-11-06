@@ -22,6 +22,7 @@ PAGE = Path(__file__).resolve().parents[4] / "docs" / "formats" / "altium" / "pc
 ALL = Selector("all")
 PWR = Selector("netclass", "PWR")
 MM = 1_000_000
+MIL = 25_400
 
 
 def rule(
@@ -64,6 +65,8 @@ def one_of_each(where: Selector = ALL) -> list[Rule]:
         rule("edge_clearance", where, min=500_000),
         rule("hole_to_hole", where, min=250_000),
         rule("annular_width", where, min=125_000),
+        rule("short", where, between=ALL, severity="ignore"),
+        rule("antenna", where, max=50 * MIL),
     ]
 
 
@@ -98,11 +101,13 @@ def test_complete_exact_rows_are_cited_and_read() -> None:
         if not row.exact:
             continue
         entry = RULE_KIND_MAP[row.altium]
-        assert row.neutral in [limits.kind for limits in entry.rules]
         assert entry.net_scope == row.net_scope
         assert ("pair" in row.scopes) == entry.binary
-        limits = next(limits for limits in entry.rules if limits.kind == row.neutral)
-        assert set(limits.keys) <= set(row.fields)
+        if row.limits:
+            limits = next(limits for limits in entry.rules if limits.kind == row.neutral)
+            assert set(limits.keys) <= set(row.fields)
+        else:  # change c0465: a short rule has no limit; the reader's ALLOWED condition is its severity
+            assert row.neutral == "short" and entry.rules == () and row.fields == ("ALLOWED",)
         # the keys of change c0125 (a matrix cell) are read and never written
         assert all(c.key in row.fields for c in entry.conditions if not c.read_only)
         assert not any(c.key in row.fields for c in entry.conditions if c.read_only)
@@ -145,10 +150,12 @@ def test_single_scopes_are_written_exactly() -> None:
     }
     assert keys["HoleToHoleClearance"] == {"GAP": "9.8425mil", "ALLOWSTACKEDMICROVIAS": "FALSE"}
     assert keys["MinimumAnnularRing"] == {"MINIMUMRING": "4.9213mil"}
+    assert keys["ShortCircuit"] == {"ALLOWED": "TRUE"}
+    assert keys["NetAntennae"] == {"NETANTENNAETOLERANCE": "50mil"}
     assert [r.net_scope for r in lowered.records] == [
-        "DifferentNets", "AnyNet", "AnyNet", "AnyNet", "DifferentNets", "AnyNet", "AnyNet"
+        "DifferentNets", "AnyNet", "AnyNet", "AnyNet", "DifferentNets", "AnyNet", "AnyNet", "AnyNet", "AnyNet"
     ]  # fmt: skip
-    assert [r.number for r in lowered.records] == [0, 2, 11, 42, 63, 52, 19]
+    assert [r.number for r in lowered.records] == [0, 2, 11, 42, 63, 52, 19, 15, 56]
 
 
 def test_roundtrip_of_one_of_each() -> None:
@@ -159,7 +166,7 @@ def test_roundtrip_of_one_of_each() -> None:
         assert opaque == {} and same_rules(lifted, lowered.written)
         assert [r.kind for r in lifted] == [
             "clearance", "track_width", "via_diameter", "via_drill", "hole_size", "edge_clearance",
-            "hole_to_hole", "annular_width",
+            "hole_to_hole", "annular_width", "short", "antenna",
         ]  # fmt: skip
 
 
@@ -568,8 +575,18 @@ def test_roundtrip_of_generated_rule_sets(rules: list[Rule]) -> None:
     2 nm; every rule is written or named with a reason; names are unique and priorities run from 1."""
     lowered = lower(rules)
     lifted, opaque = lift(lowered.records)
-    assert opaque == {}
-    assert same_rules(lifted, lowered.written)
+    written = list(lowered.written)
+    checked: dict[str, int] = {}
+    for kind, altium, relaxes in (
+        ("short", "ShortCircuit", lambda r: r.severity == "ignore"),
+        ("antenna", "NetAntennae", lambda r: (r.max or 0) > 0),
+    ):  # change c0465, design D5: records that relax nothing read back as the check Fenolite performs
+        of_kind = [r for r in written if r.kind == kind]
+        if of_kind and not any(relaxes(r) for r in of_kind):
+            written = [r for r in written if r.kind != kind]
+            checked[altium] = len(of_kind)
+    assert opaque == dict(sorted(checked.items()))
+    assert same_rules(lifted, written)
     assert {r.id for r in lowered.written} | {item.rule.id for item in lowered.not_lowered} == {
         r.id for r in rules
     }

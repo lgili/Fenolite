@@ -240,7 +240,7 @@ net scope, which relates the nets of two objects, does not change what they sele
 WRITTEN_KINDS = frozenset(
     {
         "Clearance", "Width", "RoutingVias", "HoleSize", "BoardOutlineClearance", "HoleToHoleClearance",
-        "MinimumAnnularRing",
+        "MinimumAnnularRing", "ShortCircuit", "NetAntennae",
     }
 )  # fmt: skip
 """The Altium kinds the writer rebuilds from neutral rules: those of ``rulemap.KIND_ORDER``, named here so
@@ -323,6 +323,15 @@ RULE_KIND_MAP: dict[str, KindMap] = {
         ),
         edge_matrix=True,
     ),
+    "ShortCircuit": KindMap(  # change c0465, design D5: severity ``ignore`` when ALLOWED=TRUE (S-2243)
+        (),
+        "AnyNet",
+        (Condition("ALLOWED", ("TRUE", "FALSE"), required=True),),
+        binary=True,
+    ),
+    "NetAntennae": KindMap(  # change c0465, design D5 (S-2243)
+        (NeutralLimits("antenna", None, None, "NETANTENNAETOLERANCE"),), "AnyNet"
+    ),
     "HoleToHoleClearance": KindMap(
         (NeutralLimits("hole_to_hole", "GAP", None, None),),
         "AnyNet",
@@ -386,13 +395,18 @@ READ_KINDS: dict[str, str] = {
 """Kinds that another part of the backend reads (``rule-file.md``, "Rule kinds and their reading"; change
 c0462, design D6): their records give no neutral rule and are reported with the reason ``read-elsewhere``."""
 CHECKED_KINDS: dict[str, str] = {
-    "ShortCircuit": "`copper.short`, and KiCad's shorting items",
     "UnRoutedNet": "KiCad's unconnected items",
-    "NetAntennae": "KiCad's dangling tracks",
     "UnpouredPolygon": "`zone.unfilled`",
 }
 """Kinds whose check ``fenolite check`` performs by itself: their records are reported with the reason
-``checked``, and a record that relaxes the check gives the warning ``altium.rules.check-relaxed``."""
+``checked``."""
+ALLOWANCE_KINDS: dict[str, str] = {
+    "ShortCircuit": "`copper.short`, and KiCad's shorting items",
+    "NetAntennae": "KiCad's dangling tracks",
+}
+"""Kinds of ``RULE_KIND_MAP`` that relax a check ``fenolite check`` performs (change c0465, design D5): the
+enabled records of one map only when one of them relaxes the check (``_relaxes``), and otherwise each is
+reported with the reason ``checked``, as a kind of ``CHECKED_KINDS`` is."""
 CARRIED_KINDS: dict[str, str] = {
     "AcuteAngle": "a minimum angle of track corners: the model holds no rule of corner angles",
     "AssemblyTestPointUsage": "test point usage for assembly: no copper geometry",
@@ -972,17 +986,17 @@ def _matched_lengths(fields: Sequence[Field]) -> list[tuple[NeutralLimits, tuple
     )
 
 
-def _relaxed(fields: Sequence[Field], kind: str) -> str:
-    """What a record of ``CHECKED_KINDS`` relaxes of the check Fenolite performs, or ``""``: a Short-Circuit
-    that allows the short (S-2249), a Net Antennae with a tolerance above zero (S-2217)."""
-    if kind == "ShortCircuit" and _get(fields, "ALLOWED") == "TRUE":
-        return "ALLOWED=TRUE allows the nets of its scopes to short"
+def _relaxes(fields: Sequence[Field], kind: str) -> bool:
+    """Whether an enabled record of ``ALLOWANCE_KINDS`` relaxes the check Fenolite performs: a Short-Circuit
+    that allows the short (S-2241), a Net Antennae with a tolerance above zero (S-2240)."""
+    if _get(fields, "ENABLED") != "TRUE":
+        return False
+    if kind == "ShortCircuit":
+        return _get(fields, "ALLOWED") == "TRUE"
     if kind == "NetAntennae":
-        text = _get(fields, "NETANTENNAETOLERANCE")
-        length = parse_length(text or "")
-        if length is not None and length > 0:
-            return f"NETANTENNAETOLERANCE={text} allows open stubs up to that length"
-    return ""
+        length = parse_length(_get(fields, "NETANTENNAETOLERANCE") or "")
+        return length is not None and length > 0
+    return False
 
 
 def _and(selector: Selector, leaf: Selector) -> Selector:
@@ -997,22 +1011,20 @@ def _map_one(
     layers: CopperLayers | None,
     notes: list[Issue],
     document: ScopeDocument | None = None,
+    relaxing: frozenset[str] = frozenset(),
 ) -> list[Rule]:
     kind, name, priority = _header(fields)
     table = RULE_KIND_MAP.get(kind)
+    if kind in ALLOWANCE_KINDS and kind not in relaxing:
+        raise _Refusal(
+            "checked",
+            f"fenolite check performs {kind} by itself ({ALLOWANCE_KINDS[kind]}), and no enabled record of "
+            "the document relaxes it",
+        )
     if table is None:
         if kind in READ_KINDS:
             raise _Refusal("read-elsewhere", f"{kind} is read by {READ_KINDS[kind]}")
         if kind in CHECKED_KINDS:
-            relaxed = _relaxed(fields, kind) if _get(fields, "ENABLED") == "TRUE" else ""
-            if relaxed:
-                notes.append(
-                    text_issue(
-                        "altium.rules.check-relaxed",
-                        f"the rule {name!r} of kind {kind} relaxes a check Fenolite performs: {relaxed}",
-                        f"{origin}#{index}",
-                    )
-                )
             raise _Refusal("checked", f"fenolite check performs {kind} by itself: {CHECKED_KINDS[kind]}")
         if kind in PENDING_KINDS:
             raise _Refusal(
@@ -1054,6 +1066,21 @@ def _map_one(
     left = ((UNJUDGED_PAIR, ";".join(matrix.unjudged)),) if matrix is not None and matrix.unjudged else ()
     bag = ExtBag(payload=(record, *left))
     rules: list[Rule] = []
+    if kind == "ShortCircuit":  # change c0465: a rule of no limit, whose severity says what a short is
+        rules.append(
+            Rule(
+                id=derived_id("rul", BACKEND, f"{origin}:{index}:short"),
+                native_ids=dict(native),
+                ext={BACKEND: bag},
+                name=name,
+                kind="short",
+                selector_a=selector_a,
+                selector_b=selector_b or Selector("all"),
+                layers=on_layers,
+                severity="ignore" if _get(fields, "ALLOWED") == "TRUE" else "error",
+                priority=priority,
+            )
+        )
     for limits, (low, preferred, high) in groups:
         rules.append(
             Rule(
@@ -1230,6 +1257,11 @@ def map_rules(
                 origin,
             )
         )
+    relaxing = frozenset(  # change c0465, design D5: the kinds whose records map
+        kind
+        for kind in ALLOWANCE_KINDS
+        if any(_relaxes(f, kind) for f in records if _get(f, "RULEKIND") == kind)
+    )
     for index, fields in enumerate(records):
         kind = _get(fields, "RULEKIND") or _get(fields, "RuleKind") or ""
         name = _get(fields, "NAME") or _get(fields, "RuleName") or ""
@@ -1237,9 +1269,9 @@ def map_rules(
         try:
             if summary:
                 raise _Refusal("summary-form", "the value has no unit")
-            mapped = _map_one(fields, index, origin, layers, notes, document)
+            mapped = _map_one(fields, index, origin, layers, notes, document, relaxing)
         except _Refusal as refusal:
-            issues += notes  # a warning of a refused record (``altium.rules.check-relaxed``)
+            issues += notes
             unmapped.append(Unmapped(index, kind, name, refusal.reason, refusal.detail))
             issues.append(
                 text_issue(
@@ -1267,6 +1299,7 @@ def map_rules(
 __all__ = [
     "CARRIED_KINDS",
     "CELL_PAIR",
+    "ALLOWANCE_KINDS",
     "CHECKED_KINDS",
     "EDGE",
     "EDGE_KINDS",

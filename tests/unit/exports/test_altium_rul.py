@@ -83,8 +83,12 @@ def read_file(data: bytes) -> list[Rule]:
 
 
 def test_readback_of_a_rule_of_every_kind() -> None:
-    """Scenario "Written file reads back", on one rule of every ``exact`` kind."""
-    rules = rules_of(with_rules(altium_blink()))
+    """Scenario "Written file reads back", on one rule of every ``exact`` kind; ``short`` and ``antenna``
+    (change c0465) are no KiCad rule, so ``with_rules`` leaves them to this test."""
+    design = with_rules(altium_blink())
+    design.rules.rule("join", "short", where=netclass("PWR"), between=netclass("PWR"), severity="ignore")
+    design.rules.rule("stub", "antenna", max=mm(1.27))
+    rules = rules_of(design)
     data = rulemap.write_rule_file(rules, name="blink")
     lowered = rulemap.lower(rules)
     assert {rule.kind for rule in lowered.written} == {row.neutral for row in rulemap.TABLE if row.exact}

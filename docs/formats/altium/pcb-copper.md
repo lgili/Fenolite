@@ -188,6 +188,8 @@ Part U of `docs/evidence/altium-pcb.md`.
 | A Hole To Hole Clearance record has the kind number 52, `RULEKIND=HoleToHoleClearance`, `NETSCOPE=AnyNet` and the keys `GAP` and `ALLOWSTACKEDMICROVIAS` (`TRUE` or `FALSE`) in this order; both scopes are `All` in the nine records read | S-0172, S-0174, S-0175, S-0176, S-0187, S-0188, S-0199, S-0200, S-0297 | INFERRED | H-A-RULE-KINDS |
 | Minimum Annular Ring is the minimum ring of a pad or via, measured radially from the edge of the hole to the edge of the pad or via | S-0460 | INFERRED | H-A-RULE-KINDS |
 | A Minimum Annular Ring record has the kind number 19, `RULEKIND=MinimumAnnularRing`, `NETSCOPE=AnyNet` and the one key `MINIMUMRING`; four records in three documents, scoped `All`, `IsVia` or `NOT IsVia` | S-0174, S-0199, S-0200 | INFERRED | H-A-RULE-KINDS |
+| A Short-Circuit record has the kind number 15, `RULEKIND=ShortCircuit`, one key of its own, `ALLOWED` (`FALSE` in the 8 public rows), and both scopes `All`; `NETSCOPE=AnyNet` in 7 rows and `DifferentNets` in 1 | S-2243 | CORPUS-VERIFIED (8 rows; 2026-11-06) | H-A-RULE-SHORT |
+| A Net Antennae record has the kind number 56, `RULEKIND=NetAntennae`, `NETSCOPE=AnyNet`, one key of its own, `NETANTENNAETOLERANCE` (`0mil` in 6 public rows, `1mil` in 2), and both scopes `All` | S-2243 | CORPUS-VERIFIED (8 rows; 2026-11-06) | H-A-RULE-ANTENNA |
 | A Width record holds `MAXLIMIT`, `MINLIMIT` and `PREFEREDWIDTH` in every record read, a Routing Via Style record its seven keys, a Hole Size record both limits: no record read leaves a limit out | S-0172, S-0174, S-0175, S-0176, S-0187, S-0188, S-0199, S-0200, S-0297 | INFERRED | H-A-RULE-KINDS |
 | Silk To Solder Mask Clearance is the clearance between a silkscreen primitive and a solder mask opening or the copper exposed through it, by a checking mode; Silk To Silk Clearance is the clearance between silkscreen text and other silkscreen objects. Their records hold `MINSILKSCREENTOMASKGAP` with `CLEARANCETOEXPOSEDCOPPER`, and `SILKTOSILKCLEARANCE`. Neither is the neutral silkscreen clearance, which is one value for both | S-0460, S-0172, S-0174, S-0175, S-0176, S-0187, S-0188, S-0199, S-0200, S-0297 | INFERRED | H-A-RULE-KINDS |
 | Component Clearance is the minimum distance between components, measured between their 3D bodies or, without them, their selection areas, with a horizontal and a vertical clearance and a check mode. Its record holds `GAP`, `COLLISIONCHECKMODE`, `VERTICALGAP` and `SHOWDISTANCES`; no permitted source says what the mode number means. It is not a clearance between courtyards | S-0461, S-0172, S-0174, S-0175, S-0176, S-0187, S-0188, S-0199, S-0200, S-0297 | INFERRED | H-A-RULE-KINDS |
@@ -228,8 +230,8 @@ limits of its row.
 | `silk_clearance` | — | — | — | — | — | no-counterpart |
 | `creepage` | — | — | — | — | — | no-counterpart |
 | `no_tracks` | — | — | — | — | — | no-counterpart |
-| `short` | — | — | — | — | — | value-unsupported |
-| `antenna` | — | — | — | — | — | value-unsupported |
+| `short` | `ShortCircuit` | 15 | — | — | — | exact |
+| `antenna` | `NetAntennae` | 56 | — | — | `NETANTENNAETOLERANCE` | exact |
 | `diff_pair_gap` | — | — | — | — | — | no-counterpart |
 | `diff_pair_uncoupled` | — | — | — | — | — | no-counterpart |
 | `skew` | — | — | — | — | — | no-counterpart |
@@ -241,10 +243,14 @@ routing, with one switch per layer, and is the nearest counterpart in meaning (S
 record (kind number, constraint keys) is in no public file read under the sources register, so the row
 cannot be `exact`: a `no_tracks` rule is reported with `altium.not-lowered` and no record is written.
 
-The rows of `short` and `antenna` (change c0465): their records are ShortCircuit (kind number 15, key
-`ALLOWED`) and NetAntennae (kind number 56, key `NETANTENNAETOLERANCE`), S-2243. Until the reader maps them
-(c0465 task 5.1) the writer does not write them, and a rule of either kind is reported with
-`altium.not-lowered`.
+The rows of `short` and `antenna` (change c0465, task 5.2): a `short` rule is a ShortCircuit record whose
+one key `ALLOWED` is its severity, `TRUE` for `ignore` and `FALSE` for `error`; a `warning` has no record and
+is reported `value-unsupported`, as is a `short` that gives a limit. Its two selectors are the record's two
+scopes. An `antenna` rule is a NetAntennae record of one scope whose `NETANTENNAETOLERANCE` is its `max`,
+with severity `error`. The reader maps the records of either kind only where one enabled record of the
+document relaxes the check (`rule-file.md`, "checked"), so a written set of `short` rules that allows no
+short, or of `antenna` rules all of `max` 0, reads back as Fenolite's own check: the records are written and
+lifted as `checked`.
 
 ## Locked flag of a free primitive
 
