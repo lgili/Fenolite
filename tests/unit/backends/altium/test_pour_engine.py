@@ -235,6 +235,22 @@ def test_necks_below_and_above_the_width() -> None:
         assert _covered(_of(result, "GND"), at(middle, 15)) is kept, width
 
 
+def test_a_pinch_the_opening_closes_again_is_parted() -> None:
+    """Input I10 (S-2227): two discs of 300 µm whose waist is narrower than the neck width of 200 µm. The
+    opening's discs, grown back, would join them again at the waist; the pour parts them there. A waist wider
+    than the width stays one piece."""
+    from fenolite.backends.altium.pour import _Geometry, disc  # pyright: ignore[reportPrivateUsage]
+    from fenolite.geometry.boolean.clipper import ClipperBackend
+
+    geometry = _Geometry(ClipperBackend())
+    for apart, pieces in ((580_000, 2), (450_000, 1)):  # waists of 153 µm and 397 µm
+        copper = geometry.union([disc(Point(0, 0), 300_000, 50), disc(Point(apart, 0), 300_000, 50)])
+        assert len(copper) == 1
+        opened = geometry.open(copper, 200_000, 50)
+        assert len(opened) == pieces, apart
+        assert sum(area(piece) for piece in opened) > area(copper[0]) * 9 // 10
+
+
 def test_islands_below_the_area_whatever_they_connect() -> None:
     """Input I12: a piece below 2500 mil² is removed even with a GND via on it; one above is kept."""
 

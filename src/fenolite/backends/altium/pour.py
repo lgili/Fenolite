@@ -966,8 +966,8 @@ class _Geometry:
         the ends of the opening's arc (the saved pours hold no convex corner below 75° and only 16 between
         75° and 89.9° among 2853); the sliver the opening takes off a corner of 89.5° or more (within half
         the width of it) comes back, so the corner stays sharp; every other piece is a neck and stays
-        removed. The result is cut back to
-        ``polys``: nothing grows."""
+        removed. Copper that grows back from two parts of the eroded copper is parted where the two meet
+        (``_pinches``). The result is cut back to ``polys``: nothing grows."""
         half = width // 2
         if half <= 0 or not polys:
             return tuple(polys)
@@ -992,7 +992,26 @@ class _Geometry:
             if found and not tips and max(box.width, box.height) <= half + tol:
                 continue  # the sliver the round opening takes off a corner of 89.5° or more stays
             cut.append(piece)
+        cut.extend(self._pinches(eroded, half, tol))
         return _certified_neck_cut(polys, cut, tol) if cut else tuple(polys)
+
+    def _pinches(self, eroded: Sequence[Polygon], half: int, tol: int) -> tuple[Polygon, ...]:
+        """Where the copper grown back by ``half`` from two parts of the eroded copper ``eroded`` meets, grown
+        by ``tol``: the opening parts a neck narrower than its width into two parts, and their discs, grown
+        back, join them again at a pinch. Altium's repour of row -04 keeps them apart: a lobe of 0.11 mm²
+        joined to the rest only through such a pinch is an island there (S-2227)."""
+        boxes = [piece.bbox().inflate(half + tol) for piece in eroded]
+        grown: dict[int, tuple[Polygon, ...]] = {}
+        found: list[Polygon] = []
+        for i in range(len(eroded)):
+            for j in range(i + 1, len(eroded)):
+                if not boxes[i].intersects(boxes[j]):
+                    continue
+                for k in (i, j):
+                    if k not in grown:
+                        grown[k] = self.offset((eroded[k],), half, tol)
+                found.extend(self.meet(grown[i], grown[j]))
+        return self.offset(found, tol, tol) if found else ()
 
     def union(self, polys: Sequence[Polygon]) -> tuple[Polygon, ...]:
         return self.backend.union(polys) if polys else ()

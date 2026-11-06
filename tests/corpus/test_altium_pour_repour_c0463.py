@@ -65,7 +65,7 @@ ORACLE: dict[str, tuple[dict[str, int], dict[str, tuple[str, ...]]]] = {
             "P5 B.Cu": ("M2",),
         },
     ),
-    "altium-third-party-pcbdoc-05": ({}, {"P1 B.Cu": ("M2",), "P0 F.Cu": ("M2", "M3", "M4")}),
+    "altium-third-party-pcbdoc-05": ({}, {"P1 B.Cu": ("M2",), "P0 F.Cu": ("M2",)}),
     "altium-third-party-pcbdoc-06": ({"connect-scope": 1, "depends-on-refused": 6, "rule-unmapped": 3}, {}),
     "altium-third-party-pcbdoc-07": (
         {},
@@ -85,7 +85,8 @@ and no failure.
 
 Rows ``-04`` and ``-07`` are repinned on ``cac/lote-29`` (c0462 reads their Clearance scopes) with the edge
 and relief conductor of S-2227: every polygon pours; on ``-04`` 4 of 9 fail M1 (the top layer), on
-``-07`` none does, and M2 remains."""
+``-07`` none does, and M2 remains. Parting a pinch that the neck removal closes again takes M3 and M4
+off ``P0 F.Cu`` of ``-05``."""
 
 
 def _record() -> dict[str, object]:

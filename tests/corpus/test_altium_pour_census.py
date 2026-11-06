@@ -163,7 +163,7 @@ POUR_CENSUS: dict[str, tuple[int, dict[str, int], dict[str, tuple[str, ...]]]] =
         },
     ),
     "altium-third-party-pcbdoc-05": (
-        2, {}, {"B.Cu GND_BOTTOM": ("M2",), "F.Cu GND_TOP": ("M2", "M3", "M4")},
+        2, {}, {"B.Cu GND_BOTTOM": ("M2",), "F.Cu GND_TOP": ("M2",)},
     ),
     "altium-third-party-pcbdoc-06": (
         10, {"depends-on-refused": 6, "rule-unmapped": 4}, {},
@@ -213,7 +213,8 @@ Change c0463 (2026-11-06, S-2227) keeps Altium's distance from the board's edge 
 around the clearance) and draws a relief conductor over its own pad outside the outline: the three planes
 of ``-04`` and P21 of ``-07`` now pass M1, so 4 polygons of ``-04`` and none of ``-07`` fail it. What is
 left on the top layer of ``-04`` is copper Fenolite keeps and Altium removes, joined to the rest through
-narrow channels."""
+narrow channels. Parting a pinch that the neck removal's discs close again takes M3 and M4 off the top
+polygon of ``-05``."""
 
 
 @pytest.mark.parametrize("item", DOCUMENTS, ids=lambda item: item.id)
