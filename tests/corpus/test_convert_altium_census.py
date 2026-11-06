@@ -113,14 +113,14 @@ def test_baseline_layers(item) -> None:
 
 
 CONVERTED_LOSSES = {
-    "altium-third-party-pcbdoc-01": {},
+    "altium-third-party-pcbdoc-01": {"altium-storage": 1},
     "altium-third-party-pcbdoc-02": {},
-    "altium-third-party-pcbdoc-03": {"schematic": 1},
+    "altium-third-party-pcbdoc-03": {"altium-storage": 2, "schematic": 1},
     "altium-third-party-pcbdoc-04": {},
-    "altium-third-party-pcbdoc-05": {},
-    "altium-third-party-pcbdoc-06": {},
-    "altium-third-party-pcbdoc-07": {},
-    "altium-third-party-pcbdoc-08": {},
+    "altium-third-party-pcbdoc-05": {"altium-storage": 1},
+    "altium-third-party-pcbdoc-06": {"altium-storage": 1},
+    "altium-third-party-pcbdoc-07": {"altium-storage": 2},
+    "altium-third-party-pcbdoc-08": {"altium-storage": 5},
 }
 """The losses per kind, measured on 2026-10-15; on 2026-10-16 (change c0170) the slots of the pads of
 ``-07`` (8) and ``-08`` (4) are kept: the import holds a slot's axis in the pad's own frame, and none is
@@ -135,6 +135,10 @@ and 11). The bodies stay ``body`` losses, since the board's footprints carry no 
 
 Change c0372 (found on 2026-11-04) writes the generated schematic of ``-08`` on several pages: the
 generator refused it as one page, and it is now a ``schematic`` change, not a loss.
+
+Change c0450 (2026-11-06) counts each storage a conversion through KiCad does not carry (``PrimitiveGuids``,
+``WaivedViolations`` and the ``T*Violation`` storages) as an ``altium-storage`` loss: 1, 0, 2, 0, 1, 1, 2 and
+5 in rows ``-01`` to ``-08``.
 
 Change c0407 (2026-11-05): the 12 lines and 8 arcs of the Keep-Out layer of ``-01`` are each the rule area of
 the band their width covers (they were ``graphic`` losses, open outlines that enclosed no area), and the three
