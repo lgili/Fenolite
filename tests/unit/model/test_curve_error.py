@@ -24,7 +24,8 @@ def test_explicit_curve_error_is_exact_and_canonically_roundtrips(value: int) ->
     board = Board(id=IDENT, max_curve_error=value)
     assert board.max_curve_error == value
     assert loads(dumps(board), Board) == board
-    assert dataclasses.fields(Board)[-1].name == "max_curve_error"
+    names = [f.name for f in dataclasses.fields(Board)]  # appended fields keep their order (c0445)
+    assert names[names.index("max_curve_error") :] == ["max_curve_error", "mask_margin"]
     assert json.loads(dumps(board))["max_curve_error"] == value
     assert not _schema.validate(json.loads(dumps(board)), _schema.load("fenolite.model.v0/board.json"))
 
