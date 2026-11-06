@@ -300,6 +300,14 @@ def _with_parameters(
     return dataclasses.replace(board, title_block=block)
 
 
+def with_parameters(
+    board: Board, parameters: Sequence[tuple[str, str]], file: str, found: list[Issue]
+) -> Board:
+    """``_with_parameters``: the parameters of the project that holds a board document converted alone
+    (change c0428) join the board as a project's do."""
+    return _with_parameters(board, parameters, file, found)
+
+
 def import_project(project: ProjectInput, *, issues: list[Issue] | None = None) -> Design:
     """The design of one project: the circuit of its sheets (``import_circuit`` with the project's net
     options) and the board, nets and rules of its PCB document, linked. A project without a PCB document
@@ -346,4 +354,4 @@ def import_project(project: ProjectInput, *, issues: list[Issue] | None = None) 
     )
 
 
-__all__ = ["KIND", "BoardInput", "ProjectInput", "RulesInput", "import_project", "link"]
+__all__ = ["KIND", "BoardInput", "ProjectInput", "RulesInput", "import_project", "link", "with_parameters"]

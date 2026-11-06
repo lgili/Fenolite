@@ -118,7 +118,8 @@ EMBEDDED_BOARD_REASON = (
 )
 EMBEDDED_BOARD_MISSING = (
     "the board places another PCB document (an Embedded Board Array; the item names the array and its "
-    "document) that is not found at its path relative to the board's document: its copies are not converted"
+    "document) that is not found at its path relative to the board's document, nor relative to the project's "
+    "folder, nor by its file name in either: its copies are not converted"
 )
 EMBEDDED_BOARD_UNREADABLE = (
     "the board places another PCB document (an Embedded Board Array; the item names the array and its "
@@ -135,13 +136,35 @@ EMBEDDED_BOARD_MIRRORED = (
     "its document), and which copper side a mirrored copy takes is not measured: its copies are not converted"
 )
 EMBEDDED_BOARD_ANGLE = (
-    "the board places another PCB document in an Embedded Board Array turned by an angle other than 0 or 90 "
-    "degrees (the item names the array and its document), which is not measured: its copies are not converted"
+    "the board places another PCB document in an Embedded Board Array turned by an angle that is not a "
+    "multiple of 90 degrees (the item names the array and its document), which is not measured: its copies "
+    "are not converted"
 )
 EMBEDDED_BOARD_ORIGIN = (
     "the board places another PCB document in an Embedded Board Array (the item names the array and its "
-    "document) whose origin is not at the lower-left corner of its shape, which is not measured: its copies "
-    "are not converted"
+    "document) whose board has no shape or no origin to place its copies by: its copies are not converted"
+)
+EMBEDDED_BOARD_TURNED = (
+    "the array is turned by 180 or 270 degrees: its copies are turned about its location as the measured "
+    "quarter turn is (S-1592), which is inferred, not measured (change c0428)"
+)
+EMBEDDED_BOARD_LINKED = (
+    "the array links its location to the board's origin, which lies away from the lower-left corner of the "
+    "board's shape: the copies are placed by the origin, as the array's properties state (S-0790), which is "
+    "inferred, not measured (change c0428)"
+)
+EMBEDDED_BOARD_CORNER = (
+    "the board's origin lies away from the lower-left corner of its shape and the array does not link its "
+    "location to the origin: the copies are placed by that corner (S-0790, S-1592), which is inferred, not "
+    "measured (change c0428)"
+)
+EMBEDDED_BOARD_CUTOUT_COPIED = (
+    "a board cut-out of an Embedded Board Array's referenced board is written in each copy, moved with it "
+    "(change c0428)"
+)
+EMBEDDED_BOARD_FOUND = (
+    "the referenced document is not at its path relative to the board's document and is read {how} "
+    "(change c0428)"
 )
 EMBEDDED_BOARD_CUTOUT = (
     "the board places another PCB document in an Embedded Board Array (the item names the array and its "

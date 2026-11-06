@@ -34,12 +34,13 @@ from fenolite.backends.kicad.mod import prepare_authored_definition, read_footpr
 from fenolite.backends.kicad.outline import edge_outline
 from fenolite.backends.kicad.triad import write_triad
 from fenolite.backends.kicad.versions import TARGET_MAJORS
-from fenolite.convert.arrays import ArrayItem, array_copies
+from fenolite.convert.arrays import ArrayItem, Copies, copies
 from fenolite.convert.direction import Direction, Options, Written
 from fenolite.convert.models import Placed, place_models
 from fenolite.convert.report import (
     DOWNGRADE_KINDS,
     DOWNGRADE_PREFIX,
+    EMBEDDED_BOARD_CUTOUT_COPIED,
     OVERLAP_NO_UNION,
     OVERLAP_NOT_ONE_RING,
     ConversionReport,
@@ -441,8 +442,11 @@ def write_altium(source: SourceProject, options: Options) -> Written:
     (``generated_holes``), its library written beside the board (change c0170)."""
     from fenolite.backends.altium.read.cfb import holds_embedded_boards
     from fenolite.convert.altium_to_kicad import (
+        ZONE_ARC_REASON,
+        ZONE_NO_AREA,
         Ledger,
         board_document,
+        distinct_designators,
         footprint_files,
         prepare,
         schematic_files,
@@ -450,15 +454,25 @@ def write_altium(source: SourceProject, options: Options) -> Written:
 
     ledger = Ledger()
     arrays: tuple[ArrayItem, ...] = ()
+    copied = Copies(source.design, ())
     document = board_document(source, source.design)
     if document is not None and holds_embedded_boards(data := document.read_bytes()):  # change c0374
-        placed, arrays = array_copies(document, data, source.design)  # change c0386: the measured copies
-        source = dataclasses.replace(source, design=placed)
+        copied = copies(document, data, source.design, source.root)  # changes c0386 and c0428: the copies
+        arrays = copied.items
+        source = dataclasses.replace(source, design=copied.design)
     counts = census(source.design)
     if arrays:
         counts[EMBEDDED_BOARD_KIND] = len(arrays)
     for entry in arrays:
         (ledger.change if entry.placed else ledger.drop)(EMBEDDED_BOARD_KIND, entry.item, entry.reason)
+    for ident in copied.outlined:  # change c0428: a copy's zones take their records' outlines
+        ledger.change("zone", ident, ZONE_ARC_REASON)
+    for ident, why in copied.dropped:  # a pour without area is left out as a change (change c0428)
+        (ledger.change if why == ZONE_NO_AREA else ledger.drop)("zone", ident, why)
+    if copied.dropped:
+        counts["zone"] = counts.get("zone", 0) + len(copied.dropped)
+    for ident in copied.cutouts:  # change c0428: a copy carries its board's cut-outs
+        ledger.change(CUTOUT_KIND, ident, EMBEDDED_BOARD_CUTOUT_COPIED)
     source_board = source.design.board
     if source_board is not None:  # change c0223: the openings and the models of the imported footprints
         counts[PAD_MARGIN_KIND] = sum(len(fp.pads) for fp in source_board.footprints)
@@ -475,8 +489,8 @@ def write_altium(source: SourceProject, options: Options) -> Written:
             for ident in shared:
                 ledger.change(SHARED_FOOTPRINT_KIND, ident, SHARED_FOOTPRINT_REASON)
     merged, cutouts = merged_cutouts(source.design, ledger)
-    if cutouts:
-        counts[CUTOUT_KIND] = cutouts
+    if cutouts or copied.cutouts:
+        counts[CUTOUT_KIND] = max(cutouts, len(copied.cutouts))
     board = merged.board
     holes = board.holes if board is not None else ()
     if board is not None:
@@ -493,7 +507,7 @@ def write_altium(source: SourceProject, options: Options) -> Written:
     for hole in board.holes if board is not None else ():  # change c0420: no hole changes kind unreported
         ledger.change(HOLE_KIND, hole.id, PLATED_REASON if hole.id in plated else HOLE_REASON)
     issues: list[Issue] = []
-    placed = _placed_models(source, design, name)
+    placed = _placed_models(source, design, name, copied)
     design = _with_models(design, placed.placements)  # change c0409: the board's footprints hold them too
     texts = write_triad(design, name=name, target=options.kicad_version, allow_lossy=True, issues=issues)
     texts.update(
@@ -521,6 +535,7 @@ def write_altium(source: SourceProject, options: Options) -> Written:
         texts[f"{HOLE_FOLDER}/{key}{FOOTPRINT_SUFFIX}"] = write_footprint(
             definition, target=options.kicad_version
         )
+    design = distinct_designators(design, ledger)  # change c0428: after the board is written
     schematic, notes = schematic_files(source, design, name, options.kicad_version, ledger)
     texts.update(schematic)
     issues.extend(notes)
@@ -550,10 +565,11 @@ def write_altium(source: SourceProject, options: Options) -> Written:
     )
 
 
-def _placed_models(source: SourceProject, design: Design, name: str) -> Placed:
+def _placed_models(source: SourceProject, design: Design, name: str, copied: Copies | None = None) -> Placed:
     """The embedded models of the source board's bodies, placed for the derived library ``name`` (change
     c0223, ``convert.models``), and a generated model per footprint for its other bodies (change c0423);
-    none when the source has no board."""
+    none when the source has no board. The bodies of an array's copies take the models of their referenced
+    document, in the frame of the footprint they were copied from (change c0428)."""
     from fenolite.backends.altium.backend import AltiumBackend
     from fenolite.convert.altium_to_kicad import board_document
 
@@ -569,6 +585,12 @@ def _placed_models(source: SourceProject, design: Design, name: str) -> Placed:
         name,
         lambda fp: names.get(fp.id, fp.lib_ref.rsplit(":", 1)[-1]),
         backend.body_forms(document) if document is not None else (),
+        {
+            file: (backend.body_models(path), backend.body_forms(path))
+            for file, path in (copied or Copies(source.design, ())).documents.items()
+            if document is None or path.name != document.name
+        },
+        copied.frames if copied is not None else None,
     )
 
 

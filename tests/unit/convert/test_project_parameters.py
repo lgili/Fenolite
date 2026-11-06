@@ -31,7 +31,7 @@ from fenolite.model.board import Text
 ROOT = Path(__file__).resolve().parents[3]
 BLINK = ROOT / "tests" / "data" / "altium" / "blink"
 PARAMETERS = "\n[Parameter1]\nName=REV_CODE\nValue=B2\n\n[Parameter2]\nName=Made By\nValue=bench\n"
-TEXTS = (".REV_CODE", "Rev '.REV_CODE' on '.Print_Date'", ".Comment")
+TEXTS = (".REV_CODE", "Rev '.REV_CODE' on '.Print_Time'", ".Comment")
 
 
 def _source(folder: Path) -> SourceProject:
@@ -55,8 +55,8 @@ def _source(folder: Path) -> SourceProject:
 def test_special_text() -> None:
     params = {"REV_CODE": "B2"}
     assert special_text(".REV_CODE", params) == ("${REV_CODE}", ())
-    assert special_text("Rev '.REV_CODE' on '.Print_Date'", params) == ("Rev ${REV_CODE} on '.Print_Date'",
-                                                                        (".Print_Date",))  # fmt: skip
+    assert special_text("Rev '.REV_CODE' on '.Print_Time'", params) == ("Rev ${REV_CODE} on '.Print_Time'",
+                                                                        (".Print_Time",))  # fmt: skip
     assert special_text(".rev_code", params) == (".rev_code", (".rev_code",))
     assert special_text("plain", params) == ("plain", ())
 
@@ -75,7 +75,7 @@ def test_parameters_become_text_variables(tmp_path: Path) -> None:
     pcb = parse(conversion.files[conversion.read_back].decode())
     written = [node.atoms()[0].value for node in pcb.nodes("gr_text")]
     assert (
-        "${REV_CODE}" in written and "Rev ${REV_CODE} on '.Print_Date'" in written and ".Comment" in written
+        "${REV_CODE}" in written and "Rev ${REV_CODE} on '.Print_Time'" in written and ".Comment" in written
     )
     changed = [row for row in conversion.report.rows if row.kind == "text"]
     assert changed and all(row.lost == 0 for row in changed)

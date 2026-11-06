@@ -50,6 +50,11 @@ class Ledger:
         self.changed[kind][reason].append(ident)
 
 
+DRILL_LAYERS = ("Altium.DrillGuide", "Altium.DrillDrawing")
+"""The Altium layers of drill guides and drill drawings (``LAYERS`` 55 and 73), which a conversion writes on
+KiCad user rows named so (change c0428)."""
+
+
 def map_layers(design: Design, target: int, ledger: Ledger) -> Design:
     board = design.board
     if board is None:
@@ -81,6 +86,9 @@ def map_layers(design: Design, target: int, ledger: Ledger) -> Design:
     mechanical = sorted(
         (n for n in names if re.fullmatch(r"Mech\.\d+", n)), key=lambda n: int(n.split(".")[1])
     )
+    # change c0428: the drill drawing and drill guide layers take user rows after the mechanical layers,
+    # named as the import names them, as the mechanical layers are
+    mechanical += [n for n in DRILL_LAYERS if n in names]
     user = layers.user_rows(min(45, len(mechanical)), target=target)
     extra: list[Layer] = []
     for source_name, row in zip(mechanical, user, strict=False):
@@ -298,6 +306,12 @@ def keepouts(design: Design, ledger: Ledger, restrictions: Mapping[str, int] | N
 
 ZONE_ARC_REASON = "an outline with arc vertices is written as a polygon (arc chord error at most 5000 nm)"
 ZONE_NO_OUTLINE = "a zone outline with arc vertices that the source document does not give"
+ZONE_NO_AREA = (
+    "not written: its polygon record outlines no area (its vertices coincide), so it pours no copper and "
+    "the board made and checked is the same without it"
+)
+"""A zone whose polygon record is read but whose vertices enclose no area (change c0428): left out as a
+``changed`` zone, not a loss, since nothing a board holds differs."""
 
 
 def _arc_ring(vertices: Any) -> tuple[Any, ...]:
@@ -354,16 +368,67 @@ def _source_document(source: SourceProject, found: Path | None, where: Any, docu
     return documents[where.file]
 
 
+POLYGON_RECORD = re.compile(r"Polygons6/Data#(\d+)")
+
+
+def polygon_outline(document: Any, locator: str) -> tuple[tuple[Any, ...], str]:
+    """The flattened outline (``_arc_ring``) of the polygon record that ``locator`` names in ``document`` (a
+    read PCB document), with an empty reason; or no outline and the reason: ``ZONE_NO_OUTLINE`` when the
+    record is not there, ``ZONE_NO_AREA`` when it encloses no area (change c0428)."""
+    from fenolite.geometry.errors import GeometryError
+
+    match = POLYGON_RECORD.fullmatch(locator)
+    if document is None or match is None or int(match.group(1)) >= len(document.polygons):
+        return (), ZONE_NO_OUTLINE
+    try:
+        ring = _arc_ring(document.polygons[int(match.group(1))].vertices)
+    except (GeometryError, ValueError, IndexError, ZeroDivisionError):
+        return (), ZONE_NO_AREA
+    return (ring, "") if len(ring) >= 3 else ((), ZONE_NO_AREA)
+
+
+def polygon_ring(document: Any, locator: str) -> tuple[Any, ...]:
+    """The outline of ``polygon_outline``; empty when the record is not there or encloses no area."""
+    return polygon_outline(document, locator)[0]
+
+
+def arc_outlines(
+    design: Design, document: Any
+) -> tuple[Design, tuple[str, ...], tuple[tuple[str, str], ...]]:
+    """``design`` whose zones without an outline (an Altium polygon with an arc vertex,
+    ``altium.import.zone-arc``) take the flattened outline of their record in ``document``, the PCB document
+    they were read from; the ids of the zones outlined, and of those dropped, which no record outlines, each
+    with its reason (``polygon_outline``). The
+    copies of an Embedded Board Array take their outlines so from the referenced document before they are
+    moved (change c0428)."""
+    board = design.board
+    if board is None or all(len(zone.outline) >= 3 for zone in board.zones):
+        return design, (), ()
+    zones: list[Any] = []
+    outlined: list[str] = []
+    dropped: list[tuple[str, str]] = []
+    for zone in board.zones:
+        if len(zone.outline) >= 3:
+            zones.append(zone)
+            continue
+        ring, why = polygon_outline(document, zone.provenance.locator if zone.provenance else "")
+        if not ring:
+            dropped.append((zone.id, why))
+            continue
+        zones.append(dataclasses.replace(zone, outline=ring))
+        outlined.append(zone.id)
+    board = dataclasses.replace(board, zones=tuple(zones))
+    return dataclasses.replace(design, board=board), tuple(outlined), tuple(dropped)
+
+
 def zone_outlines(source: SourceProject, design: Design, ledger: Ledger) -> Design:
     """Zones whose imported outline is empty (an Altium polygon with an arc vertex,
     ``altium.import.zone-arc``) get the flattened outline of the source document's polygon record; KiCad
     9.0.9 cannot report DRC on a zone without an outline. A zone whose record cannot be found or encloses
     no area is dropped."""
-    from fenolite.geometry.errors import GeometryError
-
     board = design.board
     assert board is not None
-    if all(zone.outline for zone in board.zones):
+    if all(len(zone.outline) >= 3 for zone in board.zones):
         return design
     from fenolite.model.board import Zone
 
@@ -372,22 +437,16 @@ def zone_outlines(source: SourceProject, design: Design, ledger: Ledger) -> Desi
     # a project may keep its board in a subfolder: the board document is found as for the rules (c0371)
     found = board_document(source, design)
     for zone in board.zones:
-        if zone.outline:
+        if len(zone.outline) >= 3:  # change c0428: an outline of 1 or 2 points is no outline either
             zones.append(zone)
             continue
         where = zone.provenance
-        match = re.fullmatch(r"Polygons6/Data#(\d+)", where.locator if where else "")
         ring: tuple[Any, ...] = ()
-        if where is not None and match:
-            document = _source_document(source, found, where, documents)
-            index = int(match.group(1))
-            if document is not None and index < len(document.polygons):
-                try:
-                    ring = _arc_ring(document.polygons[index].vertices)
-                except (GeometryError, ValueError, IndexError, ZeroDivisionError):
-                    ring = ()
-        if len(ring) < 3:
-            ledger.drop("zone", zone.id, ZONE_NO_OUTLINE)
+        why = ZONE_NO_OUTLINE
+        if where is not None and POLYGON_RECORD.fullmatch(where.locator):
+            ring, why = polygon_outline(_source_document(source, found, where, documents), where.locator)
+        if not ring:
+            (ledger.change if why == ZONE_NO_AREA else ledger.drop)("zone", zone.id, why)
             continue
         zones.append(dataclasses.replace(zone, outline=ring))
         ledger.change("zone", zone.id, ZONE_ARC_REASON)
@@ -650,6 +709,58 @@ class Part:
     symbol_origin: str = "project"
 
 
+DUPLICATE_DESIGNATORS = (
+    "a designator that several imported parts share is kept by each part on the board and written "
+    "<designator>_<n> for each other part (change c0428)"
+)
+
+DUPLICATE_PLACED = (
+    "several parts on the board share a designator: the generated schematic needs distinct ones, and "
+    "renaming them would change the board"
+)
+
+
+def distinct_designators(design: Design, ledger: Ledger) -> Design:
+    """``design`` with distinct designators, as a schematic needs (change c0428). Where several components
+    share one, each that has a footprint on the board keeps it (or the first, when none has), and each other
+    takes ``<designator>_<n>``, ``n`` counting from 2 past the designators in use; its path too when it was
+    the designator. The board keeps every footprint's designator, so the written board does not change; the
+    schematic and the design that the conversion verifies take the new ones. A ``schematic`` change names
+    the rule."""
+    groups: dict[str, list[int]] = {}
+    components = design.circuit.components
+    for index, component in enumerate(components):
+        if component.ref:
+            groups.setdefault(component.ref, []).append(index)
+    if all(len(found) == 1 for found in groups.values()):
+        return design
+    placed: set[str] = (
+        {fp.component_id for fp in design.board.footprints} if design.board is not None else set()
+    )
+    used = set(groups)
+    renamed = list(components)
+    for ref, found in groups.items():
+        if len(found) == 1:
+            continue
+        keepers = {i for i in found if components[i].id in placed} or {found[0]}
+        n = 2
+        for index in found:
+            if index in keepers:
+                continue
+            while f"{ref}_{n}" in used:
+                n += 1
+            name = f"{ref}_{n}"
+            used.add(name)
+            component = components[index]
+            renamed[index] = dataclasses.replace(
+                component, ref=name, path=name if component.path == ref else component.path
+            )
+    if renamed == list(components):
+        return design
+    ledger.change("schematic", design.header.id, DUPLICATE_DESIGNATORS)
+    return dataclasses.replace(design, circuit=dataclasses.replace(design.circuit, components=tuple(renamed)))
+
+
 PAGE_ROUNDS = 7
 """How many times a refused page of a generated schematic is split again (1, 2, 4, … 64 pages)."""
 
@@ -816,8 +927,8 @@ def schematic_files(
         )
         parts.append(Part(component, component.path or component.ref, definition, footprint))
     references = [part.component.ref for part in parts]
-    if len(set(references)) != len(references):
-        ledger.drop("schematic", design.header.id, "the imported circuit has duplicate designators")
+    if len(set(references)) != len(references):  # several parts on the board share one (change c0428)
+        ledger.drop("schematic", design.header.id, DUPLICATE_PLACED)
         return {}, ()
     winners = {member: net.id for net in design.circuit.nets for member in net.members}
     nets: list[Net] = []

@@ -111,14 +111,16 @@ def test_referenced_documents_are_read_beside_the_board(tmp_path: Path) -> None:
 def test_each_array_names_how_its_document_reads(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """change c0386, task 2.1: the report's reason says whether each array's document reads, and an absolute
     path is named by its file name only; the array whose document reads, unturned and unmirrored with its
-    origin at its shape's lower-left corner, is placed (task 2.2), the others stay refused losses."""
+    origin at its shape's lower-left corner, is placed (task 2.2), the others stay refused losses. Change
+    c0428: the absolute path whose file is beside the board is read by its file name and placed."""
     import shutil
     from fractions import Fraction
 
     import fenolite.backends.altium.read.arrays as arrays
     import fenolite.backends.altium.read.cfb as cfb
+    from fenolite.convert.arrays import FOUND
     from fenolite.convert.report import (
-        EMBEDDED_BOARD_ABSOLUTE,
+        EMBEDDED_BOARD_FOUND,
         EMBEDDED_BOARD_MISSING,
         EMBEDDED_BOARD_PLACED,
         EMBEDDED_BOARD_UNREADABLE,
@@ -141,13 +143,14 @@ def test_each_array_names_how_its_document_reads(monkeypatch: pytest.MonkeyPatch
     monkeypatch.setattr(arrays, "board_arrays", lambda _data: found)
     conversion = convert_project(read_source(tmp_path / BLINK.name), to="kicad", allow_lossy=True)
     row = next(row for row in conversion.report.rows if row.kind == "embedded-board")
-    assert (row.source, row.changed, row.lost, row.loss) == (4, 1, 3, "refuse")
+    assert (row.source, row.changed, row.lost, row.loss) == (4, 2, 2, "refuse")
     reasons = {ident: reason.reason for reason in row.reasons for ident in reason.ids}
+    found_by_name = EMBEDDED_BOARD_FOUND.format(how=FOUND["name"])
     assert reasons == {
         "blink.PcbDoc#1:board.PcbDoc 1x1": EMBEDDED_BOARD_PLACED,
         "blink.PcbDoc#2:gone.PcbDoc 1x1": EMBEDDED_BOARD_MISSING,
         "blink.PcbDoc#3:broken.PcbDoc 1x1": EMBEDDED_BOARD_UNREADABLE,
-        "blink.PcbDoc#4:board.PcbDoc 1x1": EMBEDDED_BOARD_ABSOLUTE,
+        "blink.PcbDoc#4:board.PcbDoc 1x1": f"{EMBEDDED_BOARD_PLACED}; {found_by_name}",
     }
     assert "vm" not in " ".join(reasons)
 

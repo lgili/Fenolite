@@ -346,6 +346,12 @@ def _locate(root: Path, posix: str) -> Path | None:
     return current if current.is_file() else None
 
 
+def locate(root: Path, posix: str) -> Path | None:
+    """The file of ``posix`` under ``root``, found as a project's documents are (``_locate``); also used for
+    the documents that an Embedded Board Array references (change c0428)."""
+    return _locate(root, posix)
+
+
 def _read_companion(
     loaded: LoadedDocument, issues: list[Issue], file: str
 ) -> OutJobFile | RuleFile | StackupFile | AnnotationFile | None:
@@ -456,6 +462,7 @@ __all__ = [
     "AltiumProject",
     "LoadedDocument",
     "load_project",
+    "locate",
     "FLAG_KEYS",
     "HIERARCHY_MODES",
     "DocumentKind",

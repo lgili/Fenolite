@@ -185,12 +185,23 @@ def place_models(
     library: str,
     name_of: Callable[[FootprintInstance], str],
     forms: Iterable[BodyForm] = (),
+    documents: Mapping[str, tuple[Iterable[BodyModel], Iterable[BodyForm]]] | None = None,
+    frames: Mapping[str, FootprintInstance] | None = None,
 ) -> Placed:
     """The placements of ``footprints``' embedded models (bodies of kind ``model``, matched to ``models`` by
     the body's locator) and of a generated STEP model per footprint for its other bodies, matched to
-    ``forms`` by locator; ``name_of`` gives a footprint's name in the library ``library``."""
-    by_locator = {model.locator: model for model in models}
-    form_of = {form.locator: form for form in forms}
+    ``forms`` by locator; ``name_of`` gives a footprint's name in the library ``library``.
+
+    A body read from another document (an Embedded Board Array's copy, change c0428) is matched to the
+    models and forms of ``documents`` under its provenance's file name, and its model is placed in the frame
+    of ``frames[footprint.id]``, the footprint it was copied from: a copy moves a footprint and its models
+    together, so their relative pose is the source's."""
+    default = ({model.locator: model for model in models}, {form.locator: form for form in forms})
+    held = {
+        file: ({m.locator: m for m in found}, {f.locator: f for f in shapes})
+        for file, (found, shapes) in (documents or {}).items()
+    }
+    frames = frames or {}
     placements: dict[str, tuple[ModelPlacement, ...]] = {}
     files: dict[str, bytes] = {}
     changed: dict[str, str] = {}
@@ -201,8 +212,10 @@ def place_models(
         found: list[ModelPlacement] = []
         generated: list[tuple[str, step.Solid, str]] = []
         name = name_of(footprint)
+        frame = frames.get(footprint.id, footprint)
         for body in footprint.bodies:
             where = body.provenance.locator if body.provenance is not None else ""
+            by_locator, form_of = held.get(body.provenance.file if body.provenance else "", default)
             form = form_of.get(where)
             shape: BodyShape = form.shape if form is not None else body.kind
             if body.kind == "model":
@@ -213,7 +226,7 @@ def place_models(
                 else:
                     path = model_file(library, name, model.data)
                     files[path] = model.data
-                    found.append(placement(model, footprint, "${KIPRJMOD}/" + path))
+                    found.append(placement(model, frame, "${KIPRJMOD}/" + path))
                     changed[body.id] = PLACED
                     bodies_changed[body.id] = CARRIED
                     continue

@@ -115,7 +115,7 @@ def test_baseline_layers(item) -> None:
 
 CONVERTED_LOSSES = {
     "altium-third-party-pcbdoc-01": {},
-    "altium-third-party-pcbdoc-02": {"text": 1},
+    "altium-third-party-pcbdoc-02": {},
     "altium-third-party-pcbdoc-03": {"schematic": 1},
     "altium-third-party-pcbdoc-04": {},
     "altium-third-party-pcbdoc-05": {},
@@ -151,7 +151,12 @@ Change c0424 (2026-11-05) gives every rule record a fate: each is mapped, kept a
 write-back, or a declared format limit of KiCad, so no row has a ``rule`` loss.
 
 Change c0422 (2026-11-05): a footprint's own texts are written as ``fp_text user`` children (c0409 reported
-them lost); ``FOOTPRINT_TEXTS`` holds the counts, each written and none lost."""
+them lost); ``FOOTPRINT_TEXTS`` holds the counts, each written and none lost.
+
+Change c0428 (2026-11-05; rows ``-01`` to ``-07``, measured on ``origin/cac/lote-24`` 948b6a376 with c0428):
+no ``rule`` is lost (each rule record has its own fate since c0424); the text of ``-02`` on the drill drawing
+layer is written on a user row; ``-03`` still loses its schematic, now because several parts on its board
+share a designator."""
 FOOTPRINT_TEXTS = {
     "altium-third-party-pcbdoc-02": 4,
     "altium-third-party-pcbdoc-03": 46,

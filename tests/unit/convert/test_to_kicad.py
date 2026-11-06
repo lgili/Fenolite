@@ -190,6 +190,39 @@ def test_altium_mechanical_layers() -> None:
     assert dict(result.board.layers[-1].ext["kicad"].payload)["user_name"] == "Mech.2"
 
 
+def test_altium_drill_layers_take_user_rows() -> None:
+    """Change c0428: drawings on the drill drawing and drill guide layers are written on user rows named
+    after them, after the mechanical layers, and none is a ``graphic`` loss."""
+    import dataclasses
+
+    from _convert import two_layer
+
+    from fenolite.convert.altium_to_kicad import Ledger, map_layers
+    from fenolite.core.coords import Point
+    from fenolite.model.board import Graphic
+
+    design = two_layer()
+    assert design.board is not None
+    graphics = tuple(
+        Graphic(
+            id=f"gra-{i}", kind="line", layer=layer, points=(Point(0, 0), Point(1000000, 0)), width=100000
+        )
+        for i, layer in enumerate(("Altium.DrillDrawing", "Mech.3", "Altium.DrillGuide"))
+    )
+    design = dataclasses.replace(design, board=dataclasses.replace(design.board, graphics=graphics))
+    ledger = Ledger()
+    result = map_layers(design, 10, ledger)
+    assert result.board is not None
+    assert [g.layer for g in result.board.graphics] == ["User.3", "User.1", "User.2"]
+    assert not ledger.lost.get("graphic")
+    names = {layer.name: dict(layer.ext["kicad"].payload).get("user_name") for layer in result.board.layers}
+    assert (names["User.1"], names["User.2"], names["User.3"]) == (
+        "Mech.3",
+        "Altium.DrillGuide",
+        "Altium.DrillDrawing",
+    )
+
+
 @pytest.mark.parametrize("count", (0, 1, 3, 5))
 def test_altium_odd_layers(count: int) -> None:
     from dataclasses import replace
@@ -371,7 +404,10 @@ def test_altium_zone_arc_outline() -> None:
     assert all(abs(p.x) <= radius and (p.x**2 + p.y**2) <= (radius + 1) ** 2 for p in ring)
 
 
-def test_altium_zone_without_outline_source_is_dropped() -> None:
+@pytest.mark.parametrize("points", [0, 1, 2])
+def test_altium_zone_without_outline_source_is_dropped(points: int) -> None:
+    """A zone of fewer than 3 points (none, or the 1 or 2 that a record of coinciding vertices gives, change
+    c0428) and no record is dropped, never written as it is."""
     import dataclasses
     from pathlib import Path
 
@@ -383,13 +419,44 @@ def test_altium_zone_without_outline_source_is_dropped() -> None:
 
     design = two_layer()
     assert design.board is not None
-    empty = Zone(id="zon-arc", outline=(), name="pour", layers=("F.Cu",))
+    from fenolite.core.coords import Point
+
+    outline = tuple(Point(k, k) for k in range(points))
+    empty = Zone(id="zon-arc", outline=outline, name="pour", layers=("F.Cu",))
     design = dataclasses.replace(design, board=dataclasses.replace(design.board, zones=(empty,)))
     source = SourceProject(Path("x.PcbDoc"), Path("x.PcbDoc"), Path("."), "altium", "altium_pcbdoc", design)
     ledger = Ledger()
     result = zone_outlines(source, design, ledger)
     assert result.board is not None and not result.board.zones
     assert ledger.lost["zone"][ZONE_NO_OUTLINE] == ["zon-arc"]
+
+
+def test_altium_zone_without_area_is_a_change(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A zone whose polygon record encloses no area pours no copper: it is left out as a ``changed`` zone,
+    not a loss, so the conversion needs no ``--allow-lossy`` for it (change c0428)."""
+    import dataclasses
+    from pathlib import Path
+
+    from _convert import two_layer
+
+    import fenolite.convert.altium_to_kicad as a2k
+    from fenolite.convert.sources import SourceProject
+    from fenolite.core.coords import Point
+    from fenolite.core.provenance import Provenance
+    from fenolite.model.board import Zone
+
+    design = two_layer()
+    assert design.board is not None
+    where = Provenance(backend="altium", file="x.PcbDoc", file_sha256="0" * 64, locator="Polygons6/Data#0")
+    flat = Zone(id="zon-flat", outline=(Point(1, 1),), name="pour", layers=("F.Cu",), provenance=where)
+    design = dataclasses.replace(design, board=dataclasses.replace(design.board, zones=(flat,)))
+    source = SourceProject(Path("x.PcbDoc"), Path("x.PcbDoc"), Path("."), "altium", "altium_pcbdoc", design)
+    monkeypatch.setattr(a2k, "_source_document", lambda *args: object())
+    monkeypatch.setattr(a2k, "polygon_outline", lambda document, locator: ((), a2k.ZONE_NO_AREA))
+    ledger = a2k.Ledger()
+    result = a2k.zone_outlines(source, design, ledger)
+    assert result.board is not None and not result.board.zones
+    assert ledger.changed["zone"][a2k.ZONE_NO_AREA] == ["zon-flat"] and not ledger.lost["zone"]
 
 
 @pytest.mark.parametrize("target", (9, 10))

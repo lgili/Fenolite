@@ -153,15 +153,22 @@ The vocabulary is closed (`fenolite.convert.report.KINDS`), one table for every 
   `EmbeddedBoards6` storage holds records places other PCB documents. Each array is one item named
   `<document>#<n>:<referenced document> <columns>x<rows>` (the document's name alone when the records do
   not read). The referenced document is looked for at its `DOCUMENTPATH` relative to the board's document,
-  either separator. An array whose placement is measured (S-1592: unmirrored, `ROTATION` 0 or 90, the
-  referenced board's origin within 1 µm of its shape's lower-left corner, no board cut-outs, no copper layer
-  the board lacks) is `changed`: each copy's components, copper, texts and holes join the board at the
+  either separator, then relative to the project's folder, then by its file name in either folder, then at
+  the absolute path stored, without letter case (change c0428); the reason says how a document not at its
+  relative path was found, and an absolute path is named by its file name only. An unmirrored array turned
+  by 0, 90, 180 or 270 degrees whose document reads and whose copper layers the board holds is `changed`:
+  each copy's components, copper, texts, zones, models, holes and board cut-outs join the board at the
   places Altium gives them (`convert.arrays`), each copy's designators suffixed `_B<k>`, its nets prefixed
   `B<k>/` and its parts in the generated sheet `B<k>`, with `k` counting the copies of all arrays from 1;
-  the copies' board shapes are left out and the board keeps its own rules (change c0386). Every other array
-  is `lost` with a reason of `report.REFUSE_REASONS` that names why: a document that is missing, does not
-  read, or is stored as an absolute path (not followed, named by its file name only), a mirrored array,
-  another angle, an origin away from the corner, cut-outs or copper layers; the conversion (and `import --to
+  the copies' board shapes are left out and the board keeps its own rules (change c0386). S-1592 measured
+  0 and 90 degrees with the board's origin at its shape's lower-left corner; 180 and 270 degrees (the
+  quarter turn applied two or three times) and an origin away from the corner (the origin when the array
+  links its location to it, else the corner) are inferred, and the reason says so (change c0428). A copy's
+  zones with arc vertices take their outline from the referenced document's records, its models are placed
+  in the frame of the original footprint, and each copied cut-out is a `cutout` change. Every other array
+  is `lost` with a reason of `report.REFUSE_REASONS` that names why: a document that is found nowhere or
+  does not read, a mirrored array, an angle that is not a multiple of 90 degrees, a board without a shape
+  or an origin to place by, or copper layers; the conversion (and `import --to
   python` of the project) then exits 7 without `--allow-lossy` (changes c0374, c0386). `shared-footprint`:
   each footprint of a
   source component that several footprints link, `changed`; it explains the `ref-ambiguous` of that
@@ -313,14 +320,18 @@ per source schematic document of a flat project, a module sheet per sheet symbol
 and more pages for a sheet too large for A0 (change c0372).
 
 Mechanical layers map in numerical order to User.1..45, preserving their name as the layer alias.
+The drill guide and drill drawing layers (`Altium.DrillGuide`, `Altium.DrillDrawing`) take the next
+user rows, named so (change c0428).
 Unknown/out-of-stack layers and excess mechanical layers are reported as losses. Closed Keep-Out
 outlines become all-copper rule areas forbidding tracks, vias and pours; open/branching lines are lost.
 Curved boundaries are polygonized with at most 5000 nm chord error, reported as changed.
 An odd copper count gains an empty inner layer; its original stack-up is reported changed.
 A copper pour whose Altium outline holds an arc vertex has no outline in the imported model
 (`altium.import.zone-arc`); the conversion takes its outline from the source document's polygon record,
-flattened at 5000 nm chord error, and reports the zone changed. A zone without a usable record is
-reported lost. KiCad 9.0.9 cannot write a DRC report for a zone without an outline.
+flattened at 5000 nm chord error, and reports the zone changed. A zone whose record is missing is
+reported lost; one whose record encloses no area (its vertices coincide) pours no copper and is left out
+as a `changed` zone with that reason (change c0428). KiCad 9.0.9 cannot write a DRC report for a zone
+without an outline.
 `kicad.board.layer-undeclared` refuses any caller's modelled item on an undeclared layer, even with consent.
 
 Arbitrary slots rotate circular pads without changing copper; incompatible non-circular pads are
@@ -367,6 +378,17 @@ board footprints and the derived library both hold them, and so do the footprint
 or `footprint-text` loss, and a drawing on the Keep-Out layer becomes a rule area of its footprint (change
 c0411). The KiCad board reader keeps them in their slots; `fpitems.with_footprint_items` projects them for a
 comparison.
+
+**Special strings and designators** (changes c0409, c0428). A board text `.NAME`, or `'.NAME'` inside other
+text, is written `${NAME}` when `NAME` is a project parameter. A board document converted alone takes the
+parameters of the one `.PrjPcb` that lists it, up to three folders up; the board's own variables win. The
+predefined strings `.Layer_Name`, `.Pcb_File_Name`, `.Pcb_File_Name_No_Path` and `.Print_Date` (S-1871), in
+any letter case, are written `${LAYER}`, `${FILEPATH}`, `${FILENAME}` and `${CURRENT_DATE}` (S-1870); a
+project parameter of the same name wins. Each is a `text` change; every other special string is written as
+typed, also a `text` change. When the circuit holds one designator on several parts and at most one is on
+the board, that part (or the first) keeps it and each other becomes `<ref>_<n>` on the generated schematic, a
+`schematic` change; the schematic is written. When several parts on the board share one, the board keeps
+them and the schematic is a `schematic` loss.
 
 **3D models** (changes c0223 and c0423). The model that the PCB document embeds for a body
 (`models3d.body_models`) is written beside the derived library as `<name>.3dshapes/<footprint>_<sha12>.step`
