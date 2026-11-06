@@ -37,8 +37,8 @@ def test_deterministic(tmp_path: Path) -> None:
     assert _files(tmp_path / "a") == _files(tmp_path / "b")
     assert one.digest == two.digest == kit_digest((tmp_path / "a" / "kit.json").read_bytes())
     assert list(one.samples) == list(SAMPLES)
-    assert len({k: v for k, v in one.samples.items() if k != "slots"}) == 7
-    assert len(one.samples) == 8 and "slots" in one.samples
+    assert len({k: v for k, v in one.samples.items() if k != "slots"}) == 8
+    assert len(one.samples) == 9 and "slots" in one.samples
     data = json.loads((tmp_path / "a" / "kit.json").read_text(encoding="utf-8"))
     assert data["schema"] == manifest.KIT_SCHEMA and data["seed"] == 1
     assert data["timestamp"] == "2026-10-06T00:00:00Z"
@@ -157,10 +157,9 @@ def test_no_sheet_template_and_no_built_kit_is_tracked() -> None:
     ).stdout.splitlines()
     assert [name for name in listed if name.casefold().endswith(".schdot")] == []
     kit_files_tracked = sorted(name for name in listed if name.startswith("examples/kit/"))
-    assert [name for name in kit_files_tracked if not name.startswith("examples/kit/slots/")] == [
-        "examples/kit/README.md",
-        *(f"examples/kit/{n}/design.py" for n in sorted(SAMPLES) if n != "slots"),
-    ]
+    assert [name for name in kit_files_tracked if not name.startswith("examples/kit/slots/")] == sorted(
+        ["examples/kit/README.md", *(f"examples/kit/{n}/design.py" for n in SAMPLES if n != "slots")]
+    )
     assert [name for name in kit_files_tracked if name.startswith("examples/kit/slots/")] == sorted(
         [
             "examples/kit/slots/design.py",
