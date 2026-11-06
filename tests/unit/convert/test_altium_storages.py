@@ -71,7 +71,7 @@ def test_kicad_board_holds_the_carried_storages(tmp_path: Path) -> None:
     found = {
         name: data for name, data in boardcarrier.carried(text).items() if name != "Fenolite.Altium.Rules6"
     }
-    assert set(found) == {"Fenolite.Altium.UnionNames", "Fenolite.Altium.Classes6.Component"}
+    assert set(found) == {"Fenolite.Altium.UnionNames", "Fenolite.Altium.Classes6.Kept"}
     # one write of every carried property (``with_carried``): right after ``setup``, in name order
     lines = [line.lstrip() for line in text.splitlines()]
     names = [line.split('"')[1] for line in lines if line.startswith('(property "Fenolite.')]
@@ -79,7 +79,7 @@ def test_kicad_board_holds_the_carried_storages(tmp_path: Path) -> None:
     assert boardcarrier.with_carried(text, boardcarrier.carried(text)) == text
     union = storages.unpacked(found["Fenolite.Altium.UnionNames"])
     assert union is not None and union.data == _record(UNION)
-    classes = storages.unpacked(found["Fenolite.Altium.Classes6.Component"])
+    classes = storages.unpacked(found["Fenolite.Altium.Classes6.Kept"])
     assert classes is not None
     # the component classes that are no super class: the sheet class the writer made, and the authored one
     names = [storages.fields(record)["NAME"] for record in storages.records(classes.data)]
@@ -106,6 +106,6 @@ def test_a_union_name_survives_the_round_trip(tmp_path: Path) -> None:
     classes = storages.records(streams["Classes6/Data"])
     assert classes.count(_record(GROUP)) == 1
     names = [storages.fields(record)["NAME"] for record in classes]
-    assert names.count("two_layer") == 1  # the writer's own sheet class is not written twice
+    assert names.count("two_layer") == 1  # the source's sheet class stands for the writer's (c0461)
     assert struct.unpack_from("<I", streams["Classes6/Header"])[0] == len(classes)
     assert "PrimitiveGuids/Data" not in streams

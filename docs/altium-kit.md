@@ -303,6 +303,14 @@ sample that the row's steps use has other bytes in the kit that the tree builds 
 had, with the stale run named in its result, until a new run is recorded. A synthetic run never gives a
 record, and an author report is never recorded as a kit run.
 
+## Known hazards
+
+Steps that hang Altium and are not to be run again:
+
+- **c0444 BMS pass b**: setting the polygon island threshold to 155 mil² on the round-trip document of the
+  public row `-01` hangs Altium Designer every time, with one core at 100% for 20 minutes or more
+  (S-2203). The step is not repeated; no kit step sets that threshold.
+
 ## What is not there yet
 
 - No run is recorded: no row carries the kit label. The maintainer made a first manual run in Altium

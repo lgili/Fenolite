@@ -369,13 +369,16 @@ def board_records(
     used_layers: Collection[int] = (),
     stack: StackSpec | None = None,
     arcs: Mapping[int, OutlineArc] | None = None,
+    pin_pairs: Sequence[Field] = (),
 ) -> list[list[Field]]:
     """The ``Board6`` record as its 27 lines, in Altium's order. ``filename`` is the document's file name
     (no folder); ``vertices`` is the outline in binary units in the Altium frame, without the closing
     vertex, and ``arcs`` its arc vertices by index (change c0441); ``origin`` is ``ORIGINX``/``ORIGINY``
     in binary units; ``unique_id`` is the board's eight-letter id; ``used_layers`` are the numbered layers
     (1 … 74) that primitives lie on; ``stack`` is the copper stack (``None``: the two-layer stack of c0035,
-    whose bytes it keeps). ``ValueError`` for fewer than three vertices."""
+    whose bytes it keeps). ``pin_pairs`` (change c0461) are the ``PINPAIRCOUNT`` and ``PINPAIR…<k>`` keys of
+    the xSignals a conversion carried, in place of ``PINPAIRCOUNT=0``, as the source holds them after
+    ``UNIQUEID``. ``ValueError`` for fewer than three vertices."""
     if len(vertices) < 3:
         raise ValueError("a board outline needs at least three points")
     origin_x, origin_y = rec.mil_text(origin[0]), rec.mil_text(origin[1])
@@ -466,7 +469,7 @@ def board_records(
         ("GR0_FLAGS", "15"),
         *_SNAP,
         ("UNIQUEID", unique_id),
-        ("PINPAIRCOUNT", "0"),
+        *(pin_pairs or (("PINPAIRCOUNT", "0"),)),
         *_TEARDROPS,
     ]
     return [
@@ -535,10 +538,18 @@ def board_text(
     stack: StackSpec | None = None,
     layer_names: Mapping[int, str] | None = None,
     arcs: Mapping[int, OutlineArc] | None = None,
+    pin_pairs: Sequence[Field] = (),
 ) -> str:
     """The text of the ``Board6`` record: each line as ``|KEY=VALUE`` fields, the lines joined by one CR."""
     lines = board_records(
-        filename, vertices, origin, unique_id=unique_id, used_layers=used_layers, stack=stack, arcs=arcs
+        filename,
+        vertices,
+        origin,
+        unique_id=unique_id,
+        used_layers=used_layers,
+        stack=stack,
+        arcs=arcs,
+        pin_pairs=pin_pairs,
     )
     if layer_names:
         names = {f"Mechanical {layer - 56}": name for layer, name in layer_names.items() if 57 <= layer <= 72}

@@ -233,20 +233,25 @@ def with_mask_margin(design: Design, source: SourceProject) -> Design:
     return dataclasses.replace(design, board=dataclasses.replace(board, mask_margin=margin))
 
 
-def _carried_storages(source: SourceProject) -> dict[str, tuple[bytes, bytes]]:
+def _carried_storages(
+    source: SourceProject, design: Design
+) -> tuple[dict[str, tuple[bytes, bytes]], dict[str, dict[str, tuple[str, ...]]]]:
     """The Altium storages a conversion to KiCad carried in the board's properties (change c0450,
     ``convert.altium_storages``, read with ``boardcarrier.carried``), by storage name: the ``Header`` and
-    ``Data`` streams. Nothing for a board that does not read."""
+    ``Data`` streams, as ``design`` can hold them (change c0461, ``altium_storages.fitted``: its net names);
+    and what that left out, as ``altium-storage`` losses. Nothing for a board that does not read."""
     from fenolite.backends.kicad.boardcarrier import carried as board_carried
     from fenolite.convert import altium_storages as storages
 
     if source.path.suffix != ".kicad_pcb":
-        return {}
+        return {}, {}
     try:
         found = board_carried(source.path.read_text(encoding="utf-8"))
     except (OSError, UnicodeDecodeError, FormatError):
-        return {}
-    return {name: (s.header, s.data) for name, s in storages.from_carried(found).items()}
+        return {}, {}
+    made = storages.fitted(storages.from_carried(found), {net.name for net in design.circuit.nets})
+    lost = {storages.KIND: dict(made.dropped)} if made.dropped else {}
+    return {name: (s.header, s.data) for name, s in made.storages.items()}, lost
 
 
 def write(source: SourceProject, options: Options) -> Written:
@@ -266,6 +271,7 @@ def write(source: SourceProject, options: Options) -> Written:
     edges = edge_outline(design) if board is not None and board.outline is None else None
     # each model child whose STEP file the project holds becomes a body that embeds it (change c0449)
     models = footprint_models(board.footprints, source.root) if board is not None else {}
+    kept_storages, storage_losses = _carried_storages(source, design)  # changes c0450 and c0461
     try:
         written = lower.write_design(
             design,
@@ -283,7 +289,7 @@ def write(source: SourceProject, options: Options) -> Written:
             source_rules=carried.records,
             parameters=altium_strings.project_parameter_pairs(design),
             models=models,
-            storages=_carried_storages(source),  # change c0450
+            storages=kept_storages,  # change c0450
         )
     except CompoundTooLarge as error:
         raise TargetLimitError(
@@ -310,6 +316,7 @@ def write(source: SourceProject, options: Options) -> Written:
             "a literal comment starting with = is written with a leading space": changed_comments
         }
     lost.update(_extra_losses(design, written))
+    lost.update(storage_losses)
     if "rule" in lost and carried.edited:
         lost["rule"] = _source_rule_losses(lost["rule"], design, carried.edited)
     if carried.minimums:  # change c0457: reported, not refused

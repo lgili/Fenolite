@@ -694,8 +694,12 @@ class PcbDocSpec:
     kept_storages: Mapping[str, tuple[bytes, bytes]] = field(default_factory=lambda: {})
     """Storages a conversion carried from an Altium document through KiCad (change c0450,
     ``convert.altium_storages``), by name: their ``Header`` and ``Data`` streams, written as they were. The
-    name ``Classes6.Component`` holds component-class records that join ``Classes6``, but for a class whose
-    name a written class holds."""
+    name ``Classes6.Kept`` (``Classes6.Component`` before change c0461) holds class records that join
+    ``Classes6``, but for a class whose kind and name a written class holds; with them the writer's own
+    component classes are not written, nor a net class without a member that no rule names (change c0461).
+    ``SignalClasses.Kept`` holds xSignal classes that follow the ``All xSignals`` super class,
+    ``Board6.PinPairs`` the ``PINPAIR`` keys of ``Board6`` as ``|KEY=value`` text, and
+    ``DifferentialPairs6`` the records of that storage (change c0461)."""
     fill_ids: frozenset[str] = frozenset()
     """The ids of the filled graphics of ``graphics`` that are written as fill records, not regions (change
     c0450): fills read from an Altium document, which a conversion marks (``lower.fill_ids``)."""
@@ -819,12 +823,14 @@ def board_record(
     origin: Point | None = None,
     layer_names: Mapping[int, str] | None = None,
     arcs: Collection[int] = (),
+    pin_pairs: Sequence[Field] = (),
 ) -> bytes:
     """The one ``Board6`` record (``docboard``): the outline in the Altium frame, the origin at the board's
     lower-left corner, the layers that primitives lie on. ``frame`` and ``origin`` (change c0090) replace
     the frame of a build and its origin. ``arcs`` (change c0441) are the indices of ``outline`` that start
     an arc through the next point, its middle, to the point after it: the middle is not written as a
-    vertex, and the start is written as an arc vertex."""
+    vertex, and the start is written as an arc vertex. ``pin_pairs`` are the xSignal keys a conversion
+    carried (change c0461, ``docboard.board_records``)."""
     from fenolite.backends.altium.project import unique_id  # project imports this module
 
     frame = frame if frame is not None else Frame.of(outline)
@@ -853,6 +859,7 @@ def board_record(
         stack=stack,
         layer_names=layer_names,
         arcs=written,
+        pin_pairs=pin_pairs,
     )
     return rec.text_block(text)
 
@@ -2416,10 +2423,19 @@ def _write(
         *polygon_records(spec.zones, copper, optimal_void_rotation=not computed),
         *split_plane_records(spec, copper),
     ]
+    kept = dict(spec.kept_storages)
+    kept_classes = kept.pop(KEPT_CLASSES, None) or kept.pop(LEGACY_CLASSES, None)
+    kept.pop(LEGACY_CLASSES, None)
+    signal_classes = kept.pop(KEPT_SIGNAL_CLASSES, None)
+    pin_pairs = kept.pop(PIN_PAIRS, None)
+    pairs = kept.pop("DifferentialPairs6", None)
     filled["Classes6"] = [
         *class_records(spec.net_classes, nets, filename),
-        *component_class_records(spec.components, filename),
+        # the source's own component classes stand in for the writer's (change c0461)
+        *(component_class_records(spec.components, filename) if kept_classes is None else ()),
     ]
+    if pairs is not None:
+        filled["DifferentialPairs6"] = _split_records(pairs[1])
     filled["Rules6"] = rule_records(spec, filename)
     carried = any(dict(fields).get("RULEKIND") == "PolygonConnect" for _n, fields in spec.source_rules)
     if computed and spec.zones and spec.rules and not carried:  # the source's own records stand (c0434)
@@ -2471,6 +2487,7 @@ def _write(
                     layer_names={
                         ident: name for name, ident in spec.layer_ids.items() if not name.startswith("Mech.")
                     },
+                    pin_pairs=_pin_pair_fields(pin_pairs[1]) if pin_pairs is not None else (),
                 )
             ],
         ),
@@ -2483,11 +2500,13 @@ def _write(
         _storage("WideStrings6", [entry for entry in wide if entry]),  # no entry for an empty text
         _storage(UNIQUE_STORAGE, unique),
     ]
-    entries += _option_storages(filename)
-    kept = dict(spec.kept_storages)
-    classes = kept.pop(KEPT_CLASSES, None)
-    if classes is not None:
-        filled["Classes6"] += _kept_classes(filled["Classes6"], classes[1])
+    for option in _option_storages(filename):
+        if option.name == "SignalClasses" and signal_classes is not None:  # after the super class (c0461)
+            option = _with_records(option, _split_records(signal_classes[1]))
+        entries.append(option)
+    if kept_classes is not None:
+        named = _named_classes(filled["Classes6"], filled["Rules6"])
+        filled["Classes6"] = [*named, *_kept_classes(named, kept_classes[1])]
     written = {name.casefold() for name in _TAIL_ORDER}
     for name, (header, data) in sorted(kept.items()):
         if name.casefold() not in written and text_problem(name) is None:
@@ -2499,31 +2518,80 @@ def _write(
     return write_compound(entries)
 
 
-KEPT_CLASSES = "Classes6.Component"
-"""The kept storage that holds component-class records (change c0450)."""
+KEPT_CLASSES = "Classes6.Kept"
+"""The kept storage that holds the source's class records that are no net class (change c0461)."""
+LEGACY_CLASSES = "Classes6.Component"
+"""The kept storage of change c0450, its component classes alone."""
+KEPT_SIGNAL_CLASSES = "SignalClasses.Kept"
+PIN_PAIRS = "Board6.PinPairs"
 
 
-def _class_name(record: bytes) -> str:
-    text = record[4:].rstrip(b"\x00").decode("latin-1")
-    for part in text.split("|"):
-        key, sep, value = part.partition("=")
-        if sep and key.strip().upper() == "NAME":
-            return value
-    return ""
-
-
-def _kept_classes(written: Sequence[bytes], data: bytes) -> list[bytes]:
-    """The length-prefixed records of ``data`` whose class name no record of ``written`` holds."""
-    names = {_class_name(record).casefold() for record in written}
+def _split_records(data: bytes) -> list[bytes]:
+    """The length-prefixed records of a property storage's ``Data`` stream."""
     found: list[bytes] = []
     at = 0
     while at + 4 <= len(data):
         (length,) = struct.unpack_from("<I", data, at)
-        record = data[at : at + 4 + length]
+        found.append(data[at : at + 4 + length])
         at += 4 + length
-        name = _class_name(record)
-        if name and name.casefold() not in names:
-            names.add(name.casefold())
+    return found
+
+
+def _with_records(storage: Storage, more: Sequence[bytes]) -> Storage:
+    """``storage`` (a ``Header`` count and a ``Data`` stream) with ``more`` records after its own."""
+    streams = {entry[0]: entry[1] for entry in storage.entries if isinstance(entry, tuple)}
+    header, data = streams["Header"], streams["Data"]
+    (count,) = struct.unpack_from("<I", header)
+    return _storage(storage.name, [data, *more], count=count + len(more))
+
+
+def _pin_pair_fields(data: bytes) -> list[Field]:
+    """The ``|KEY=value`` fields of carried ``Board6.PinPairs`` text, in order."""
+    found: list[Field] = []
+    for part in data.decode("latin-1").split("|"):
+        key, sep, value = part.partition("=")
+        if sep:
+            found.append((key, value))
+    return found
+
+
+def _named_classes(written: Sequence[bytes], rules: Sequence[bytes]) -> list[bytes]:
+    """The class records of ``written`` but a net class without a member whose name no rule of ``rules``
+    scopes (change c0461): with the source's classes carried, the empty ``Default`` net class that KiCad
+    holds is no class of the source."""
+    scopes = b"".join(rules).decode("latin-1").casefold()
+    kept: list[bytes] = []
+    for record in written:
+        text = record[4:].decode("latin-1")
+        empty = "|KIND=0|" in text and "|M0=" not in text
+        if empty and f"innetclass('{_class_name(record).casefold()}')" not in scopes:
+            continue
+        kept.append(record)
+    return kept
+
+
+def _class_key(record: bytes, key: str) -> str:
+    text = record[4:].rstrip(b"\x00").decode("latin-1")
+    for part in text.split("|"):
+        name, sep, value = part.partition("=")
+        if sep and name.strip().upper() == key:
+            return value
+    return ""
+
+
+def _class_name(record: bytes) -> str:
+    return _class_key(record, "NAME")
+
+
+def _kept_classes(written: Sequence[bytes], data: bytes) -> list[bytes]:
+    """The length-prefixed records of ``data`` whose kind and class name no record of ``written`` holds
+    (change c0461: a net class ``CELL`` and a class of component classes ``Cell`` stand side by side)."""
+    names = {(_class_key(record, "KIND"), _class_name(record).casefold()) for record in written}
+    found: list[bytes] = []
+    for record in _split_records(data):
+        key = (_class_key(record, "KIND"), _class_name(record).casefold())
+        if key[1] and key not in names:
+            names.add(key)
             found.append(record)
     return found
 

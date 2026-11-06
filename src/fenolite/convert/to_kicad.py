@@ -486,12 +486,14 @@ def write_altium(source: SourceProject, options: Options) -> Written:
     (``generated_holes``), its library written beside the board (change c0170)."""
     from fenolite.backends.altium.read.cfb import holds_embedded_boards
     from fenolite.convert.altium_to_kicad import (
+        PLANE_KIND,
         ZONE_ARC_REASON,
         ZONE_NO_AREA,
         Ledger,
         board_document,
         distinct_designators,
         footprint_files,
+        plane_losses,
         prepare,
         schematic_files,
     )
@@ -505,6 +507,9 @@ def write_altium(source: SourceProject, options: Options) -> Written:
         arrays = copied.items
         source = dataclasses.replace(source, design=copied.design)
     counts = census(source.design)
+    planes = plane_losses(source, source.design, ledger)  # change c0461: no plane has copper in KiCad
+    if planes:
+        counts[PLANE_KIND] = planes
     if arrays:
         counts[EMBEDDED_BOARD_KIND] = len(arrays)
     for entry in arrays:

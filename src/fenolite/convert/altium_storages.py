@@ -9,9 +9,14 @@ length of the ``Header`` stream (32-bit), that stream and the ``Data`` stream. K
 on a save (S-2092). A conversion back reads them with ``boardcarrier.carried`` and writes each storage again
 (``pcbdoc.PcbDocSpec.kept_storages``).
 
-The component classes of ``Classes6`` travel as ``Classes6.Component``: the records of ``KIND=1`` that are
-no super class. Storages that name primitives by index (``PrimitiveGuids``, the saved violations) are not
-carried: the round trip renumbers the primitives. Each one that holds a record is counted lost.
+The classes of ``Classes6`` that no net class gives travel as ``Classes6.Kept``: the records of every kind
+but ``KIND=0`` that are no super class (change c0461; c0450 carried ``KIND=1`` alone, as
+``Classes6.Component``, which a conversion back still reads). So do the ``SignalClasses`` records that are no
+super class (``SignalClasses.Kept``), the ``PINPAIR`` keys of ``Board6`` that define the xSignals they name
+(``Board6.PinPairs``) and ``DifferentialPairs6``. A conversion back writes them as they were, but a
+differential pair whose nets the written document does not hold (``fitted``). Storages that name
+primitives by index (``PrimitiveGuids``, the saved violations) are not carried: the round trip renumbers the
+primitives. Each one that holds a record is counted lost.
 """
 
 from __future__ import annotations
@@ -31,8 +36,20 @@ EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-A-CONV-STORAGE",))
 CARRIED: tuple[str, ...] = ("BoardRegions", "CustomMaskShapes", "EmbeddedFonts6", "UnionNames")
 """The storages copied whole."""
 CLASSES = "Classes6"
+KEPT_CLASSES = "Classes6.Kept"
+"""The carrier of the classes of ``Classes6`` that are no net class and no super class (change c0461)."""
 COMPONENT_CLASSES = "Classes6.Component"
-"""The carrier of the component classes of ``Classes6``."""
+"""The carrier of c0450, its component classes alone: read back as ``KEPT_CLASSES``."""
+SIGNAL_CLASSES = "SignalClasses"
+KEPT_SIGNAL_CLASSES = "SignalClasses.Kept"
+"""The carrier of the xSignal classes of ``SignalClasses`` that are no super class (change c0461)."""
+PIN_PAIRS = "Board6.PinPairs"
+"""The carrier of the xSignals of ``Board6``: its ``Header`` the count, its ``Data`` the ``PINPAIR`` keys as
+``|KEY=value`` text (change c0461)."""
+DIFFERENTIAL_PAIRS = "DifferentialPairs6"
+"""Carried whole (change c0461): its records name their nets by name."""
+KEPT_CARRIERS: tuple[str, ...] = (KEPT_CLASSES, KEPT_SIGNAL_CLASSES, PIN_PAIRS)
+"""The carriers that hold part of a storage (change c0461)."""
 KIND = "altium-storage"
 """The report kind of a storage."""
 INDEX_BOUND_REASON = (
@@ -87,13 +104,59 @@ def fields(record: bytes) -> dict[str, str]:
     return found
 
 
+def _super(record: bytes) -> bool:
+    return fields(record).get("SUPERCLASS", "FALSE").upper() == "TRUE"
+
+
+def kept_classes(data: bytes) -> list[bytes]:
+    """The records of ``Classes6`` that are no net class (``KIND=0``, which the model holds) and no super
+    class (change c0461)."""
+    return [record for record in records(data) if fields(record).get("KIND") != "0" and not _super(record)]
+
+
 def component_classes(data: bytes) -> list[bytes]:
     """The records of ``Classes6`` that are component classes and no super class."""
-    return [
-        record
-        for record in records(data)
-        if (f := fields(record)).get("KIND") == "1" and f.get("SUPERCLASS", "FALSE").upper() != "TRUE"
-    ]
+    return [record for record in kept_classes(data) if fields(record).get("KIND") == "1"]
+
+
+PIN_PAIR_KEY = re.compile(r"PINPAIR(?:NAME|COLOR|OVERRIDECOLORFORDRAW|PINS)\d+|PINPAIRCOUNT")
+
+
+def pin_pair_fields(board: bytes) -> list[tuple[str, str]]:
+    """The ``PINPAIRCOUNT`` and ``PINPAIR…<k>`` keys of the ``Board6`` stream ``board``, in order (change
+    c0461; ``pcb-records.md``, "Storages through KiCad"): the xSignals of the document."""
+    text = board[4:].rstrip(b"\x00").decode("latin-1")
+    found: list[tuple[str, str]] = []
+    for line in text.split("\r"):
+        for part in line.split("|"):
+            key, sep, value = part.partition("=")
+            if sep and PIN_PAIR_KEY.fullmatch(key.strip().upper()):
+                found.append((key.strip().upper(), value))
+    return found
+
+
+def pin_pairs(data: bytes) -> list[dict[str, str]]:
+    """The xSignals of carried ``Board6.PinPairs`` text, by index: ``NAME``, ``COLOR``,
+    ``OVERRIDECOLORFORDRAW`` and ``PINS`` of each, in index order."""
+    found: dict[int, dict[str, str]] = {}
+    for part in data.decode("latin-1").split("|"):
+        key, sep, value = part.partition("=")
+        match = re.fullmatch(r"PINPAIR([A-Z]+)(\d+)", key) if sep else None
+        if match is not None:
+            found.setdefault(int(match.group(2)), {})[match.group(1)] = value
+    return [found[index] for index in sorted(found)]
+
+
+def pin_pair_text(pairs: list[dict[str, str]]) -> bytes:
+    """The ``Board6.PinPairs`` text of ``pairs``, numbered from 0: ``PINPAIRCOUNT``, then the four keys of
+    each pair."""
+    parts = [f"|PINPAIRCOUNT={len(pairs)}"]
+    for index, pair in enumerate(pairs):
+        parts += [f"|PINPAIR{key}{index}={pair[key]}" for key in _PAIR_KEYS if key in pair]
+    return "".join(parts).encode("latin-1")
+
+
+_PAIR_KEYS = ("NAME", "COLOR", "OVERRIDECOLORFORDRAW", "PINS")
 
 
 @dataclass(frozen=True, slots=True)
@@ -127,12 +190,22 @@ def found_in(path: Path) -> Found:
         storage = streams(name)
         if storage is None:
             continue
-        if name in CARRIED and storage.data:
+        if (name in CARRIED or name == DIFFERENTIAL_PAIRS) and storage.data:
             carried[PREFIX + name] = storage
-        elif name == CLASSES:
-            kept = component_classes(storage.data)
+        elif name in (CLASSES, SIGNAL_CLASSES):
+            kept = (
+                kept_classes(storage.data)
+                if name == CLASSES
+                else [record for record in records(storage.data) if not _super(record)]
+            )
             if kept:
-                carried[PREFIX + COMPONENT_CLASSES] = Storage(struct.pack("<I", len(kept)), b"".join(kept))
+                carrier = KEPT_CLASSES if name == CLASSES else KEPT_SIGNAL_CLASSES
+                carried[PREFIX + carrier] = Storage(struct.pack("<I", len(kept)), b"".join(kept))
+        elif name == "Board6":
+            text = "".join(f"|{key}={value}" for key, value in pin_pair_fields(storage.data))
+            pairs = pin_pairs(text.encode("latin-1"))
+            if pairs:
+                carried[PREFIX + PIN_PAIRS] = Storage(struct.pack("<I", len(pairs)), pin_pair_text(pairs))
         elif _INDEX_BOUND.fullmatch(name) and _count(storage.header):
             bound[name] = _count(storage.header)
     return Found(carried, bound)
@@ -145,32 +218,103 @@ def items(found: Found) -> dict[str, bytes]:
 
 def from_carried(carried: Mapping[str, bytes]) -> dict[str, Storage]:
     """The storages among a board's carried properties (``boardcarrier.carried``), by storage name
-    (``Classes6.Component`` for the component classes). Only the names a conversion carries count, so the
-    rule records of ``Rules6`` (change c0434) are not a storage; bytes that do not unpack are left out."""
-    names = {PREFIX + name for name in (*CARRIED, COMPONENT_CLASSES)}
+    (``Classes6.Kept`` for the classes, c0450's ``Classes6.Component`` among them). Only the names a
+    conversion carries count, so the rule records of ``Rules6`` (change c0434) are not a storage; bytes that
+    do not unpack are left out."""
+    names = {PREFIX + name for name in (*CARRIED, DIFFERENTIAL_PAIRS, COMPONENT_CLASSES, *KEPT_CARRIERS)}
     found: dict[str, Storage] = {}
-    for name, data in carried.items():
+    for name, data in sorted(carried.items()):
         storage = unpacked(data) if name in names else None
-        if storage is not None:
-            found[name.removeprefix(PREFIX)] = storage
+        if storage is None:
+            continue
+        key = name.removeprefix(PREFIX)
+        if key == COMPONENT_CLASSES:  # c0450's carrier
+            if KEPT_CLASSES in found:
+                continue
+            key = KEPT_CLASSES
+        found[key] = storage
     return found
+
+
+# --- what a conversion back writes (change c0461) --------------------------------------------------------
+
+PAIR_REASON = "the differential pair names a net the written document does not hold"
+XSIGNAL_REASON = "the xSignal holds a character that a line of the board record cannot hold"
+
+
+@dataclass(frozen=True, slots=True)
+class Fitted:
+    """The carried storages a conversion back writes, by storage name, and what it left out: per reason,
+    the ids ``<storage>:<name>``."""
+
+    storages: Mapping[str, Storage]
+    dropped: Mapping[str, tuple[str, ...]]
+
+
+def fitted(storages: Mapping[str, Storage], nets: set[str]) -> Fitted:
+    """``storages`` (``from_carried``) as the written document can hold them (change c0461): a differential
+    pair whose two nets are among ``nets``, and an xSignal of ``Board6.PinPairs`` that a line of the board
+    record can hold. Classes keep their members as the source held them: the conversion keeps every
+    designator and net name of the board, and an Altium-saved document holds members that name nothing
+    (``pcb-records.md``, "Storages through KiCad")."""
+    out = dict(storages)
+    dropped: dict[str, list[str]] = {}
+    if DIFFERENTIAL_PAIRS in out:
+        kept: list[bytes] = []
+        for record in records(out[DIFFERENTIAL_PAIRS].data):
+            f = fields(record)
+            if f.get("POSITIVENETNAME") in nets and f.get("NEGATIVENETNAME") in nets:
+                kept.append(record)
+            else:
+                dropped.setdefault(PAIR_REASON, []).append(f"{DIFFERENTIAL_PAIRS}:{f.get('NAME', '')}")
+        out[DIFFERENTIAL_PAIRS] = Storage(struct.pack("<I", len(kept)), b"".join(kept))
+    if PIN_PAIRS in out:
+        held: list[dict[str, str]] = []
+        for pair in pin_pairs(out[PIN_PAIRS].data):
+            if _writable("".join(pair.values())):
+                held.append(pair)
+            else:
+                dropped.setdefault(XSIGNAL_REASON, []).append(f"Board6:{pair.get('NAME', '')}")
+        if held:
+            out[PIN_PAIRS] = Storage(struct.pack("<I", len(held)), pin_pair_text(held))
+        else:
+            del out[PIN_PAIRS]
+    return Fitted(out, {reason: tuple(ids) for reason, ids in dropped.items()})
+
+
+def _writable(text: str) -> bool:
+    """Whether ``text`` can stand in a line of the ``Board6`` record (``docboard.format_line``)."""
+    return "|" not in text and all(0x20 <= ord(ch) <= 0x7E for ch in text)
 
 
 __all__ = [
     "CARRIED",
-    "EVIDENCE",
     "COMPONENT_CLASSES",
+    "DIFFERENTIAL_PAIRS",
+    "EVIDENCE",
     "INDEX_BOUND_REASON",
+    "KEPT_CLASSES",
+    "KEPT_CARRIERS",
+    "KEPT_SIGNAL_CLASSES",
     "KIND",
+    "PAIR_REASON",
+    "PIN_PAIRS",
     "PREFIX",
+    "XSIGNAL_REASON",
+    "Fitted",
     "Found",
     "Storage",
     "component_classes",
     "fields",
+    "fitted",
     "found_in",
     "from_carried",
     "items",
+    "kept_classes",
     "packed",
+    "pin_pair_fields",
+    "pin_pair_text",
+    "pin_pairs",
     "records",
     "unpacked",
 ]

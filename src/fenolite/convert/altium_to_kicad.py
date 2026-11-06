@@ -520,6 +520,57 @@ def board_document(source: SourceProject, design: Design) -> Path | None:
     return found[0] if len(found) == 1 else None
 
 
+PLANE_KIND = "plane"
+PLANE_REASON = (
+    "the conversion gives an internal plane no zone: the copper of the plane's net region (its Split Plane "
+    "polygon, or the whole layer without one) is not in the KiCad board"
+)
+"""Why an internal plane is lost on the way to KiCad (change c0461). KiCad's own import holds each Split Plane
+polygon as an unfilled zone of its net on a ``power`` layer (``pcb-copper.md``, S-2201)."""
+
+
+def plane_losses(source: SourceProject, design: Design, ledger: Ledger) -> int:
+    """Count each net region of an internal plane of the chain lost under ``plane`` (change c0461): each
+    ``Split Plane`` polygon of the source document on the plane's layer (id ``<layer id>:polygon-<index in
+    Polygons6>``), or the plane's layer itself when the document holds none on it. The number of items."""
+    from fenolite.backends.altium.read.cfb import read_compound
+    from fenolite.convert import altium_storages as storages
+    from fenolite.core.errors import FenoliteError
+
+    board = design.board
+    if board is None:
+        return 0
+    planes: dict[str, str] = {}
+    for layer in board.layers:
+        bag = layer.ext.get("altium")
+        ident = dict(bag.payload).get("layer_id", "") if bag is not None and layer.kind == "copper" else ""
+        if ident.isdecimal() and 39 <= int(ident) <= 54:  # Internal Plane 1 to 16
+            planes[f"PLANE{int(ident) - 38}"] = layer.id
+    if not planes:
+        return 0
+    splits: dict[str, list[int]] = defaultdict(list)
+    path = board_document(source, design)
+    data = b""
+    if path is not None:
+        try:
+            compound = read_compound(path)
+            data = compound.read("Polygons6/Data") if "Polygons6/Data" in compound else b""
+        except (OSError, FenoliteError):
+            data = b""
+    for index, record in enumerate(storages.records(data)):
+        fields = storages.fields(record)
+        layer_name = fields.get("LAYER", "").upper()
+        if fields.get("POLYGONTYPE") == "Split Plane" and layer_name in planes:
+            splits[layer_name].append(index)
+    count = 0
+    for name, layer_id in planes.items():
+        for index in splits.get(name, []) or [None]:
+            ident = layer_id if index is None else f"{layer_id}:polygon-{index}"
+            ledger.drop(PLANE_KIND, ident, PLANE_REASON)
+            count += 1
+    return count
+
+
 def _pcb_document(source: SourceProject, design: Design) -> Any:
     """The source's PCB document as read; ``None`` when it cannot be read."""
     from fenolite.backends.altium.read.pcb import read_pcbdoc
