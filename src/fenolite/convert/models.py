@@ -14,18 +14,23 @@ the body forms and writes the files.
 The way back (change c0449): ``footprint_models`` reads each ``model`` child of a KiCad board footprint, finds
 its STEP file beside the project, and gives the Altium write a ``pcbdoc.FootprintModel``: the pose that is the
 inverse of ``placement`` (``altium_pose``), and the outline and heights of the placed model's box
-(``stepbox.model_box``), or the reason it has no record.
+(``stepbox.model_box``), or the reason it has no record. A model that comes back with the model and the
+pose the conversion to KiCad gave it keeps the heights its source body stores (``StoredHeights``, carried in
+the board property ``HEIGHTS_PROPERTY``; change c0449, task 4.3): the box gives them only to a model that is
+new or changed.
 """
 
 from __future__ import annotations
 
 import hashlib
+import json
 import math
 import re
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
 from pathlib import Path, PurePosixPath, PureWindowsPath
+from typing import cast
 
 from fenolite.backends import step, stepbox
 from fenolite.backends.altium import pcbdoc
@@ -60,6 +65,106 @@ LOCK = 1e-9
 """Below this ``cos β`` the turns about X and Z are one: X is taken as 0 (design, Decision 2)."""
 
 Matrix = tuple[tuple[float, float, float], tuple[float, float, float], tuple[float, float, float]]
+HEIGHTS_PROPERTY = "Fenolite.Altium.ModelHeights"
+"""The board property (``backends.kicad.boardcarrier``) that carries the stored heights of the embedded
+models a conversion to KiCad placed (change c0449, task 4.3)."""
+HEIGHTS_SCHEMA = "fenolite.altium-model-heights.v0"
+HeightKey = tuple[str, tuple[int, int, int], tuple[int, int, int], str]
+"""A placed model as KiCad holds it: the SHA-256 (hex) of its bytes, its offset in the footprint frame (nm),
+its turns (µdeg, each in [0, 360°)) and its footprint's side."""
+
+
+@dataclass(frozen=True, slots=True)
+class StoredHeights:
+    """The heights an Altium model body stores (``STANDOFFHEIGHT`` and ``OVERALLHEIGHT``, in nm), with the
+    model and the placement in KiCad that the conversion gave it (change c0449, task 4.3). Heights above the
+    face do not depend on where the footprint lies or how it is turned about Z, so the key holds the model's
+    pose relative to its footprint, not the footprint's place: a conversion moves the board's frame."""
+
+    sha256: str
+    offset: tuple[int, int, int]
+    rotation: tuple[int, int, int]
+    side: str
+    standoff: int
+    height: int
+
+    @property
+    def key(self) -> HeightKey:
+        return height_key(self.sha256, self.offset, self.rotation, self.side)
+
+
+def height_key(
+    sha256: str, offset: tuple[int, int, int], rotation: tuple[int, int, int], side: str
+) -> HeightKey:
+    """The ``HeightKey`` of a placed model; each turn taken modulo a full turn, as KiCad may write it."""
+    rx, ry, rz = (angle % FULL_TURN for angle in rotation)
+    return (sha256, offset, (rx, ry, rz), side)
+
+
+def heights_text(found: Iterable[StoredHeights]) -> str:
+    """The carrier's JSON text: the schema and one entry per distinct ``StoredHeights``, sorted."""
+    rows = sorted(
+        {
+            (
+                h.sha256,
+                h.offset,
+                height_key(h.sha256, h.offset, h.rotation, h.side)[2],
+                h.side,
+                h.standoff,
+                h.height,
+            )
+            for h in found
+        }
+    )
+    bodies = [
+        {"sha256": s, "offset": list(o), "rotation": list(r), "side": side, "standoff": lo, "height": hi}
+        for s, o, r, side, lo, hi in rows
+    ]
+    return json.dumps({"schema": HEIGHTS_SCHEMA, "bodies": bodies}, sort_keys=True, separators=(",", ":"))
+
+
+def _int(value: object) -> int | None:
+    return value if isinstance(value, int) and not isinstance(value, bool) else None
+
+
+def _triple(value: object) -> tuple[int, int, int] | None:
+    items = cast("list[object]", value) if isinstance(value, list) else []
+    found = [_int(v) for v in items]
+    if len(found) != 3 or None in found:
+        return None
+    a, b, c = cast("list[int]", found)
+    return (a, b, c)
+
+
+def read_heights(data: bytes | None) -> dict[HeightKey, tuple[int, int]]:
+    """The stored heights a board carries, ``(standoff, height)`` by ``HeightKey``; nothing for no property,
+    another schema or text that is no carrier. An entry that is not well formed is left out, and so is a key
+    whose entries disagree: the box then gives those models' heights."""
+    if not data:
+        return {}
+    try:
+        loaded: object = json.loads(data.decode("utf-8"))
+    except (UnicodeDecodeError, ValueError):
+        return {}
+    root = cast("dict[str, object]", loaded) if isinstance(loaded, dict) else {}
+    if root.get("schema") != HEIGHTS_SCHEMA:
+        return {}
+    bodies = root.get("bodies")
+    found: dict[HeightKey, tuple[int, int]] = {}
+    clash: set[HeightKey] = set()
+    for entry in cast("list[object]", bodies) if isinstance(bodies, list) else []:
+        row = cast("dict[str, object]", entry) if isinstance(entry, dict) else {}
+        sha, side = row.get("sha256"), row.get("side")
+        lo, hi = _int(row.get("standoff")), _int(row.get("height"))
+        offset, rotation = _triple(row.get("offset")), _triple(row.get("rotation"))
+        if not isinstance(sha, str) or side not in ("top", "bottom") or offset is None or rotation is None:
+            continue
+        if lo is None or hi is None:
+            continue
+        key = height_key(sha, offset, rotation, str(side))
+        if found.setdefault(key, (lo, hi)) != (lo, hi):
+            clash.add(key)
+    return {key: value for key, value in found.items() if key not in clash}
 
 
 @dataclass(frozen=True, slots=True)
@@ -74,6 +179,8 @@ class Placed:
     lost: Mapping[str, str] = field(default_factory=lambda: {})
     bodies_changed: Mapping[str, str] = field(default_factory=lambda: {})
     bodies_lost: Mapping[str, str] = field(default_factory=lambda: {})
+    heights: tuple[StoredHeights, ...] = ()
+    """The stored heights of each placed embedded model, for the way back (change c0449, task 4.3)."""
 
 
 def model_file(library: str, footprint: str, data: bytes) -> str:
@@ -232,6 +339,7 @@ def place_models(
     lost: dict[str, str] = {}
     bodies_changed: dict[str, str] = {}
     bodies_lost: dict[str, str] = {}
+    heights: list[StoredHeights] = []
     for footprint in footprints:
         found: list[ModelPlacement] = []
         generated: list[tuple[str, step.Solid, str]] = []
@@ -250,7 +358,14 @@ def place_models(
                 else:
                     path = model_file(library, model_stem(model.name) or name, model.data)
                     files[path] = model.data
-                    found.append(placement(model, frame, "${KIPRJMOD}/" + path))
+                    placed = placement(model, frame, "${KIPRJMOD}/" + path)
+                    found.append(placed)
+                    digest = hashlib.sha256(model.data).hexdigest()
+                    heights.append(
+                        StoredHeights(
+                            digest, placed.offset, placed.rotation, footprint.side, body.standoff, body.height
+                        )
+                    )
                     changed[body.id] = PLACED
                     bodies_changed[body.id] = CARRIED
                     continue
@@ -278,7 +393,7 @@ def place_models(
                     bodies_changed[ident] = reason
         if found:
             placements[footprint.id] = tuple(found)
-    return Placed(placements, files, changed, lost, bodies_changed, bodies_lost)
+    return Placed(placements, files, changed, lost, bodies_changed, bodies_lost, tuple(heights))
 
 
 # --- the way back: a KiCad model in an Altium document (change c0449) --------------------------------------
@@ -389,12 +504,17 @@ def model_name(path: Path) -> str:
 
 
 def footprint_models(
-    footprints: Iterable[FootprintInstance], root: Path
+    footprints: Iterable[FootprintInstance],
+    root: Path,
+    stored: Mapping[HeightKey, tuple[int, int]] | None = None,
 ) -> dict[str, tuple[pcbdoc.FootprintModel, ...]]:
     """Per footprint instance id, its ``model`` children as the Altium write takes them (change c0449):
     each child whose STEP file the project folder ``root`` holds, unscaled and with a box, as a model with
     its pose, outline and heights; every other child with its reason. A model's id is
-    ``<footprint id>/model/<n>``, ``n`` counting the footprint's children from 0."""
+    ``<footprint id>/model/<n>``, ``n`` counting the footprint's children from 0. A model whose
+    ``HeightKey`` ``stored`` holds (``read_heights``: the same bytes, offset, turns and side as the
+    conversion to KiCad gave it) takes the heights its source body stores; any other, those of its box."""
+    stored = stored or {}
     boxes: dict[bytes, stepbox.Box | None] = {}
     found: dict[str, tuple[pcbdoc.FootprintModel, ...]] = {}
     for footprint in footprints:
@@ -425,13 +545,16 @@ def footprint_models(
                 continue
             pose = altium_pose(ref, footprint, box)
             model = pcbdoc.EmbeddedModel(data, model_name(file), pose.position, pose.z, pose.rotation)
+            standoff, height = stored.get(
+                height_key(key.hex(), ref.offset, ref.rotation, footprint.side), (pose.standoff, pose.height)
+            )
             made.append(
                 pcbdoc.FootprintModel(
                     ident,
                     model,
                     pose.outline,
-                    pose.standoff,
-                    pose.height,
+                    standoff,
+                    height,
                     changed=HIDDEN if ref.hidden else "",
                 )
             )
@@ -446,6 +569,9 @@ __all__ = [
     "CARRIED",
     "EVIDENCE",
     "GENERATED",
+    "HEIGHTS_PROPERTY",
+    "HEIGHTS_SCHEMA",
+    "HeightKey",
     "KIND",
     "NOT_CYLINDER",
     "NOT_SPHERE",
@@ -454,14 +580,19 @@ __all__ = [
     "PRISM",
     "UNKNOWN",
     "Placed",
+    "StoredHeights",
     "altium_pose",
     "body_solid",
     "footprint_models",
+    "height_key",
+    "heights_text",
     "model_name",
     "model_path",
     "model_file",
+    "model_stem",
     "place_models",
     "placement",
+    "read_heights",
     "rotation_matrix",
     "turns",
 ]

@@ -313,7 +313,12 @@ lost with its reason for a file that is not found (in the project folder, or at 
 under another variable, a KiCad embedded file (`kicad-embed://`), a file that is no STEP text, a scale other
 than 1, or a STEP without an edge to measure. A path under a variable other than `KIPRJMOD` (an official
 library's model) is not resolved; an absolute path depends on the machine, as it does in KiCad. After
-a round trip a model keeps its bytes and pose; its name is the file name of the KiCad side.
+a round trip a model keeps its bytes and pose; its name is the file name of the KiCad side. A model that
+comes back with the bytes, offset, turns and side the conversion to KiCad gave it keeps the heights its
+source body stores (`STANDOFFHEIGHT` and `OVERALLHEIGHT`), which that conversion carries in the board property
+`Fenolite.Altium.ModelHeights` (`convert.models.StoredHeights`; change c0449, task 4.3). A model that is new
+or changed in KiCad takes the heights of its box. The footprint's place and its turn about Z are not
+compared: heights above the face do not depend on them, and a conversion moves the board's frame.
 
 The drawing-layer map is fixed: `User.1` through `User.8` → Mechanical 1 through 8; `Dwgs.User`,
 `Cmts.User`, `Eco1.User`, `Eco2.User` → Mechanical 9 through 12; `F.Fab`, `B.Fab`, `F.CrtYd`,

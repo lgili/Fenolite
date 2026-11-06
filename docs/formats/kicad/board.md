@@ -1123,7 +1123,10 @@ A conversion from Altium keeps the data the way back needs in root properties of
 `with_carried` writes every `Fenolite.Altium.*` property in name order right after `setup` and changes no
 other byte; `carried` reads them back. Change c0434 writes `Fenolite.Altium.Rules6`
 (`docs/formats/altium/rule-file.md`, "Records through KiCad"), change c0450 the storages of the source
-document (`docs/formats/altium/pcb-records.md`, "Through KiCad").
+document (`docs/formats/altium/pcb-records.md`, "Through KiCad"), change c0449 the stored heights of each
+placed embedded model as `Fenolite.Altium.ModelHeights` (schema `fenolite.altium-model-heights.v0`: per
+model its SHA-256, offset, turns and side in KiCad, and its `STANDOFFHEIGHT` and `OVERALLHEIGHT` in nm;
+`docs/conversion.md`, "Models to Altium").
 
 ## Authored native TAB value observations
 

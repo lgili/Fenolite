@@ -36,4 +36,8 @@
   model; the KiCad file was named after U1's footprint, `LM3644YFFR`. Fixed: an embedded model's file is
   named by its record `NAME` (`convert.models.model_stem`), pinned by
   `tests/unit/convert/test_model_placement.py::test_an_embedded_model_keeps_its_own_name` and, on row
-  `-04`, `tests/corpus/test_altium_bodies.py::test_embedded_models_keep_their_names`. NG6011 to re-run.
+  `-04`, `tests/corpus/test_altium_bodies.py::test_embedded_models_keep_their_names`.
+  U1 also came back with its box's heights (8.2677 / 24.6457 mil) where the source stores 0 / 10 mil.
+  Fixed: an unchanged model keeps the source body's `STANDOFFHEIGHT` and `OVERALLHEIGHT`, carried in
+  `Fenolite.Altium.ModelHeights`; pinned by `tests/unit/convert/test_model_heights_c0449.py` and
+  `tests/corpus/test_altium_bodies.py::test_embedded_models_keep_their_stored_heights`. NG6011 to re-run.
