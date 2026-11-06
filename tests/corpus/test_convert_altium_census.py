@@ -48,8 +48,7 @@ BASELINE = {
     "altium-third-party-pcbdoc-05": {"Mech.1": 4, "Mech.2": 92, "Mech.4": 92},
     # change c0407: the three regions of KIND=1 (polygon cut-outs) on the Multi-Layer layer of -06 are rule
     # areas against pours on every copper layer, no longer graphics of layer 74
-    "altium-third-party-pcbdoc-06": {
-        "Altium.KeepOut": 2,
+    "altium-third-party-pcbdoc-06": {  # its 2 component cut-outs are Edge.Cuts since c0443
         "Mech.1": 18,
         "Mech.11": 105,
         "Mech.13": 217,

@@ -330,7 +330,8 @@ rows without the `net-tie` row; its compared differences are unchanged.
 | RoyalBlue54L-Feather | stackup | lost | 1 | the document has no key for the solder mask thickness, the colours, the finish; the copper and dielectric values are written |
 | RoyalBlue54L-Feather | text | lost | 1 | the text holds a control character or a line break |
 | RoyalBlue54L-Feather | schematic | changed | 1 | the schematic is generated from the circuit on one sheet with generic symbols |
-| RoyalBlue54L-NFC-Antenna | footprint-graphic | lost | 5 | the layer Edge.Cuts has no layer in the document for a graphic |
+| RoyalBlue54L-NFC-Antenna | footprint-graphic | lost | 3 | a line of a footprint's Edge.Cuts is no closed outline: no board cut-out is written |
+| RoyalBlue54L-NFC-Antenna | footprint-graphic | lost | 2 | a arc of a footprint's Edge.Cuts is no closed outline: no board cut-out is written |
 | RoyalBlue54L-NFC-Antenna | schematic | changed | 1 | the schematic is generated from the circuit on one sheet with generic symbols |
 | sonde xilinx | footprint | changed | 3 | differs from the library footprint |
 | sonde xilinx | zone-fill | changed | 1 | a polygon is written unpoured; Altium fills it on a repour |
@@ -341,8 +342,9 @@ rows without the `net-tie` row; its compared differences are unchanged.
 | tinytapeout-demo | footprint | changed | 63 | differs from the library footprint |
 | tinytapeout-demo | pad | lost | 16 | the pad has the shape custom, which has no exact Altium form |
 | tinytapeout-demo | pad | lost | 4 | the pad is a surface pad without a copper layer |
-| tinytapeout-demo | footprint-graphic | lost | 9 | the layer Edge.Cuts has no layer in the document for a graphic |
+| tinytapeout-demo | footprint-graphic | lost | 6 | a arc of a footprint's Edge.Cuts is no closed outline: no board cut-out is written |
 | tinytapeout-demo | footprint-graphic | lost | 6 | a filled circle has no record: a region holds straight edges only |
+| tinytapeout-demo | footprint-graphic | lost | 3 | a line of a footprint's Edge.Cuts is no closed outline: no board cut-out is written |
 | tinytapeout-demo | zone-fill | changed | 2 | a polygon is written unpoured; Altium fills it on a repour |
 | tinytapeout-demo | stackup | lost | 1 | the stack-up holds several dielectric sheets between F.Cu and In1.Cu (2 dielectric entries) and the document holds one dielectric per gap; the default stack values are written |
 | tinytapeout-demo | text | lost | 215 | the text record has no key for a justification other than centred |
