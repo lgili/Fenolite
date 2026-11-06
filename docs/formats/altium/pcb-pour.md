@@ -24,7 +24,7 @@ keep-outs", and `pcb-read.md`, "Regions".
 | I3. A Clearance rule for a polygon alone names it with the query `InPolygon` (or `InPoly`); one public Clearance record of the eight documents holds `InPolygon` in a scope | S-0833, S-0835 | INFERRED | H-A-POUR-SCOPE |
 | I4. A void lies at the exact value of its rule. Altium's own rule check passes copper up to 3.5 file units inside a clearance (c0152), which is a tolerance of the check and no part of a pour | S-0616 | INFERRED | H-A-POUR-CLEARANCE |
 | I5. Polygon Connect Style gives the connection of a pad or a via of the polygon's net: Relief Connect, Direct Connect or No Connect; a relief has an air gap width, a conductor width and 2 or 4 conductors at 90° or 45°; the Simple form holds one setting for pads and vias, the Advanced form one each for through-hole pads, SMD pads and vias; an Auto mode, a minimum distance between conductors and an object's own Thermal Relief setting exist and are not read by Fenolite | S-0287, S-0833, S-0834, S-0835 | INFERRED | H-A-POUR-CONNECT |
-| I6. A relief is a void of the pad's or via's copper grown by the air gap width, crossed by its conductors: bars of the conductor width from the pad's centre, at 0° (90° angle) or 45° (45° angle) and then every 90° for four conductors, turned with the pad's rotation, reaching across the gap into the pour; a conductor that would cross the clearance of another net's object is left out | S-0287, S-0833 | INFERRED | H-A-POUR-RELIEF |
+| I6. A relief is a void of the pad's or via's copper grown by the air gap width, crossed by its conductors: bars of the conductor width from the pad's centre, at 0° (90° angle) or 45° (45° angle) and then every 90° for four conductors, turned with the pad's rotation, reaching across the gap into the pour; a conductor that would cross the clearance of another net's object is left out. A conductor runs over the part of its own pad that lies outside the polygon's outline (S-2227) | S-0287, S-0833, S-2227 | INFERRED | H-A-POUR-RELIEF |
 | I7. Direct Connect joins the pad's copper to the pour with no void; No Connect keeps the air-gap void and no conductor | S-0287, S-0833 | INFERRED | H-A-POUR-RELIEF |
 | I8. Objects of the polygon's own net are covered by the pour or avoided by `POUROVERSTYLE`: Don't Pour Over Same Net Objects pours in free space only, Pour Over All Same Net Objects covers same-net tracks, arcs, fills, regions and polygons, Pour Over Same Net Polygons Only covers same-net polygons and avoids every other object. Every saved polygon pairs `POUROVER=TRUE` with `POUROVERSTYLE=1` (64 of 82) or `POUROVER=FALSE` with `POUROVERSTYLE=2` (18 of 82); no saved polygon holds 0. Fenolite reads 0 as Don't Pour Over, 1 as All Same Net Objects and 2 as Same Net Polygons Only | S-0833, S-0835 | INFERRED | H-A-POUR-OVER |
 | I9. Polygons on one layer are poured in rising `POURINDEX`; a polygon of another net poured later keeps the clearance from the copper of an earlier one; of overlapping polygons the one of higher order pours over the shared area; layers do not interact | S-0196, S-0833 | INFERRED | H-A-POUR-ORDER |
@@ -35,7 +35,7 @@ keep-outs", and `pcb-read.md`, "Regions".
 | I14. A curve (an arc, a round pad, a track end, a via, a rounded corner) is drawn with straight edges within `ARCRESOLUTION` of the true curve while the advanced pour is off; Fenolite keeps each void outside the true curve and each copper corner inside it, so no copper comes nearer than its clearance. The saved values are 0.5mil (63 polygons), 0.0394mil (9), 0.5118mil (9) and 0.3937mil (1) | S-0833, S-0771, S-0835 | INFERRED | H-A-POUR-ARC |
 | I15. Optimal Void Rotation arranges the edges of the voids to widen necks; a polygon with `OPTIMALVOIDROTATION=FALSE` is poured without it. Every saved polygon that holds the key holds `TRUE` (77 of 82; 5 lack the key) | S-0833, S-0835 | INFERRED | H-A-POUR-VOIDROT |
 | I16. A keep-out region with the copper restriction (`KEEPOUTRESTRICTIONS` bit `0x04`; second flag byte 2), on the polygon's layer or on the Keep-Out layer, is a void at the clearance of the governing rule. The import makes a filled graphic of a keep-out region, so the engine reads it from its record | S-0833, S-0835 | INFERRED | H-A-POUR-KEEPOUT |
-| I17. The pour lies within the board shape (the outline less the board cut-outs the document holds), inset by the governing Board Outline Clearance when the document holds one | S-0460 | INFERRED | H-A-POUR-EDGE |
+| I17. The pour lies within the board shape (the outline less the board cut-outs the document holds), inset by the governing Board Outline Clearance, or by the governing Clearance to the board's edge when the document holds no Board Outline Clearance record; the inset is that clearance over cos(π/n), n the fewest sides, a multiple of 8, whose corners stand at most 0.5 mil outside its circle (S-2227) | S-0460, S-2227 | INFERRED | H-A-POUR-EDGE |
 | I18. A pad or a via is its copper on the polygon's layer as the copper check shapes it for an Altium reading (`checks.copper`, "Copper items and their shapes"); a via without a pad shape on a layer (c0132) is its hole there. The copper that the import keeps as graphics (the tracks and arcs of components, fills, free copper regions) is shaped from its record, with the net of its prefix; a region is its outline | S-0835 | INFERRED | H-A-POUR-VIAPAD |
 | I19. A hole without copper keeps the clearance of the `Hole` row of the Clearance matrix | S-0462, S-0558 | INFERRED | H-A-RULE-CLEARANCE-CELLS |
 | I20. Copper text, polygon cut-outs (regions of `KIND=1`), a pad whose copper the import does not shape, and an object's own connect style are inputs the engine does not shape: a polygon that one of them reaches is not poured | S-0833, S-0834 | INFERRED | H-A-POUR-REGION |
@@ -122,6 +122,24 @@ saved board, and the dialogs and message counts the run typed.
 The writer writes a zone whose `altium` pairs hold `hatch_style`, `grid_size` and `track_width` (nm) as a
 hatched polygon: `HATCHSTYLE`, `GRIDSIZE` and `TRACKWIDTH` (`docboard.polygon_fields`). A zone read with
 `hatch_style` alone keeps the solid pour's keys: the import does not keep the grid or the track width yet.
+
+## Altium's repour of the public rows, measured
+
+Change c0463, task 4.3 (S-2227): distances measured with Fenolite's reader on the boards Altium Designer
+24.5 repoured in S-2224, which stay outside the repository; lengths in nm, no vertex list.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| Every polygon that reaches a straight edge of the board keeps 162 346 to 162 347 from it on rows -04 and -07 (Board Outline Clearance 5.9055 mil, 150 000), 305 864 on row -05 (11.811 mil) and 137 465 on row -03, which holds no Board Outline Clearance record and whose governing Clearance on the bottom layer is 5 mil (127 000): the clearance over cos 22.5°, cos 11.25° and cos 22.5° | S-2227 | ALTIUM-VERIFIED(kit) | H-A-POUR-EDGE |
+| Along a corner arc of the board's edge (radius 1.27 mm, row -04) the pour's vertices stand at 5.625° + k·11.25° from the arc's centre, 156 987 from the arc, so that its chords touch the circle 162 346 from it | S-2227 | ALTIUM-VERIFIED(kit) | H-A-POUR-EDGE |
+| The void around a via of another net (row -04, reach 353 000 with `ARCRESOLUTION=0.0394mil`) has 48 vertices at 3.75° + k·7.5°, 353 756 from its centre; the void around a round pad of 4 mm (reach 2 150 000) has 104 vertices, 2 150 979 from its centre: regular polygons around the circle of the reach, their corners at most `ARCRESOLUTION` outside it, with the fewest sides that are a multiple of 8 | S-2227 | ALTIUM-VERIFIED(kit) | H-A-POUR-ARC |
+| On row -07 the outline of polygon `POURINDEX=21` cuts a rectangular pad of its net so that the pad's centre lies outside it; Altium's pour holds the conductor of 10 mil from the pad's centre across the outline (0.207 mm² over the pad outside the outline) | S-2227 | ALTIUM-VERIFIED(kit) | H-A-POUR-RELIEF |
+
+Fenolite insets the board by `pour.edge_reach` of the governing clearance (with the bound 0.5 mil, which
+the rows place between 12 359 and 24 718 nm) and no further margin, and lets a conductor run within its pad
+as well as within the polygon. Its voids already lie within `ARCRESOLUTION` of Altium's polygons, so they
+keep their round form. On rows -04 and -07 the pour now meets M1 on every polygon that reaches the board's
+edge; what is left on rows -04 and -07 is copper that Fenolite keeps and Altium removes, near necks.
 
 ## Hatched pour
 

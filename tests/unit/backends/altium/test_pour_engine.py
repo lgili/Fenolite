@@ -152,6 +152,24 @@ def test_relief_of_a_pad_of_the_polygons_net() -> None:
     assert any(thick_touch(_thick(piece), pad_shape) for piece in gnd.pieces)
 
 
+def test_relief_conductor_over_its_pad_outside_the_outline() -> None:
+    """A conductor runs from the pad's centre over the part of its pad that lies outside the polygon's
+    outline (S-2224, row -07: the outline cuts a pad of the polygon's net and Altium's conductor starts at
+    the pad's centre, outside it)."""
+    settings = ZoneSettings(thermal_gap=mm(0.25), thermal_spoke_width=mm(0.25))
+    board = Board(
+        zones=(zone("z1", "GND", rect(1, 1, 19.6, 29), settings=settings),),
+        pads=(pad("p1", "GND", 20, 15, size=(2.0, 1.0)),),
+        rules=(clearance(0.2),),
+    )
+    _, result = board.pour()
+    gnd = _of(result, "GND")
+    assert _covered(gnd, at(19.8, 15))  # on the pad, outside the outline (x = 19.6), on the conductor
+    assert _covered(gnd, at(18.9, 15))  # the conductor across the air gap
+    assert not _covered(gnd, at(19.8, 15.4))  # on the pad beside the conductor
+    assert not _covered(gnd, at(20.5, 15))  # past the pad's centre
+
+
 def test_direct_connect_and_no_connect() -> None:
     """Input I7: a solid zone joins the pad without a void; a zone without connection keeps the void of its
     clearance and no conductor, and the pad touches no copper of the pour."""

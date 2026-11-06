@@ -785,6 +785,11 @@ class Clearances:
 
         self._clearance = candidates("clearance")
         self._edge = candidates("edge_clearance")
+        self._edge_records = any(
+            (record.record.get("RULEKIND") or "") == "BoardOutlineClearance"
+            for record in reading.document.rules
+        )
+        """Whether the document holds a Board Outline Clearance record, read or not (S-2224)."""
         self.largest: Nm = max((c.rule.min or 0 for c in self._clearance), default=0)
         """The largest clearance a rule of the reading gives."""
         board = design.board
@@ -841,8 +846,15 @@ class Clearances:
             self._memo[(b, a, polygons)] = found
         return found
 
-    def edge(self, a: RuleSubject) -> Nm:
-        """The governing Board Outline Clearance of ``a``, 0 when none governs."""
+    def edge(self, a: RuleSubject) -> Nm | str:
+        """The governing Board Outline Clearance of ``a``, 0 when none governs. A document that holds no
+        Board Outline Clearance record keeps the governing Clearance between ``a`` and the board's edge, an
+        object of no net on ``a``'s layer (``H-A-POUR-EDGE``; S-2224, row -03), or the reason it is
+        unknown."""
+        if not self._edge_records:
+            edge = RuleSubject(item_kind="board", layer=a.layer)
+            found = self.clearance(a, edge, polygons=(a.zone,) if a.zone else ())
+            return 0 if found == "no-clearance" else found
         fa = _fold_subject(a)
         rule = next((c.rule for c in self._edge if c.matches_one(fa)), None)
         if rule is None or rule.severity == "ignore" or rule.min is None:
@@ -855,6 +867,35 @@ class Clearances:
 
 DISC_STEPS = (8, 16, 32, 64, 128, 256, 512, 1280, 2560)
 """The vertex counts of a ``disc``: each divides a full turn of 360 000 000 µdeg."""
+
+
+EDGE_SAG: Final = 12_700
+"""How far, at most, a corner of the polygon by which Altium grows the board's edge stands outside the circle
+of the clearance (nm; ``edge_reach``). S-2224 places it between 12 359 and 24 718 nm; 0.5 mil is taken."""
+
+
+def edge_reach(clearance: Nm) -> Nm:
+    """How far the pour keeps from a straight edge of the board for the governing ``clearance`` (I17;
+    ``H-A-POUR-EDGE``): ``clearance / cos(π/n)``, rounded up, for the fewest sides n, a multiple of 8, whose
+    corners stand at most ``EDGE_SAG`` outside the circle (Altium's voids around round objects are such
+    polygons too, with the polygon's ``ARCRESOLUTION`` as their bound: 48 and 104 sides on row -04).
+    Altium's repour of the public rows keeps its pour 162.35 µm from every straight edge of rows -04 and -07
+    for a rule of 150 µm (n = 8), 305.86 µm on row -05 for 300 µm (n = 16) and 137.47 µm on row -03 for a
+    governing Clearance of 127 µm (n = 8), and its chords along an arc of the edge touch the circle that far
+    from it (S-2224, S-2227): the edge grown by a
+    regular polygon around the circle of the clearance, a corner along each axis. An edge along another
+    direction may hold the pour nearer than this, never farther."""
+    from fenolite.core.trig import FULL_TURN, ONE, cos_sin_fixed
+
+    if clearance <= 0:
+        return 0
+    sides = 8
+    while True:
+        cos, _ = cos_sin_fixed(FULL_TURN // (2 * sides))
+        reach = -(-clearance * ONE // cos)
+        if reach - clearance <= EDGE_SAG or sides >= 1024:
+            return reach
+        sides += 8
 
 
 def disc(center: Point, radius: int, tol: int) -> Polygon:
@@ -1270,8 +1311,11 @@ def _pour(
         except GeometryError:
             return (), (), "polygon-cutout"
     edge = rules.edge(me)
-    if edge + h > 0:
-        inner = geometry.offset(context.board, -(edge + h + tol + 1), tol)
+    if isinstance(edge, str):
+        return (), (), edge
+    edge = edge_reach(edge)
+    if edge + h > 0:  # no margin: Altium's pour reaches the edge's polygon itself (S-2224)
+        inner = geometry.offset(context.board, -(edge + h), tol)
         area_now = geometry.meet(area_now, inner)
     voids: list[Polygon] = []
     joins: list[tuple[PourObject, Connection]] = []
@@ -1397,7 +1441,8 @@ def _hatched(
         length = radius + join.air_gap + join.conductor_width
         step = 360_000_000 // join.conductors
         turn = item.rotation if item.kind == "pad" else 0
-        gap = geometry.meet(geometry.grow(item.shape, join.air_gap, tol), area_now)
+        within = geometry.union([*area_now, *_pad(item, geometry, tol)])
+        gap = geometry.meet(geometry.grow(item.shape, join.air_gap, tol), within)
         half = max(join.conductor_width // 2, 1)
         for k in range(join.conductors):
             tip = rotate_point(Point(length, 0), join.angle + turn + k * step)
@@ -1421,8 +1466,9 @@ def _conductors(
     tol: int,
 ) -> list[Polygon]:
     """The relief conductors of I6: bars of the conductor width from each pad's or via's centre, turned with
-    a pad, within the pad grown by the air gap and the conductor width; a bar that would enter another
-    net's clearance, leave the polygon or reach no copper is left out."""
+    a pad, within the pad grown by the air gap and the conductor width, and within the polygon or the pad
+    itself (Altium draws a conductor over the part of its pad outside the polygon's outline, S-2224 row
+    -07); a bar that would enter another net's clearance, leave both or reach no copper is left out."""
     found: list[Polygon] = []
     for item, join in joins:
         if join.style != "relief" or item.center is None:
@@ -1433,9 +1479,10 @@ def _conductors(
         step = 360_000_000 // join.conductors
         turn = item.rotation if item.kind == "pad" else 0
         ring = geometry.grow(item.shape, join.air_gap + join.conductor_width, tol)
+        within = geometry.union([*area_now, *_pad(item, geometry, tol)])
         for k in range(join.conductors):
             bar = _bar(item.center, join.angle + turn + k * step, length, join.conductor_width)
-            spoke = geometry.meet(geometry.meet((bar,), ring), area_now)
+            spoke = geometry.meet(geometry.meet((bar,), ring), within)
             if not spoke or geometry.meet(spoke, forbidden) or not geometry.meet(spoke, copper):
                 continue
             found.extend(spoke)
@@ -1468,6 +1515,14 @@ def poured_tracks(
         first, middle, last = arc_points(arc.cx, arc.cy, arc.radius, start, end)
         found.append((GeoArc(first, middle, last).polygonize(tol), pcb_length(arc.width)))
     return tuple(found)
+
+
+def _pad(item: PourObject, geometry: _Geometry, tol: int) -> tuple[Polygon, ...]:
+    """The copper of the pad or via ``item`` itself, its shape grown by nothing."""
+    core, width, filled = item.shape
+    if filled:
+        return (Polygon(core),)
+    return geometry.grow(item.shape, 0, tol) if width > 0 else ()
 
 
 def _clean(points: Sequence[Point]) -> tuple[Point, ...]:

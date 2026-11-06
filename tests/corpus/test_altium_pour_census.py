@@ -158,8 +158,8 @@ POUR_CENSUS: dict[str, tuple[int, dict[str, int], dict[str, tuple[str, ...]]]] =
         {
             "F.Cu GND_L01_P014": ("M1", "M2"), "F.Cu 5V_L01_P011": ("M2",), "F.Cu 5V_L01_P007": ("M1", "M2"),
             "F.Cu NETL1_2_L01_P008": ("M1", "M2"), "F.Cu LED_L01_P010": ("M2",),
-            "F.Cu NETC2_1_L01_P009": ("M1", "M2"), "In1.Cu GND_L02_P012": ("M1", "M2"),
-            "In2.Cu GND_L03_P013": ("M1", "M2"), "B.Cu GND_L04_P005": ("M1", "M2"),
+            "F.Cu NETC2_1_L01_P009": ("M1", "M2"), "In1.Cu GND_L02_P012": ("M2",),
+            "In2.Cu GND_L03_P013": ("M2",), "B.Cu GND_L04_P005": ("M2",),
         },
     ),
     "altium-third-party-pcbdoc-05": (
@@ -172,7 +172,7 @@ POUR_CENSUS: dict[str, tuple[int, dict[str, int], dict[str, tuple[str, ...]]]] =
         9,
         {},
         {
-            "In2.Cu \u00b8": ("M2",), "In1.Cu \u00b8": ("M2",), "F.Cu \u00b8": ("M1", "M2"),
+            "In2.Cu \u00b8": ("M2",), "In1.Cu \u00b8": ("M2",), "F.Cu \u00b8": ("M2",),
             "B.Cu \u00b8": ("M2",),
         },
     ),
@@ -207,7 +207,13 @@ The one polygon of ``-06`` and the two of ``-08`` that were go on to the Clearan
 ``-01`` (2 ``connect-scope``, 3 ``depends-on-refused``) now pour, and every one fails against the saved
 regions: 4 by M1, with ratios 2.28 to 4.01, and one by M2 (ratio 0.30). The 5 hold the nets GND, VDD, CHG+
 and VBB but share the name ``Top Layer-No Net``, so the verdicts of a layer share a key. The cause is not
-measured yet; a known item for change c0463."""
+measured yet; a known item for change c0463.
+
+Change c0463 (2026-11-06, S-2227) keeps Altium's distance from the board's edge (the corner of its polygon
+around the clearance) and draws a relief conductor over its own pad outside the outline: the three planes
+of ``-04`` and P21 of ``-07`` now pass M1, so 4 polygons of ``-04`` and none of ``-07`` fail it. What is
+left on the top layer of ``-04`` is copper Fenolite keeps and Altium removes, joined to the rest through
+narrow channels."""
 
 
 @pytest.mark.parametrize("item", DOCUMENTS, ids=lambda item: item.id)

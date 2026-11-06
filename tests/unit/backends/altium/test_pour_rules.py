@@ -83,12 +83,28 @@ def test_values_equal_the_copper_check() -> None:
 
 
 def test_edge_clearance() -> None:
-    """The governing Board Outline Clearance of a polygon (I17); 0 without one."""
+    """The governing Board Outline Clearance of a polygon (I17). A document without a Board Outline
+    Clearance record keeps the governing Clearance to the board's edge (S-2224, row -03)."""
     edge = Rule(id="r_edge", name="edge", kind="edge_clearance", selector_a=Selector("all"), min=mm(0.5))
     reading = _board(clearance(0.2), edge).base()
     rules = Clearances(reading)
     assert rules.edge(rule_subject("F.Cu", "zone", "GND", "Default")) == _unit(mm(0.5))
-    assert Clearances(_board(clearance(0.2)).base()).edge(rule_subject("F.Cu", "zone", "GND", "Default")) == 0
+    without = Clearances(_board(clearance(0.2)).base())
+    assert without.edge(rule_subject("F.Cu", "zone", "GND", "Default")) == _unit(mm(0.2))
+
+
+def test_edge_reach_is_the_corner_of_altiums_polygon() -> None:
+    """``edge_reach``: the clearance over cos(π/n) for the fewest sides n, a multiple of 8, whose corners
+    stand at most 0.5 mil outside the circle, as Altium's repour keeps its pour from the board's edge on the
+    public rows (S-2224): 162.35 µm for 150 µm, 305.86 µm for 300 µm, 137.47 µm for 127 µm."""
+    from fenolite.backends.altium.pour import EDGE_SAG, edge_reach
+
+    assert edge_reach(0) == 0
+    assert abs(edge_reach(150_000) - 162_346) <= 15  # an octagon: 12 359 nm over the circle
+    assert abs(edge_reach(299_999) - 305_864) <= 15  # 16 sides: 8 would stand 24 718 nm over it
+    assert abs(edge_reach(127_000) - 137_465) <= 15
+    for value in (1_000, 154_000, 155_000, 648_000, 649_000, 2_000_000):
+        assert 0 < edge_reach(value) - value <= EDGE_SAG, value
 
 
 def test_an_unread_record_before_the_governing_rule(monkeypatch: pytest.MonkeyPatch) -> None:

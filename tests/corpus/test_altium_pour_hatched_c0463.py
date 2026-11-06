@@ -107,6 +107,6 @@ def test_hatch_matches_altium(built: dict[str, bytes], name: str) -> None:
     (verdict,) = found.polygons
     for failure in verdict.failures:
         print(f"{name} {failure.criterion} {failure.message} at {failure.at}")
-    area = sum((Fraction(abs(d.size)) for d in verdict.differences), start=Fraction(0))
+    area = sum((Fraction(d.area) for d in verdict.differences), start=Fraction(0))
     print(f"{name}: M1 {verdict.ratio:.3f}, pieces {verdict.pieces}, differences {area / 10**12} mm2")
     assert verdict.passed, [f.criterion for f in verdict.failures]

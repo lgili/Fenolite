@@ -57,17 +57,35 @@ ORACLE: dict[str, tuple[dict[str, int], dict[str, tuple[str, ...]]]] = {
     "altium-third-party-pcbdoc-01": ({"connect-scope": 2, "depends-on-refused": 3}, {}),
     "altium-third-party-pcbdoc-02": ({"depends-on-refused": 6, "rule-unmapped": 6}, {}),
     "altium-third-party-pcbdoc-03": ({}, {"P0 B.Cu": ("M2", "M3", "M4")}),
-    "altium-third-party-pcbdoc-04": ({"depends-on-refused": 5, "rule-scope": 4}, {}),
+    "altium-third-party-pcbdoc-04": (
+        {},
+        {
+            "P14 F.Cu": ("M1", "M2"), "P11 F.Cu": ("M2",), "P7 F.Cu": ("M1", "M2"), "P8 F.Cu": ("M1", "M2"),
+            "P10 F.Cu": ("M2",), "P9 F.Cu": ("M1", "M2"), "P12 In1.Cu": ("M2",), "P13 In2.Cu": ("M2",),
+            "P5 B.Cu": ("M2",),
+        },
+    ),
     "altium-third-party-pcbdoc-05": ({}, {"P1 B.Cu": ("M2",), "P0 F.Cu": ("M2", "M3", "M4")}),
     "altium-third-party-pcbdoc-06": ({"connect-scope": 1, "depends-on-refused": 6, "rule-unmapped": 3}, {}),
-    "altium-third-party-pcbdoc-07": ({"depends-on-refused": 5, "rule-scope": 4}, {}),
+    "altium-third-party-pcbdoc-07": (
+        {},
+        {
+            "P27 In2.Cu": ("M2",), "P19 In2.Cu": ("M2",), "P25 In2.Cu": ("M2",), "P24 In1.Cu": ("M2",),
+            "P18 In1.Cu": ("M2",), "P29 F.Cu": ("M2",), "P21 F.Cu": ("M2",), "P28 B.Cu": ("M2", "M3"),
+            "P17 B.Cu": ("M2",),
+        },
+    ),
     "altium-third-party-pcbdoc-08": ({"connect-scope": 2, "depends-on-refused": 18, "rule-scope": 13}, {}),
 }  # fmt: skip
 """Row → the refused polygons per reason, and the failed criteria of each compared polygon (``P<POURINDEX>
 <layer>``) against Altium's repour (S-2224), measured on ``claude/c0463-pour`` without the rule scopes of
 c0462: the same refusals and failures as the census against the saved pours, since rows 03 and 05 saved
 Altium's repour. Task 4.3 repins them with the census on ``cac/lote-29``. The spec's target is no refusal
-and no failure."""
+and no failure.
+
+Rows ``-04`` and ``-07`` are repinned on ``cac/lote-29`` (c0462 reads their Clearance scopes) with the edge
+and relief conductor of S-2227: every polygon pours; on ``-04`` 4 of 9 fail M1 (the top layer), on
+``-07`` none does, and M2 remains."""
 
 
 def _record() -> dict[str, object]:
