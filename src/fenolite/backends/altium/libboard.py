@@ -116,6 +116,8 @@ DielectricKind = Literal["unspecified", "core", "prepreg"]
 DIELECTRIC_TYPES: dict[str, str] = {"unspecified": "0", "core": "1", "prepreg": "2"}
 """``DIELTYPE`` of a dielectric kind (``pcb-copper.md``, "Layer stack")."""
 NO_NET = "(No Net)"
+MULTIPLE_NETS = "(Multiple Nets)"
+"""``PLANE<k>NETNAME`` of a plane split between nets by its ``Split Plane`` polygons (change c0466)."""
 PLANE_COUNT = 16
 
 
@@ -168,6 +170,9 @@ class StackSpec:
     drill_pairs: tuple[tuple[int, int], ...] = ()
     """The drill pairs besides the pair of the outer layers (change c0085): the two copper ids of each
     span of a blind or buried via, the upper layer first, in stack order and without repeats."""
+    pullbacks: tuple[int, ...] = ()
+    """The pull-back of each plane of ``copper`` in plane order, nanometres (change c0466); a plane past
+    the end of the tuple has ``PULLBACK``."""
 
     def __post_init__(self) -> None:
         if not valid_stack(self.copper):
@@ -207,6 +212,8 @@ class StackSpec:
             raise ValueError(f"{missing} has no net: the stack needs one plane net per plane")
         if len(self.plane_nets) > len(planes):
             raise ValueError(f"the stack has {len(planes)} plane(s) and {len(self.plane_nets)} plane nets")
+        if len(self.pullbacks) > len(planes) or any(p < 0 for p in self.pullbacks):
+            raise ValueError(f"the stack has {len(planes)} plane(s) and {len(self.pullbacks)} pull-backs")
         for name in self.plane_nets:
             problem = text_problem(name)
             if problem is not None:
@@ -497,7 +504,11 @@ def _layer_fields(
         placement = "1" if low == 1 else "2" if long == _BOTTOM else "1" if long in physical else "0"
         fields += [*_copper_thickness(spec, long), ("COMPONENTPLACEMENT", placement)]
     elif group == _PLANE:
-        fields += [*_copper_thickness(spec, long), ("PULLBACKDISTANCE", PULLBACK)]
+        pullback = PULLBACK
+        if long in [long_id(plane) for plane in spec.planes[: len(spec.pullbacks)]]:
+            index = [long_id(plane) for plane in spec.planes].index(long)
+            pullback = rec.mil_text(rec.to_units(spec.pullbacks[index]))
+        fields += [*_copper_thickness(spec, long), ("PULLBACKDISTANCE", pullback)]
     elif group == _DIELECTRIC:
         fields += spec.dielectrics[low - 1].fields()
     elif group == _MECHANICAL:
@@ -789,6 +800,7 @@ __all__ = [
     "DATE",
     "DIELECTRIC_TYPES",
     "Dielectric",
+    "MULTIPLE_NETS",
     "NO_NET",
     "STACKS",
     "StackSpec",

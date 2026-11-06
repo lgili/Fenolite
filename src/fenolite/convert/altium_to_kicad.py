@@ -58,7 +58,37 @@ DRILL_LAYERS = ("Altium.DrillGuide", "Altium.DrillDrawing")
 KiCad user rows named so (change c0428)."""
 
 
-def map_layers(design: Design, target: int, ledger: Ledger) -> Design:
+def plane_id(layer: Layer) -> int | None:
+    """The Altium id of an imported copper layer that is an internal plane (39 to 54, Internal Plane 1 to
+    16), from its ``altium`` bag; ``None`` for any other layer."""
+    bag = layer.ext.get("altium")
+    ident = dict(bag.payload).get("layer_id", "") if bag is not None and layer.kind == "copper" else ""
+    return int(ident) if ident.isdecimal() and 39 <= int(ident) <= 54 else None
+
+
+def plane_rows(table: Sequence[Layer], sources: Mapping[str, Layer]) -> tuple[Layer, ...]:
+    """The KiCad rows ``table`` with each row that an internal plane of ``sources`` (by row name) reaches
+    typed ``power`` and named after the plane's Altium name, as KiCad's own import makes it (change c0466,
+    S-2201); every other row as it is."""
+    planes = {name: layer for name, layer in sources.items() if plane_id(layer) is not None}
+    if not planes:
+        return tuple(table)
+    made: list[Layer] = []
+    for row in layers.with_plane_types(table, tuple(planes)):
+        source = planes.get(row.name)
+        bag = source.ext.get("altium") if source is not None else None
+        name = dict(bag.payload).get("altium_name", "") if bag is not None else ""
+        if name and row.kind == "copper":
+            pairs = (*(p for p in row.ext["kicad"].payload if p[0] != "user_name"), ("user_name", name))
+            row = dataclasses.replace(row, ext={**row.ext, "kicad": ExtBag(None, pairs)})
+        made.append(row)
+    return tuple(made)
+
+
+def map_layers(design: Design, target: int, ledger: Ledger, source: Design | None = None) -> Design:
+    """``design`` on KiCad's rows for ``target``. ``source`` is the import whose copper layers still hold
+    their ``altium`` bags (``design``'s are cleaned): its internal planes become ``power`` rows (change
+    c0466, ``plane_rows``)."""
     board = design.board
     if board is None:
         raise ValueError("Altium conversion requires a board")
@@ -79,6 +109,8 @@ def map_layers(design: Design, target: int, ledger: Ledger) -> Design:
     )
     for old, new in zip(copper, mapped_copper, strict=True):
         mapping[old.name] = new
+    originals = {x.name: x for x in source.board.layers} if source is not None and source.board else {}
+    table = plane_rows(table, {mapping[layer.name]: originals.get(layer.name, layer) for layer in copper})
     if len(copper) != count:
         ledger.change(
             "stackup",
@@ -626,7 +658,7 @@ def plane_losses(source: SourceProject, design: Design, ledger: Ledger) -> int:
     return count
 
 
-def _pcb_document(source: SourceProject, design: Design) -> Any:
+def pcb_document(source: SourceProject, design: Design) -> Any:
     """The source's PCB document as read; ``None`` when it cannot be read."""
     from fenolite.backends.altium.read.pcb import read_pcbdoc
     from fenolite.core.errors import FenoliteError
@@ -642,7 +674,7 @@ def _pcb_document(source: SourceProject, design: Design) -> Any:
 
 def rule_records(source: SourceProject, design: Design) -> tuple[dict[str, str], ...]:
     """The rule records of the source's PCB document as key-value maps; none when it cannot be read."""
-    document = _pcb_document(source, design)
+    document = pcb_document(source, design)
     if document is None:
         return ()
     return tuple({key: value or "" for key, value in record.fields} for record in document.rules)
@@ -766,7 +798,7 @@ def via_margins(
     from fenolite.convert import openings
 
     board = source.design.board
-    document = _pcb_document(source, source.design)
+    document = pcb_document(source, source.design)
     if board is None or document is None:
         return {}, ()
     if subjects is None:
@@ -928,6 +960,7 @@ def prepare(source: SourceProject, name: str, target: int, ledger: Ledger) -> De
         ),
         target,
         ledger,
+        source.design,
     )
     board = design.board
     assert board is not None

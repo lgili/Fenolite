@@ -118,6 +118,7 @@ document do.
 | Layer sets: `&Signal Layers` lists `MultiLayer`, `TopLayer`, the signal mid layers (`MidLayer1`, `MidLayer2`) and `BottomLayer`; `&Plane Layers` lists the planes of the stack (`InternalPlane1`, `InternalPlane2`) with `LAYERSET3ACTIVELAYER.7=PLANE1`, and is empty with `UNKNOWN` without one; `&All Layers` lists both kinds, the mid layers between `TopLayer` and `BottomLayer` and the planes after `BottomPaste` | S-0176, S-0199, S-0200 (files kept outside the repository) | INFERRED | H-A-PCB-CU-STACK |
 | `TOGGLELAYERS` has one flag per numbered layer; a saved board sets all of them, another only the enabled layers. The routing keys (`ROUTINGDIRECTION…`, `…_MRLASTWIDTH`) name all 32 signal layers whatever the stack | S-0172, S-0174, S-0175, S-0176 (files kept outside the repository), S-0200 (files kept outside the repository) | INFERRED | H-A-PCB-CU-STACK |
 | Plane net: `PLANE<k>NETNAME` in the first line of `Board6` names the net of Internal Plane k; `(No Net)` otherwise. The key has no effect for a plane outside the stack | S-0176, S-0199 (files kept outside the repository) | INFERRED | H-A-PCB-CU-PLANE |
+| The public rows with planes (S-2250): `-01` holds Internal Planes 1 and 2 (`Ground Plane`, `Power Plane`), both `(Multiple Nets)`, with 2 and 6 `Split Plane` polygons; `-02` holds them on `GND` and `5V` (`GND`, `POWER`) with 1 and 4, so a plane on one net may hold splits of other nets. Every split's vertices are straight, and `PLANE1PULLBACK` and `PLANE2PULLBACK` are `20mil` (with `PLANE<k>PULLBACK.LAYER=PLANE<k>`) in both, the `PULLBACKDISTANCE` of the planes' stack entries the same. Rows `-04` and `-07` name a net in `PLANE1NETNAME` with no plane in the chain | S-2250 | CORPUS-VERIFIED | H-A-PCB-CU-PLANE |
 | What a saved plane holds besides: one `Polygons6` record with `POLYGONTYPE=Split Plane` on `PLANE<k>` (ten keys, the vertices and `NET`) and pull-back tracks and arcs on the plane's layer, without a net and with the polygon index `0xFFFE`. It has no region. All of it derives from the outline, the pull-back distance and the net. Whether Altium rebuilds it when it is missing is not known | S-0176 (files kept outside the repository) | INFERRED | H-A-PCB-CU-PLANE |
 | Altium treats a plane as a negative layer with its own connect and clearance rules (Plane Connect, Plane Clearance); a pour on a signal layer is a polygon | S-0198, S-0196 | INFERRED | H-A-PCB-CU-PLANE |
 | A `Split Plane` polygon holds the seven common keys with `LAYER=PLANE<k>`, then `PRIMITIVELOCK=TRUE`, `POLYGONTYPE=Split Plane`, its vertices (straight; the last repeats the first) and `NET`, in that order. The split planes follow the polygon pours of the document. A plane on one net has one split plane, whose outline is the board outline pulled back by the plane's pull-back distance (20 mil); the pull-back tracks are 40 mil wide | S-1653 | INFERRED | H-A-PCB-CU-PLANE |
@@ -307,6 +308,18 @@ track and via flags above). Altium Designer's own view of a written lock is step
   written with an even number of copper layers from 2 to 32 that holds at most 16 signal layers and 16 internal planes;
   any other count gives the stack of the two outer layers and `altium.not-lowered` with `where`
   `stackup`.
+- **Planes through KiCad (change c0466).** A conversion to KiCad writes each internal plane of the chain as a
+  KiCad row of type `power`, its user name the plane's Altium name (as KiCad's own import does, S-2201),
+  and carries in the board property `Fenolite.Altium.Planes` each plane whose net is a net of the design,
+  or `(Multiple Nets)` with splits: its row, its `PLANE<k>NETNAME`, its pull-back (`PLANE<k>PULLBACK`,
+  else its stack entry's `PULLBACKDISTANCE`) and its `Split Plane` polygons, each a net and a straight ring,
+  with the low corner of the board's edge. A split with an arc vertex leaves its plane uncarried. The
+  conversion back writes each carried plane whose row is still `power` and whose nets the design holds as a
+  plane again: its net (`(Multiple Nets)` allowed with splits), its pull-back as `PULLBACKDISTANCE`, the
+  row's user name for `Internal Plane <k>`, and its splits, moved by the corner's translation, in place of
+  the outline polygon. Any other carried plane is a `plane` loss and is written as a signal layer. The
+  plane's copper is still not in KiCad (change c0461), and the legacy `PLANE<k>PULLBACK` keys are not
+  written (S-2251, S-2252).
 - **Tracks and arcs.** The short forms (36 and 47 bytes) with flags `0C 00`, or `08 00` for a locked
   track or arc of the model (change c0108, "Locked flag of a free primitive"), after the component
   primitives in `Tracks6` and `Arcs6`, sorted by stack position of the layer, net name, start, end, width

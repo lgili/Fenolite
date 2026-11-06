@@ -59,7 +59,7 @@ from fenolite.backends.altium.docboard import (
     polygon_fields,
     split_plane_fields,
 )
-from fenolite.backends.altium.libboard import enabled_mechanical, guid, long_id
+from fenolite.backends.altium.libboard import MULTIPLE_NETS, enabled_mechanical, guid, long_id
 from fenolite.backends.altium.pcblib import (
     BODY_IS_MODEL,
     BODY_NO_OUTLINE,
@@ -738,6 +738,13 @@ class PcbDocSpec:
     """Zone id → the arc vertices of the source polygon record that a conversion carried through KiCad
     (change c0463, task 1.3), for a zone whose outline is still that record's ring (``ArcPolygon.matches``):
     the polygon is written with those vertices, moved as the outline was."""
+    plane_splits: Mapping[int, tuple[tuple[str, tuple[Point, ...]], ...]] = field(default_factory=lambda: {})
+    """Internal plane id → its ``Split Plane`` polygons that a conversion carried through KiCad (change
+    c0466, ``convert.altium_planes``): each a net name and its ring in the frame of the design. A plane with
+    splits is written with them instead of the board outline, and may be ``(Multiple Nets)``."""
+    plane_names: Mapping[int, str] = field(default_factory=lambda: {})
+    """Internal plane id → the name the plane is written with (change c0466) instead of ``Internal Plane
+    <k>``."""
     kept_storages: Mapping[str, tuple[bytes, bytes]] = field(default_factory=lambda: {})
     """Storages a conversion carried from an Altium document through KiCad (change c0450,
     ``convert.altium_storages``), by name: their ``Header`` and ``Data`` streams, written as they were. The
@@ -878,6 +885,7 @@ def board_record(
     pin_pairs: Sequence[Field] = (),
     settings: Sequence[Field] = (),
     mechanical: Sequence[int] | None = None,
+    plane_names: Mapping[int, str] | None = None,
 ) -> bytes:
     """The one ``Board6`` record (``docboard``): the outline in the Altium frame, the origin at the board's
     lower-left corner, the layers that primitives lie on. ``frame`` and ``origin`` (change c0090) replace
@@ -918,6 +926,7 @@ def board_record(
         pin_pairs=pin_pairs,
         settings=settings,
         mechanical=mechanical,
+        plane_names=plane_names,
     )
     return rec.text_block(text)
 
@@ -2013,12 +2022,21 @@ def split_plane_records(spec: PcbDocSpec, copper: _Copper) -> list[bytes]:
     written form leaves to Altium, as it does the pull-back tracks (``H-A-PCB-CU-PLANE``)."""
     stack = document_stack(spec)
     vertices = [_units(copper.frame(point)) for point in spec.outline]
-    return [
-        rec.property_block(
-            split_plane_fields(rec.layer_text(layer), vertices, copper.net(f"plane {layer}", net))
-        )
-        for layer, net in zip(stack.planes, stack.plane_nets, strict=True)
-    ]
+    out: list[bytes] = []
+    for layer, net in zip(stack.planes, stack.plane_nets, strict=True):
+        splits = spec.plane_splits.get(layer, ())
+        if not splits:
+            out.append(
+                rec.property_block(
+                    split_plane_fields(rec.layer_text(layer), vertices, copper.net(f"plane {layer}", net))
+                )
+            )
+        # change c0466: the carried splits of the plane, each on its net, as the source held them
+        for name, ring in splits:
+            points = [_units(copper.frame(point)) for point in ring]
+            fields = split_plane_fields(rec.layer_text(layer), points, copper.net(f"split of {layer}", name))
+            out.append(rec.property_block(fields))
+    return out
 
 
 def class_records(classes: Sequence[NetClassSpec], nets: Mapping[str, int], filename: str) -> list[bytes]:
@@ -2375,7 +2393,7 @@ def document_stack(spec: PcbDocSpec) -> StackSpec:
             f"the stack {stack.copper!r} does not hold one id per copper layer of {spec.copper_layers!r}"
         )
     for layer, net in zip(stack.planes, stack.plane_nets, strict=True):
-        if net not in spec.nets:
+        if net not in spec.nets and not (net == MULTIPLE_NETS and spec.plane_splits.get(layer)):
             raise ValueError(f"the net {net!r} of {rec.LAYER_NAMES[layer]} is not a net of the document")
     return stack
 
@@ -2645,6 +2663,7 @@ def _write(
                     frame=spec.frame,
                     origin=spec.origin,
                     layer_names=_layer_names(spec, drawn, settings),
+                    plane_names=spec.plane_names,
                     pin_pairs=_pin_pair_fields(pin_pairs[1]) if pin_pairs is not None else (),
                     settings=settings,
                     mechanical=_mechanical_enabled(used, settings),

@@ -70,6 +70,9 @@ FORMATS: dict[str, Format] = {
         "Record IDs and checksums of Altium models in a KiCad board property (c0449).",
         "internal",
     ),
+    "fenolite.altium-planes.v0": Format(
+        "internal", None, "Internal planes of an Altium source in a KiCad board property (c0466).", "internal"
+    ),
     "fenolite.altium-polygon-arcs.v0": Format(
         "internal", None, "Arc vertices of Altium polygons in a KiCad board property (c0463).", "internal"
     ),

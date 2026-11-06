@@ -25,7 +25,7 @@ from fenolite.backends.altium.adapter.arcring import ArcPolygon
 from fenolite.backends.altium.cfb import CompoundTooLarge
 from fenolite.backends.kicad import fpitems
 from fenolite.backends.kicad.outline import edge_outline
-from fenolite.convert import altium_links, altium_strings, pads, schematic
+from fenolite.convert import altium_links, altium_planes, altium_strings, pads, schematic
 from fenolite.convert.direction import Direction, Options, TargetLimitError, Written
 from fenolite.convert.models import (
     HEIGHTS_PROPERTY,
@@ -301,6 +301,35 @@ def _carried_arcs(source: SourceProject, design: Design) -> dict[str, ArcPolygon
     return zonearcs.arc_polygons(board.zones, zonearcs.read_carrier(found.get(zonearcs.PROPERTY)))
 
 
+def _carried_planes(
+    source: SourceProject, design: Design
+) -> tuple[Design, dict[str, lower.CarriedPlane], dict[str, tuple[str, ...]]]:
+    """The internal planes a conversion to KiCad carried (change c0466, ``altium_planes``): ``design``
+    with each plane still held made a plane again, each such plane by row for the writer (its splits,
+    pull-back and the row's user name), and the other planes as ``plane`` losses by reason. Nothing for a
+    board that does not read or carries none."""
+    from fenolite.backends.kicad.boardcarrier import carried as board_carried
+
+    if design.board is None or source.path.suffix != ".kicad_pcb":
+        return design, {}, {}
+    try:
+        found = board_carried(source.path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, FormatError):
+        return design, {}, {}
+    made = altium_planes.restored(design, altium_planes.read_carrier(found.get(altium_planes.PROPERTY)))
+    names = altium_planes.names(made.design, tuple(made.planes))
+    planes = {
+        row: lower.CarriedPlane(
+            plane.pullback, tuple((s.net, s.points) for s in plane.splits), names.get(row)
+        )
+        for row, plane in made.planes.items()
+    }
+    lost: dict[str, list[str]] = {}
+    for ident, reason in made.lost:
+        lost.setdefault(reason, []).append(ident)
+    return made.design, planes, {reason: tuple(ids) for reason, ids in lost.items()}
+
+
 def _stored_models(source: SourceProject) -> tuple[dict[HeightKey, tuple[int, int]], CarriedIds]:
     """The stored heights and the source identities of the embedded models a conversion to KiCad placed
     (change c0449, task 4.3; ``models.read_heights`` and ``models.read_ids`` of the board properties
@@ -338,6 +367,7 @@ def write(source: SourceProject, options: Options) -> Written:
         footprint_models(board.footprints, source.root, *_stored_models(source)) if board is not None else {}
     )
     kept_storages, storage_losses = _carried_storages(source, design)  # changes c0450 and c0461
+    design, planes, plane_losses = _carried_planes(source, design)  # change c0466
     try:
         written = lower.write_design(
             design,
@@ -357,6 +387,7 @@ def write(source: SourceProject, options: Options) -> Written:
             models=models,
             storages=kept_storages,  # change c0450
             polygon_arcs=_carried_arcs(source, design),  # change c0463, task 1.3
+            planes=planes,  # change c0466
         )
     except CompoundTooLarge as error:
         raise TargetLimitError(
@@ -384,6 +415,8 @@ def write(source: SourceProject, options: Options) -> Written:
         }
     lost.update(_extra_losses(design, written))
     lost.update(storage_losses)
+    if plane_losses:  # change c0466: a carried plane that KiCad no longer holds as one
+        lost[altium_planes.KIND] = {**lost.get(altium_planes.KIND, {}), **plane_losses}
     if "rule" in lost and carried.edited:
         lost["rule"] = _source_rule_losses(lost["rule"], design, carried.edited)
     if carried.minimums:  # change c0457: reported, not refused

@@ -93,6 +93,7 @@ tracked separately in `frozen-v0.json` while the active CLI writer remains v0.
 | `fenolite.altium-model-heights.v0` | internal | `internal` | Stored heights of Altium model bodies in a KiCad board property (c0449). |
 | `fenolite.altium-model-ids.v0` | internal | `internal` | Record IDs and checksums of Altium models in a KiCad board property (c0449). |
 | `fenolite.altium-observations.v0` | public | `fenolite.cli.file_source_formats:AltiumObservationsFile` | Value-free observation output; native verdict stays unjudged. |
+| `fenolite.altium-planes.v0` | internal | `internal` | Internal planes of an Altium source in a KiCad board property (c0466). |
 | `fenolite.altium-polygon-arcs.v0` | internal | `internal` | Arc vertices of Altium polygons in a KiCad board property (c0463). |
 | `fenolite.altium-rules.v0` | internal | `internal` | Rule records of an Altium source in a KiCad board property (c0434). |
 | `fenolite.altium-rules.v1` | internal | `internal` | Rule records of an Altium source in a KiCad board property (c0434, keyed by content in c0457). |

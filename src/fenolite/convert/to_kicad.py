@@ -270,6 +270,7 @@ __all__ = ["DIRECTION", "DOWNGRADE_PROFILE", "EVIDENCE", "PROFILE", "WRITER_KIND
 
 
 if TYPE_CHECKING:
+    from fenolite.convert import altium_planes
     from fenolite.convert.altium_to_kicad import Ledger
     from fenolite.convert.rulecarrier import Carried
 
@@ -611,6 +612,11 @@ def write_altium(source: SourceProject, options: Options) -> Written:
         from fenolite.convert import zonearcs
 
         board_items[zonearcs.PROPERTY] = zonearcs.carrier_text(arcs).encode("utf-8")
+    planes = _carried_planes(source, design)
+    if planes.planes:  # change c0466: each internal plane's net, pull-back and splits, for the way back
+        from fenolite.convert import altium_planes
+
+        board_items[altium_planes.PROPERTY] = altium_planes.carrier_text(planes).encode("utf-8")
     if carried:  # change c0434: every rule record travels in the board, for the way back
         from fenolite.convert import rulecarrier
 
@@ -637,6 +643,15 @@ def write_altium(source: SourceProject, options: Options) -> Written:
         tuple(issues),
         schematic=f"{name}.kicad_sch" if schematic else None,
     )
+
+
+def _carried_planes(source: SourceProject, design: Design) -> altium_planes.Carried:
+    """The internal planes of the source to carry into ``design``, the written KiCad design (change c0466,
+    ``altium_planes.found``)."""
+    from fenolite.convert import altium_planes
+    from fenolite.convert.altium_to_kicad import pcb_document
+
+    return altium_planes.found(source.design, design, pcb_document(source, source.design))
 
 
 def _carried_arcs(source: SourceProject, design: Design) -> list[tuple[str, str, ArcPolygon]]:

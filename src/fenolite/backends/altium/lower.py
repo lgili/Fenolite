@@ -42,6 +42,7 @@ from fenolite.backends.altium.ascii import text_problem
 from fenolite.backends.altium.cfb import CompoundTooLarge, name_key
 from fenolite.backends.altium.cutouts import cutout_items, unwritten_reason
 from fenolite.backends.altium.docboard import Dielectric, StackSpec
+from fenolite.backends.altium.libboard import MULTIPLE_NETS
 from fenolite.backends.altium.pour import BackendUnavailable, PourMode
 from fenolite.backends.altium.read.rooms import is_room_area
 from fenolite.backends.altium.schlib import storage_name
@@ -668,10 +669,26 @@ def stack_unheld_reason(unheld: Sequence[str]) -> str:
     return f"the document has no key for {', '.join(unheld)}; the copper and dielectric values are written"
 
 
+PLANE_PULLBACK = 508_000
+"""20 mil, ``libboard.PULLBACK``: the pull-back of a plane that carries none (change c0466)."""
+
+
+@dataclass(frozen=True, slots=True)
+class CarriedPlane:
+    """An internal plane a conversion carried through KiCad (change c0466, ``convert.altium_planes``): its
+    pull-back in nanometres, its ``Split Plane`` polygons (each a net name and its ring in the frame of the
+    design) and the name it is written with (``None``: Altium's ``Internal Plane <k>``)."""
+
+    pullback: int
+    splits: tuple[tuple[str, tuple[Point, ...]], ...] = ()
+    name: str | None = None
+
+
 def _stack(
-    board: Board, nets: frozenset[str], account: _Account
+    board: Board, nets: frozenset[str], account: _Account, split: Collection[str] = ()
 ) -> tuple[tuple[str, ...], StackSpec, frozenset[str]]:
-    """The copper layers of the document, top to bottom, their stack, and the layers that are planes."""
+    """The copper layers of the document, top to bottom, their stack, and the layers that are planes. A
+    layer of ``split`` (change c0466: its plane has carried splits) may be a ``(Multiple Nets)`` plane."""
     copper: list[Layer] = [layer for layer in board.layers if layer.kind == "copper"]
     names = tuple(dict.fromkeys(layer.name for layer in copper)) or ("F.Cu", "B.Cu")
     planes: dict[str, str] = {}
@@ -679,7 +696,8 @@ def _stack(
         net = pairs_of(layer).get("plane_net")
         if net is None:
             continue
-        if layer.name in (names[0], names[-1]) or net not in nets:
+        multiple = net == MULTIPLE_NETS and layer.name in split
+        if layer.name in (names[0], names[-1]) or (net not in nets and not multiple):
             account.skip("plane", layer.id, f"the plane {layer.name} is on an outer layer or on no net")
         else:
             planes[layer.name] = net
@@ -2092,6 +2110,7 @@ def from_design(
     edges: Outline | None = None,
     models: Mapping[str, Sequence[pcbdoc.FootprintModel]] | None = None,
     polygon_arcs: Mapping[str, ArcPolygon] | None = None,
+    planes: Mapping[str, CarriedPlane] | None = None,
 ) -> AltiumInputs:
     """The inputs of the PCB and schematic writers from ``design`` alone, or with ``options`` those of a
     build (change c0126, ``LowerOptions``). ``corner_ratios`` maps a pad id
@@ -2164,6 +2183,7 @@ def from_design(
                 edges=edges,
                 models=models,
                 polygon_arcs=polygon_arcs,
+                carried_planes=planes,
             )
     schematic = schematic_design(design, name, account)
     modelled = {component.id: component.lib_footprint_ref for component in schematic.circuit.components}
@@ -2231,6 +2251,7 @@ def _document(
     edges: Outline | None = None,
     models: Mapping[str, Sequence[pcbdoc.FootprintModel]] | None = None,
     polygon_arcs: Mapping[str, ArcPolygon] | None = None,
+    carried_planes: Mapping[str, CarriedPlane] | None = None,
 ) -> pcbdoc.PcbDocSpec:
     net_names: dict[str, str] = {}
     for net in design.circuit.nets:
@@ -2239,10 +2260,20 @@ def _document(
         else:
             account.skip("net", net.id, f"no net record holds the name {net.name!r}, or two nets share it")
     nets = frozenset(net_names.values())
+    carried_planes = carried_planes or {}
     if options is not None:
         layers, stack, planes = _built_stack(board, options)
     else:
-        layers, stack, planes = _stack(board, nets, account)
+        layers, stack, planes = _stack(
+            board, nets, account, {n for n, p in carried_planes.items() if p.splits}
+        )
+    plane_ids = dict(zip(layers, rec.copper_stack(layers, tuple(planes)), strict=True))
+    if options is None and carried_planes and planes:  # change c0466: the carried pull-backs
+        order = [name for name in layers if name in planes]
+        pullbacks = tuple(
+            carried_planes[n].pullback if n in carried_planes else PLANE_PULLBACK for n in order
+        )
+        stack = dataclasses.replace(stack, pullbacks=pullbacks)
     read = BACKEND in board.native_ids
     if read:
         frame = pcbdoc.Frame.document()
@@ -2355,6 +2386,16 @@ def _document(
         else frozenset(),
         arc_records=MappingProxyType(arc_records),
         polygon_arcs=MappingProxyType(matched),
+        plane_splits=MappingProxyType(
+            {plane_ids[n]: p.splits for n, p in carried_planes.items() if n in planes and p.splits}
+        ),
+        plane_names=MappingProxyType(
+            {
+                plane_ids[n]: p.name
+                for n, p in carried_planes.items()
+                if n in planes and p.name and _field_ok(p.name)
+            }
+        ),
         fill_ids=frozenset(g.id for g in graphics if fills.is_fill(g)),
         keepout_strokes=MappingProxyType(
             {g.id: byte for g in graphics if (byte := stroke_flags.get(g.id)) is not None}
@@ -2386,6 +2427,7 @@ def write_design(
     models: Mapping[str, Sequence[pcbdoc.FootprintModel]] | None = None,
     storages: Mapping[str, tuple[bytes, bytes]] | None = None,
     polygon_arcs: Mapping[str, ArcPolygon] | None = None,
+    planes: Mapping[str, CarriedPlane] | None = None,
 ) -> ProjectWrite:
     """The files of an Altium project written from ``design`` alone: ``<name>.PcbDoc`` when the design holds a
     board with an outline or an item, and ``<name>.SchDoc`` with its libraries and ``<name>.PrjPcb`` when the
@@ -2408,7 +2450,9 @@ def write_design(
     ``storages`` are the storages a conversion carried through KiCad (change c0450,
     ``pcbdoc.PcbDocSpec.kept_storages``). ``polygon_arcs`` maps a zone id to the arc vertices of its source
     polygon record, which a conversion carried through KiCad (change c0463, task 1.3): written back while
-    the zone's outline is still their ring, else the outline's chords as a ``changed`` zone."""
+    the zone's outline is still their ring, else the outline's chords as a ``changed`` zone. ``planes`` maps
+    a copper layer to the internal plane a conversion carried through KiCad (change c0466,
+    ``CarriedPlane``): its splits, pull-back and name."""
     refuse_bom_only(design)
     if schematic is not None:
         refuse_bom_only(schematic)
@@ -2423,6 +2467,7 @@ def write_design(
         edges=edges,
         models=models,
         polygon_arcs=polygon_arcs,
+        planes=planes,
     )
     if source_rules and inputs.pcb is not None:  # the source's own rule records (change c0434)
         inputs = dataclasses.replace(

@@ -626,10 +626,12 @@ def board_text(
     pin_pairs: Sequence[Field] = (),
     settings: Sequence[Field] = (),
     mechanical: Sequence[int] | None = None,
+    plane_names: Mapping[int, str] | None = None,
 ) -> str:
     """The text of the ``Board6`` record: each line as ``|KEY=VALUE`` fields, the lines joined by one CR.
     ``settings`` are the carried settings of a source (change c0464, ``with_settings``), merged before the
-    mechanical layers are named; ``mechanical`` are the enabled mechanical layers (``board_records``)."""
+    mechanical layers are named; ``mechanical`` are the enabled mechanical layers (``board_records``).
+    ``plane_names`` names internal planes by id (39 … 54, change c0466)."""
     lines = board_records(
         filename,
         vertices,
@@ -643,8 +645,15 @@ def board_text(
     )
     if settings:
         lines = with_settings(lines, settings)
-    if layer_names:
-        names = {f"Mechanical {layer - 56}": name for layer, name in layer_names.items() if 57 <= layer <= 72}
+    names = {
+        f"Mechanical {layer - 56}": name for layer, name in (layer_names or {}).items() if 57 <= layer <= 72
+    }
+    names |= {
+        f"Internal Plane {layer - 38}": name
+        for layer, name in (plane_names or {}).items()
+        if 39 <= layer <= 54
+    }
+    if names:
         lines = [[(key, names.get(value, value)) for key, value in line] for line in lines]
     return LINE_BREAK.join(format_line(line) for line in lines)
 
