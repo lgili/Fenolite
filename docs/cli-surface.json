@@ -12679,6 +12679,12 @@
         "warning"
       ]
     },
+    "equiv.copper-no-net": {
+      "experimental": false,
+      "severities": [
+        "error"
+      ]
+    },
     "equiv.dimension-missing": {
       "experimental": false,
       "severities": [

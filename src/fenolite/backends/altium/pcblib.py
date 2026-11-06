@@ -392,6 +392,13 @@ def keepout_restrictions(keepout: Keepout) -> int:
     return sum(bits for name, bits in KEEPOUT_BITS.items() if getattr(keepout, name))
 
 
+def is_pour_cutout(keepout: Keepout) -> bool:
+    """Whether ``keepout`` restricts poured copper alone (change c0439): the reading of an Altium polygon
+    cut-out (``adapter.copper``, ``KIND=1``), written back as one rather than as a keep-out, which Altium's
+    clearance rules check against every track, pad and via."""
+    return keepout_restrictions(keepout) == KEEPOUT_BITS["no_copper_pour"] and not keepout.no_footprints
+
+
 def footprint_keepout_problem(area: Keepout, copper_layers: Sequence[str] = ()) -> str | None:
     """Why a rule area of a footprint cannot be written as keep-out regions (change c0411), or ``None``:
     fewer than three outline points, no layer, a layer that is neither ``*.Cu`` nor a copper layer (of the
@@ -452,12 +459,22 @@ def keepout_records(
         ring.pop()
     vertices = [_units(move(p)) for p in ring]
     value = keepout_restrictions(area)
+    cutout = is_pour_cutout(area)  # a polygon cut-out, as on a board (change c0439)
     out: list[bytes] = []
     for layer in keepout_layer_ids(area, copper_layers, layer_ids):
         if flip:
             layer = rec.FLIP_PAIRS.get(layer, layer)
+        if cutout and layer == rec.KEEPOUT_LAYER:
+            layer = rec.MULTI_LAYER
         out.append(
-            rec.region_record(layer, vertices, keepout=value, component=component, shape_based=shape_based)
+            rec.region_record(
+                layer,
+                vertices,
+                keepout=None if cutout else value,
+                component=component,
+                shape_based=shape_based,
+                polygon_cutout=cutout,
+            )  # fmt: skip
         )
     return out
 
@@ -791,6 +808,7 @@ __all__ = [
     "check_footprint",
     "footprint_primitives",
     "graphic_records",
+    "is_pour_cutout",
     "library_body_vertices",
     "library_frame",
     "pad_bytes",

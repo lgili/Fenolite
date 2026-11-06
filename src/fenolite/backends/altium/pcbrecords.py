@@ -713,6 +713,7 @@ V7_LAYERS: Mapping[int, str] = MappingProxyType(
         37: "TOPSOLDER",
         38: "BOTTOMSOLDER",
         KEEPOUT_LAYER: "KEEPOUT",
+        MULTI_LAYER: "MULTILAYER",
         **{56 + n: f"MECHANICAL{n}" for n in range(1, 17)},
     }
 )
@@ -736,6 +737,7 @@ def region_record(
     component: int = NO_INDEX,
     board_cutout: bool = False,
     net: int = NO_INDEX,
+    polygon_cutout: bool = False,
 ) -> bytes:
     """A region (type 11) without a polygon (``pcb-records.md``, "Regions and keep-outs"): the prefix, five
     zero bytes, the property text and the outline. ``component`` (change c0126) is the index of the component
@@ -747,15 +749,19 @@ def region_record(
     first vertex after the last. ``keepout`` makes the region a keep-out with that restriction value (0 … 31):
     the second flag byte is 2 and the text ends with ``KEEPOUTRESTRICTIONS`` and, for KiCad's importer,
     ``KEEPOUTRESTRIC``, both holding the value. ``board_cutout`` (change c0168) ends the text with
-    ``ISBOARDCUTOUT=TRUE`` (``cutout_region``)."""
+    ``ISBOARDCUTOUT=TRUE`` (``cutout_region``). ``polygon_cutout`` (change c0439) writes ``KIND=1``, a
+    polygon cut-out: no polygon pours its copper there, the region is no copper itself and no keep-out, as
+    the public documents hold it (``pcb-records.md``, "Regions and keep-outs"; S-1980)."""
     if len(vertices) < 3:
         raise ValueError("a region needs at least three vertices")
     if keepout is not None and not 0 <= keepout <= 0x1F:
         raise ValueError(f"the keep-out restrictions {keepout} are outside 0 … 31")
+    if polygon_cutout and keepout is not None:
+        raise ValueError("a polygon cut-out is no keep-out")
     fields: list[Field] = [
         ("V7_LAYER", v7_layer(layer)),
         ("NAME", " "),
-        ("KIND", "0"),
+        ("KIND", "1" if polygon_cutout else "0"),
         ("SUBPOLYINDEX", "-1"),
         ("UNIONINDEX", "0"),
         ("ARCRESOLUTION", REGION_ARC_RESOLUTION),

@@ -104,8 +104,11 @@ def _zone_fills(
 
 
 def write(source: SourceProject, options: Options) -> Written:
-    """The Altium project of a KiCad source, with its report."""
-    design = pads.project(fpitems.with_footprint_items(_named(source.design, options.name)).design)
+    """The Altium project of a KiCad source, with its report. Its copper graphics take the net their KiCad
+    slot names (``fpitems.with_graphic_nets``), as a build's do: without it a netted copper shape is written
+    with no net and shorts the copper it touches (change c0439)."""
+    projected = fpitems.with_footprint_items(_named(source.design, options.name)).design
+    design = pads.project(fpitems.with_graphic_nets(projected))
     sch, symbols, changed_comments = schematic.inputs(source, design)
     board = design.board
     # the edges as an outline (change c0170): the board ring as before, each inner ring a cut-out region

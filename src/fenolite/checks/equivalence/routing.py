@@ -600,6 +600,110 @@ NOTICES = frozenset({"route-stub", "route-unjudged"})
 # --- end of the rule -------------------------------------------------------------------------------
 
 
+NO_NET_PLACE = "(no net)"
+"""Where a ``copper-no-net`` difference is located, followed by ``:`` and the span of its layer."""
+StrayPiece = tuple[str, str, int, tuple[Point, ...]]
+"""A piece of copper without a net (change c0439): ``(span, form, width, points)``. A track or a line is a
+``segment`` of its sorted ends; a filled rectangle or polygon a ``region`` of its sorted corners; an arc an
+``arc`` of its three points; a circle an ``arc`` of its centre and its edge point."""
+
+
+def _sorted_points(points: Sequence[Point]) -> tuple[Point, ...]:
+    return tuple(sorted(points, key=lambda p: (p.x, p.y)))
+
+
+def stray_copper(design: Design) -> list[StrayPiece]:
+    """The copper of ``design``'s board that holds no net (change c0439): its tracks and arcs without a net
+    and its graphics on a copper layer without a net, footprints' own graphics left out. Such copper joins
+    whatever it touches, so a side that holds more of it than the other may short nets that level 5 sees as
+    equal: a polygon cut-out written as copper, a copper shape that lost its net. A graphic of a KiCad board
+    keeps its net in its KiCad slot, which ``fpitems.with_graphic_nets`` reads first."""
+    from fenolite.backends.kicad import fpitems
+
+    board = fpitems.with_graphic_nets(design).board
+    if board is None:
+        return []
+    spans = span_names(board)
+    found: list[StrayPiece] = []
+    for track in board.tracks:
+        if track.net_id is None and track.layer in spans:
+            found.append(
+                (spans[track.layer], "segment", track.width, _sorted_points((track.start, track.end)))
+            )
+    for arc in board.arcs:
+        if arc.net_id is None and arc.layer in spans:
+            ends = (arc.start, arc.mid, arc.end)
+            found.append(
+                (
+                    spans[arc.layer],
+                    "arc",
+                    arc.width,
+                    ends if (arc.start.x, arc.start.y) <= (arc.end.x, arc.end.y) else ends[::-1],
+                )
+            )
+    for graphic in board.graphics:
+        if graphic.net_id is not None or graphic.layer not in spans:
+            continue
+        span, points = spans[graphic.layer], graphic.points
+        if graphic.kind == "rect" and len(points) == 2:
+            s, e = points
+            points = (s, Point(e.x, s.y), e, Point(s.x, e.y))
+        if graphic.kind in ("rect", "polygon") and graphic.filled:
+            found.append((span, "region", 0, _sorted_points(points)))
+        elif graphic.kind in ("rect", "polygon"):
+            for index, point in enumerate(points):
+                found.append(
+                    (
+                        span,
+                        "segment",
+                        graphic.width,
+                        _sorted_points((point, points[(index + 1) % len(points)])),
+                    )
+                )
+        elif graphic.kind == "line":
+            found.append((span, "segment", graphic.width, _sorted_points(points)))
+        else:
+            found.append((span, "arc", graphic.width, tuple(points)))
+    return sorted(found, key=lambda p: (_span_rank(p[0]), p[1], p[2], [(q.x, q.y) for q in p[3]]))
+
+
+def _same_stray(a: StrayPiece, b: StrayPiece, tolerances: Tolerances) -> bool:
+    return (
+        a[:2] == b[:2]
+        and abs(a[2] - b[2]) <= tolerances.length_nm
+        and len(a[3]) == len(b[3])
+        and all(
+            abs(p.x - q.x) <= tolerances.length_nm and abs(p.y - q.y) <= tolerances.length_nm
+            for p, q in zip(a[3], b[3], strict=True)
+        )
+    )
+
+
+def _stray_text(piece: StrayPiece) -> str:
+    _, form, width, points = piece
+    return f"{form} width {width} at " + " ".join(f"{p.x},{p.y}" for p in points)
+
+
+def stray_differences(a: Design, b: Design, tolerances: Tolerances) -> list[Difference]:
+    """One ``copper-no-net`` difference per piece of ``stray_copper`` that one side holds and no piece of the
+    other matches within the length tolerance (change c0439), located at ``(no net):<span>``."""
+    left, right = stray_copper(a), stray_copper(b)
+    unmatched: list[StrayPiece] = []
+    for piece in left:
+        found = next((k for k, held in enumerate(right) if _same_stray(piece, held, tolerances)), None)
+        if found is None:
+            unmatched.append(piece)
+        else:
+            del right[found]
+    field = _FIELD["copper-no-net"]
+    return [
+        Difference(LEVEL, "copper-no-net", f"{NO_NET_PLACE}:{p[0]}", field, _stray_text(p), "")
+        for p in unmatched
+    ] + [
+        Difference(LEVEL, "copper-no-net", f"{NO_NET_PLACE}:{p[0]}", field, "", _stray_text(p)) for p in right
+    ]
+
+
 def _located(net: str, pads: Sequence[str]) -> str:
     return f"{net}:{pads_text(pads)}" if pads else net
 
@@ -642,6 +746,7 @@ def level_routing(
                 (notices if step.kind in NOTICES else differences).append(found)
             if findings and step.final:
                 break
+    differences += stray_differences(a, b, tolerances)
     paired_a, paired_b = {pair[0] for pair in pairing.pairs}, {pair[1] for pair in pairing.pairs}
 
     def loose(held: NetPieces, paired: set[str]) -> int:
@@ -680,5 +785,7 @@ __all__ = [
     "pieces",
     "routed_equal",
     "span_names",
+    "stray_copper",
+    "stray_differences",
     "track_length",
 ]

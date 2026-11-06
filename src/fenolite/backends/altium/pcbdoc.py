@@ -58,6 +58,7 @@ from fenolite.backends.altium.pcblib import (
     body_problem,
     check_footprint,
     graphic_records,
+    is_pour_cutout,
     keepout_records,
     keepout_restrictions,
     pad_bytes,
@@ -1228,6 +1229,11 @@ def graphic_problem(
     return None
 
 
+def _in_order(keepout: Keepout, names: Sequence[str]) -> list[str]:
+    """The layers of ``keepout``, once each, in the order of the board's copper layers ``names``."""
+    return sorted(set(keepout.layers), key=names.index)
+
+
 def keepout_problem(keepout: Keepout, layers: Sequence[str]) -> str | None:
     """Why a keep-out cannot be written, or ``None``: fewer than three outline points, no layer, a layer
     that is not a copper layer of the board, or no restriction that the record carries."""
@@ -1265,10 +1271,21 @@ class _Free:
         frame: Frame,
         keepout: int | None = None,
         net: int = rec.NO_INDEX,
+        *,
+        polygon_cutout: bool = False,
     ) -> None:
         vertices = [_units(frame(point)) for point in ring]
-        self.regions.append(rec.region_record(layer, vertices, keepout=keepout, net=net))
-        self.shapes.append(rec.region_record(layer, vertices, keepout=keepout, shape_based=True, net=net))
+        for shape_based, into in ((False, self.regions), (True, self.shapes)):
+            into.append(
+                rec.region_record(
+                    layer,
+                    vertices,
+                    keepout=keepout,
+                    shape_based=shape_based,
+                    net=net,
+                    polygon_cutout=polygon_cutout,
+                )  # fmt: skip
+            )
 
 
 def free_records(spec: PcbDocSpec, copper: _Copper) -> _Free:
@@ -1335,10 +1352,19 @@ def free_records(spec: PcbDocSpec, copper: _Copper) -> _Free:
             raise ValueError(f"{keepout.id}: {problem}")
         value = keepout_restrictions(keepout)
         ring = _ring(keepout.outline)
-        if set(keepout.layers) == set(names):
+        everywhere = set(keepout.layers) == set(names)
+        signal = all(copper.layers[name] < rec.FIRST_PLANE for name in keepout.layers)
+        if is_pour_cutout(keepout) and (everywhere or signal):
+            # a rule area of poured copper alone is the polygon cut-out it was read from (change c0439):
+            # on Multi-Layer for every copper layer, else on each signal layer (a plane holds no polygon to
+            # cut), never a keep-out and never copper
+            ids = [rec.MULTI_LAYER] if everywhere else [copper.layers[n] for n in _in_order(keepout, names)]
+            for layer in ids:
+                out.region(layer, ring, frame, polygon_cutout=True)
+        elif everywhere:
             out.region(rec.KEEPOUT_LAYER, ring, frame, value)
         else:
-            for name in sorted(set(keepout.layers), key=names.index):
+            for name in _in_order(keepout, names):
                 out.region(copper.layers[name], ring, frame, value)
     for ring in spec.cutouts:
         if len(ring) < 3:

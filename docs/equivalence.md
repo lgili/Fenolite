@@ -342,6 +342,7 @@ level are sorted by `where`, then kind.
 | 5 | `via-span` | `layers` | strict: matched vias of different copper spans or types |
 | 5 | `via-net` | `net` | strict: matched vias on nets of different names |
 | 5 | `copper-locked` | `locked` | strict: matched items whose lock differs (a notice: a warning) |
+| 5 | `copper-no-net` | `copper` | a piece of copper without a net (a track, an arc, or a graphic on a copper layer, a footprint's own left out) that one side holds and no piece of the other matches within the tolerance, located at `(no net):<span>`: copper that shorts what it touches, such as a polygon cut-out written as copper (change c0439). A KiCad graphic's net is read from its KiCad slot first |
 | 6 | `netclass-missing` | `name` | a net class that only one side holds |
 | 6 | `netclass-field` | the field | a field of a net class differs |
 | 6 | `netclass-members` | `nets` | the nets assigned to a net class differ |

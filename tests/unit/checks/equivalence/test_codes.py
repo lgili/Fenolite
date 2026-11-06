@@ -60,6 +60,7 @@ TABLE = (
     (5, "via-span", "layers"),
     (5, "via-net", "net"),
     (5, "copper-locked", "locked"),
+    (5, "copper-no-net", "copper"),
     (6, "netclass-missing", "name"),
     (6, "netclass-field", "field"),
     (6, "netclass-members", "nets"),

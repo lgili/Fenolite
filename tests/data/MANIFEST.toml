@@ -383,6 +383,12 @@ corpus_id = ""
 notes = "authored four-layer board holding one pad with a per-layer padstack (mode 1), for the full-stack pad triangle of change c0160"
 
 [[file]]
+path = "tests/data/kicad/convert/polygon_cutouts.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "authored two-layer board with a track and a netted copper polygon on net A, two pour-only rule areas (F.Cu; F.Cu and B.Cu) and one rule area that also forbids tracks, for change c0439"
+
+[[file]]
 path = "tests/data/kicad/drc/report_mils.json"
 origin = "authored"
 corpus_id = ""

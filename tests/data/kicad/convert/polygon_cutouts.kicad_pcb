@@ -1,0 +1,150 @@
+(kicad_pcb
+	(version 20260206)
+	(generator "fenolite-tests")
+	(generator_version "10.0")
+	(general
+		(thickness 1.6)
+		(legacy_teardrops no)
+	)
+	(paper "A4")
+	(layers
+		(0 "F.Cu" signal)
+		(2 "B.Cu" signal)
+		(13 "F.Paste" user)
+		(15 "B.Paste" user)
+		(5 "F.SilkS" user "F.Silkscreen")
+		(7 "B.SilkS" user "B.Silkscreen")
+		(1 "F.Mask" user)
+		(3 "B.Mask" user)
+		(25 "Edge.Cuts" user)
+		(31 "F.CrtYd" user "F.Courtyard")
+		(29 "B.CrtYd" user "B.Courtyard")
+		(35 "F.Fab" user)
+		(33 "B.Fab" user)
+	)
+	(setup
+		(pad_to_mask_clearance 0)
+	)
+	(footprint "Fenolite_Test:Two_Pads"
+		(layer "F.Cu")
+		(uuid "0c438000-0000-4000-8000-000000000001")
+		(at 20 15)
+		(property "Reference" "R1"
+			(at 0 -1.5 0)
+			(layer "F.SilkS")
+			(uuid "0c438000-0000-4000-8000-000000000002")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "Value" "two"
+			(at 0 1.5 0)
+			(layer "F.Fab")
+			(uuid "0c438000-0000-4000-8000-000000000003")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(attr smd)
+		(pad "1" smd rect
+			(at -1 0)
+			(size 1 1)
+			(layers "F.Cu" "F.Paste" "F.Mask")
+			(net "A")
+			(uuid "0c438000-0000-4000-8000-000000000004")
+		)
+		(pad "2" smd rect
+			(at 1 0)
+			(size 1 1)
+			(layers "F.Cu" "F.Paste" "F.Mask")
+			(net "B")
+			(uuid "0c438000-0000-4000-8000-000000000005")
+		)
+	)
+	(gr_rect
+		(start 10 5)
+		(end 40 30)
+		(stroke
+			(width 0.1)
+			(type default)
+		)
+		(fill no)
+		(layer "Edge.Cuts")
+		(uuid "0c438000-0000-4000-8000-000000000006")
+	)
+	(segment
+		(start 19 15)
+		(end 15 15)
+		(width 0.25)
+		(layer "F.Cu")
+		(net "A")
+		(uuid "0c438000-0000-4000-8000-000000000007")
+	)
+	(gr_poly
+		(pts
+			(xy 13 14) (xy 15 14) (xy 15 16) (xy 13 16)
+		)
+		(stroke
+			(width 0)
+			(type solid)
+		)
+		(fill yes)
+		(layer "F.Cu")
+		(net "A")
+		(uuid "0c438000-0000-4000-8000-000000000008")
+	)
+	(zone
+		(layer "F.Cu")
+		(uuid "0c438000-0000-4000-8000-000000000009")
+		(keepout
+			(tracks allowed)
+			(vias allowed)
+			(pads allowed)
+			(copperpour not_allowed)
+			(footprints allowed)
+		)
+		(polygon
+			(pts
+				(xy 25 20) (xy 30 20) (xy 30 25) (xy 25 25)
+			)
+		)
+	)
+	(zone
+		(layers "F.Cu" "B.Cu")
+		(uuid "0c438000-0000-4000-8000-00000000000a")
+		(keepout
+			(tracks allowed)
+			(vias allowed)
+			(pads allowed)
+			(copperpour not_allowed)
+			(footprints allowed)
+		)
+		(polygon
+			(pts
+				(xy 32 20) (xy 36 20) (xy 36 25) (xy 32 25)
+			)
+		)
+	)
+	(zone
+		(layer "B.Cu")
+		(uuid "0c438000-0000-4000-8000-00000000000b")
+		(keepout
+			(tracks not_allowed)
+			(vias allowed)
+			(pads allowed)
+			(copperpour not_allowed)
+			(footprints allowed)
+		)
+		(polygon
+			(pts
+				(xy 25 7) (xy 30 7) (xy 30 10) (xy 25 10)
+			)
+		)
+	)
+)

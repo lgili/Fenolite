@@ -1888,6 +1888,11 @@ meaning = "Strict level 5: two matched tracks, arcs or vias differ only in their
 fix = "Nothing to do, or lock the item on the side that should hold the lock."
 see = "equivalent"
 
+["equiv.copper-no-net"]
+meaning = "Level 5: a piece of copper without a net (a track, an arc, or a graphic on a copper layer) is on one side only. Such copper shorts whatever it touches, which the per-net comparison does not see: a polygon cut-out written as copper, or a copper shape that lost its net."
+fix = "Give the copper its net, or write the cut-out as a cut-out; a conversion that wrote it so is a bug to report."
+see = "equivalent"
+
 ["equiv.netclass-missing"]
 meaning = "Level 6: a net class exists on one side only."
 fix = "Make the two designs agree, or accept the difference with a reason (an exclusion profile, or fidelity.accepted of PROVENANCE.json for verify-source)."
