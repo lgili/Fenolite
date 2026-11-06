@@ -4,9 +4,8 @@
 codes of its error findings and the kinds it leaves out are pinned. The report holds codes and counts
 only: no name of a corpus file is printed.
 
-Rows 01 and 02 fail on causes change c0426 owns (a pad position 1 nm off after rounding; a via whose drill
-equals its diameter); row 08 on pad positions of the same rounding and one footprint whose pads differ
-from its library form. When those land, their rows here change with them."""
+Rows 01 and 02 failed on causes change c0426 fixed (a pad position 1 nm off after rounding; a via whose
+drill equals its diameter) and now import with no finding; row 08 is pinned as change c0426 left it."""
 
 from __future__ import annotations
 
@@ -18,8 +17,8 @@ from _corpus import manifest_items, require
 from fenolite.api import run
 
 PINNED: dict[str, tuple[int, frozenset[str]]] = {
-    "altium-third-party-pcbdoc-01": (5, frozenset({"import.unequal"})),
-    "altium-third-party-pcbdoc-02": (5, frozenset({"import.unequal"})),
+    "altium-third-party-pcbdoc-01": (0, frozenset()),
+    "altium-third-party-pcbdoc-02": (0, frozenset()),
     "altium-third-party-pcbdoc-03": (0, frozenset()),  # a cut-out across the board edge: a notch
     "altium-third-party-pcbdoc-04": (0, frozenset()),  # a negative silk to silk clearance
     "altium-third-party-pcbdoc-05": (0, frozenset()),

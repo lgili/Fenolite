@@ -191,9 +191,9 @@ def test_layer_table_equals_the_created_board() -> None:
     assert dict(itemlib.BOARD_LAYER_KINDS) == created
     allowed = [name for name, kind in created.items() if kind in itemlib.DRAWING_LAYER_KINDS]
     assert sorted(allowed) == sorted([
-        "F.SilkS", "B.SilkS", "F.Mask", "B.Mask", "F.Fab", "B.Fab", "Dwgs.User", "Cmts.User", "Eco1.User",
-        "Eco2.User",
+        "F.SilkS", "B.SilkS", "F.Mask", "B.Mask", "F.Paste", "B.Paste", "F.Fab", "B.Fab", "Dwgs.User",
+        "Cmts.User", "Eco1.User", "Eco2.User",
     ])  # fmt: skip
-    assert itemlib.DRAWING_LAYER_KINDS == ("silkscreen", "soldermask", "fabrication", "user")
+    assert itemlib.DRAWING_LAYER_KINDS == ("silkscreen", "soldermask", "solderpaste", "fabrication", "user")
     assert Size(itemlib.TEXT_SIZE, itemlib.TEXT_SIZE) == pcb.TEXT_SIZE
     assert itemlib.TEXT_THICKNESS == pcb.TEXT_THICKNESS

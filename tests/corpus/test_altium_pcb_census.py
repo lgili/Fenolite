@@ -274,7 +274,7 @@ def test_a_new_length() -> None:
 HOLES_AND_CUTOUTS: dict[str, tuple[int, int, int, int, int]] = {
     "altium-third-party-pcbdoc-01": (12, 0, 0, 0, 0),
     "altium-third-party-pcbdoc-02": (0, 0, 0, 0, 0),
-    "altium-third-party-pcbdoc-03": (0, 0, 0, 1, 1),
+    "altium-third-party-pcbdoc-03": (0, 0, 0, 1, 0),  # crosses the edge: a notch of the shape (c0427)
     "altium-third-party-pcbdoc-04": (2, 0, 0, 0, 0),
     "altium-third-party-pcbdoc-05": (4, 4, 0, 0, 0),
     "altium-third-party-pcbdoc-06": (0, 0, 0, 6, 4),
@@ -282,7 +282,8 @@ HOLES_AND_CUTOUTS: dict[str, tuple[int, int, int, int, int]] = {
 }
 """Row id → free pads, the board holes the import makes of them, slotted ones among them, regions with
 ``ISBOARDCUTOUT=TRUE``, and the cut-outs (``Edge.Cuts`` polygons) the import makes of the free ones (change
-c0168, task 4.4; ``docs/evidence/altium-pcb-read.md``, "Holes and cut-outs")."""
+c0168, task 4.4; ``docs/evidence/altium-pcb-read.md``, "Holes and cut-outs"). A cut-out region that crosses
+the board edge cuts the board shape instead (change c0427, ``altium.import.cutout-notch``)."""
 
 
 @pytest.mark.parametrize("item", DOCUMENTS, ids=lambda item: item.id)
