@@ -31,7 +31,7 @@
 - [x] 4.2 `pcb-bodies.md` ("Written form of a model body", the box rows), `docs/conversion.md`,
   `docs/formats/step/part21.md` ("Box of a model"), `sources.md` (S-2080 to S-2082), `H-G-STEP-BOX`,
   CHANGELOG.
-- [ ] 4.3 Altium opens a round trip with its models (altium-rounds-2).
+- [x] 4.3 Altium opens a round trip with its models (altium-rounds-2; S-2084).
   Kit run on NG6011 (2026-11-06): U1 seemed to get the LM3644 model. The bytes were U1's own TPS63050
   model; the KiCad file was named after U1's footprint, `LM3644YFFR`. Fixed: an embedded model's file is
   named by its record `NAME` (`convert.models.model_stem`), pinned by
@@ -49,5 +49,7 @@
   checksum's rule (no CRC-32, Adler-32, sum, length or hash prefix of the inflated, deflated or newline-
   changed bytes matches any of 153 records), so a new model gets the `ID` of its bytes and its name
   (`pcbrecords.model_id`) and the stand-in 0. Pinned by `tests/unit/convert/test_model_ids_c0449.py` and
-  `tests/corpus/test_altium_bodies.py::test_embedded_models_keep_their_source_ids`. A clean read after an
-  Altium relaunch to confirm (altium-rounds-2).
+  `tests/corpus/test_altium_bodies.py::test_embedded_models_keep_their_source_ids`.
+  Clean read after an Altium relaunch (S-2084, AD 24.5.2.23, 2026-11-06): the same `c0449-rt2/04` opens
+  with 0 dialogs and 0 messages, 13 STEP bodies, and U1, J1 and D1 show their records' `MODEL.NAME` with
+  the source's heights. The names of the earlier read came from Altium's in-session model cache.
