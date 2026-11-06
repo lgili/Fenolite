@@ -69,6 +69,28 @@ since a KiCad pad holds one connection for every zone.
 | The pieces of a polygon carry `SUBPOLYINDEX` 0 to n − 1 in stream order in 69 of 81 polygons (4 hold another order of those numbers, 8 numbers with gaps); poured regions stand among the other regions of `Regions6` in no fixed order, and the vertices of 6 of the 8 documents are not all whole units | S-0835 | CORPUS-VERIFIED | H-A-POUR-REGION |
 | No other storage of the eight documents names a region by its position: the read primitives refer to polygons and components, never to regions | S-0835 | INFERRED | H-A-POUR-REGION |
 
+## Outline arcs
+
+Change c0463, S-2221: the twelve polygons of the public rows whose outline holds an arc vertex, read with
+Fenolite's own reader on 2026-11-06, and their saved regions.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| 12 polygons of type `Polygon` hold an arc vertex: 2 of row -02, 4 of row -07 and 6 of row -08. Their 194 arc vertices hold `KIND<k>=1` with `VX<k>`, `VY<k>`, `CX<k>`, `CY<k>`, `R<k>`, `SA<k>` and `EA<k>`; each sweeps a quarter turn (122) or an eighth of a turn (72) counter-clockwise from `SA` to `EA` | S-2221 | CORPUS-VERIFIED | H-A-POUR-ARC |
+| The arc of vertex k joins vertex k to vertex k + 1: the ends computed from its centre, radius and angles lie within 6.7 µm of the two vertices, the start angle's end at vertex k for 72 arcs and at vertex k + 1 for 122, so a ring walks an arc either way | S-2221 | CORPUS-VERIFIED | H-A-POUR-ARC |
+| The saved regions follow 2 arcs of each polygon of row -02 (radius 39.4 and 41.9 mil, `ARCRESOLUTION=0.5mil`) with 10 vertices each, within one unit of the arc: its two ends and 8 between them at 5.625° + k·11.25° from the start angle, 32 steps per turn. The largest step within 0.5 mil is 18.3° there. No other outline arc of the 12 polygons bounds saved copper: the regions lie inside them | S-2221 | CORPUS-VERIFIED | H-A-POUR-ARC |
+
+## Outlines that are not simple
+
+Change c0463, S-2222: the two polygons of the public rows whose outline the pour refused as `outline`
+before the change, and their saved regions.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| Two polygons repeat a vertex: in row -02 (`NETD1_1_L01_P000`, 10 vertices) and row -07 (`POURINDEX=17`, 8 vertices) the vertex before the closing one stands twice in a row, and the last vertex repeats the first | S-2222 | CORPUS-VERIFIED | H-A-POUR-REGION |
+| Altium's saved pour of each is one region whose outer ring follows the outline without the repeat (19 and 30 vertices, no hole), pulled in by clearances and rounded corners | S-2222 | CORPUS-VERIFIED | H-A-POUR-REGION |
+| No polygon of the eight rows has an outline that touches itself at a vertex or crosses itself, so the rows do not show how Altium fills either | S-2222 | CORPUS-VERIFIED | H-A-POUR-REGION |
+
 ## Fenolite's choices
 
 - **Regions.** A computed pour is written after every other region of `Regions6`, so the positions of the
@@ -85,5 +107,15 @@ since a KiCad pad holds one connection for every zone.
   by losing it) nor pouring with the larger of its gap and the governing gap matches Altium: 8 of the 9
   saved pours of -04 differ from either by 3.5 to 7.4 times the M1 allowance, and 4 polygons of -07 by up
   to 10.9 times (S-2160). So the refusal stays.
+- **Outline arcs** (change c0463). The import keeps no outline for a polygon with an arc vertex
+  (`altium.import.zone-arc`), so the pour builds the ring from the record: each arc becomes the fewest
+  equal chords whose sagitta is at most the polygon's `ARCRESOLUTION` d, their ends on the arc and the two
+  vertices at the arc's ends. Altium places more vertices on the arcs of row -02 (S-2221); the two rings
+  differ by less than d, which M1 and M2 allow. The polygon record is not changed: the regions are chords.
+  An arc without radius, or whose ends lie more than 10 µm from its two vertices, refuses `outline-arc`.
+- **Outlines that are not simple** (change c0463). A run of a repeated vertex is kept once, as Altium's
+  saved pours of rows -02 and -07 show (S-2222). A ring that touches itself at a vertex is poured as the
+  boolean backend's normal form gives it, one piece per loop; no source shows Altium's fill of such a ring
+  (S-2222), so this rests on `H-A-POUR-REGION`. A ring that crosses itself still refuses `outline`.
 - **Polygon Connect Style.** The records of change c0215, Decision 11: the Advanced form, one rule per
   net scoped `InNet` and one `All` rule.

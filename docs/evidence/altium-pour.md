@@ -28,6 +28,12 @@ pour (it passes at 1 or less).
 78 of 81 polygons are refused: the engine keeps their outline and says why. Three are compared; each passes
 M1 and fails M2, so no polygon supports `H-A-POUR-CORPUS` yet.
 
+Since change c0463 (2026-11-06) an outline with arc vertices or with a repeated vertex is poured
+(`pcb-pour.md`, S-2221 and S-2222): `-02` refuses `depends-on-refused` 6 and `rule-unmapped` 6, `-07`
+`depends-on-refused` 5 and `rule-scope` 4, and `-08` `depends-on-refused` 18, `rule-scope` 13 and
+`connect-scope` 2. No polygon is refused `outline-arc` or `outline`; the 14 that were are now held back by
+the rule scopes of change c0462, as their layers' other polygons are.
+
 ## Disagreements
 
 Places are in the frame of the import, in nanometres (the import negates Altium's Y). "Candidate" is Fenolite's pour, "reference" the

@@ -12,17 +12,22 @@ Rules for every task:
 
 ## 1. Outline arcs
 
-- [ ] 1.1 Record S-2221: how the polygon record stores an arc vertex, and how the saved regions
-  approximate it. Proof: `uv run pytest tests/unit/docs -q -n 0`.
-- [ ] 1.2 Chord the arcs by `ARCRESOLUTION` and pour. The written polygon keeps its arcs. Proof:
-  `uv run pytest tests/unit/backends/altium/test_pour_outline_c0463.py -k arc -q -n 0`.
+- [x] 1.1 Record S-2221: how the polygon record stores an arc vertex, and how the saved regions
+  approximate it. Proof: `uv run pytest tests/unit/docs -q -n 0`. (No `tests/unit/docs` folder exists; the
+  docs tests `tests/unit/test_format_facts.py`, `test_evidence_register.py`, `test_docs_altium_read.py` and
+  `test_evidence_matrix_page.py` pass.)
+- [x] 1.2 Chord the arcs by `ARCRESOLUTION` and pour. The written polygon keeps its arcs. Proof:
+  `uv run pytest tests/unit/backends/altium/test_pour_outline_c0463.py -k arc -q -n 0`. The pour leaves the record as read.
+  A build or conversion still cannot write an arc polygon: the model holds no outline for it, and
+  `lower.py` skips the zone (reported to the coordinator).
 
 ## 2. Outlines
 
-- [ ] 2.1 Inspect the corpus's two `outline` refusals and record S-2222. Proof: the record in
+- [x] 2.1 Inspect the corpus's two `outline` refusals and record S-2222. Proof: the record in
   `pcb-pour.md`.
-- [ ] 2.2 Repeated vertices kept once; self-touching rings split where S-2222 shows Altium's fill.
-  Proof: the same file, `-k "touch or repeat"`.
+- [x] 2.2 Repeated vertices kept once; self-touching rings split where S-2222 shows Altium's fill.
+  Proof: the same file, `-k "touch or repeat"`. S-2222 shows no ring that touches itself; the boolean
+  backend already pours one as one piece per loop, and a crossing ring still refuses `outline`.
 
 ## 3. Hatch and the remaining reasons
 

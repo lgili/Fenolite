@@ -143,9 +143,7 @@ def test_pour_time(item: CorpusItem) -> None:
 
 POUR_CENSUS: dict[str, tuple[int, dict[str, int], dict[str, tuple[str, ...]]]] = {
     "altium-third-party-pcbdoc-01": (5, {"connect-scope": 2, "depends-on-refused": 3}, {}),
-    "altium-third-party-pcbdoc-02": (
-        12, {"depends-on-refused": 3, "outline": 1, "outline-arc": 2, "rule-unmapped": 6}, {},
-    ),
+    "altium-third-party-pcbdoc-02": (12, {"depends-on-refused": 6, "rule-unmapped": 6}, {}),
     "altium-third-party-pcbdoc-03": (1, {}, {"B.Cu GND_L02_P000": ("M2", "M3", "M4")}),
     "altium-third-party-pcbdoc-04": (9, {"depends-on-refused": 5, "rule-scope": 4}, {}),
     "altium-third-party-pcbdoc-05": (
@@ -154,12 +152,10 @@ POUR_CENSUS: dict[str, tuple[int, dict[str, int], dict[str, tuple[str, ...]]]] =
     "altium-third-party-pcbdoc-06": (
         10, {"connect-scope": 1, "depends-on-refused": 6, "rule-unmapped": 3}, {},
     ),
-    "altium-third-party-pcbdoc-07": (
-        9, {"depends-on-refused": 1, "outline": 1, "outline-arc": 4, "rule-scope": 3}, {},
-    ),
+    "altium-third-party-pcbdoc-07": (9, {"depends-on-refused": 5, "rule-scope": 4}, {}),
     "altium-third-party-pcbdoc-08": (
         33,
-        {"connect-scope": 2, "depends-on-refused": 14, "outline-arc": 6, "rule-scope": 11},
+        {"connect-scope": 2, "depends-on-refused": 18, "rule-scope": 13},
         {},
     ),
 }  # fmt: skip
@@ -169,7 +165,10 @@ layer and name) against the regions the document holds (``docs/evidence/altium-p
 no longer refused for a rule scope, since the RF clearance rules now read; an earlier refused polygon of its
 layer lies within its reach, so it is refused as ``depends-on-refused``. Since lote-26 a polygon cut-out is
 taken out of the area instead of refusing the polygon (``polygon-cutout``), so those polygons go on to the
-next criteria and are refused for a connect scope, an unmapped rule or a rule scope."""
+next criteria and are refused for a connect scope, an unmapped rule or a rule scope. Since change c0463 an
+outline with arc vertices or a repeated vertex is poured (S-2221, S-2222): the 12 ``outline-arc`` and 2
+``outline`` polygons of ``-02``, ``-07`` and ``-08`` go on, and are refused for a rule scope or an unmapped
+rule (3) or as ``depends-on-refused`` (11)."""
 
 
 @pytest.mark.parametrize("item", DOCUMENTS, ids=lambda item: item.id)
