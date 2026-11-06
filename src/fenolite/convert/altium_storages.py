@@ -34,7 +34,7 @@ from pathlib import Path
 from fenolite.backends.kicad.boardcarrier import PREFIX
 from fenolite.core.evidence import Evidence, Level
 
-EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-A-CONV-STORAGE",))
+EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-A-CONV-STORAGE", "H-A-CONV-BOARD6"))
 """The claim of the carried storages: written back byte for byte, they open in Altium as in the source
 (``docs/hypotheses.md``; settled by the kit request of c0450 task 4.2)."""
 CARRIED: tuple[str, ...] = ("EmbeddedFonts6", "UnionNames")
@@ -74,7 +74,9 @@ PIN_PAIRS = "Board6.PinPairs"
 ``|KEY=value`` text (change c0461)."""
 DIFFERENTIAL_PAIRS = "DifferentialPairs6"
 """Carried whole (change c0461): its records name their nets by name."""
-KEPT_CARRIERS: tuple[str, ...] = (KEPT_CLASSES, KEPT_SIGNAL_CLASSES, PIN_PAIRS)
+SETTINGS = "Board6.Settings"
+"""The carrier of the source's ``Board6`` settings (change c0464, ``board_settings``)."""
+KEPT_CARRIERS: tuple[str, ...] = (KEPT_CLASSES, KEPT_SIGNAL_CLASSES, PIN_PAIRS, SETTINGS)
 """The carriers that hold part of a storage (change c0461)."""
 KIND = "altium-storage"
 """The report kind of a storage."""
@@ -183,6 +185,66 @@ def pin_pair_text(pairs: list[dict[str, str]]) -> bytes:
 
 
 _PAIR_KEYS = ("NAME", "COLOR", "OVERRIDECOLORFORDRAW", "PINS")
+_MECHANICAL_NAME = re.compile(r"LAYER(5[7-9]|6[0-9]|7[0-2])NAME")
+
+
+def board_settings(board: bytes) -> list[tuple[str, str]]:
+    """The settings of the ``Board6`` stream ``board`` (change c0464): the keys the record holds once and
+    ``docboard.OWNED_KEY`` does not name, in order, each run of them opened by ``(docboard.ANCHOR, key)``
+    with the key before the run; then the names of mechanical layers 1 to 16 (``LAYER57NAME`` …
+    ``LAYER72NAME``). A field ``docboard.format_line`` refuses is left out."""
+    from fenolite.backends.altium.docboard import ANCHOR, OWNED_KEY, writable_field
+
+    text = board[4:].rstrip(b"\x00").decode("latin-1")
+    order: list[tuple[str, str]] = []
+    for line in text.split("\r"):
+        for part in line.split("|"):
+            key, sep, value = part.partition("=")
+            if sep:
+                order.append((key.strip().upper(), value))
+    counts: dict[str, int] = {}
+    for key, _ in order:
+        counts[key] = counts.get(key, 0) + 1
+    found: list[tuple[str, str]] = []
+    names: list[tuple[str, str]] = []
+    before: str | None = None
+    open_run = False
+    for key, value in order:
+        kept = counts[key] == 1 and not OWNED_KEY.fullmatch(key) and writable_field(key, value)
+        if kept:
+            if not open_run and before is not None:
+                found.append((ANCHOR, before))
+            found.append((key, value))
+        elif _MECHANICAL_NAME.fullmatch(key) and counts[key] == 1 and writable_field(key, value):
+            names.append((key, value))
+        open_run = kept
+        before = key
+    return found + names
+
+
+def settings_text(settings: list[tuple[str, str]]) -> bytes:
+    """The ``Board6.Settings`` text of ``settings``: ``|KEY=value`` fields."""
+    return "".join(f"|{key}={value}" for key, value in settings).encode("latin-1")
+
+
+def settings_fields(data: bytes) -> list[tuple[str, str]]:
+    """The fields of carried ``Board6.Settings`` text, in order."""
+    found: list[tuple[str, str]] = []
+    for part in data.decode("latin-1").split("|"):
+        key, sep, value = part.partition("=")
+        if sep:
+            found.append((key, value))
+    return found
+
+
+def mechanical_names(settings: list[tuple[str, str]]) -> dict[int, str]:
+    """The names of mechanical layers 1 to 16 among carried settings, by Altium layer id (57 … 72)."""
+    found: dict[int, str] = {}
+    for key, value in settings:
+        match = _MECHANICAL_NAME.fullmatch(key)
+        if match is not None:
+            found[int(match.group(1))] = value
+    return found
 
 
 @dataclass(frozen=True, slots=True)
@@ -236,6 +298,11 @@ def found_in(path: Path) -> Found:
             pairs = pin_pairs(text.encode("latin-1"))
             if pairs:
                 carried[PREFIX + PIN_PAIRS] = Storage(struct.pack("<I", len(pairs)), pin_pair_text(pairs))
+            settings = board_settings(storage.data)  # change c0464
+            if settings:
+                carried[PREFIX + SETTINGS] = Storage(
+                    struct.pack("<I", len(settings)), settings_text(settings)
+                )
         elif _INDEX_BOUND.fullmatch(name) and _count(storage.header):
             bound[name] = _count(storage.header)
     return Found(carried, bound, framed)
@@ -328,6 +395,11 @@ __all__ = [
     "INDEX_BOUND_REASON",
     "KEPT_CLASSES",
     "KEPT_CARRIERS",
+    "SETTINGS",
+    "board_settings",
+    "mechanical_names",
+    "settings_fields",
+    "settings_text",
     "KEPT_SIGNAL_CLASSES",
     "SMART_UNION_REASON",
     "KIND",

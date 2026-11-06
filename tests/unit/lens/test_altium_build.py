@@ -263,6 +263,7 @@ def test_evidence() -> None:
     viewer |= {"H-A-CUTOUT-NOTCH"}  # the import's notch of a crossing cut-out (c0427), never the build
     viewer |= {"H-A-CONV-FILL", "H-A-CONV-STORAGE"}  # what a conversion carries through KiCad (c0450)
     viewer |= {"H-A-CONV-UNION"}  # the union members a conversion carries through KiCad (c0460)
+    viewer |= {"H-A-CONV-BOARD6"}  # the Board6 settings a conversion carries (c0464), never the build
     rows = {r.id for r in register if r.id.startswith(stems)} - refuted - viewer
     # change c0173: the PCB document writer writes the flattened panel; the array rows that its kit has not
     # measured (H-A-PANEL-RECORD, H-A-PANEL-LAYERKIND) are no claim of the build yet

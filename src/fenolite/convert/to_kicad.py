@@ -651,7 +651,10 @@ def _carried_storages(
         return {}
     if not found.carried and not found.index_bound and not found.frame_bound:
         return {}
-    counts[storages.KIND] = len(found.carried) + len(found.index_bound) + len(found.frame_bound)
+    # change c0464: the Board6 settings are fields of a record, not a storage, and are not counted
+    held = [name for name in found.carried if name != storages.PREFIX + storages.SETTINGS]
+    if held or found.index_bound or found.frame_bound:
+        counts[storages.KIND] = len(held) + len(found.index_bound) + len(found.frame_bound)
     for name in found.index_bound:
         ledger.drop(storages.KIND, name, storages.INDEX_BOUND_REASON)
     for name in found.frame_bound:  # change c0459: a copy would lie in the source's frame

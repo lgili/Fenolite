@@ -228,13 +228,11 @@ KICAD_MECHANICAL: Mapping[str, int] = MappingProxyType(
 _MECH_NAME = re.compile(r"(?:Mech\.|Mechanical )([1-9][0-9]?)")
 
 
-def kicad_mechanical(board: Board) -> dict[str, int]:
-    """The drawing-layer map of a KiCad board (change c0412): ``KICAD_MECHANICAL``, except that a user
-    layer whose KiCad user name is ``Mech.<n>`` or ``Mechanical <n>`` (n from 1 to 16) is on Mechanical n.
-    The first spelling is the name Fenolite's Altium import gives a mechanical layer
-    (``MECHANICAL_LAYERS``); the second is the name an Altium board record gives it. Named layers come
-    last, so the document names their mechanical layer after them; a layer the fixed map puts on the
-    same mechanical layer stays there."""
+def named_mechanical(board: Board) -> dict[str, int]:
+    """The user layers of a KiCad board whose KiCad user name is ``Mech.<n>`` or ``Mechanical <n>`` (n from
+    1 to 16), each with Mechanical n's id (changes c0412, c0464). The first spelling is the name Fenolite's
+    Altium import gives a mechanical layer (``MECHANICAL_LAYERS``); the second is the name an Altium board
+    record gives it."""
     named: dict[str, int] = {}
     for layer in board.layers:
         if not layer.name.startswith("User."):
@@ -244,6 +242,14 @@ def kicad_mechanical(board: Board) -> dict[str, int]:
         found = _MECH_NAME.fullmatch(user_name or "")
         if found is not None and 1 <= int(found.group(1)) <= 16:
             named[layer.name] = 56 + int(found.group(1))
+    return named
+
+
+def kicad_mechanical(board: Board) -> dict[str, int]:
+    """The drawing-layer map of a KiCad board (change c0412): ``KICAD_MECHANICAL``, except that a layer of
+    ``named_mechanical`` is on its mechanical layer. Named layers come last, so the document names their
+    mechanical layer after them; a layer the fixed map puts on the same mechanical layer stays there."""
+    named = named_mechanical(board)
     fixed = {name: ident for name, ident in KICAD_MECHANICAL.items() if name not in named}
     return {**fixed, **named}
 
@@ -2288,6 +2294,9 @@ def _document(
         origin=origin,
         free_pads=tuple(free_pads),
         layer_ids={**layer_ids, **KEEPOUT_STROKE_IDS},
+        named_layers=frozenset(named_mechanical(board).values())
+        if not read and options is None
+        else frozenset(),
         arc_records=MappingProxyType(arc_records),
         fill_ids=frozenset(g.id for g in graphics if fills.is_fill(g)),
         keepout_strokes=MappingProxyType(
@@ -2911,6 +2920,7 @@ __all__ = [
     "MECHANICAL_LAYERS",
     "KICAD_MECHANICAL",
     "kicad_mechanical",
+    "named_mechanical",
     "MORE_KINDS",
     "DNP_KIND",
     "DNP_REASON",

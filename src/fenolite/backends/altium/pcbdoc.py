@@ -30,6 +30,7 @@ for a module sheet, and after the sheet for the top sheet or the single sheet of
 from __future__ import annotations
 
 import dataclasses
+import re
 import struct
 import zlib
 from collections.abc import Collection, Mapping, Sequence
@@ -721,7 +722,12 @@ class PcbDocSpec:
     component classes are not written, nor a net class without a member that no rule names (change c0461).
     ``SignalClasses.Kept`` holds xSignal classes that follow the ``All xSignals`` super class,
     ``Board6.PinPairs`` the ``PINPAIR`` keys of ``Board6`` as ``|KEY=value`` text, and
-    ``DifferentialPairs6`` the records of that storage (change c0461)."""
+    ``DifferentialPairs6`` the records of that storage (change c0461). ``Board6.Settings`` holds the source's
+    settings of ``Board6`` and its mechanical layer names (change c0464)."""
+    named_layers: frozenset[int] = frozenset()
+    """The mechanical ids (57 … 72) that a KiCad user name ``Mech.<n>`` or ``Mechanical <n>`` placed
+    (change c0464, ``lower.named_mechanical``): layers that came from the Altium source's same layer, which
+    take the source's name when a conversion carried it."""
     fill_ids: frozenset[str] = frozenset()
     """The ids of the filled graphics of ``graphics`` that are written as fill records, not regions (change
     c0450): fills read from an Altium document, which a conversion marks (``lower.fill_ids``)."""
@@ -846,13 +852,15 @@ def board_record(
     layer_names: Mapping[int, str] | None = None,
     arcs: Collection[int] = (),
     pin_pairs: Sequence[Field] = (),
+    settings: Sequence[Field] = (),
 ) -> bytes:
     """The one ``Board6`` record (``docboard``): the outline in the Altium frame, the origin at the board's
     lower-left corner, the layers that primitives lie on. ``frame`` and ``origin`` (change c0090) replace
     the frame of a build and its origin. ``arcs`` (change c0441) are the indices of ``outline`` that start
     an arc through the next point, its middle, to the point after it: the middle is not written as a
     vertex, and the start is written as an arc vertex. ``pin_pairs`` are the xSignal keys a conversion
-    carried (change c0461, ``docboard.board_records``)."""
+    carried (change c0461, ``docboard.board_records``); ``settings`` the source's settings a conversion
+    carried (change c0464, ``docboard.with_settings``)."""
     from fenolite.backends.altium.project import unique_id  # project imports this module
 
     frame = frame if frame is not None else Frame.of(outline)
@@ -882,6 +890,7 @@ def board_record(
         layer_names=layer_names,
         arcs=written,
         pin_pairs=pin_pairs,
+        settings=settings,
     )
     return rec.text_block(text)
 
@@ -2486,6 +2495,7 @@ def _write(
     kept.pop(LEGACY_CLASSES, None)
     signal_classes = kept.pop(KEPT_SIGNAL_CLASSES, None)
     pin_pairs = kept.pop(PIN_PAIRS, None)
+    settings = _settings_fields(kept.pop(SETTINGS)[1]) if SETTINGS in kept else []  # change c0464
     pairs = kept.pop("DifferentialPairs6", None)
     filled["Classes6"] = [
         *class_records(spec.net_classes, nets, filename),
@@ -2542,10 +2552,9 @@ def _write(
                     stack=stack,
                     frame=spec.frame,
                     origin=spec.origin,
-                    layer_names={
-                        ident: name for name, ident in spec.layer_ids.items() if not name.startswith("Mech.")
-                    },
+                    layer_names=_layer_names(spec, used, settings),
                     pin_pairs=_pin_pair_fields(pin_pairs[1]) if pin_pairs is not None else (),
+                    settings=settings,
                 )
             ],
         ),
@@ -2582,6 +2591,9 @@ LEGACY_CLASSES = "Classes6.Component"
 """The kept storage of change c0450, its component classes alone."""
 KEPT_SIGNAL_CLASSES = "SignalClasses.Kept"
 PIN_PAIRS = "Board6.PinPairs"
+SETTINGS = "Board6.Settings"
+"""The kept storage of the source's ``Board6`` settings (change c0464, ``docboard.with_settings``)."""
+_MECHANICAL_NAME = re.compile(r"LAYER(5[7-9]|6[0-9]|7[0-2])NAME")
 
 
 def _split_records(data: bytes) -> list[bytes]:
@@ -2601,6 +2613,27 @@ def _with_records(storage: Storage, more: Sequence[bytes]) -> Storage:
     header, data = streams["Header"], streams["Data"]
     (count,) = struct.unpack_from("<I", header)
     return _storage(storage.name, [data, *more], count=count + len(more))
+
+
+def _settings_fields(data: bytes) -> list[Field]:
+    """The ``|KEY=value`` fields of carried ``Board6.Settings`` text, in order (change c0464)."""
+    return _pin_pair_fields(data)
+
+
+def _layer_names(spec: PcbDocSpec, used: Collection[int], settings: Sequence[Field]) -> dict[int, str]:
+    """The names of the mechanical layers of ``Board6``: each id after the layer of ``spec.layer_ids`` that
+    reaches it (but ``Mech.<n>``, which keeps Altium's name), and after the source's name among the carried
+    ``settings`` (change c0464) when the id is in ``spec.named_layers`` (the layer is the source's) or no
+    layer of ``used`` is it (nothing of the written document lies on it)."""
+    names = {ident: name for name, ident in spec.layer_ids.items() if not name.startswith("Mech.")}
+    for key, value in settings:
+        match = _MECHANICAL_NAME.fullmatch(key)
+        if match is None:
+            continue
+        ident = int(match.group(1))
+        if ident in spec.named_layers or ident not in used:
+            names[ident] = value
+    return names
 
 
 def _pin_pair_fields(data: bytes) -> list[Field]:

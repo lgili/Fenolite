@@ -18,6 +18,7 @@ the physical lists, the layer sets and ``PLANE<k>NETNAME`` follow it (``pcb-copp
 
 from __future__ import annotations
 
+import re
 from collections.abc import Collection, Mapping, Sequence
 from decimal import ROUND_HALF_EVEN, Decimal
 from fractions import Fraction
@@ -498,14 +499,79 @@ def board_records(
     ]
 
 
+OWNED_KEY = re.compile(
+    r"RECORD|SELECTION|LAYER|LOCKED|POLYGONOUTLINE|USERROUTED|KEEPOUT|UNIONINDEX|PRIMITIVELOCK|SPLITLINECOUNT"
+    r"|FILENAME|KIND|VERSION|DATE|TIME|UNIQUEID|ORIGIN[XY]|(?:KIND|VX|VY|CX|CY|SA|EA|R)\d+"
+    r"|SHEET(?:X|Y|WIDTH|HEIGHT)|LOOKAT\.[XYZ]|EYEROTATION\.[XYZ]|ZOOMMULT|VIEWSIZE\.[XY]|VP\.[LH][XY]"
+    r"|GR\d+_O[XY]|GU\d+_.*|PLACEMARKER[XY]\d+|MOVIE.*|3DMOVIESCOUNT|CURRENT3DMOVIEID"
+    r"|LAYER\d+.*|LAYERV\d+_.*|LAYER_V\d+_.*|LAYERMASTERSTACK_.*|LAYERSUBSTACK_.*|LAYERPAIR\d+.*|LAYERSET.*"
+    r"|LAYERSTACKSTYLE|LAYERCOUNT|V\d+_.*|MECHPAIR.*|PLANE\d+.*|(?:TOP|BOTTOM)(?:CONST|HEIGHT|MATERIAL|TYPE)"
+    r"|SHOW(?:TOP|BOTTOM)DIELECTRIC|ROUTINGDIRECTION.*|MIDLAYER\d+_MRLASTWIDTH|TOGGLELAYERS|PINPAIR.*"
+)
+"""The keys of ``Board6`` the writer decides (change c0464): the document's identity, the keys a record
+holds twice, the frame (origin, outline, sheet, camera and viewport, grid origins, guides, place markers,
+movies), the layer stack and its tables, layer sets and pairs, planes, the layer-bound keys and the
+xSignals of change c0461. A conversion never takes them from the source; every other key is a setting."""
+ANCHOR = "@"
+"""The key that opens a run of carried settings in ``Board6.Settings``: its value is the source key the run
+followed (change c0464). No Altium key is ``@``."""
+
+
+def writable_field(key: str, value: str) -> bool:
+    """Whether ``format_line`` writes the field: a key and value of printable 7-bit ASCII without ``|``, a
+    key without ``=``."""
+    text = key + value
+    return bool(key) and "=" not in key and "|" not in text and all(0x20 <= ord(ch) <= 0x7E for ch in text)
+
+
+def with_settings(lines: Sequence[Sequence[Field]], settings: Sequence[Field]) -> list[list[Field]]:
+    """``lines`` (``board_records``) with the carried settings of a source (change c0464,
+    ``Board6.Settings``) merged in order: ``@=<key>`` moves the anchor to ``<key>`` when the record holds it
+    once; an owned key (``OWNED_KEY``), a key the record holds twice and a field ``format_line`` refuses are
+    skipped; a key the record holds once takes the carried value; any other key is written after the anchor,
+    on its line (at the end of the first line before any anchor). Each written or replaced key becomes the
+    anchor."""
+    found = [list(line) for line in lines]
+    counts: dict[str, int] = {}
+    for line in found:
+        for key, _ in line:
+            counts[key] = counts.get(key, 0) + 1
+
+    def where(key: str) -> tuple[int, int] | None:
+        if counts.get(key) != 1:
+            return None
+        for row, line in enumerate(found):
+            for column, (name, _) in enumerate(line):
+                if name == key:
+                    return row, column
+        return None
+
+    anchor: tuple[int, int] | None = None
+    for key, value in settings:
+        if key == ANCHOR:
+            anchor = where(value) or anchor
+            continue
+        if OWNED_KEY.fullmatch(key) or counts.get(key, 0) > 1 or not writable_field(key, value):
+            continue
+        at = where(key)
+        if at is not None:
+            found[at[0]][at[1]] = (key, value)
+            anchor = at
+            continue
+        row, column = anchor if anchor is not None else (0, len(found[0]) - 1)
+        found[row].insert(column + 1, (key, value))
+        counts[key] = 1
+        anchor = (row, column + 1)
+    return found
+
+
 def format_line(fields: Sequence[Field]) -> str:
     """One line of the record as ``|KEY=VALUE`` fields. A key may hold spaces (the routing directions);
     ``ValueError`` for a key or value that is not printable 7-bit ASCII or holds ``|``, or a key with
     ``=``."""
     parts: list[str] = []
     for key, value in fields:
-        text = key + value
-        if not key or "=" in key or "|" in text or not all(0x20 <= ord(ch) <= 0x7E for ch in text):
+        if not writable_field(key, value):
             raise ValueError(f"the field {key!r}={value!r} cannot be written in a board record")
         parts.append(f"|{key}={value}")
     return "".join(parts)
@@ -539,8 +605,11 @@ def board_text(
     layer_names: Mapping[int, str] | None = None,
     arcs: Mapping[int, OutlineArc] | None = None,
     pin_pairs: Sequence[Field] = (),
+    settings: Sequence[Field] = (),
 ) -> str:
-    """The text of the ``Board6`` record: each line as ``|KEY=VALUE`` fields, the lines joined by one CR."""
+    """The text of the ``Board6`` record: each line as ``|KEY=VALUE`` fields, the lines joined by one CR.
+    ``settings`` are the carried settings of a source (change c0464, ``with_settings``), merged before the
+    mechanical layers are named."""
     lines = board_records(
         filename,
         vertices,
@@ -551,6 +620,8 @@ def board_text(
         arcs=arcs,
         pin_pairs=pin_pairs,
     )
+    if settings:
+        lines = with_settings(lines, settings)
     if layer_names:
         names = {f"Mechanical {layer - 56}": name for layer, name in layer_names.items() if 57 <= layer <= 72}
         lines = [[(key, names.get(value, value)) for key, value in line] for line in lines]
@@ -558,7 +629,9 @@ def board_text(
 
 
 __all__ = [
+    "ANCHOR",
     "KIND",
+    "OWNED_KEY",
     "OutlineArc",
     "SPLIT_PLANE",
     "Dielectric",
@@ -576,4 +649,6 @@ __all__ = [
     "polygon_fields",
     "area_threshold_text",
     "split_plane_fields",
+    "with_settings",
+    "writable_field",
 ]

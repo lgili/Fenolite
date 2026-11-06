@@ -82,7 +82,11 @@ def test_kicad_board_holds_the_carried_storages(tmp_path: Path) -> None:
     found = {
         name: data for name, data in boardcarrier.carried(text).items() if name != "Fenolite.Altium.Rules6"
     }
-    assert set(found) == {"Fenolite.Altium.UnionNames", "Fenolite.Altium.Classes6.Kept"}
+    assert set(found) == {
+        "Fenolite.Altium.UnionNames",
+        "Fenolite.Altium.Classes6.Kept",
+        "Fenolite.Altium.Board6.Settings",  # change c0464, not counted as a storage
+    }
     # one write of every carried property (``with_carried``): right after ``setup``, in name order
     lines = [line.lstrip() for line in text.splitlines()]
     names = [line.split('"')[1] for line in lines if line.startswith('(property "Fenolite.')]
