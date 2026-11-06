@@ -178,8 +178,14 @@ EMBEDDED_BOARD_PLACED = (
     "the copies of an Embedded Board Array (the item names the array and its document) are written at the "
     "places Altium gives them (S-1592), each copy's designators suffixed _B<k> and its nets prefixed B<k>/"
 )
+SOURCE_RULE_LOST = (
+    "a rule that came from a rule record of the Altium document the project was converted from, edited in "
+    "KiCad, has no Altium record that holds it as KiCad does"
+)
+"""Change c0434: a loss of such a rule needs consent; a loss of a rule KiCad alone holds is reported."""
 REFUSE_REASONS: Mapping[str, frozenset[str]] = MappingProxyType(
     {
+        "rule": frozenset({SOURCE_RULE_LOST}),  # change c0434
         "cutout": frozenset({OVERLAP_NO_UNION, OVERLAP_NOT_ONE_RING}),
         "embedded-board": frozenset(  # changes c0374 and c0386
             {
@@ -624,6 +630,7 @@ __all__ = [
     "EMBEDDED_BOARD_REASON",
     "REFUSE_REASONS",
     "SCHEMATIC_REFUSED",
+    "SOURCE_RULE_LOST",
     "SOURCE",
     "ConversionReport",
     "Explainer",

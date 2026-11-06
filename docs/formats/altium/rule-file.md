@@ -185,6 +185,25 @@ Altium's priority 1 governs and so does the last rule of KiCad's file; the rules
 through the names `fenolite_<priority>_<name>` (change c0409). A `rules.shadowed` notice after an import
 names the rule Altium applies as the governing one, so it changes no meaning.
 
+### Records through KiCad
+
+A conversion to KiCad also writes the board property `Fenolite.Altium.Rules6` (change c0434,
+`convert.rulecarrier`; `docs/formats/kicad/board.md`, "Fenolite board properties"). It holds every record
+of the document, its kind number and its keys from `RULEKIND` on, with the SHA-256 of each rule list of
+`<name>.kicad_dru` that the record's rules gave, as written. KiCad keeps the property and does not use it.
+A conversion of the board back to Altium reads it. Two cases:
+
+- A record whose rule lists are all still in the rules file as written, or that gave none (every `kept`
+  record above), is written as it was read: its name, priority, scopes, enabled state and limits.
+- A record whose rule lists were edited or removed in KiCad is not written from the property. Its rules are
+  lowered as KiCad holds them, with the next priority of their kind. A rule of such a record that no
+  Altium record can hold is a loss that needs `--allow-lossy` (`SOURCE_RULE_LOST`). A loss of a rule that
+  KiCad alone holds is reported only.
+
+On that way back no other record is added: no rule of a net class, no `All` default, no Polygon Connect
+Style lowered from the zones when the source holds one, and no plane rule of a kind that the source holds.
+Without the file, the way back writes the rules of the KiCad project, as before.
+
 ## Reasons
 
 `rules.UNMAPPED_REASONS`: every record that gives no rule is listed with the first reason that holds,

@@ -2191,6 +2191,7 @@ def write_design(
     sheets: project.SheetMode = project.DEFAULT_SHEETS,
     edges: Outline | None = None,
     pour: PourMode | None = None,
+    source_rules: Sequence[tuple[int, tuple[tuple[str, str], ...]]] = (),
 ) -> ProjectWrite:
     """The files of an Altium project written from ``design`` alone: ``<name>.PcbDoc`` when the design holds a
     board with an outline or an item, and ``<name>.SchDoc`` with its libraries and ``<name>.PrjPcb`` when the
@@ -2202,7 +2203,9 @@ def write_design(
     read board as an outline. ``pour`` is the pour mode of the PCB document (change c0215): ``None`` is
     ``computed``, which writes the outline with one ``altium.pour-unavailable`` warning without the ``geo``
     extra; an explicit ``computed`` raises ``BackendUnavailable`` then; a rewrite (``rewrite``) pours every
-    polygon again."""
+    polygon again. ``source_rules`` (change c0434) are the rule records of the Altium document a conversion
+    started from, each its kind number and its keys from ``RULEKIND`` on: the document holds them as they
+    are, then only the rules of ``design`` that none of them gave (``PcbDocSpec.source_rules``)."""
     refuse_bom_only(design)
     if schematic is not None:
         refuse_bom_only(schematic)
@@ -2216,6 +2219,10 @@ def write_design(
         bodies=bodies,
         edges=edges,
     )
+    if source_rules and inputs.pcb is not None:  # the source's own rule records (change c0434)
+        inputs = dataclasses.replace(
+            inputs, pcb=dataclasses.replace(inputs.pcb, source_rules=tuple(source_rules))
+        )
     if schematic is not None:
         inputs = dataclasses.replace(inputs, schematic=schematic_design(schematic, inputs.name))
         if inputs.pcb is not None and sheets == "modules":

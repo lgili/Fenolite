@@ -1107,6 +1107,20 @@ The bounded c0355 observation additionally covers original through-hole and cham
 
 `ORACLE-VERIFIED(KiCad10.0.6)`: a direct footprint `zone_connect` wire integer0/1/2 produces distinct ordinary-fill results in the original SMD control;3 matches2 in that control only. No through-hole behavior is inferred. An original silkscreen `gr_text` with an explicit face acquires `render_cache` text matching the owner, followed by its rotation and ordered `polygon/pts/xy` coordinate pairs. Changing only owner rotation0→90 changes that scalar accordingly. Translating the owner5mm/7mm translates all14 ordered cache polygons exactly, with no vertex/ring normalization. The test-only descriptor is limited to F/B.SilkS and refuses unknown members/malformed or ambiguous ownership. No glyph geometry is committed, no cache is seeded, and no copper-cache exception is implied. Receipt: `openspec/changes/c0355-verified-native-identity/numeric-role-ledger-proof.json`.
 
+## Fenolite board properties (c0434)
+
+A conversion from Altium keeps the data the way back needs in root properties of the board, named
+`Fenolite.Altium.<Name>`, whose value is the base64 text of zlib-compressed bytes
+(`backends/kicad/boardcarrier.py`). The value holds no character that needs escaping.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| A root `(property "NAME" "VALUE")` written after `setup` loads; `pcb upgrade --force` keeps it after `setup`, with its value, also a value of 80 kB | S-0020 | KICAD-VERIFIED (10.0.6) | H-K-FENOLITE-PROPS |
+
+`with_carried` writes every `Fenolite.Altium.*` property in name order right after `setup` and changes no
+other byte; `carried` reads them back. Change c0434 writes `Fenolite.Altium.Rules6`
+(`docs/formats/altium/rule-file.md`, "Records through KiCad").
+
 ## Authored native TAB value observations
 
 | Fact | Source | Evidence |

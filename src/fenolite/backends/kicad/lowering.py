@@ -117,6 +117,29 @@ def lowered_names(rules: Sequence[Rule]) -> tuple[str, ...]:
     return tuple(names)
 
 
+def _named(ruleset: RuleSet, design: Design | None) -> tuple[tuple[tuple[Rule, str], ...], tuple[Issue, ...]]:
+    from fenolite.backends.kicad.topology import lower_topologies
+
+    topology_rules, topology_issues = lower_topologies(ruleset, design=design)
+    ordered = rulemap.rule_order((*ruleset.rules, *topology_rules))
+    return tuple(zip(ordered, lowered_names(ordered), strict=True)), tuple(topology_issues)
+
+
+def written_names(ruleset: RuleSet, design: Design | None = None) -> dict[str, tuple[str, ...]]:
+    """Rule id → the names of the rule lists ``lower_rules`` writes for it (change c0434): its
+    ``lowered_names`` name, or one name per layer for a rule of several layers. A rule the writer leaves
+    out still has its names; the rules file then holds none of them."""
+    found: dict[str, tuple[str, ...]] = {}
+    for rule, name in _named(ruleset, design)[0]:
+        layered = (
+            tuple(f"{name}_{rulemap.slug(layer)}" for layer in rule.layers)
+            if len(rule.layers) > 1
+            else (name,)
+        )
+        found[rule.id] = found.get(rule.id, ()) + layered
+    return found
+
+
 def lower_rules(
     ruleset: RuleSet, *, target: int = DEFAULT_TARGET, allow_lossy: bool = False, design: Design | None = None
 ) -> LoweredRules:
@@ -130,14 +153,8 @@ def lower_rules(
             "this rule set was read from a rules file; "
             "write it with write_rules, which keeps its order and names"
         )
-    from fenolite.backends.kicad.topology import lower_topologies
-
-    topology_rules, topology_issues = lower_topologies(ruleset, design=design)
-    ordered = rulemap.rule_order((*ruleset.rules, *topology_rules))
-    renamed = tuple(
-        dataclasses.replace(rule, name=name, ext={})
-        for rule, name in zip(ordered, lowered_names(ordered), strict=True)
-    )
+    named, topology_issues = _named(ruleset, design)
+    renamed = tuple(dataclasses.replace(rule, name=name, ext={}) for rule, name in named)
     issues: list[Issue] = list(topology_issues)
     text = write_rules(
         dataclasses.replace(ruleset, ext={}, rules=renamed),

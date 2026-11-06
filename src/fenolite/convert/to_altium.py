@@ -24,8 +24,9 @@ from fenolite.backends.kicad import fpitems
 from fenolite.backends.kicad.outline import edge_outline
 from fenolite.convert import pads, schematic
 from fenolite.convert.direction import Direction, Options, TargetLimitError, Written
-from fenolite.convert.report import ConversionReport, census
+from fenolite.convert.report import SOURCE_RULE_LOST, ConversionReport, census
 from fenolite.convert.sources import ALTIUM, KICAD, SourceProject
+from fenolite.core.errors import FormatError
 from fenolite.core.evidence import Evidence, Level
 from fenolite.model.design import Design
 
@@ -103,12 +104,72 @@ def _zone_fills(
     return {reason: ids for reason, ids in found.items() if ids}
 
 
+@dataclasses.dataclass(frozen=True, slots=True)
+class _Carried:
+    """What the rule records carried beside the project give the way back (change c0434): the design
+    without the rules those records give again, the records written as they are, the names of the rules
+    that came from a record and were edited in KiCad, and how many rules the records stand for (the rules
+    taken out, and one per record that gave none)."""
+
+    design: Design
+    records: tuple[tuple[int, tuple[tuple[str, str], ...]], ...] = ()
+    edited: frozenset[str] = frozenset()
+    count: int = 0
+
+
+def _carried(source: SourceProject, design: Design) -> _Carried:
+    """The rule records an Altium conversion wrote in the board (``rulecarrier.PROPERTY``), read against the
+    project's rules file as it is now; nothing without the property or for one that does not read."""
+    from fenolite.backends.kicad.boardcarrier import carried as board_carried
+    from fenolite.convert.rulecarrier import PROPERTY, dru_blocks, read_carrier
+
+    rules = design.rules
+    if rules is None or source.path.suffix != ".kicad_pcb":
+        return _Carried(design)
+    try:
+        payload = board_carried(source.path.read_text(encoding="utf-8")).get(PROPERTY)
+        if payload is None:
+            return _Carried(design)
+        carried = read_carrier(payload.decode("utf-8"))
+    except (OSError, UnicodeDecodeError, ValueError, FormatError):
+        return _Carried(design)
+    dru = source.files.get(source.path.stem + ".kicad_dru")
+    current = dru_blocks(dru.read_text(encoding="utf-8") if dru is not None else None)
+    kept = [record for record in carried if record.kept(current)]
+    taken = {name for record in kept for name in record.blocks}
+    edited = frozenset(name for record in carried if not record.kept(current) for name in record.blocks)
+    left = tuple(rule for rule in rules.rules if rule.name not in taken)
+    count = len(rules.rules) - len(left) + sum(1 for record in kept if not record.blocks)
+    design = dataclasses.replace(design, rules=dataclasses.replace(rules, rules=left))
+    return _Carried(design, tuple((r.number, r.fields) for r in kept), edited, count)
+
+
+def _source_rule_losses(
+    lost: dict[str, tuple[str, ...]], design: Design, edited: frozenset[str]
+) -> dict[str, tuple[str, ...]]:
+    """The rule losses with each rule that came from a source record and was edited in KiCad moved to
+    ``SOURCE_RULE_LOST``, which needs consent (change c0434)."""
+    names = {rule.id: rule.name for rule in design.rules.rules} if design.rules is not None else {}
+    moved: list[str] = []
+    found: dict[str, tuple[str, ...]] = {}
+    for reason, ids in lost.items():
+        stay = tuple(i for i in ids if names.get(i) not in edited)
+        moved += [i for i in ids if names.get(i) in edited]
+        if stay:
+            found[reason] = stay
+    if moved:
+        found[SOURCE_RULE_LOST] = tuple(moved)
+    return found
+
+
 def write(source: SourceProject, options: Options) -> Written:
     """The Altium project of a KiCad source, with its report. Its copper graphics take the net their KiCad
     slot names (``fpitems.with_graphic_nets``), as a build's do: without it a netted copper shape is written
     with no net and shorts the copper it touches (changes c0439, c0441)."""
     projected = fpitems.with_footprint_items(_named(source.design, options.name)).design
     design = pads.project(fpitems.with_graphic_nets(projected))
+    carried = _carried(source, design)  # change c0434: the source's own rule records
+    design = carried.design
     sch, symbols, changed_comments = schematic.inputs(source, design)
     board = design.board
     # the edges as an outline (change c0170): the board ring as before, each inner ring a cut-out region
@@ -127,6 +188,7 @@ def write(source: SourceProject, options: Options) -> Written:
             # a conversion never falls back to unpoured polygons without saying so (change c0436): the
             # default mode is asked for explicitly, so a missing geo extra raises BackendUnavailable
             pour=options.pour or "computed",
+            source_rules=carried.records,
         )
     except CompoundTooLarge as error:
         raise TargetLimitError(
@@ -151,7 +213,13 @@ def write(source: SourceProject, options: Options) -> Written:
             "a literal comment starting with = is written with a leading space": changed_comments
         }
     lost.update(_extra_losses(design, written))
+    if "rule" in lost and carried.edited:
+        lost["rule"] = _source_rule_losses(lost["rule"], design, carried.edited)
     counts = census(design)
+    held = dict(inputs.written)
+    if carried.count:  # the rules the source's records give again, as they were read
+        counts["rule"] = counts.get("rule", 0) + carried.count
+        held["rule"] = held.get("rule", 0) + carried.count
     if design.circuit.components:
         counts[SCHEMATIC] = 1
     name = inputs.name
@@ -161,7 +229,7 @@ def write(source: SourceProject, options: Options) -> Written:
                 design.header.id,
             )
         }
-    report = ConversionReport.of(source=counts, written=dict(inputs.written), changed=changed, lost=lost)
+    report = ConversionReport.of(source=counts, written=held, changed=changed, lost=lost)
     issues = tuple(
         issue for issue in written.issues if issue.code != lower.NOT_LOWERED or issue.where == SCHEMATIC
     )

@@ -47,7 +47,7 @@ from fenolite.convert.report import (
     census,
 )
 from fenolite.convert.sources import KICAD, SourceProject
-from fenolite.core.errors import Issue
+from fenolite.core.errors import FormatError, Issue
 from fenolite.core.evidence import Evidence, Level
 from fenolite.core.ids import derived_id
 from fenolite.core.trig import FULL_TURN
@@ -264,6 +264,7 @@ __all__ = ["DIRECTION", "DOWNGRADE_PROFILE", "EVIDENCE", "PROFILE", "WRITER_KIND
 
 if TYPE_CHECKING:
     from fenolite.convert.altium_to_kicad import Ledger
+    from fenolite.convert.rulecarrier import Carried
 
 EDGE_LAYER = "Edge.Cuts"
 HOLE_KIND = "hole"
@@ -436,6 +437,43 @@ def merged_cutouts(design: Design, ledger: Ledger) -> tuple[Design, int]:
     return dataclasses.replace(design, board=board), len(groups)
 
 
+def _carried_rules(source: SourceProject, design: Design, rules_text: str | None) -> tuple[Carried, ...]:
+    """Every rule record of the source's PCB document with the rule lists of ``rules_text`` that its rules
+    gave (change c0434, ``rulecarrier``); none when the document cannot be read or holds no rule."""
+    from fenolite.backends.altium.adapter.rules import kept_fields, kept_text
+    from fenolite.backends.altium.read.pcb import read_pcbdoc
+    from fenolite.backends.kicad.lowering import written_names
+    from fenolite.convert.altium_to_kicad import board_document
+    from fenolite.convert.rulecarrier import Carried, dru_blocks
+
+    path = board_document(source, source.design)
+    if path is None:
+        return ()
+    try:
+        records = read_pcbdoc(path.read_bytes(), file=path.name).rules
+    except (OSError, FormatError):
+        return ()
+    names: dict[int, list[str]] = {}
+    if design.rules is not None and source.design.rules is not None:
+        # the prepared rules keep their ids, not their provenance: the source's rules name the record
+        written = written_names(design.rules, design)
+        for rule in source.design.rules.rules:
+            locator = rule.provenance.locator if rule.provenance is not None else ""
+            head, _, index = locator.partition("#")
+            if head.endswith("/Data") and index.isdigit():
+                names.setdefault(int(index), []).extend(written.get(rule.id, ()))
+    blocks = dru_blocks(rules_text)
+    carried: list[Carried] = []
+    for index, record in enumerate(records):
+        fields = tuple(record.record.fields)
+        if "RULEKIND" not in [key for key, _value in fields]:
+            continue
+        number, pairs = kept_fields(kept_text(record.kind_number, fields))
+        held = {n: blocks[n] for n in names.get(index, ()) if n in blocks}
+        carried.append(Carried(number, pairs, held))
+    return tuple(carried)
+
+
 def write_altium(source: SourceProject, options: Options) -> Written:
     """Altium to a coherent KiCad project and derived libraries (c0161). Overlapping cut-outs are merged
     (``merged_cutouts``), and each board hole is the generated footprint of ``design.hole``
@@ -545,6 +583,13 @@ def write_altium(source: SourceProject, options: Options) -> Written:
     records = altium_rules.record_fates(source.design, ledger)
     if records:
         counts["rule"] = counts.get("rule", 0) + records
+    carried = _carried_rules(source, design, texts.get(f"{name}.kicad_dru"))
+    if carried:  # change c0434: every rule record travels in the board, for the way back
+        from fenolite.backends.kicad.boardcarrier import with_carried
+        from fenolite.convert import rulecarrier
+
+        payload = rulecarrier.carrier_text(carried).encode("utf-8")
+        texts[f"{name}.kicad_pcb"] = with_carried(texts[f"{name}.kicad_pcb"], {rulecarrier.PROPERTY: payload})
     report = ConversionReport.of(
         source=counts,
         changed={

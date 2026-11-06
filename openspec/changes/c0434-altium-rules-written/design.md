@@ -32,8 +32,30 @@
    lost row, in report order, and its message adds "--allow-lossy also loses items of …". The CLI already
    copies a refusal's `issues` into the envelope (`cli/main.py`), so the envelope carries them on a dry run.
 
+4. **A board property, not KiCad rules and not a file beside the board.** The records travel in the
+   root property `Fenolite.Altium.Rules6` of the `.kicad_pcb` (`backends.kicad.boardcarrier`, shared with
+   change c0450), not as KiCad rules, not as comments of the rules file and not in a file beside the
+   project, which goes stale or is lost when only the board travels. KiCad keeps neither comments nor
+   unknown constraints when it saves a rules file; a re-save keeps a board property (H-K-FENOLITE-PROPS).
+   The property holds each record from `RULEKIND` on, the form the kept records of c0424 use, and the
+   SHA-256 of each rule list the record gave as Fenolite writes it (`dru.rule_text`). A record is kept when
+   each of its rule lists is in the rules file with that hash; a reformatted list counts as edited, which
+   errs on the side of KiCad's rule.
+5. **Records first, then what KiCad added.** With source records, `rule_records` writes them as given,
+   then the lowered rules that no kept record accounts for (KiCad-only or edited) with the next priority of
+   their kind and a name not yet written, then the kept records of c0424. No c0038 rule and no `All`
+   default. The Plane Connect and Plane Clearance rules of c0389 only for a kind no record holds. The
+   Polygon Connect Style records of the zones are not written when a record of that kind is.
+6. **Which losses refuse.** A lost rule whose rule list a source record gave is `SOURCE_RULE_LOST`
+   (refuse class): the user edited a source rule into a form Altium cannot hold. A rule only KiCad holds
+   is still a `report` loss. The report's `rule` row counts the rules the written records stand for.
+   Netclass counting in this mode covers the width and via kinds only, which are the ones c0038 wrote.
+
 ## Proof
 
 `tests/corpus/test_altium_rules_c0434.py` converts the public -08 to KiCad and back with outline pours. It
 compares the written rule records with the source's by kind and limits. It reads kinds, counts and limits
 only.
+With the carrier, the test asserts that the 56 records come back equal, keys and values from `RULEKIND` on.
+`tests/unit/convert/test_rule_carrier_c0434.py` proves the edited, removed and added cases on an authored
+document.

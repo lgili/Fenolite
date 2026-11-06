@@ -34,3 +34,17 @@
 - **GIVEN** a model with a net class that holds a clearance, a track width and a via size, and no rule of its own
 - **WHEN** `lower.from_design` lowers it without options
 - **THEN** `class_kinds` is Clearance alone: the class's Clearance record and the `All` Clearance are written, no class Width or Routing Via Style record, and the class is counted `changed`; with a clearance rule on every object `class_kinds` is empty
+
+## ADDED Requirements
+
+### Requirement: Source rule records written back
+`PcbDocSpec.source_rules` SHALL hold the rule records of the Altium document a conversion started from (change c0434), each its kind number and its keys from `RULEKIND` on; it is empty for every build. With records there, `rule_records` SHALL write:
+- first each record as it is, in its order, after the common keys;
+- then each lowered rule of `spec.design_rules` with the next priority of its kind and a name not yet written (`_2`, `_3`…);
+- then the kept records (change c0424).
+- No rule of a net class and no `All` default MUST be written. The Plane Connect and Plane Clearance rules of c0389 are written only for a kind that no record holds. The Polygon Connect Style records lowered from the zones MUST NOT be written when a record is of that kind.
+
+#### Scenario: Records and one lowered rule
+- **GIVEN** a spec whose `source_rules` hold a Width named `Signal Width` of priority 3 and whose design rules lower to one Width named `Signal Width`
+- **WHEN** `write_pcbdoc` runs
+- **THEN** `Rules6` holds the record as given, then a Width named `Signal Width_2` of priority 4, and no other Width, Clearance or Routing Via Style record

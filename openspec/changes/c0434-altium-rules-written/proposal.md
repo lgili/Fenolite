@@ -37,23 +37,37 @@ The refusal without `--allow-lossy` (`FEN-7001`) names the `refuse` kinds only. 
   with invented limits.
 - **Every loss before consent.** `LossyConversionError` and the Altium writer's `LossyWriteError` list
   every loss that consent would accept. Their messages name the other lost kinds.
+- **Rule records through KiCad** (extension, owner's board report). A board taken from Altium to KiCad and
+  back lost every record that KiCad has no rule for (Component Height, Silk To Board Region, Minimum Solder
+  Mask Sliver, disabled rules, Assembly Test Point Usage, Plane Clearance and Connect, about 16 records),
+  wrote the others with generated names (`Clearance_<class>_to_<class>`) and new priorities, and refused
+  the Routing Via Style, Width and Hole Size records whose limits KiCad holds in part.
+  - The conversion to KiCad writes the board property `Fenolite.Altium.Rules6` (zlib and base64, through
+    the shared `backends.kicad.boardcarrier`): every rule record of the source as read, with a hash of each
+    rule list of the rules file it gave.
+  - The conversion back writes each record whose rule lists are unchanged, or that gave none, as read:
+    name, priority, scopes, enabled state and limits. Only the rules no such record accounts for are
+    lowered, with the next priority of their kind. Nothing is added: no class rule, no `All` default.
+  - A rule of an edited source record that cannot be written is a loss of reason `SOURCE_RULE_LOST`, which
+    needs `--allow-lossy`. A rule that only KiCad holds stays a reported loss.
 
 ## Capabilities
 
-- `altium-pcb-writer`: "Design rule records", modified.
-- `design-conversion`: "Lossy conversions need consent", modified.
+- `altium-pcb-writer`: "Design rule records", modified; "Source rule records written back", added.
+- `design-conversion`: "Lossy conversions need consent", modified; "Rule records through KiCad", added.
 
 ## Out of scope
 
 - The Plane Connect and Plane Clearance `All` records of change c0389 (task 2.7). They stand for Altium's
   own default when a stack holds a plane.
-- Rules lost on the way to KiCad: Routing Via Style, Differential Pairs Routing, masks and others. Their
-  records do not come back. -08 keeps 8 of its 56 rules in the KiCad rules file.
+- Checking the carried records in KiCad. KiCad keeps the property and does not use it; a record KiCad has no rule for is
+  carried, not checked.
 - Writing Component Clearance, Silk To Silk Clearance and Differential Pairs Routing records from neutral
   rules. Each needs keys that no neutral rule holds.
 
 ## Impact
 
 - `backends/altium/pcbdoc.py` (`PcbDocSpec.class_kinds`), `backends/altium/lower.py`,
-  `convert/__init__.py`.
-- Docs: `altium.md`, `pcb-copper.md`, `sources.md` (S-1930, S-1931).
+  `convert/__init__.py`, `convert/rulecarrier.py` (new), `backends/kicad/boardcarrier.py` (new),
+  `convert/to_kicad.py`, `convert/to_altium.py`, `convert/report.py`, `backends/kicad/lowering.py` (`written_names`).
+- Docs: `altium.md`, `pcb-copper.md`, `rule-file.md`, `conversion.md`, `kicad/board.md`, `hypotheses.md`, `sources.md` (S-1930, S-1931).

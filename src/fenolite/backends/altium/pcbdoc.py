@@ -619,6 +619,10 @@ class PcbDocSpec:
     """The kept rule records of a document that was read (the board's ``kept_rule`` pairs, change c0424):
     each its kind number and its keys from ``RULEKIND`` on. ``rule_records`` writes them back; empty for
     every build."""
+    source_rules: tuple[tuple[int, tuple[Field, ...]], ...] = ()
+    """The rule records of the Altium document a conversion started from (change c0434): each its kind
+    number and its keys from ``RULEKIND`` on, carried through KiCad by the conversion. ``rule_records``
+    writes them first, as they are, with their own names and priorities; empty for every build."""
 
 
 def _u32(value: int) -> bytes:
@@ -1830,6 +1834,8 @@ def rule_records(spec: PcbDocSpec, filename: str) -> list[bytes]:
     back on its own default."""
     if not spec.rules:
         return []
+    if spec.source_rules:
+        return _source_records(spec, filename)
     has_copper = bool(spec.tracks or spec.arcs or spec.vias or spec.zones or spec.net_classes)
     planned: list[_Planned] = []
     planned.extend(
@@ -1868,6 +1874,48 @@ def rule_records(spec: PcbDocSpec, filename: str) -> list[bytes]:
             out.append(_rule(number, kind, name, ALL_SCOPE, 1, keys, filename, net_scope="AnyNet"))
     out += _kept_records(spec.kept_rules, counts, names)
     return out
+
+
+def _source_records(spec: PcbDocSpec, filename: str) -> list[bytes]:
+    """The ``Rules6`` records of a conversion that carried its source's rules (change c0434, capability
+    altium-pcb-writer, "Source rule records written back"): each record of ``spec.source_rules`` as it is,
+    in its order, then each lowered rule of ``spec.design_rules`` (a rule that no source record gave) with
+    the next priority of its kind and a name not yet written (``_2``, ``_3``…), then the kept records. No
+    rule of a net class and no default is added; the plane rules of c0389 only for a kind no record has."""
+    out: list[bytes] = []
+    names: set[str] = set()
+    top: dict[str, int] = {}
+    for number, fields in spec.source_rules:
+        held = dict(fields)
+        kind = held.get("RULEKIND", "")
+        names.add(held.get("NAME") or "")
+        top[kind] = max(top.get(kind, 0), _priority(fields))
+        out.append(
+            struct.pack("<H", number) + rec.property_block([*common_fields("TOP"), *fields], spaced_keys=True)
+        )
+    for lowered in spec.design_rules:
+        top[lowered.kind] = top.get(lowered.kind, 0) + 1
+        name, count = lowered.name, 1
+        while name in names:
+            count += 1
+            name = f"{lowered.name}_{count}"
+        names.add(name)
+        priority, scope, net = top[lowered.kind], lowered.scope1, lowered.net_scope
+        out.append(
+            _rule(lowered.number, lowered.kind, name, scope, priority, lowered.keys, filename,
+                  second=lowered.scope2, net_scope=net)
+        )  # fmt: skip
+    if document_stack(spec).planes:
+        for number, kind, keys in (
+            (RULE_PLANE_CONNECT, "PlaneConnect", PLANE_CONNECT_KEYS),
+            (RULE_PLANE_CLEARANCE, "PlaneClearance", PLANE_CLEARANCE_KEYS),
+        ):
+            if kind not in top:
+                top[kind] = 1
+                names.add(kind)
+                out.append(_rule(number, kind, kind, ALL_SCOPE, 1, keys, filename, net_scope="AnyNet"))
+    counts = dict(top)
+    return out + _kept_records(spec.kept_rules, counts, names)
 
 
 def _priority(fields: Sequence[Field]) -> int:
@@ -2127,7 +2175,8 @@ def _write(
         *component_class_records(spec.components, filename),
     ]
     filled["Rules6"] = rule_records(spec, filename)
-    if computed and spec.zones and spec.rules:
+    carried = any(dict(fields).get("RULEKIND") == "PolygonConnect" for _n, fields in spec.source_rules)
+    if computed and spec.zones and spec.rules and not carried:  # the source's own records stand (c0434)
         filled["Rules6"] += connect_records(spec, filename)[0]
     filled[BODY_STORAGES[0]], filled[BODY_STORAGES[1]] = body_records(spec, frame)
     filled["EmbeddedBoards6"] = list(spec.embedded_arrays)

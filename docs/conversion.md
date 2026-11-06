@@ -84,7 +84,10 @@ the same issues are warnings. A loss of a `report` kind needs no consent and giv
 `convert.lossy` warning: every row with lost items has one (change c0429), so the issues and the report
 always name the same kinds. Each kind with changes
 gives one `convert.changed` info, and each kind with kept items one `convert.kept` info. An Altium
-rule record has one fate (`docs/formats/altium/rule-file.md`, "Fates in a conversion").
+rule record has one fate (`docs/formats/altium/rule-file.md`, "Fates in a conversion"). A conversion of
+an Altium document to KiCad writes every rule record into the board property `Fenolite.Altium.Rules6`,
+and the conversion back writes the records KiCad left as written as they were read (change c0434,
+"Records through KiCad" of the same page).
 
 The vocabulary is closed (`fenolite.convert.report.KINDS`), one table for every direction:
 
