@@ -19,5 +19,17 @@
 
 - [x] 3.1 `pcb-records.md` records the census of cut-outs (rows `-01`, `-02`, `-06`, `-08`; S-1980) and the round trip of row `-01` (S-1981);
   `uv run pytest tests/unit/test_format_facts.py`.
-- [ ] 3.2 altium-rounds-2 opens the kit `c0438-cutouts` and a rewritten row `-06` in Altium Designer: the cut-outs show as
-  polygon cut-outs and DRC finds no new short or keep-out clearance violation (kit request).
+- [x] 3.2 altium-rounds-2 opens the kit `c0439-cutouts` (round trips of rows `-01` and `-06`) in Altium Designer:
+  the cut-outs show as polygon cut-outs and DRC finds no new short or keep-out clearance violation (kit request).
+  Result, Altium 24.5.2.23, 2026-11-06:
+  - All four documents open with no dialog, message or repair prompt.
+  - Polygon cut-outs (`KIND=1`) match the source per layer: `-01` Top 1 and Bottom 1; `-06` Top 8, Bottom 2
+    and Multi-Layer 3. Free netted copper of `-01` matches the source (Top 32, Bottom 13).
+  - After Repour All, DRC with each document's own rules:
+    - `-01`: Short-Circuit 0 and Clearance 0, against 968 and 878 before this change.
+    - `-06`: Clearance goes from 25 to 0 and Board Outline Clearance from 16 to 0; no Short-Circuit.
+  - Findings outside this change, left to their own changes:
+    - Un-Routed and Net Antennae on vias and tracks (c0444).
+    - Board cut-outs owned by a component written as keep-outs (c0443).
+    - Keep-Out-layer lines written as regions (c0442).
+    - Mask and silk counts (c0440).
