@@ -133,3 +133,26 @@ def test_equivalent_sees_a_shape_that_lost_its_net(tmp_path: Path) -> None:
     assert [(d.kind, d.where) for d in lost.differences] == [("copper-no-net", "(no net):top")]
     kept = compare_designs(source, read, level=5, tolerances=TOLERANCES, frame="relative")
     assert not [d for d in kept.differences if d.kind == "copper-no-net"]
+
+
+def test_copper_without_net_compares_in_the_relative_frame(tmp_path: Path) -> None:
+    """Copper of no net moved with the whole board is the same copper once level 4's translation is taken
+    out (lote-27): KiCad's own importer writes the board in another frame."""
+    from fenolite.checks.equivalence.routing import stray_differences
+    from fenolite.core.coords import Point
+
+    _, data = _converted()
+    read = _read_back(tmp_path, data)
+    board = _board(read)
+    graphics = tuple(
+        dataclasses.replace(g, net_id=None) if g.layer == "F.Cu" and g.filled else g for g in board.graphics
+    )
+    netless = dataclasses.replace(read, board=dataclasses.replace(board, graphics=graphics))
+    shift = Point(5_000_000, -7_000_000)
+    moved_graphics = tuple(
+        dataclasses.replace(g, points=tuple(Point(p.x + shift.x, p.y + shift.y) for p in g.points))
+        for g in graphics
+    )
+    moved = dataclasses.replace(read, board=dataclasses.replace(board, graphics=moved_graphics))
+    assert stray_differences(netless, moved, TOLERANCES)
+    assert stray_differences(netless, moved, TOLERANCES, shift) == []

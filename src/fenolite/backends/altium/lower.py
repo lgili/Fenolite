@@ -23,16 +23,17 @@ import re
 from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
+from fractions import Fraction
 from types import MappingProxyType
 from typing import cast
 
 import fenolite.backends.altium.connectstyle as connectstyle
+import fenolite.backends.altium.keepout_lines as keepout_lines
 import fenolite.backends.altium.pcbdoc as pcbdoc
 import fenolite.backends.altium.pcblib as pcblib
 import fenolite.backends.altium.pcbrecords as rec
 import fenolite.backends.altium.project as project
 import fenolite.backends.altium.rulemap as rulemap
-from fenolite.backends.altium import keepout_lines
 from fenolite.backends.altium.altsym import AltiumSymbol
 from fenolite.backends.altium.ascii import text_problem
 from fenolite.backends.altium.cfb import CompoundTooLarge, name_key
@@ -2013,7 +2014,10 @@ def _document(
     read = BACKEND in board.native_ids
     if read:
         frame = pcbdoc.Frame.document()
-    elif options is None:  # a conversion: the board moves by whole units, so its shape is kept (c0441)
+    elif options is None and all(_on_units(p.x) and _on_units(p.y) for p in outline):
+        # a conversion of a board whose outline lies on whole document units, as one that came from a PCB
+        # document does: the board moves by whole units, so its shape is kept (c0441). Any other board is
+        # anchored at its corner as a build anchors it, so a build and a write of one design agree (lote-27)
         frame = pcbdoc.Frame.on_units(outline)
     else:
         frame = pcbdoc.Frame.of(outline)
@@ -2585,6 +2589,12 @@ def moved(board: Board, dx: int, dy: int) -> Board:
         graphics=tuple(dataclasses.replace(g, points=ring(g.points)) for g in board.graphics),
         holes=tuple(dataclasses.replace(h, position=at(h.position)) for h in board.holes),
     )
+
+
+def _on_units(nm: int) -> bool:
+    """Whether ``nm`` is a whole number of document units rounded to the nanometre, as a length read from a
+    PCB document is (``pcbrecords.to_units``; lote-27)."""
+    return round(Fraction(rec.to_units(nm) * 127, 50)) == nm
 
 
 def in_frame_of(model: Design, reading: Design) -> Design:

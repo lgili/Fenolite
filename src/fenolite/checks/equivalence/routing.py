@@ -612,6 +612,7 @@ NOTICES = frozenset({"route-stub", "route-unjudged"})
 # --- end of the rule -------------------------------------------------------------------------------
 
 
+_ORIGIN = Point(0, 0)
 NO_NET_PLACE = "(no net)"
 """Where a ``copper-no-net`` difference is located, followed by ``:`` and the span of its layer."""
 StrayPiece = tuple[str, str, int, tuple[Point, ...]]
@@ -675,7 +676,11 @@ def stray_copper(design: Design) -> list[StrayPiece]:
             found.append((span, "segment", graphic.width, _sorted_points(points)))
         else:
             found.append((span, "arc", graphic.width, tuple(points)))
-    return sorted(found, key=lambda p: (_span_rank(p[0]), p[1], p[2], [(q.x, q.y) for q in p[3]]))
+    return sorted(found, key=_stray_order)
+
+
+def _stray_order(piece: StrayPiece) -> tuple[object, ...]:
+    return (_span_rank(piece[0]), piece[1], piece[2], [(q.x, q.y) for q in piece[3]])
 
 
 def _same_stray(a: StrayPiece, b: StrayPiece, tolerances: Tolerances) -> bool:
@@ -695,10 +700,22 @@ def _stray_text(piece: StrayPiece) -> str:
     return f"{form} width {width} at " + " ".join(f"{p.x},{p.y}" for p in points)
 
 
-def stray_differences(a: Design, b: Design, tolerances: Tolerances) -> list[Difference]:
+def stray_differences(
+    a: Design, b: Design, tolerances: Tolerances, shift: Point = _ORIGIN
+) -> list[Difference]:
     """One ``copper-no-net`` difference per piece of ``stray_copper`` that one side holds and no piece of the
-    other matches within the length tolerance (change c0439), located at ``(no net):<span>``."""
-    left, right = stray_copper(a), stray_copper(b)
+    other matches within the length tolerance (change c0439), located at ``(no net):<span>``. Side ``b``'s
+    pieces are moved by minus ``shift``, the translation level 4 removed, as level 7 moves its shapes: a
+    board written in another frame holds the same copper elsewhere. A piece a side holds twice is one piece:
+    the copper is the same, and KiCad's importer writes a doubled track once (lote-27)."""
+    left = sorted(set(stray_copper(a)), key=_stray_order)
+    right = sorted(
+        {
+            (span, form, width, tuple(Point(p.x - shift.x, p.y - shift.y) for p in points))
+            for span, form, width, points in stray_copper(b)
+        },
+        key=_stray_order,
+    )
     unmatched: list[StrayPiece] = []
     for piece in left:
         found = next((k for k, held in enumerate(right) if _same_stray(piece, held, tolerances)), None)
@@ -725,10 +742,12 @@ def level_routing(
     pairing: NetPairing,
     tolerances: Tolerances = EXACT,
     rule: Sequence[Step] = DEFAULT_RULE,
+    shift: Point = _ORIGIN,
 ) -> LevelResult:
     """Level 5 over the net pairs of ``pairing``: each net that holds copper on a side is judged by the
     steps of ``rule`` in order, and every finding is located by the net's name on side ``a`` and the pads
-    of its pad set. Nets on which neither side holds copper, and nets in no pair, are not compared; the
+    of its pad set. ``shift`` is the translation level 4 removed from side ``b`` (``stray_differences``).
+    Nets on which neither side holds copper, and nets in no pair, are not compared; the
     summary counts them."""
     held_a, held_b = pieces(a), pieces(b)
     names_a = {net.id: net.name for net in a.circuit.nets}
@@ -763,7 +782,7 @@ def level_routing(
                 (notices if step.kind in NOTICES else differences).append(found)
             if findings and step.final:
                 break
-    differences += stray_differences(a, b, tolerances)
+    differences += stray_differences(a, b, tolerances, shift)
     paired_a, paired_b = {pair[0] for pair in pairing.pairs}, {pair[1] for pair in pairing.pairs}
 
     def loose(held: NetPieces, paired: set[str]) -> int:

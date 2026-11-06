@@ -30,10 +30,10 @@ for a module sheet, and after the sheet for the top sheet or the single sheet of
 from __future__ import annotations
 
 import dataclasses
-import math
 import struct
 from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, field
+from fractions import Fraction
 from typing import Final, Literal
 
 import fenolite.backends.altium.pcbrecords as rec
@@ -71,6 +71,7 @@ from fenolite.backends.altium.read.pcb import PcbDocument
 from fenolite.core.coords import Point
 from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence, Level
+from fenolite.core.trig import angle_of
 from fenolite.geometry.transform import FULL_TURN, Transform
 from fenolite.model.board import (
     Arc,
@@ -732,36 +733,46 @@ def board_record(
     return rec.text_block(text)
 
 
-def _degrees(center: tuple[float, float], point: Point) -> float:
-    return math.degrees(math.atan2(point.y - center[1], point.x - center[0])) % 360.0
+def _rounded_sqrt(value: int) -> int:
+    """The integer nearest to the square root of ``value`` (``value >= 0``), in integers only."""
+    if value <= 0:
+        return 0
+    root = 1 << ((value.bit_length() + 1) // 2)
+    while True:
+        smaller = (root + value // root) // 2
+        if smaller >= root:
+            break
+        root = smaller
+    return root + 1 if value - root * root > root else root
+
+
+def _up_angle(center: Point, point: Point) -> int:
+    """The angle in microdegrees, counter-clockwise from +X in the Altium frame (Y up), of ``point`` seen
+    from ``center``: ``core.trig.angle_of`` takes Y down, so the Y difference is negated."""
+    return angle_of(point.x - center.x, -(point.y - center.y))
 
 
 def outline_arc(start: Point, mid: Point, end: Point) -> OutlineArc | None:
     """The arc vertex (``docboard.OutlineArc``) of the arc from ``start`` through ``mid`` to ``end``, points
     in nanometres in the Altium frame (Y up): the circle through them in binary units, and the
     counter-clockwise sweep that holds ``mid`` as start and end angles in microdegrees (change c0441;
-    ``pcb-document.md``, "Board outline arcs"). ``None`` for three points on a line."""
+    ``pcb-document.md``, "Board outline arcs"). ``None`` for three points on a line. Integer arithmetic only:
+    the centre is the nearest nanometre, the angles ``core.trig.angle_of`` (lote-27)."""
     ax, ay, bx, by, cx, cy = start.x, start.y, mid.x, mid.y, end.x, end.y
     d = 2 * (ax * (by - cy) + bx * (cy - ay) + cx * (ay - by))
     if d == 0:
         return None
     a2, b2, c2 = ax * ax + ay * ay, bx * bx + by * by, cx * cx + cy * cy
-    ux = (a2 * (by - cy) + b2 * (cy - ay) + c2 * (ay - by)) / d
-    uy = (a2 * (cx - bx) + b2 * (ax - cx) + c2 * (bx - ax)) / d
-    center = (ux, uy)
-    radius = math.hypot(ax - ux, ay - uy)
-    first, middle, last = _degrees(center, start), _degrees(center, mid), _degrees(center, end)
-    if (middle - first) % 360.0 <= (last - first) % 360.0:
+    ux = round(Fraction(a2 * (by - cy) + b2 * (cy - ay) + c2 * (ay - by), d))
+    uy = round(Fraction(a2 * (cx - bx) + b2 * (ax - cx) + c2 * (bx - ax), d))
+    center = Point(ux, uy)
+    radius = _rounded_sqrt((ax - ux) ** 2 + (ay - uy) ** 2)
+    first, middle, last = _up_angle(center, start), _up_angle(center, mid), _up_angle(center, end)
+    if (middle - first) % FULL_TURN <= (last - first) % FULL_TURN:
         low, high = first, last  # counter-clockwise from start to end
     else:
         low, high = last, first
-    return (
-        rec.to_units(round(ux)),
-        rec.to_units(round(uy)),
-        rec.to_units(round(radius)),
-        round(low * 1_000_000),
-        round(high * 1_000_000),
-    )
+    return (rec.to_units(ux), rec.to_units(uy), rec.to_units(radius), low, high)
 
 
 def _net_record(name: str, filename: str) -> bytes:

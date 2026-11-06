@@ -628,7 +628,7 @@ def compare_designs(
             results.append(fourth)
         if level >= 5 and highest == 5:
             pairing = pair_nets(a, b, refs)
-            routed = level_routing(a, b, pairing, tolerances)
+            routed = level_routing(a, b, pairing, tolerances, shift=shift)
             if strict:
                 extra = compare_strict(a, b, pairing, tolerances)
                 routed = replace(
