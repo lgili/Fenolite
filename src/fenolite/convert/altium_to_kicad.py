@@ -311,7 +311,17 @@ def keepouts(design: Design, ledger: Ledger, restrictions: Mapping[str, int] | N
     )
 
 
-ZONE_ARC_REASON = "an outline with arc vertices is written as a polygon (arc chord error at most 5000 nm)"
+ZONE_ARC_REASON = (
+    "an outline with arc vertices is written as chords within the polygon's ARCRESOLUTION; the board carries "
+    "the arcs for the way back"
+)
+"""An Altium polygon with arc vertices (change c0463, task 1.3): the import chords each arc within the
+polygon's ``ARCRESOLUTION`` (``adapter.arcring``), and the conversion carries the vertices
+(``convert.zonearcs``)."""
+ZONE_ARC_FLAT = "an outline with arc vertices is written as a polygon (arc chord error at most 5000 nm)"
+"""A zone whose record's arcs the import could not chord (no ``ARCRESOLUTION``, or an arc that misses its
+vertices) or a copy of an Embedded Board Array: its record flattened at KiCad's chord error, as before
+change c0463."""
 ZONE_NO_OUTLINE = "a zone outline with arc vertices that the source document does not give"
 ZONE_NO_AREA = (
     "not written: its polygon record outlines no area (its vertices coincide), so it pours no copper and "
@@ -428,14 +438,55 @@ def arc_outlines(
     return dataclasses.replace(design, board=board), tuple(outlined), tuple(dropped)
 
 
+def _polygon_record(source: SourceProject, found: Path | None, zone: Any, documents: dict[str, Any]) -> Any:
+    """The polygon record a zone was read from (``Polygons6/Data#<n>`` of its provenance's document), or
+    ``None``."""
+    where = zone.provenance
+    match = POLYGON_RECORD.fullmatch(where.locator) if where is not None else None
+    if match is None:
+        return None
+    document = _source_document(source, found, where, documents)
+    index = int(match.group(1))
+    return document.polygons[index] if document is not None and index < len(document.polygons) else None
+
+
+def arc_zones(source: SourceProject, design: Design) -> dict[str, tuple[str, Any]]:
+    """Per zone id, the polygon of the source's board document whose outline holds arc vertices and whose
+    chorded ring the zone's outline is (change c0463, task 1.3): its ``UNIQUEID`` (empty without one) and
+    its ``ArcPolygon``. A zone of another document (a copy of an Embedded Board Array) is not carried: a copy
+    is moved and turned."""
+    from fenolite.backends.altium.adapter.arcring import ArcPolygon
+
+    board = design.board
+    found = board_document(source, design)
+    if board is None or found is None:
+        return {}
+    documents: dict[str, Any] = {}
+    arcs: dict[str, tuple[str, Any]] = {}
+    for zone in board.zones:
+        if zone.provenance is None or zone.provenance.file != found.name or len(zone.outline) < 3:
+            continue
+        record = _polygon_record(source, found, zone, documents)
+        if record is None or not any(vertex.kind != 0 for vertex in record.vertices):
+            continue
+        polygon = ArcPolygon(tuple(record.vertices), record.record.get("ARCRESOLUTION") or "")
+        if polygon.matches(zone.outline) is not None:
+            arcs[zone.id] = (record.record.get("UNIQUEID") or "", polygon)
+    return arcs
+
+
 def zone_outlines(source: SourceProject, design: Design, ledger: Ledger) -> Design:
-    """Zones whose imported outline is empty (an Altium polygon with an arc vertex,
-    ``altium.import.zone-arc``) get the flattened outline of the source document's polygon record; KiCad
-    9.0.9 cannot report DRC on a zone without an outline. A zone whose record cannot be found or encloses
-    no area is dropped."""
+    """Zones whose outline holds arc vertices: one the import chorded (``altium.import.zone-arc``, change
+    c0463) is counted ``changed`` (``ZONE_ARC_REASON``); one it left empty gets the outline of the source
+    document's polygon record flattened at KiCad's chord error (``ZONE_ARC_FLAT``), since KiCad 9.0.9 cannot
+    report DRC on a zone without an outline. A zone whose record cannot be found or encloses no area is
+    dropped."""
     board = design.board
     assert board is not None
-    if all(len(zone.outline) >= 3 for zone in board.zones):
+    located = [zone.provenance.locator for zone in board.zones if zone.provenance is not None]
+    if all(len(zone.outline) >= 3 for zone in board.zones) and not any(
+        POLYGON_RECORD.fullmatch(locator) for locator in located
+    ):
         return design
     from fenolite.model.board import Zone
 
@@ -446,6 +497,9 @@ def zone_outlines(source: SourceProject, design: Design, ledger: Ledger) -> Desi
     for zone in board.zones:
         if len(zone.outline) >= 3:  # change c0428: an outline of 1 or 2 points is no outline either
             zones.append(zone)
+            record = _polygon_record(source, found, zone, documents)
+            if record is not None and any(vertex.kind != 0 for vertex in record.vertices):
+                ledger.change("zone", zone.id, ZONE_ARC_REASON)
             continue
         where = zone.provenance
         ring: tuple[Any, ...] = ()
@@ -456,7 +510,7 @@ def zone_outlines(source: SourceProject, design: Design, ledger: Ledger) -> Desi
             (ledger.change if why == ZONE_NO_AREA else ledger.drop)("zone", zone.id, why)
             continue
         zones.append(dataclasses.replace(zone, outline=ring))
-        ledger.change("zone", zone.id, ZONE_ARC_REASON)
+        ledger.change("zone", zone.id, ZONE_ARC_FLAT)
     return dataclasses.replace(design, board=dataclasses.replace(board, zones=tuple(zones)))
 
 

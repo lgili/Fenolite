@@ -34,6 +34,7 @@ from fractions import Fraction
 from typing import Any
 
 from fenolite.backends.altium.adapter import units
+from fenolite.backends.altium.adapter.arcring import record_outline
 from fenolite.backends.altium.adapter.codes import issue
 from fenolite.backends.altium.adapter.context import Context
 from fenolite.backends.altium.adapter.ids import UNION_KEY, VIA_UNION_OFFSET, Exact, bag
@@ -1280,14 +1281,18 @@ def zones(doc: PcbDocument, ctx: Context) -> tuple[list[Zone], set[int]]:
         mapped[index] = (record, locator, layer_id)
     highest = max((record.pour_index or 0 for record, _, _ in mapped.values()), default=0)
     found: list[Zone] = []
-    arcs_seen = 0
+    arcs_seen = arcs_unplaced = 0
     holes_outside = regions_outside = 0
     for index, (record, locator, layer_id) in mapped.items():
         exact = Exact(ctx.census)
         layer = ctx.layers.name(layer_id)
         if any(vertex.kind != 0 for vertex in record.vertices):
-            outline: tuple[Point, ...] = ()
+            # change c0463 (task 1.3): each arc chorded within the polygon's ARCRESOLUTION (S-2221); the
+            # record keeps the arcs, and an arc that cannot be placed leaves the outline empty as before
+            resolution = parse_length(record.record.get("ARCRESOLUTION") or "")
+            outline = record_outline(record.vertices, resolution) if resolution and resolution > 0 else ()
             arcs_seen += 1
+            arcs_unplaced += not outline
         else:
             outline = _outline_points(record.vertices, exact, "outline")
         fills: list[ZoneFill] = []
@@ -1341,8 +1346,14 @@ def zones(doc: PcbDocument, ctx: Context) -> tuple[list[Zone], set[int]]:
         ctx.issues.append(
             issue(
                 "altium.import.zone-arc",
-                f"{arcs_seen} zone(s) have an outline with an arc vertex; their outline is kept by the "
-                "reader's record and is empty in the model",
+                f"{arcs_seen} zone(s) have an outline with an arc vertex: each arc is chords within the "
+                "polygon's ARCRESOLUTION in the model, and the record keeps the arcs"
+                + (
+                    f"; {arcs_unplaced} with an arc that has no radius or misses its vertices, or no "
+                    "ARCRESOLUTION, have an empty outline"
+                    if arcs_unplaced
+                    else ""
+                ),
                 "Polygons6/Data",
             )
         )

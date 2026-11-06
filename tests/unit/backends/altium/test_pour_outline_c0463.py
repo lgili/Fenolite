@@ -17,15 +17,12 @@ from fractions import Fraction
 import pytest
 from _altium_pour import MIL, Board, clearance, mm, rect, via, zone
 
-from fenolite.backends.altium.adapter.units import NM_PER_UNIT
-from fenolite.backends.altium.pour import (
-    PourReading,
+from fenolite.backends.altium.adapter.arcring import (
     _chord_count,  # pyright: ignore[reportPrivateUsage]
-    area,
-    polygons_of,
-    pour_reading,
     record_outline,
 )
+from fenolite.backends.altium.adapter.units import NM_PER_UNIT
+from fenolite.backends.altium.pour import PourReading, area, polygons_of, pour_reading
 from fenolite.backends.altium.read.pcbprops import PropertyRecord
 from fenolite.backends.altium.read.pcbstack import OutlineVertex
 from fenolite.core.coords import Point

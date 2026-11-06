@@ -36,6 +36,7 @@ import fenolite.backends.altium.pcbrecords as rec
 import fenolite.backends.altium.project as project
 import fenolite.backends.altium.rulemap as rulemap
 import fenolite.backends.altium.unions as unions
+from fenolite.backends.altium.adapter.arcring import ArcPolygon
 from fenolite.backends.altium.altsym import AltiumSymbol
 from fenolite.backends.altium.ascii import text_problem
 from fenolite.backends.altium.cfb import CompoundTooLarge, name_key
@@ -145,6 +146,11 @@ caller gives (``pcbdoc.FootprintModel``): written as a body that names an embedd
 DNP_KIND = "dnp"
 MODEL_KIND = "model"
 DNP_REASON = "the Altium documents hold no fitted flag outside variants"
+ZONE_ARCS_EDITED = (
+    "the outline arcs of its source polygon are written as chords: the zone's outline is no longer their ring"
+)
+"""A zone whose source polygon's arcs a conversion carried through KiCad (change c0463, task 1.3) but whose
+outline was edited there: written as the outline's chords, counted ``changed``."""
 CONNECT_REASON = "a connector pad is written as a surface pad with no paste and no mask opening"
 """The reason a pad of kind ``connect`` is counted changed under ``pad`` (change c0160): the record has no
 such kind, so it is a surface pad whose two mask openings the writer removes."""
@@ -1611,6 +1617,8 @@ def _copper(
     account: _Account,
     *,
     full_drill: bool = False,
+    polygon_arcs: Mapping[str, ArcPolygon] | None = None,
+    matched: dict[str, ArcPolygon] | None = None,
 ) -> tuple[list[Track], list[Arc], list[Via], list[Zone], dict[str, rec.ArcGeometry]]:
     signal = [name for name in layers if name not in planes]
     records: dict[str, rec.ArcGeometry] = {}
@@ -1705,6 +1713,12 @@ def _copper(
         if problem is not None:
             account.skip("zone", zone.id, problem)
             continue
+        carried = (polygon_arcs or {}).get(zone.id)
+        if carried is not None:  # change c0463, task 1.3: the source's arcs while the outline is their ring
+            if not bends and carried.matches(outline) is not None and matched is not None:
+                matched[zone.id] = carried
+            else:
+                account.change("zone", zone.id, ZONE_ARCS_EDITED)
         if zone.fills:
             account.skip("zone-fill", zone.id, "a polygon is written unpoured; Altium fills it on a repour")
         name = zone.name if text_problem(zone.name) is None else ""
@@ -2048,6 +2062,7 @@ def from_design(
     bodies: str = "off",
     edges: Outline | None = None,
     models: Mapping[str, Sequence[pcbdoc.FootprintModel]] | None = None,
+    polygon_arcs: Mapping[str, ArcPolygon] | None = None,
 ) -> AltiumInputs:
     """The inputs of the PCB and schematic writers from ``design`` alone, or with ``options`` those of a
     build (change c0126, ``LowerOptions``). ``corner_ratios`` maps a pad id
@@ -2119,6 +2134,7 @@ def from_design(
                 options=options,
                 edges=edges,
                 models=models,
+                polygon_arcs=polygon_arcs,
             )
     schematic = schematic_design(design, name, account)
     modelled = {component.id: component.lib_footprint_ref for component in schematic.circuit.components}
@@ -2185,6 +2201,7 @@ def _document(
     options: LowerOptions | None = None,
     edges: Outline | None = None,
     models: Mapping[str, Sequence[pcbdoc.FootprintModel]] | None = None,
+    polygon_arcs: Mapping[str, ArcPolygon] | None = None,
 ) -> pcbdoc.PcbDocSpec:
     net_names: dict[str, str] = {}
     for net in design.circuit.nets:
@@ -2244,8 +2261,17 @@ def _document(
         copper_ids=dict(zip(layers, rec.copper_stack(layers, tuple(planes)), strict=True)),
         models=models,
     )
+    matched: dict[str, ArcPolygon] = {}
     tracks, arcs, vias, zones, arc_records = _copper(
-        board, layers, planes, net_names, frame, account, full_drill=full_drill
+        board,
+        layers,
+        planes,
+        net_names,
+        frame,
+        account,
+        full_drill=full_drill,
+        polygon_arcs=polygon_arcs,
+        matched=matched,
     )
     stroke_flags = keepout_lines.flags(board.keepouts)
     texts_, graphics, keepouts, holes = _items(
@@ -2299,6 +2325,7 @@ def _document(
         if not read and options is None
         else frozenset(),
         arc_records=MappingProxyType(arc_records),
+        polygon_arcs=MappingProxyType(matched),
         fill_ids=frozenset(g.id for g in graphics if fills.is_fill(g)),
         keepout_strokes=MappingProxyType(
             {g.id: byte for g in graphics if (byte := stroke_flags.get(g.id)) is not None}
@@ -2329,6 +2356,7 @@ def write_design(
     parameters: Sequence[tuple[str, str]] = (),
     models: Mapping[str, Sequence[pcbdoc.FootprintModel]] | None = None,
     storages: Mapping[str, tuple[bytes, bytes]] | None = None,
+    polygon_arcs: Mapping[str, ArcPolygon] | None = None,
 ) -> ProjectWrite:
     """The files of an Altium project written from ``design`` alone: ``<name>.PcbDoc`` when the design holds a
     board with an outline or an item, and ``<name>.SchDoc`` with its libraries and ``<name>.PrjPcb`` when the
@@ -2349,7 +2377,9 @@ def write_design(
     conversion found beside the source: each is written as a body that names an embedded model, or counted
     under ``model`` with its reason.
     ``storages`` are the storages a conversion carried through KiCad (change c0450,
-    ``pcbdoc.PcbDocSpec.kept_storages``)."""
+    ``pcbdoc.PcbDocSpec.kept_storages``). ``polygon_arcs`` maps a zone id to the arc vertices of its source
+    polygon record, which a conversion carried through KiCad (change c0463, task 1.3): written back while
+    the zone's outline is still their ring, else the outline's chords as a ``changed`` zone."""
     refuse_bom_only(design)
     if schematic is not None:
         refuse_bom_only(schematic)
@@ -2363,6 +2393,7 @@ def write_design(
         bodies=bodies,
         edges=edges,
         models=models,
+        polygon_arcs=polygon_arcs,
     )
     if source_rules and inputs.pcb is not None:  # the source's own rule records (change c0434)
         inputs = dataclasses.replace(

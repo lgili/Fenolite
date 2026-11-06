@@ -440,8 +440,8 @@ fix = "Check the via's layer pair in Altium; it is read as a through via."
 see = "Altium import"
 
 ["altium.import.zone-arc"]
-meaning = "Count of zones whose outline holds an arc vertex; their model outline is empty."
-fix = "Nothing to do for a read; draw the zone outline again if you need it in the model."
+meaning = "Count of zones whose outline holds an arc vertex; in the model each arc is chords within the polygon's ARCRESOLUTION, and the record keeps the arcs. A zone whose arc has no radius or misses its vertices, or that has no ARCRESOLUTION, has an empty outline."
+fix = "Nothing to do for a read; a conversion to KiCad and back writes the arcs again while the outline is unchanged."
 see = "Altium import"
 
 ["altium.import.zone-hole-outside"]

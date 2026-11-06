@@ -27,6 +27,7 @@ from decimal import Decimal
 from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING
 
+from fenolite.backends.altium.adapter.arcring import ArcPolygon
 from fenolite.backends.altium.pcbrecords import to_units
 from fenolite.backends.kicad import dru, resolver, sch, sym
 from fenolite.backends.kicad.embed import place_footprint
@@ -487,7 +488,7 @@ def write_altium(source: SourceProject, options: Options) -> Written:
     from fenolite.backends.altium.read.cfb import holds_embedded_boards
     from fenolite.convert.altium_to_kicad import (
         PLANE_KIND,
-        ZONE_ARC_REASON,
+        ZONE_ARC_FLAT,
         ZONE_NO_AREA,
         Ledger,
         board_document,
@@ -515,7 +516,7 @@ def write_altium(source: SourceProject, options: Options) -> Written:
     for entry in arrays:
         (ledger.change if entry.placed else ledger.drop)(EMBEDDED_BOARD_KIND, entry.item, entry.reason)
     for ident in copied.outlined:  # change c0428: a copy's zones take their records' outlines
-        ledger.change("zone", ident, ZONE_ARC_REASON)
+        ledger.change("zone", ident, ZONE_ARC_FLAT)
     for ident, why in copied.dropped:  # a pour without area is left out as a change (change c0428)
         (ledger.change if why == ZONE_NO_AREA else ledger.drop)("zone", ident, why)
     if copied.dropped:
@@ -605,6 +606,11 @@ def write_altium(source: SourceProject, options: Options) -> Written:
         from fenolite.convert.models import IDS_PROPERTY, ids_text
 
         board_items[IDS_PROPERTY] = ids_text(placed.ids).encode("utf-8")
+    arcs = _carried_arcs(source, design)
+    if arcs:  # change c0463, task 1.3: the arc vertices of each chorded polygon, for the way back
+        from fenolite.convert import zonearcs
+
+        board_items[zonearcs.PROPERTY] = zonearcs.carrier_text(arcs).encode("utf-8")
     if carried:  # change c0434: every rule record travels in the board, for the way back
         from fenolite.convert import rulecarrier
 
@@ -631,6 +637,20 @@ def write_altium(source: SourceProject, options: Options) -> Written:
         tuple(issues),
         schematic=f"{name}.kicad_sch" if schematic else None,
     )
+
+
+def _carried_arcs(source: SourceProject, design: Design) -> list[tuple[str, str, ArcPolygon]]:
+    """The arc polygons of the source's board document whose zones the written board holds (change c0463,
+    task 1.3; ``altium_to_kicad.arc_zones``), each as ``(KiCad uuid, UNIQUEID, polygon)`` for
+    ``zonearcs.carrier_text``."""
+    from fenolite.backends.kicad.pcb import kicad_uuid
+    from fenolite.convert.altium_to_kicad import arc_zones
+
+    board = design.board
+    found = arc_zones(source, source.design)
+    if board is None or not found:
+        return []
+    return [(kicad_uuid(zone), *found[zone.id]) for zone in board.zones if zone.id in found]
 
 
 def _carried_storages(

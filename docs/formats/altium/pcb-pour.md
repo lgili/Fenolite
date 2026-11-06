@@ -107,8 +107,8 @@ before the change, and their saved regions.
   by losing it) nor pouring with the larger of its gap and the governing gap matches Altium: 8 of the 9
   saved pours of -04 differ from either by 3.5 to 7.4 times the M1 allowance, and 4 polygons of -07 by up
   to 10.9 times (S-2160). So the refusal stays.
-- **Outline arcs** (change c0463). The import keeps no outline for a polygon with an arc vertex
-  (`altium.import.zone-arc`), so the pour builds the ring from the record: each arc becomes the fewest
+- **Outline arcs** (change c0463). The import gives a polygon with an arc vertex the ring of its record
+  (`adapter.arcring.record_outline`, `altium.import.zone-arc`), and the pour pours it: each arc becomes the fewest
   equal chords whose sagitta is at most the polygon's `ARCRESOLUTION` d, their ends on the arc and the two
   vertices at the arc's ends. Altium places more vertices on the arcs of row -02 (S-2221); the two rings
   differ by less than d, which M1 and M2 allow. The polygon record is not changed: the regions are chords.

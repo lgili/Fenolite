@@ -43,6 +43,7 @@ from typing import Final, Literal
 import fenolite.backends.altium.pcbrecords as rec
 import fenolite.backends.altium.rulemap as rulemap
 import fenolite.backends.altium.unions as unions
+from fenolite.backends.altium.adapter.arcring import ArcPolygon
 from fenolite.backends.altium.ascii import Field, text_problem
 from fenolite.backends.altium.cfb import Entry, Storage, write_compound
 from fenolite.backends.altium.docboard import (
@@ -732,6 +733,10 @@ class PcbDocSpec:
     written with instead of the ones derived from its three points (change c0127): the record that an
     imported arc was read from, when the caller found that it still says the entity's points. Empty: every
     arc is derived from its points, as a build writes it."""
+    polygon_arcs: Mapping[str, ArcPolygon] = field(default_factory=lambda: {})
+    """Zone id → the arc vertices of the source polygon record that a conversion carried through KiCad
+    (change c0463, task 1.3), for a zone whose outline is still that record's ring (``ArcPolygon.matches``):
+    the polygon is written with those vertices, moved as the outline was."""
     kept_storages: Mapping[str, tuple[bytes, bytes]] = field(default_factory=lambda: {})
     """Storages a conversion carried from an Altium document through KiCad (change c0450,
     ``convert.altium_storages``), by name: their ``Header`` and ``Data`` streams, written as they were. The
@@ -1900,22 +1905,59 @@ def _pour_over(zone: Zone) -> str:
     return found if found in ("0", "1", "2") else "1"
 
 
+def _arc_vertices(
+    carried: ArcPolygon, first: tuple[int, int]
+) -> tuple[list[tuple[int, int]], dict[int, tuple[int, int, int, int, int]]]:
+    """The vertices (without the closing one) and the arcs of ``carried``, in binary units, moved so its first
+    vertex lies at ``first`` (change c0463, task 1.3)."""
+    from fenolite.backends.altium.adapter.units import angle
+
+    found = list(carried.vertices)
+    if len(found) > 1 and (found[-1].x, found[-1].y) == (found[0].x, found[0].y):
+        found.pop()
+    dx, dy = first[0] - round(found[0].x), first[1] - round(found[0].y)
+    corners = [(round(v.x) + dx, round(v.y) + dy) for v in found]
+    arcs = {
+        k: (
+            round(v.cx) + dx,
+            round(v.cy) + dy,
+            round(v.radius),
+            angle(v.start_angle)[0],
+            angle(v.end_angle)[0],
+        )
+        for k, v in enumerate(found)
+        if v.kind != 0
+    }
+    return corners, arcs
+
+
 def polygon_records(
-    zones: Sequence[Zone], copper: _Copper, *, optimal_void_rotation: bool = True
+    zones: Sequence[Zone],
+    copper: _Copper,
+    *,
+    optimal_void_rotation: bool = True,
+    arcs: Mapping[str, ArcPolygon] | None = None,
 ) -> list[bytes]:
     """One polygon pour per zone layer (``pcb-copper.md``, "Polygon pour"), in the order of
     ``polygon_order``; the pour index is the record's position. A zone without a name gets
     ``<NET>_L<layer position>_P<pour index>``. ``optimal_void_rotation`` off writes
     ``OPTIMALVOIDROTATION=FALSE``, the form of a computed pour (change c0215); a zone's ``pour_over`` pair
-    sets its ``POUROVERSTYLE``."""
+    sets its ``POUROVERSTYLE``. A zone of ``arcs`` is written with its source's arc vertices and
+    ``ARCRESOLUTION`` (change c0463, task 1.3)."""
     out: list[bytes] = []
+    arcs = arcs or {}
     for index, (zone, layer, outline) in enumerate(polygon_order(zones, copper)):
+        vertices = [_units(copper.frame(point)) for point in outline]
+        bends: dict[int, tuple[int, int, int, int, int]] | None = None
+        carried = arcs.get(zone.id)
+        if carried is not None:
+            vertices, bends = _arc_vertices(carried, vertices[0])
         generated = f"{zone.net_id or NO_NET_NAME}_L{copper.position(layer) + 1:02d}_P{index:03d}".upper()
         net = copper.net(zone.id, zone.net_id)
         islands, neck = _thresholds(zone.settings)
         fields = polygon_fields(
             rec.layer_text(copper.layers[layer]),
-            [_units(copper.frame(point)) for point in outline],
+            vertices,
             name=zone.name or generated,
             pour_index=index,
             net=None if net == rec.NO_INDEX else net,
@@ -1925,6 +1967,8 @@ def polygon_records(
             neck=neck,
             optimal_void_rotation=optimal_void_rotation,
             pour_over=_pour_over(zone),
+            arcs=bends,
+            arc_resolution=carried.arc_resolution if carried is not None else None,
         )
         out.append(rec.property_block(fields))
     return out
@@ -2516,7 +2560,7 @@ def _write(
     texts += more_texts
     wide += more_wide
     filled["Polygons6"] = [
-        *polygon_records(spec.zones, copper, optimal_void_rotation=not computed),
+        *polygon_records(spec.zones, copper, optimal_void_rotation=not computed, arcs=spec.polygon_arcs),
         *split_plane_records(spec, copper),
     ]
     kept = dict(spec.kept_storages)

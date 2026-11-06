@@ -366,9 +366,16 @@ Unknown/out-of-stack layers and excess mechanical layers are reported as losses.
 outlines become all-copper rule areas forbidding tracks, vias and pours; open/branching lines are lost.
 Curved boundaries are polygonized with at most 5000 nm chord error, reported as changed.
 An odd copper count gains an empty inner layer; its original stack-up is reported changed.
-A copper pour whose Altium outline holds an arc vertex has no outline in the imported model
-(`altium.import.zone-arc`); the conversion takes its outline from the source document's polygon record,
-flattened at 5000 nm chord error, and reports the zone changed. A zone whose record is missing is
+A copper pour whose Altium outline holds an arc vertex has, in the imported model, the record's ring with
+each arc chorded within the polygon's `ARCRESOLUTION` (`altium.import.zone-arc`, change c0463), and the
+conversion reports the zone changed. It carries the record's vertices and `ARCRESOLUTION` in the board
+property `Fenolite.Altium.PolygonArcs` (`convert.zonearcs`), keyed by the uuid of the KiCad zone (derived
+from the polygon's `UNIQUEID` when it has one). The conversion back writes those vertices while the zone's
+outline is still their chorded ring, moved at most (an end angle of 360 degrees is written 0, the same arc),
+and the outline's chords as a `changed` zone otherwise (`lower.ZONE_ARCS_EDITED`). A rewrite of the read
+document writes the chords. A polygon whose arc cannot be placed or that has no `ARCRESOLUTION` keeps an
+empty outline in the import; the conversion takes it from the record flattened at 5000 nm chord error, as
+before change c0463, as it does for a copy of an Embedded Board Array. A zone whose record is missing is
 reported lost; one whose record encloses no area (its vertices coincide) pours no copper and is left out
 as a `changed` zone with that reason (change c0428). KiCad 9.0.9 cannot write a DRC report for a zone
 without an outline.

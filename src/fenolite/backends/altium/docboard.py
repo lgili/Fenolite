@@ -272,6 +272,8 @@ def polygon_fields(
     pour_over: str = "1",
     islands: int | None = LEGACY_ISLANDS_NM2,
     neck: int = LEGACY_NECK_NM,
+    arcs: Mapping[int, OutlineArc] | None = None,
+    arc_resolution: str | None = None,
 ) -> list[Field]:
     """The fields of one unpoured, solid polygon pour of ``Polygons6`` (``pcb-copper.md``, "Polygon pour"):
     the key set of the board outline with a net, a name and a pour index. ``layer_text`` is the ``LAYER``
@@ -284,7 +286,9 @@ def polygon_fields(
     nanometres below which a piece is removed (``REMOVEISLANDSBYAREA=TRUE`` with its ``AREATHRESHOLD``;
     ``None``: ``FALSE``) and ``neck`` the neck width in nanometres (``NECKWIDTHTHRESHOLD``; change c0446).
     ``ValueError`` for fewer than three vertices, another ``pour_over``, or an area or width that is not
-    positive."""
+    positive. ``arcs`` maps a vertex index to the arc that runs from it to the next, and ``arc_resolution``
+    is the ``ARCRESOLUTION`` text: the source's arc vertices, written back by a conversion (change c0463,
+    task 1.3)."""
     if len(vertices) < 3:
         raise ValueError("a polygon needs at least three points")
     if pour_over not in ("0", "1", "2"):
@@ -298,11 +302,13 @@ def polygon_fields(
         "AREATHRESHOLD": DEFAULT_AREA_THRESHOLD if islands is None else area_threshold_text(islands),
         "NECKWIDTHTHRESHOLD": rec.mil_text(rec.to_units(neck)),
     }
+    if arc_resolution is not None:
+        fixed["ARCRESOLUTION"] = arc_resolution
     head = [(key, fixed.get(key, value)) for key, value in _POUR_HEAD]
     fields: list[Field] = [
         *common_fields(layer_text),
         *head,
-        *_outline(vertices),
+        *_outline(vertices, arcs),
         *((key, fixed.get(key, value)) for key, value in _POUR_TAIL[:-1]),
         ("POUROVERSTYLE", pour_over),
         ("NAME", name_codes(name)),

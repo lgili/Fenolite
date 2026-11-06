@@ -21,6 +21,7 @@ from collections.abc import Mapping
 from decimal import Decimal
 
 from fenolite.backends.altium import lower
+from fenolite.backends.altium.adapter.arcring import ArcPolygon
 from fenolite.backends.altium.cfb import CompoundTooLarge
 from fenolite.backends.kicad import fpitems
 from fenolite.backends.kicad.outline import edge_outline
@@ -283,6 +284,23 @@ def with_unions(source: SourceProject, design: Design) -> Design:
     return dataclasses.replace(design, board=unions.restored(board, members))
 
 
+def _carried_arcs(source: SourceProject, design: Design) -> dict[str, ArcPolygon]:
+    """Per zone id, the arc vertices of its source polygon that a conversion to KiCad carried (change c0463,
+    task 1.3; ``zonearcs.read_carrier`` of the board property ``zonearcs.PROPERTY``, found by the zone's KiCad
+    uuid); none for a board that does not read or carries none."""
+    from fenolite.backends.kicad.boardcarrier import carried as board_carried
+    from fenolite.convert import zonearcs
+
+    board = design.board
+    if board is None or source.path.suffix != ".kicad_pcb":
+        return {}
+    try:
+        found = board_carried(source.path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, FormatError):
+        return {}
+    return zonearcs.arc_polygons(board.zones, zonearcs.read_carrier(found.get(zonearcs.PROPERTY)))
+
+
 def _stored_models(source: SourceProject) -> tuple[dict[HeightKey, tuple[int, int]], CarriedIds]:
     """The stored heights and the source identities of the embedded models a conversion to KiCad placed
     (change c0449, task 4.3; ``models.read_heights`` and ``models.read_ids`` of the board properties
@@ -338,6 +356,7 @@ def write(source: SourceProject, options: Options) -> Written:
             parameters=altium_strings.project_parameter_pairs(design),
             models=models,
             storages=kept_storages,  # change c0450
+            polygon_arcs=_carried_arcs(source, design),  # change c0463, task 1.3
         )
     except CompoundTooLarge as error:
         raise TargetLimitError(

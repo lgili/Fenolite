@@ -20,11 +20,18 @@ Rules for every task:
   `uv run pytest tests/unit/backends/altium/test_pour_outline_c0463.py -k arc -q -n 0`. The pour leaves the record as read.
   A build or conversion still cannot write an arc polygon: the model holds no outline for it, and
   `lower.py` skips the zone (reported to the coordinator).
-- [ ] 1.3 Arc polygons through a conversion (D1a): the model and KiCad carry the outline chorded by
+- [x] 1.3 Arc polygons through a conversion (D1a): the model and KiCad carry the outline chorded by
   `ARCRESOLUTION`; nothing drops an arc polygon; the way back writes the source's arc vertices while the
   outline still matches them, else the chords as a reported `changed` zone. Repin the conversion census.
   Proof: `uv run pytest tests/unit/convert/test_altium_zone_arcs_c0463.py -q -n 0`, then
   `tests/corpus/test_convert_altium_census.py` (corpus job).
+  Done: the import gives an arc polygon `adapter.arcring.record_outline`'s ring (shared with the pour, which
+  no longer imports `math`); the KiCad zone is `changed` and the board carries the source vertices in
+  `Fenolite.Altium.PolygonArcs`, keyed by the zone's KiCad uuid (derived from `UNIQUEID` when the polygon has
+  one; row 02's arc polygons have none); the way back writes them while the outline is their ring moved by a
+  translation at most (an end angle of 360 written 0, the same arc), else chords with
+  `lower.ZONE_ARCS_EDITED`; a rewrite writes the chords. Both proofs passed on 2026-11-06 (7 unit tests; the
+  census and import pins unchanged, rows 02, 07 and 08 counting their arc zones under the new reason).
 
 ## 2. Outlines
 

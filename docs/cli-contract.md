@@ -1154,7 +1154,7 @@ after the readers' own issues and before the `model.*` findings. An error issue 
 | `altium.import.zone-hole-outside` | warning | count of holes of poured regions that lie outside their region's outline; they are dropped and the fill is solid there |
 | `altium.import.inexact` | info | counts of lengths and angles that were rounded; the originals are in the entities' `altium` bags |
 | `altium.import.multi-class` | info | count of nets in more than one net class; the first class by name is kept |
-| `altium.import.zone-arc` | info | count of zones whose outline holds an arc vertex; their model outline is empty |
+| `altium.import.zone-arc` | info | count of zones whose outline holds an arc vertex; each arc is chords within the polygon's `ARCRESOLUTION` in the model (change c0463), the outline empty only for an arc that cannot be placed or a polygon without `ARCRESOLUTION` |
 | `altium.import.copper-shape` | info | count of fills and regions on copper, imported as copper graphics of their net (`net_id`; change c0376) |
 | `altium.import.cutout-notch` | info | a board cut-out crosses the board shape; the shape is cut by it, as a notch, and the cut-out is not kept as a ring (change c0427) |
 | `altium.import.scope` | info | the net identifier scope that was used |

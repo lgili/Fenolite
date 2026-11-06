@@ -207,7 +207,7 @@ position in the footprint; size and round drill for 1 465 simple ones), 3 069 tr
 | pad size and drill | KiCad's pad of another stack mode or of a custom shape is not a plain pad | size and round drill are compared for simple pads of a plain shape only |
 | copper tracks and arcs without a net | KiCad returns no track for them (in one row some come back as graphic lines on the copper layer); the import keeps them as tracks without a net, except on the layer of an internal plane, where it makes no track either ("Layers", change c0124) | counted, not compared (6 tracks of one row; until change c0124 also the 74 and 43 lines on the planes of two rows) |
 | zone vertices | KiCad drops an outline vertex that repeats its neighbour | the import's outline is compared without such a vertex (2 vertices of two rows) |
-| zones with an arc | the model keeps no arc vertex, so the import's outline is empty | not compared (6 zones of two rows) |
+| zones with an arc | the model keeps no arc vertex; since change c0463 the import's outline is the record's ring with each arc chorded within `ARCRESOLUTION`, KiCad's import keeps the arcs | not compared (6 zones of two rows) |
 | board edge | KiCad draws the edge from the board record and adds graphics of other layers to `Edge.Cuts` | not compared: the requirement lists no edge comparison |
 
 ## Measured importer limitations after c0160

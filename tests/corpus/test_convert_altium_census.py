@@ -185,8 +185,9 @@ ZONE_ARC_OUTLINES = {
     "altium-third-party-pcbdoc-07": 4,
     "altium-third-party-pcbdoc-08": 6,
 }
-"""Zones whose Altium outline holds an arc vertex: the import leaves them without an outline, and the
-conversion writes the flattened outline of the source record (measured on 2026-10-15)."""
+"""Zones whose Altium outline holds an arc vertex (measured on 2026-10-15): the import gives each the ring of
+its arcs chorded within its ``ARCRESOLUTION``, and the conversion counts it ``changed`` and carries the arcs
+for the way back (change c0463, task 1.3)."""
 
 
 POLYGON_CUTOUTS = {"altium-third-party-pcbdoc-01": 2, "altium-third-party-pcbdoc-06": 13}
