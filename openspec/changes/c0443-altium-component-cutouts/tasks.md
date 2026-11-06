@@ -13,5 +13,5 @@
 
 - [x] 2.1 Round trip and KiCad DRC of public row `-06` (S-2020); `pcb-records.md`, CHANGELOG;
   `uv run pytest tests/unit/test_format_facts.py`.
-- [ ] 2.2 altium-rounds-2 opens the round trip of row `-06`: the two cut-outs of the connector are board
+- [x] 2.2 altium-rounds-2 opens the round trip of row `-06`: the two cut-outs of the connector are board
   cut-outs of the component, not keep-outs, and DRC finds no new violation (kit request).
