@@ -19,7 +19,7 @@
 - [x] 3.2 `docs/equivalence.md` and CHANGELOG.
 - [x] 3.3 Altium's DRC on the c0441 base round trip of rows 01 and 06 (asked of altium-rounds-2; the
   polygon thresholds of design.md are expected to leave antennae on vias).
-  Proof (2026-11-06, altium-rounds-2, Altium 24.5.2, pass a, after Repour): cobra DRC 269 (Clearance 12,
+  Proof (2026-11-06, S-2031, altium-rounds-2, Altium 24.5.2, pass a, after Repour): cobra DRC 269 (Clearance 12,
   Un-Routed 21, Hole to Hole 3, Sliver 35, Silk to Mask 177, Silk to Silk 7, Antennae 14), 3 of 10 polygons
   empty, islands 2500 mil² and necks 5 mil before repour; BMS DRC 3618 (Un-Routed 41, Sliver 1554, Silk to Mask
   1351, Silk to Silk 629, Antennae 43), 0 of 5 polygons empty. Antennae on vias remain as expected; c0446
