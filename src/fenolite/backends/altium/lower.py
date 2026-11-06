@@ -65,6 +65,7 @@ from fenolite.model.board import (
 )
 from fenolite.model.circuit import Component, Net, Pin, PinRef
 from fenolite.model.design import Design
+from fenolite.model.holes import HOLE_LIBRARY
 from fenolite.model.library import FootprintDef
 
 EVIDENCE = Evidence(
@@ -735,6 +736,43 @@ def _extent(board: Board) -> tuple[Point, ...]:
     return (Point(x0, y0), Point(x1, y0), Point(x1, y1), Point(x0, y1))
 
 
+ARC_STRAIGHT = "an arc whose three points lie on one line is written as the straight track it draws"
+"""The reason an arc is counted changed under ``arc`` when its middle point lies on the segment from its
+start to its end (change c0435): Altium's arc record holds a centre and a radius, which such an arc has
+not, so it is the track from start to end, of the same width, layer, net and lock."""
+
+
+def straight_arc(arc: Arc) -> Track | None:
+    """The track ``arc`` draws when its three points lie on one line with the middle point between the
+    ends (change c0435); ``None`` for any other arc."""
+    a, m, b = arc.start, arc.mid, arc.end
+    if a == b or (m.x - a.x) * (b.y - a.y) != (m.y - a.y) * (b.x - a.x):
+        return None
+    if not (min(a.x, b.x) <= m.x <= max(a.x, b.x) and min(a.y, b.y) <= m.y <= max(a.y, b.y)):
+        return None
+    return Track(
+        id=arc.id, provenance=arc.provenance, start=a, end=b, width=arc.width, layer=arc.layer,
+        net_id=arc.net_id, locked=arc.locked,
+    )  # fmt: skip
+
+
+HOLE_FOOTPRINT_REASON = "a generated hole footprint is written as the free hole it stands for"
+"""The reason a footprint is counted changed under ``footprint`` when it is a generated hole footprint
+(``generated_hole``, change c0435): a conversion to KiCad writes a free hole as such a footprint, and
+written back as a component it would come back as a component without a reference beside its hole."""
+
+
+def generated_hole(fp: FootprintInstance, ref: str) -> bool:
+    """Whether ``fp`` is a footprint of the generated hole library (``model.holes.HOLE_LIBRARY``) holding
+    one unplated pad and no reference: the form a free hole takes in a KiCad conversion (change c0435)."""
+    return (
+        not ref
+        and fp.lib_ref.partition(":")[0] == HOLE_LIBRARY
+        and len(fp.pads) == 1
+        and fp.pads[0].kind == "np_thru_hole"
+    )
+
+
 CUTOUT_MERGED = "merged"
 """The reason a written cut-out region is counted changed under ``cutout`` when it is the union of
 overlapping inner rings (change c0170): one region stands for the group."""
@@ -1145,7 +1183,8 @@ def _footprints(
     for fp in board.footprints:
         component = components.get(fp.component_id)
         ref = component.ref if component is not None else ""
-        if not ref and not fp.lib_ref and len(fp.pads) == 1:
+        generated = generated_hole(fp, ref)
+        if not ref and (not fp.lib_ref or generated) and len(fp.pads) == 1:
             pad = fp.pads[0]
             extras = _extras(pad, ratios)
             problem = _pad_problem(pad, extras, unnamed=True)
@@ -1160,6 +1199,8 @@ def _footprints(
             free.append(pcbdoc.FreePad(moved, extras, net_names.get(pad.net_id or "")))
             account.wrote("footprint")
             account.wrote("pad")
+            if generated:
+                account.change("footprint", fp.id, HOLE_FOOTPRINT_REASON)
             skip_bodies(fp, "a free pad is no component, and a body is written with a component")
             continue
         if not _field_ok(ref):
@@ -1299,6 +1340,7 @@ def _copper(
         else:
             tracks.append(dataclasses.replace(track, net_id=named(track.net_id)))
     arcs: list[Arc] = []
+    straights: list[Track] = []
     for arc in board.arcs:
         problem = layer_problem(arc.layer)
         if problem is None and arc.width <= 0:
@@ -1312,6 +1354,11 @@ def _copper(
                     rec.arc_from_points(*(frame(p) for p in (arc.start, arc.mid, arc.end)))
                 except ValueError as error:
                     problem = str(error)
+                    straight = straight_arc(arc)
+                    if straight is not None:  # change c0435
+                        account.change("arc", arc.id, ARC_STRAIGHT)
+                        straights.append(dataclasses.replace(straight, net_id=named(arc.net_id)))
+                        continue
         if problem is not None:
             account.skip("arc", arc.id, problem)
         else:
@@ -1372,7 +1419,8 @@ def _copper(
             )
         )
     account.wrote("track", len(tracks))
-    account.wrote("arc", len(arcs))
+    account.wrote("arc", len(arcs) + len(straights))
+    tracks += straights
     account.wrote("via", len(vias))
     account.wrote("zone", len(zones))
     return tracks, arcs, vias, zones, records

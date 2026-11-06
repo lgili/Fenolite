@@ -16,6 +16,7 @@ from fenolite.convert.report import SCHEMATIC_REFUSED
 from fenolite.convert.sources import SourceProject
 from fenolite.core.errors import Issue
 from fenolite.core.ids import derived_id
+from fenolite.core.libnames import library_name
 from fenolite.model.base import ExtBag
 from fenolite.model.board import FootprintInstance, Layer, Pad
 from fenolite.model.circuit import Component, Net, PinRef
@@ -472,17 +473,7 @@ def _clean(value: Any) -> Any:
 
 
 def _name(value: str, *, allow_space: bool = False) -> str:
-    text = re.sub(r"[^\w. -]" if allow_space else r"[^\w.-]", "_", value).strip(". ") or "unnamed"
-    if text.upper() in {
-        "CON",
-        "PRN",
-        "AUX",
-        "NUL",
-        *(f"COM{i}" for i in range(1, 10)),
-        *(f"LPT{i}" for i in range(1, 10)),
-    }:
-        text = "_" + text
-    return text
+    return library_name(value, allow_space=allow_space)  # shared with ``equivalent`` (change c0435)
 
 
 def board_document(source: SourceProject, design: Design) -> Path | None:

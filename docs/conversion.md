@@ -283,6 +283,11 @@ the full footprint names are preserved. Bodies follow `--altium-bodies extruded|
 Plain per-layer pads use Top-Middle-Bottom or Full Stack records. Connector pads use a surface record
 with no paste or solder-mask expansion; final appearance needs Part T in Altium. Unnumbered footprint
 pads become free pads at their board position and are reported `changed`. Custom pad shapes stay losses.
+A generated hole footprint (`Fenolite_Holes:…`, one unplated pad, no reference), the form a free hole of an
+Altium document takes in its KiCad conversion, is written back as that free hole, not as a component, and
+is reported `changed` under `footprint` (change c0435). An arc whose three points lie on one line, the
+middle between the ends, is written as the track it draws and reported `changed` under `arc`: an Altium
+arc record holds a centre and a radius, which such an arc has not (change c0435).
 
 The drawing-layer map is fixed: `User.1` through `User.8` → Mechanical 1 through 8; `Dwgs.User`,
 `Cmts.User`, `Eco1.User`, `Eco2.User` → Mechanical 9 through 12; `F.Fab`, `B.Fab`, `F.CrtYd`,

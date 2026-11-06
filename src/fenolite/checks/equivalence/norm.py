@@ -16,6 +16,7 @@ from statistics import median_low
 
 from fenolite.checks.equivalence.model import Tolerances
 from fenolite.core.coords import Point, Size
+from fenolite.core.libnames import library_name
 from fenolite.model.board import Board, Pad
 
 TURN = 360_000_000
@@ -59,6 +60,13 @@ def footprint_name(lib_ref: str) -> str:
     """The part of ``lib_ref`` after its last ``:``: a library nickname belongs to a library table, not to
     the board."""
     return lib_ref.rpartition(":")[2]
+
+
+def same_footprint_name(a: str, b: str) -> bool:
+    """Whether two footprint names (``footprint_name``) are equal, or equal once each is written as an entry
+    of a KiCad library (``core.libnames.library_name``, change c0435): an Altium name holding ``/`` is
+    ``_`` in the library its KiCad conversion derives."""
+    return a == b or library_name(a, allow_space=True) == library_name(b, allow_space=True)
 
 
 def pad_symmetry(pad: Pad, tolerances: Tolerances) -> int | None:
@@ -172,6 +180,7 @@ __all__ = [
     "normalise",
     "pad_symmetry",
     "pads_equal_turned",
+    "same_footprint_name",
     "points_equal",
     "shape_class",
     "sizes_equal",

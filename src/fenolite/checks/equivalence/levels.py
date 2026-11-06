@@ -403,7 +403,7 @@ def level_footprints(
             continue
         pairs.append((ref, one, other))
         name_a, name_b = norm.footprint_name(one.lib_ref), norm.footprint_name(other.lib_ref)
-        if name_a != name_b:
+        if not norm.same_footprint_name(name_a, name_b):
             differences.append(_difference(3, "footprint-name", ref, name_a, name_b))
         groups_a, groups_b = _grouped(one), _grouped(other)
         for number in sorted(set(groups_a) | set(groups_b)):

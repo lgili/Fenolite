@@ -243,6 +243,7 @@ every other difference of the pair is still compared; each has an authored negat
 | `Edge.Cuts` (7) | lines and arcs left unmatched that close a ring end to end match polygons and rectangles of the other side as rings | |
 | Mounting holes (1 to 7) | a board-only footprint without reference holding one NPTH pad is a board hole when the other side holds that unplated hole (position, drill, slot) | |
 | Fields (7) | | a hidden field on one side only, or one the other side's component holds as a parameter of that name (and value), is not `field-pose` |
+| Footprint names (3) | two names are the same when they are equal once each is written as a KiCad library entry (`core.libnames.library_name`: a character other than a word character, `.`, `-` or a space becomes `_`), as the Altium to KiCad conversion names its derived library (change c0435): `R/0603` is `R_0603` | |
 | Straight arcs (strict 5) | an arc left unmatched whose ends are a track's and whose mid lies within the length tolerance of the chord is that track, compared by the track rule | |
 
 `equivalent` passes `across` for sides of two backends without the triangle, and completes each side first
