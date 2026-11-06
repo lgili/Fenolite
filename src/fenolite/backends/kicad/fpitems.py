@@ -110,6 +110,12 @@ def _opaque_nodes(entity: FootprintInstance | Pad) -> list[Node]:
     return [node for _, node in _opaque_slots(entity)]
 
 
+def model_nodes(footprint: FootprintInstance) -> tuple[Node, ...]:
+    """The ``model`` children of a board footprint as ``read_board`` keeps them, opaque slots in their
+    order (change c0449); none for a footprint that was not read from KiCad."""
+    return tuple(node for node in _opaque_nodes(footprint) if node.name == "model")
+
+
 def _plain_stroke(node: Node) -> bool:
     stroke = node.find("stroke")
     kind = stroke.find("type") if stroke is not None else None
@@ -421,6 +427,7 @@ __all__ = [
     "graphic_net_name",
     "drawn_children",
     "is_projected",
+    "model_nodes",
     "projection_problems",
     "ratio_ppm",
     "replace_children",

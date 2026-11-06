@@ -19,7 +19,7 @@ import uuid
 from collections import Counter
 from collections.abc import Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from decimal import Decimal
+from decimal import ROUND_HALF_EVEN, Decimal, InvalidOperation
 from functools import cached_property
 from types import MappingProxyType
 from typing import Literal, TypeVar, get_args
@@ -459,6 +459,45 @@ def model_ref_node(model: ModelRef) -> Node:
         xyz("scale", *(Atom(factor, AtomKind.NUMBER) for factor in model.scale)),
         xyz("rotate", *(angle_atom(-angle if angle else 0) for angle in model.rotation)),
     )
+
+
+def read_model_ref(model: Node) -> ModelRef | None:
+    """The ``ModelRef`` of a footprint's ``model`` child (change c0449), the inverse of ``model_ref_node``:
+    the path, the offset with Y negated, the turns negated, the scale as written, and ``hidden`` for
+    ``(hide yes)`` or a bare ``hide``. Lengths and angles are rounded half to even to nm and µdeg. ``None``
+    for a child without a path, with ``at`` in place of ``offset`` (an older form in another unit), or with
+    a value that is no number."""
+    atoms = model.atoms()
+    if not atoms or atoms[0].kind not in (AtomKind.STRING, AtomKind.SYMBOL) or not atoms[0].value:
+        return None
+    if model.find("at") is not None and model.find("offset") is None:
+        return None
+
+    def xyz(head: str) -> tuple[Atom, Atom, Atom] | None:
+        found = model.find(head)
+        inner = found.find("xyz") if found is not None else None
+        values: tuple[Atom, ...] = inner.atoms() if inner is not None else ()
+        return (values[0], values[1], values[2]) if len(values) == 3 else None
+
+    offset, turns, scale = xyz("offset"), xyz("rotate"), xyz("scale")
+    if any(a.kind != AtomKind.NUMBER for a in (*(offset or ()), *(turns or ()), *(scale or ()))):
+        return None
+    try:
+        x, y, z = (a.to_nm(exact=False) for a in offset) if offset is not None else (0, 0, 0)
+        rx, ry, rz = (-_udeg(a.text) for a in turns) if turns is not None else (0, 0, 0)
+    except (InvalidOperation, ValueError):
+        return None
+    factors = (scale[0].text, scale[1].text, scale[2].text) if scale is not None else ("1", "1", "1")
+    hide = model.find("hide")
+    hidden = any(a.kind == AtomKind.SYMBOL and a.value == "hide" for a in atoms[1:]) or (
+        hide is not None and any(a.value == "yes" for a in hide.atoms())
+    )
+    return ModelRef(atoms[0].value, (x, -y, z), (rx, ry, rz), factors, hidden)
+
+
+def _udeg(text: str) -> int:
+    """Degrees as µdeg, rounded half to even."""
+    return int((Decimal(text) * 1_000_000).to_integral_value(ROUND_HALF_EVEN))
 
 
 OVERRIDE_HEADS: tuple[tuple[str, str], ...] = (
@@ -4145,6 +4184,7 @@ __all__ = [
     "field_justify",
     "is_placed_property",
     "model_source",
+    "read_model_ref",
     "opaque_count",
     "opaque_digests",
     "pad_angle_from_board",

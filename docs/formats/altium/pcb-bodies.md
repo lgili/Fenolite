@@ -143,10 +143,11 @@ order and one optional key more (see "What is not written").
 
 ### What is not written
 
-- **A body that names a 3D model** (`MODEL.MODELTYPE=1`; 476 of the 1748 records, 391 of the 446 of the
-  seven smaller documents). Its `MODELID` names a record and a numbered stream of the `Models` storage
+- **A `ComponentBody` of kind `model`** (`MODEL.MODELTYPE=1`; 476 of the 1748 records, 391 of the 446 of
+  the seven smaller documents). Its `MODELID` names a record and a numbered stream of the `Models` storage
   with the model's data (476 of 476), and the design model holds a model's name and no data. Such a body is
-  reported with `altium.not-lowered` and never written.
+  reported with `altium.not-lowered`. A model body is written only for a STEP file that the caller gives
+  with its data (change c0449, "Written form of a model body").
 - **The optional keys** `MODEL.SNAPCOUNT` (2 records, `0`) and `BODYOVERRIDECOLOR` (3 records, `TRUE`).
 - **An arc in an outline** (`ISSHAPEBASED=TRUE`, one record), a hole in a body, a texture, a cylinder and a
   sphere: no record of the last two was told apart, and the model holds none of them.
@@ -171,6 +172,28 @@ still carries no model data.
 | A body with `MODEL.MODELTYPE=1` names its record by `MODELID`, the record's `ID` | S-0816, S-0160 | CORPUS-VERIFIED (472 of 472; 2026-10-25, c0193) | H-A-BODY-MODEL-PLACE |
 | Placement: a model point `p` (mm) lies at `T(MODEL.2D.X, MODEL.2D.Y, face ± MODEL.3D.DZ) · F · Rz(ROTZ) · Ry(ROTY) · Rx(ROTX) · p`, with the body's `MODEL.3D.*` angles in degrees, counter-clockwise; `F` is the identity for a component on the top and a half turn about x for one on the bottom, whose model hangs below the bottom face. The `ROTX`, `ROTY`, `ROTZ` and `DZ` of the `Models/Data` record are not applied. Measured: the placed model's box matches the body's stored outline box within 0.5 mm and its stored standoff and overall heights within 1 mm for 465 of the 472 bodies; for the bottom bodies 181 of 181 with a half turn about x, 151 about y; with the record's rotations applied as well, 193 of 472. The other 7 are top bodies centred on their stored outline, whose stored outline (3) or overall height (4) differs from the model's | S-0816 | CORPUS-VERIFIED (465 of 472, the 7 others explained; 2026-10-25, c0193) | H-A-BODY-MODEL-PLACE |
 | A through-hole part's model reaches below its face: its body then holds a negative `STANDOFFHEIGHT`, which the comparison takes signed | S-0816 | CORPUS-VERIFIED (2026-10-25, c0193) | H-A-BODY-MODEL-PLACE |
+
+## Written form of a model body (c0449)
+
+A conversion from KiCad embeds each STEP model of a board footprint that the project holds
+(`docs/conversion.md`, "Models to Altium"); `pcbdoc.write_pcbdoc` writes it as a body that names an entry
+of `Models`. Measured on the seven public documents of the local checkout (S-2080: 453 bodies that name a
+model, 201 records); the written form follows them. That Altium opens a written model is not yet seen
+(task 4.3 of c0449).
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| `Models/Header` is the record count as a 32-bit integer (7 of 7 documents); `ModelsNoEmbed` holds a 4-byte `Header` 0 and an empty `Data`. Written: the count of distinct models, and `ModelsNoEmbed` empty | S-2080 | CORPUS-VERIFIED (7 documents; 2026-11-06, c0449) | H-A-BODY-MODEL-PLACE |
+| A `Models/Data` record is a 32-bit length and `EMBED=TRUE\|MODELSOURCE=Undefined\|ID=…\|ROTX=…\|ROTY=…\|ROTZ=…\|DZ=…\|CHECKSUM=…\|NAME=…` with a NUL, no leading bar (201 of 201); `DZ` is an integer in file units. Written: that text, with the turns and rise of the first body that names the model and `CHECKSUM=0` | S-2080 | CORPUS-VERIFIED (201 records; 2026-11-06, c0449) | H-A-BODY-MODEL-PLACE |
+| Each `Models/<n>` stream starts with the bytes `78 9C`, the `zlib` header of level 6 (201 of 201). Written: `zlib.compress(data, 6)` | S-2080 | CORPUS-VERIFIED (201 streams; 2026-11-06, c0449) | H-A-BODY-MODEL-PLACE |
+| One record serves 1 to 75 bodies; its `ROTX`, `ROTY`, `NAME` and `DZ` equal its body's (453 of 453), its `ROTZ` in 243 of 453 and its `CHECKSUM` the body's `MODEL.CHECKSUM` in 312 of 453. Written: one record per distinct model data (by SHA-256), in the order of first use; the bodies' own keys carry each pose | S-2080 | CORPUS-VERIFIED (453 bodies; 2026-11-06, c0449) | H-A-BODY-MODEL-PLACE |
+| `CHECKSUM`: no CRC-32 or Adler-32 of the inflated or deflated bytes, and no byte sum, equals it (0 of 201). Written: `0`, the stand-in of `MODEL.CHECKSUM` (c0121) | S-2080 | INFERRED | H-A-PCBX-BODY-OPEN |
+| `ID`: a GUID in braces, upper-case. Written: `pcbrecords.model_id(data)`, a GUID from the SHA-256 of `fenolite.altium.model:` and the hex SHA-256 of the data, so a build is repeatable | S-2080 | INFERRED | H-A-PCBX-BODY-OPEN |
+| A model body holds 34 keys: the 21 of an extruded body up to `TEXTUREROTATION`, `MODELID`, `MODEL.CHECKSUM`, `MODEL.EMBED`, `MODEL.NAME`, `MODEL.2D.X`, `MODEL.2D.Y`, `MODEL.2D.ROTATION`, `MODEL.3D.ROTX`, `ROTY`, `ROTZ`, `MODEL.3D.DZ`, `MODEL.MODELTYPE=1` and `MODEL.MODELSOURCE=Undefined` (201 of 453); 243 add `MODEL.SNAPCOUNT` before `MODEL.MODELTYPE`. Written: the 34 keys (`pcbrecords.MODEL_BODY_KEYS`), in both body storages | S-2080 | CORPUS-VERIFIED (453 bodies; 2026-11-06, c0449) | H-A-BODY-MODEL-PLACE |
+| `MODEL.EMBED=TRUE`, `MODEL.2D.ROTATION=0.000` and `ARCRESOLUTION=0.5mil` in 453 of 453; `BODYCOLOR3D=8421504` in 374 of 453. Written: those values. The turns are degrees in [0, 360) with three decimals | S-2080 | CORPUS-VERIFIED (453 bodies; 2026-11-06, c0449) | H-A-BODY-MODEL-PLACE |
+| The outline has 4 vertices (453 of 453), the corners of a box aligned with the board's axes in 443. Written: the rectangle of the placed model's box in the footprint frame, placed as the footprint's pads are (a part turned by an angle that is no multiple of 90 degrees keeps a turned rectangle); `STANDOFFHEIGHT` and `OVERALLHEIGHT` its lowest and highest Z, the standoff negative for a model below the face | S-2080, S-0816 | CORPUS-VERIFIED (453 bodies; 2026-11-06, c0449) | H-A-BODY-MODEL-PLACE |
+| Box reader. `backends.stepbox.model_box` bounds the edges of a STEP model (`docs/formats/step/part21.md`, "Box of a model"). On the eight public documents its box, placed by the body's pose, matches the stored outline and heights within 0.01 mm for 455 of the 472 bodies, within 0.5 mm for 5 more, and differs by up to 2.5 mm for 12, among them the 7 stored values of c0193; a box from the hull of B-spline control points may exceed the stored one | S-2081 | CORPUS-VERIFIED (455 of 472; 2026-11-06, c0449) | H-G-STEP-BOX |
+| Round trip. Each of the eight public documents converted to KiCad and back writes every source model body (472 of 472) as a model body whose model inflates to the same bytes, at the same `MODEL.2D.X/Y` (after the board's offset), on the same side, with the same rise and the same rotation (467 with the same three turns, 5 with an equal triple such as (90, 180, 270) for (270, 0, 90)) | S-2081 | CORPUS-VERIFIED (472 of 472; 2026-11-06, c0449) | H-A-BODY-MODEL-PLACE |
 
 ## Signed and unknown projections (c0099)
 

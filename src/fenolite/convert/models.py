@@ -10,6 +10,11 @@ the turns that make KiCad's pose (``H-K-MODEL-POSE``) equal to the source's, on 
 A body that no embedded model carries becomes a STEP file of ``backends.step``: its prism, cylinder or
 sphere, placed with offset and rotation 0. Nothing is read or written here: the caller gives the models and
 the body forms and writes the files.
+
+The way back (change c0449): ``footprint_models`` reads each ``model`` child of a KiCad board footprint, finds
+its STEP file beside the project, and gives the Altium write a ``pcbdoc.FootprintModel``: the pose that is the
+inverse of ``placement`` (``altium_pose``), and the outline and heights of the placed model's box
+(``stepbox.model_box``), or the reason it has no record.
 """
 
 from __future__ import annotations
@@ -19,12 +24,18 @@ import math
 import re
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
+from decimal import Decimal, InvalidOperation
+from pathlib import Path, PurePosixPath
 
-from fenolite.backends import step
+from fenolite.backends import step, stepbox
+from fenolite.backends.altium import pcbdoc
 from fenolite.backends.base import BodyForm, BodyModel, BodyShape
+from fenolite.backends.kicad import fpitems
+from fenolite.backends.kicad.pcb import read_model_ref
+from fenolite.core.coords import Point
 from fenolite.core.evidence import Evidence, Level
 from fenolite.geometry.transform import FULL_TURN, Transform
-from fenolite.model.board import ComponentBody, FootprintInstance
+from fenolite.model.board import ComponentBody, FootprintInstance, ModelRef
 from fenolite.model.library import ModelPlacement
 
 EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-A-BODY-MODEL-PLACE", "H-K-MODEL-POSE"))
@@ -257,7 +268,155 @@ def place_models(
     return Placed(placements, files, changed, lost, bodies_changed, bodies_lost)
 
 
+# --- the way back: a KiCad model in an Altium document (change c0449) --------------------------------------
+
+STEP_MAGIC = b"ISO-10303-21"
+UNREAD = "the model child holds no path, uses at in place of offset, or holds a value that is no number"
+KICAD_EMBEDDED = "the model is embedded in the KiCad file (kicad-embed://), which Fenolite does not read"
+VARIABLE = "the model path names a variable other than KIPRJMOD; only files of the project are read"
+OUTSIDE = "the model path leads outside the project folder; only files of the project are read"
+MISSING = "the model file is not found in the project folder"
+NOT_STEP = "the model file is no STEP text; an Altium body embeds a STEP model"
+SCALED = "the model is scaled; an Altium body holds no scale"
+NO_GEOMETRY = "the STEP model holds no edge whose box Fenolite can measure"
+HIDDEN = "the model is hidden in KiCad; Altium has no hidden model and shows it"
+_PROJECT = re.compile(r"^(?:\$\{KIPRJMOD\}|\$\(KIPRJMOD\))(?:[/\\]+|$)")
+_VARIABLE = re.compile(r"\$\{[^}]*\}|\$\([^)]*\)")
+_NAME_UNSAFE = re.compile(r"[^A-Za-z0-9_. ()+-]+")
+
+
+def model_path(path: str, root: Path) -> Path | str:
+    """The file of the project folder ``root`` that the model path ``path`` names, or the reason it names
+    none: ``${KIPRJMOD}`` (or ``$(KIPRJMOD)``) is ``root``, a relative path is read below ``root``; another
+    variable, an absolute path, a path that leads out of ``root`` and a KiCad embedded file are not read."""
+    if path.startswith("kicad-embed://"):
+        return KICAD_EMBEDDED
+    rest = _PROJECT.sub("", path, count=1).replace("\\", "/")
+    if _VARIABLE.search(rest):
+        return VARIABLE
+    if not rest or rest.startswith("/") or re.match(r"^[A-Za-z]:/", rest):
+        return OUTSIDE
+    base = root.resolve()
+    target = (base / PurePosixPath(rest)).resolve()
+    if not target.is_relative_to(base):
+        return OUTSIDE
+    return target if target.is_file() else MISSING
+
+
+@dataclass(frozen=True, slots=True)
+class AltiumPose:
+    """Where an Altium body puts a KiCad model (change c0449): ``position`` (board frame), ``z`` the rise and
+    ``rotation`` the ``MODEL.3D.ROT*`` turns; ``outline`` the four corners of the placed model's box in the
+    board frame and ``standoff`` and ``height`` its lowest and highest Z above the face."""
+
+    position: Point
+    z: int
+    rotation: tuple[int, int, int]
+    outline: tuple[Point, ...]
+    standoff: int
+    height: int
+
+
+def _is_one(text: str) -> bool:
+    try:
+        return Decimal(text) == 1
+    except InvalidOperation:
+        return False
+
+
+def altium_pose(ref: ModelRef, footprint: FootprintInstance, box: stepbox.Box) -> AltiumPose:
+    """The inverse of ``placement`` (design, Decision 2): the model origin is the footprint's placement of
+    the offset (Y negated on the bottom), the rise is the offset's Z, and the turns are those of
+    ``Rz(−θ')·R`` with ``θ'`` the footprint's rotation on the bottom and its negation on the top, exactly
+    ``γ ± θ`` for a turn about Z alone. The box's eight corners turned by ``R`` and moved by the offset give,
+    in KiCad's footprint frame with Y up, the rectangle and the two heights (Decision 3); the rectangle is
+    placed as the footprint's pads are."""
+    bottom = footprint.side == "bottom"
+    ox, oy, oz = ref.offset
+    place = Transform.placement(footprint.position, footprint.rotation)
+    position = place.apply(Point(ox, -oy if bottom else oy))
+    rx, ry, rz = ref.rotation
+    if rx % FULL_TURN == 0 and ry % FULL_TURN == 0:
+        rotation = (0, 0, _turn(rz - footprint.rotation if bottom else rz + footprint.rotation))
+    else:
+        theta = footprint.rotation if bottom else -footprint.rotation
+        rotation = turns(_times(_axis(2, -theta), rotation_matrix(ref.rotation)))
+    matrix = rotation_matrix(ref.rotation)
+    xs: list[float] = []
+    ys: list[float] = []
+    zs: list[float] = []
+    for x in (box[0], box[3]):
+        for y in (box[1], box[4]):
+            for z in (box[2], box[5]):
+                q = [matrix[i][0] * x + matrix[i][1] * y + matrix[i][2] * z for i in range(3)]
+                xs.append(q[0] + ox)
+                ys.append(q[1] - oy)
+                zs.append(q[2] + oz)
+    x0, x1, y0, y1 = round(min(xs)), round(max(xs)), round(min(ys)), round(max(ys))
+    corners = ((x0, y0), (x1, y0), (x1, y1), (x0, y1))
+    outline = tuple(place.apply(Point(x, y if bottom else -y)) for x, y in corners)
+    return AltiumPose(position, oz, rotation, outline, round(min(zs)), round(max(zs)))
+
+
+def model_name(path: Path) -> str:
+    """The file name a written model keeps: characters the record does not take become ``_``."""
+    return _NAME_UNSAFE.sub("_", path.name) or "model.step"
+
+
+def footprint_models(
+    footprints: Iterable[FootprintInstance], root: Path
+) -> dict[str, tuple[pcbdoc.FootprintModel, ...]]:
+    """Per footprint instance id, its ``model`` children as the Altium write takes them (change c0449):
+    each child whose STEP file the project folder ``root`` holds, unscaled and with a box, as a model with
+    its pose, outline and heights; every other child with its reason. A model's id is
+    ``<footprint id>/model/<n>``, ``n`` counting the footprint's children from 0."""
+    boxes: dict[bytes, stepbox.Box | None] = {}
+    found: dict[str, tuple[pcbdoc.FootprintModel, ...]] = {}
+    for footprint in footprints:
+        made: list[pcbdoc.FootprintModel] = []
+        for n, node in enumerate(fpitems.model_nodes(footprint)):
+            ident = f"{footprint.id}/model/{n}"
+            ref = read_model_ref(node)
+            if ref is None:
+                made.append(pcbdoc.FootprintModel(ident, reason=UNREAD))
+                continue
+            file = model_path(ref.name, root)
+            if isinstance(file, str):
+                made.append(pcbdoc.FootprintModel(ident, reason=file))
+                continue
+            if not all(_is_one(factor) for factor in ref.scale):
+                made.append(pcbdoc.FootprintModel(ident, reason=SCALED))
+                continue
+            data = file.read_bytes()
+            if not data.lstrip().startswith(STEP_MAGIC):
+                made.append(pcbdoc.FootprintModel(ident, reason=NOT_STEP))
+                continue
+            key = hashlib.sha256(data).digest()
+            if key not in boxes:
+                boxes[key] = stepbox.model_box(data)
+            box = boxes[key]
+            if box is None:
+                made.append(pcbdoc.FootprintModel(ident, reason=NO_GEOMETRY))
+                continue
+            pose = altium_pose(ref, footprint, box)
+            model = pcbdoc.EmbeddedModel(data, model_name(file), pose.position, pose.z, pose.rotation)
+            made.append(
+                pcbdoc.FootprintModel(
+                    ident,
+                    model,
+                    pose.outline,
+                    pose.standoff,
+                    pose.height,
+                    changed=HIDDEN if ref.hidden else "",
+                )
+            )
+        if made:
+            found[footprint.id] = tuple(made)
+    return found
+
+
 __all__ = [
+    "AltiumPose",
     "BODY_KIND",
     "CARRIED",
     "EVIDENCE",
@@ -270,7 +429,11 @@ __all__ = [
     "PRISM",
     "UNKNOWN",
     "Placed",
+    "altium_pose",
     "body_solid",
+    "footprint_models",
+    "model_name",
+    "model_path",
     "model_file",
     "place_models",
     "placement",

@@ -93,6 +93,54 @@ of each entity in Part 21 order (inherited first). Label: `INFERRED` until the o
 - **Application protocol year** `2000` and the context names (`automotive design`, `mechanical`, `part
   definition`, `design`) are Fenolite's labels; the oracle accepts them.
 
+## Box of a model (c0449)
+
+`fenolite.backends.stepbox.model_box` reads a STEP model that a KiCad project holds and gives the box of its
+edges, which a conversion to Altium writes as a model body's outline and heights
+(`docs/formats/altium/pcb-bodies.md`, "Written form of a model body"). It is Fenolite's own reader, written
+from the file structure above and the entity pages below; no STEP library or parser code was read or run.
+The attribute orders are those of the STEP Tools EXPRESS pages of the AP214 AIM (S-2082, read
+2026-11-06), inherited attributes first. Label of the rows: `INFERRED`; hypothesis `H-G-STEP-BOX`.
+
+| entity | explicit attributes, in order, that the reader uses |
+|---|---|
+| `VERTEX_POINT` | name, vertex_geometry (a point) |
+| `EDGE_CURVE` | name, edge_start, edge_end, edge_geometry, same_sense |
+| `AXIS2_PLACEMENT_3D` | name, location, axis (default +Z), ref_direction (default +X) |
+| `CIRCLE`, `ELLIPSE` | name, position, radius; or semi_axis_1, semi_axis_2 |
+| `SURFACE_CURVE`, `SEAM_CURVE`, `TRIMMED_CURVE` | name, curve_3d or basis_curve, … |
+| `B_SPLINE_CURVE` and its subtypes | name, degree, control_points_list, … (in a complex instance the `B_SPLINE_CURVE` constituent holds no name) |
+| `POLYLINE`, `POLY_LOOP`, `COORDINATES_LIST` | name, points; name, polygon; name, npoints, position_coords |
+| `REPRESENTATION` and its `*SHAPE_REPRESENTATION` subtypes | name, items, context_of_items |
+| `REPRESENTATION_RELATIONSHIP` | name, description, rep_1, rep_2 |
+| `REPRESENTATION_RELATIONSHIP_WITH_TRANSFORMATION` | transformation_operator; its rules require `transform_item_1` to be an item of `rep_1`'s context and `transform_item_2` of `rep_2`'s |
+| `ITEM_DEFINED_TRANSFORMATION` | name, description, transform_item_1, transform_item_2 |
+| `SHAPE_DEFINITION_REPRESENTATION` | definition, used_representation |
+| `PRODUCT_DEFINITION_SHAPE` | name, description, definition |
+| `NEXT_ASSEMBLY_USAGE_OCCURRENCE` | id, name, description, relating_product_definition, related_product_definition, reference_designator |
+| `CONTEXT_DEPENDENT_SHAPE_REPRESENTATION` | representation_relation, represented_product_relation |
+| `GLOBAL_UNIT_ASSIGNED_CONTEXT` | units |
+| `SI_UNIT` | prefix (`si_prefix`: `.EXA.` to `.ATTO.`, `$` for none), name (`.METRE.`) |
+| `CONVERSION_BASED_UNIT`, `LENGTH_MEASURE_WITH_UNIT` | name, conversion_factor; value_component, unit_component |
+
+The rules of the reader:
+
+- **Points.** Each vertex point; for a circular or elliptic edge its two ends and each point of the curve,
+  within the edge's span, where a coordinate is extreme (the span runs counter-clockwise about the
+  placement's axis from start to end when `same_sense` is `.T.`, the other way otherwise; equal ends make a
+  whole turn); the control points of a B-spline edge, whose curve lies in their hull; the points of polylines,
+  poly loops and coordinate lists. A closed solid lies in the box of its edges unless a face bulges between
+  them (a sphere or a torus); a box from control points may exceed the solid.
+- **Units.** Each representation's points are scaled by the length unit of its context: an `SI_UNIT` of the
+  metre with its prefix, or a `CONVERSION_BASED_UNIT` through its `LENGTH_MEASURE_WITH_UNIT` (an inch is
+  25.4 mm). A context without a length unit is taken as millimetres.
+- **Assemblies.** A relationship with an item-defined transformation places `rep_1` in `rep_2` by bringing
+  `transform_item_1` onto `transform_item_2`. Exporters write the pair in either order, so the component is
+  the representation whose product is the `related_product_definition` of the usage that the relationship's
+  `CONTEXT_DEPENDENT_SHAPE_REPRESENTATION` names; the public models hold both orders (S-2081). A relationship
+  without a transformation joins two representations in one frame. A representation placed several times
+  counts at each placement, up to 1000.
+
 ## Oracle
 
 | fact | source | label | hypothesis |

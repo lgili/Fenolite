@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import dataclasses
 import struct
+import zlib
 from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, field
 from fractions import Fraction
@@ -445,6 +446,35 @@ def body_mode(value: str) -> BodyMode:
 
 
 @dataclass(frozen=True, slots=True)
+class EmbeddedModel:
+    """The model a body names (change c0449): ``data`` the STEP text the ``Models`` storage embeds, ``name``
+    its file name, ``position`` the model origin in the frame of the placements, ``dz`` its rise from the
+    face in nm and ``rotation`` the turns about x, y and z in µdeg (``H-A-BODY-MODEL-PLACE``)."""
+
+    data: bytes = field(repr=False)
+    name: str
+    position: Point
+    dz: int = 0
+    rotation: tuple[int, int, int] = (0, 0, 0)
+
+
+@dataclass(frozen=True, slots=True)
+class FootprintModel:
+    """A 3D model of a footprint instance that the caller gives the write (change c0449): ``ident`` for the
+    accounts (kind ``model``); with ``model`` the body's outline in the frame of the placements, its
+    ``standoff`` and ``height``, and ``changed`` the reason when it is written in another form; without,
+    ``reason`` says why it has no record."""
+
+    ident: str
+    model: EmbeddedModel | None = None
+    outline: tuple[Point, ...] = ()
+    standoff: int = 0
+    height: int = 0
+    reason: str = ""
+    changed: str = ""
+
+
+@dataclass(frozen=True, slots=True)
 class PlacedBody:
     """One component body to write (change c0121): ``component`` is the index of its component in
     ``PcbDocSpec.components``, ``layer`` the Altium id of a mechanical layer 1 to 16, ``outline`` its
@@ -462,6 +492,9 @@ class PlacedBody:
     identifier: str = ""
     model_id: str = ""
     body_id: str = ""
+    model: EmbeddedModel | None = None
+    """The embedded model the body names (change c0449): its record names it with ``model_id``, the
+    ``ID`` of its ``Models`` entry; ``None`` for an extruded body."""
 
 
 def body_vertices(outline: Sequence[Point], frame: Frame) -> list[tuple[int, int]]:
@@ -528,11 +561,65 @@ def body_records(spec: PcbDocSpec, frame: Frame) -> tuple[list[bytes], list[byte
             "form": spec.body_form,
         }
         try:
+            if body.model is not None:
+                plain.append(_model_body(body, vertices, frame, shape_based=False))
+                shape.append(_model_body(body, vertices, frame, shape_based=True))
+                continue
             plain.append(rec.body_record(body.layer, vertices, **fields))  # type: ignore[arg-type]
             shape.append(rec.body_record(body.layer, vertices, shape_based=True, **fields))  # type: ignore[arg-type]
         except (ValueError, UnicodeEncodeError) as error:
             raise ValueError(f"{where}: {error}") from error
     return plain, shape
+
+
+def _model_body(
+    body: PlacedBody, vertices: list[tuple[int, int]], frame: Frame, *, shape_based: bool
+) -> bytes:
+    model = body.model
+    assert model is not None
+    if not model.data:
+        raise ValueError("the model has no data")
+    return rec.model_body_record(
+        body.layer,
+        vertices,
+        component=body.component,
+        standoff=rec.to_units(body.standoff),
+        overall=rec.to_units(body.height),
+        bottom=body.bottom,
+        model=rec.model_id(model.data),
+        name=model.name,
+        position=_units(frame(model.position)),
+        dz=rec.to_units(model.dz),
+        rotation=model.rotation,
+        identifier=body.identifier,
+        shape_based=shape_based,
+    )
+
+
+MODELS_STORAGE = "Models"
+
+
+def model_storage(spec: PcbDocSpec) -> Storage:
+    """The ``Models`` storage (change c0449): ``Header`` the record count, ``Data`` one record per distinct
+    model of ``spec.bodies`` in the order of first use, with the turns and rise of the first body that names
+    it, and the stream ``<n>`` of record ``n``: its data deflated by ``zlib`` at level 6, as saved streams
+    are (``pcb-bodies.md``, "Written form of a model body")."""
+    records: list[bytes] = []
+    streams: list[tuple[str, bytes]] = []
+    seen: set[str] = set()
+    for body in spec.bodies:
+        model = body.model
+        if model is None:
+            continue
+        ident = rec.model_id(model.data)
+        if ident in seen:
+            continue
+        seen.add(ident)
+        records.append(
+            rec.model_record(ident, model.name, dz=rec.to_units(model.dz), rotation=model.rotation)
+        )
+        streams.append((str(len(streams)), zlib.compress(model.data, 6)))
+    return Storage(MODELS_STORAGE, (("Header", _u32(len(records))), ("Data", b"".join(records)), *streams))
 
 
 @dataclass(frozen=True, slots=True)
@@ -2095,8 +2182,9 @@ def write_pcbdoc(
     computed pour did). ``ValueError`` for an outline of fewer than three points, a refused footprint,
     copper layers that are not a stack of ``pcbrecords.COPPER_STACKS`` or copper that cannot be written
     exactly (the entity's id is named); ``cfb.CompoundTooLarge`` past the size limit. The bodies of
-    ``spec.bodies`` (change c0121) go into the two body storages; no entry of ``Models``, ``ModelsNoEmbed``,
-    ``Textures`` or ``UniqueIDPrimitiveInformation`` is written for a body."""
+    ``spec.bodies`` (change c0121) go into the two body storages; the models that bodies name go into
+    ``Models`` (change c0449, ``model_storage``); no entry of ``ModelsNoEmbed``, ``Textures`` or
+    ``UniqueIDPrimitiveInformation`` is written for a body."""
     return write_pcbdoc_result(spec, filename=filename, pour=pour, pour_regions=pour_regions).data
 
 
@@ -2279,7 +2367,10 @@ def _write(
         _storage(UNIQUE_STORAGE, unique),
     ]
     entries += _option_storages(filename)
-    entries += [_storage(name, filled.get(name, [])) for name in _TAIL_ORDER]
+    entries += [
+        model_storage(spec) if name == MODELS_STORAGE else _storage(name, filled.get(name, []))
+        for name in _TAIL_ORDER
+    ]
     return write_compound(entries)
 
 
@@ -2541,7 +2632,11 @@ __all__ = [
     "BOARD_OFFSET_MIL",
     "CUTOUT_REGIONS",
     "BodyMode",
+    "EmbeddedModel",
+    "FootprintModel",
+    "MODELS_STORAGE",
     "PlacedBody",
+    "model_storage",
     "body_mode",
     "body_problem",
     "body_records",

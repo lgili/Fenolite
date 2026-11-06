@@ -26,6 +26,7 @@ from fenolite.backends.kicad import fpitems
 from fenolite.backends.kicad.outline import edge_outline
 from fenolite.convert import altium_links, altium_strings, pads, schematic
 from fenolite.convert.direction import Direction, Options, TargetLimitError, Written
+from fenolite.convert.models import footprint_models
 from fenolite.convert.report import SOURCE_RULE_LOST, ConversionReport, census
 from fenolite.convert.sources import ALTIUM, KICAD, SourceProject
 from fenolite.core.errors import FormatError
@@ -203,6 +204,8 @@ def write(source: SourceProject, options: Options) -> Written:
     board = design.board
     # the edges as an outline (change c0170): the board ring as before, each inner ring a cut-out region
     edges = edge_outline(design) if board is not None and board.outline is None else None
+    # each model child whose STEP file the project holds becomes a body that embeds it (change c0449)
+    models = footprint_models(board.footprints, source.root) if board is not None else {}
     try:
         written = lower.write_design(
             design,
@@ -219,6 +222,7 @@ def write(source: SourceProject, options: Options) -> Written:
             pour=options.pour or "computed",
             source_rules=carried.records,
             parameters=altium_strings.project_parameter_pairs(design),
+            models=models,
         )
     except CompoundTooLarge as error:
         raise TargetLimitError(

@@ -983,6 +983,19 @@ def body_record(
         "MODEL.EXTRUDED.MAXZ": mil_text(overall),
     }
     keys = BODY_KEYS if form == "saved" else BODY_KEYS[:BODY_SHORT_KEYS]
+    return _body_bytes(layer, component, values, keys, vertices, shape_based=shape_based)
+
+
+def _body_bytes(
+    layer: int,
+    component: int,
+    values: Mapping[str, str],
+    keys: Sequence[str],
+    vertices: Sequence[tuple[int, int]],
+    *,
+    shape_based: bool,
+) -> bytes:
+    """A body record: the prefix, five zero bytes, the property text of ``keys`` and the outline."""
     text = "|".join(f"{key}={values[key]}" for key in keys).encode("ascii") + b"\0"
     body = prefix(layer, component=component) + bytes(5) + struct.pack("<I", len(text)) + text
     body += struct.pack("<I", len(vertices))
@@ -993,6 +1006,142 @@ def body_record(
         for x, y in vertices:
             body += struct.pack("<2d", float(x), float(y))
     return bytes((BODY,)) + subrecord(body)
+
+
+# --- bodies that name an embedded model (change c0449) ----------------------------------------------------
+
+MODEL_BODY_KEYS: tuple[str, ...] = (*BODY_KEYS[:32], "MODEL.MODELTYPE", "MODEL.MODELSOURCE")
+"""The 34 keys of a written body that names a model, in order (``pcb-bodies.md``, "Written form of a model
+body"): the first 32 of ``BODY_KEYS`` (through ``MODEL.3D.DZ``), then the model type and source, as 201 of
+the 453 model bodies of the public rows hold them (S-2080)."""
+MODEL_BODY_COLOR = "8421504"
+"""``BODYCOLOR3D`` of a model body: the value 374 of the 453 model bodies of the public rows hold."""
+MODEL_SOURCE = "Undefined"
+"""``MODEL.MODELSOURCE`` and the record's ``MODELSOURCE``: the value of every saved one (453 and 201)."""
+MODEL_ID_SALT = "fenolite.altium.model:"
+_MODEL_NAME = re.compile(r"[A-Za-z0-9_. ()+-]+")
+"""The characters a written model name keeps: the record holds no ``|``, ``=`` or NUL."""
+UDEG_TURN = 360_000_000
+
+
+def model_id(data: bytes) -> str:
+    """The ``ID`` of the ``Models`` record of ``data`` and the ``MODELID`` of its bodies: a GUID text in
+    braces made of the first 16 bytes of the SHA-256 of ``fenolite.altium.model:`` and the hex SHA-256 of
+    ``data``, so equal models share one record and a build is repeatable."""
+    inner = hashlib.sha256(data).hexdigest()
+    digest = hashlib.sha256((MODEL_ID_SALT + inner).encode("ascii")).hexdigest().upper()
+    return "{" + "-".join((digest[:8], digest[8:12], digest[12:16], digest[16:20], digest[20:32])) + "}"
+
+
+def degrees_text(udeg: int) -> str:
+    """An angle in µdeg as the model keys hold it: degrees in [0, 360) with three decimals, half to even."""
+    turn = Fraction(udeg % UDEG_TURN, 1_000_000)
+    value = Decimal(turn.numerator) / Decimal(turn.denominator)
+    text = format(value.quantize(Decimal("0.001"), rounding=ROUND_HALF_EVEN), "f")
+    return "0.000" if text == "360.000" else text
+
+
+def model_name_problem(name: str) -> str | None:
+    """Why ``name`` cannot be a written model's name, or ``None``."""
+    if not name or _MODEL_NAME.fullmatch(name) is None:
+        return f"the model name {name!r} holds a character the record does not take"
+    return None
+
+
+def model_body_record(
+    layer: int,
+    vertices: Sequence[tuple[int, int]],
+    *,
+    component: int,
+    standoff: int,
+    overall: int,
+    bottom: bool,
+    model: str,
+    name: str,
+    position: tuple[int, int],
+    dz: int,
+    rotation: tuple[int, int, int],
+    identifier: str = "",
+    shape_based: bool = False,
+) -> bytes:
+    """One component body that names an embedded model (type 12; ``pcb-bodies.md``, "Written form of a model
+    body"): the framing of ``body_record``, the 34 keys of ``MODEL_BODY_KEYS``, ``MODELID`` ``model`` (the
+    record's ``ID``), ``MODEL.NAME`` ``name``, ``MODEL.2D.X/Y`` ``position`` and ``MODEL.3D.DZ`` ``dz`` in
+    units, and the three turns in µdeg. ``standoff`` may be negative, as a through-hole part's is.
+    ``ValueError`` for fewer than three vertices, a layer that is no Mechanical 1 to 16, a component index
+    outside 16 bits, an overall height not above the standoff, an empty model id or a name the record cannot
+    hold."""
+    if len(vertices) < 3:
+        raise ValueError("a component body needs at least three vertices")
+    if layer not in BODY_LAYERS:
+        raise ValueError(f"layer {layer} is not a mechanical layer 1 to 16 (ids 57 to 72)")
+    if not 0 <= component <= NO_INDEX:
+        raise ValueError(f"the component index {component} is not 16 bits")
+    if overall <= standoff:
+        raise ValueError("the overall height of a component body must be above its standoff")
+    if not model:
+        raise ValueError("a model body needs the id of its model")
+    problem = model_name_problem(name)
+    if problem is not None:
+        raise ValueError(problem)
+    values: dict[str, str] = {
+        "V7_LAYER": V7_LAYERS[layer],
+        "NAME": " ",
+        "KIND": "0",
+        "SUBPOLYINDEX": "-1",
+        "UNIONINDEX": "0",
+        "ARCRESOLUTION": REGION_ARC_RESOLUTION,
+        "ISSHAPEBASED": "FALSE",
+        "CAVITYHEIGHT": "0mil",
+        "STANDOFFHEIGHT": mil_text(standoff),
+        "OVERALLHEIGHT": mil_text(overall),
+        "BODYPROJECTION": "1" if bottom else "0",
+        "BODYCOLOR3D": MODEL_BODY_COLOR,
+        "BODYOPACITY3D": "1.000",
+        "IDENTIFIER": ",".join(str(ord(character)) for character in identifier),
+        "TEXTURE": "",
+        "TEXTURECENTERX": "0mil",
+        "TEXTURECENTERY": "0mil",
+        "TEXTURESIZEX": "0mil",
+        "TEXTURESIZEY": "0mil",
+        "TEXTUREROTATION": BODY_TEXTURE_ROTATION,
+        "MODELID": model,
+        "MODEL.CHECKSUM": BODY_CHECKSUM,
+        "MODEL.EMBED": "TRUE",
+        "MODEL.NAME": name,
+        "MODEL.2D.X": mil_text(position[0]),
+        "MODEL.2D.Y": mil_text(position[1]),
+        "MODEL.2D.ROTATION": "0.000",
+        "MODEL.3D.ROTX": degrees_text(rotation[0]),
+        "MODEL.3D.ROTY": degrees_text(rotation[1]),
+        "MODEL.3D.ROTZ": degrees_text(rotation[2]),
+        "MODEL.3D.DZ": mil_text(dz),
+        "MODEL.MODELTYPE": "1",
+        "MODEL.MODELSOURCE": MODEL_SOURCE,
+    }
+    return _body_bytes(layer, component, values, MODEL_BODY_KEYS, vertices, shape_based=shape_based)
+
+
+def model_record(model: str, name: str, *, dz: int, rotation: tuple[int, int, int]) -> bytes:
+    """One record of ``Models/Data`` (``pcb-bodies.md``, "Embedded models and their placement"): a 32-bit
+    length and ``EMBED=TRUE|MODELSOURCE=Undefined|ID=…|ROTX=…|ROTY=…|ROTZ=…|DZ=…|CHECKSUM=0|NAME=…`` with a
+    NUL; ``DZ`` in integer units, as saved records hold it, and ``CHECKSUM`` the stand-in of the bodies."""
+    problem = model_name_problem(name)
+    if problem is not None:
+        raise ValueError(problem)
+    fields = (
+        ("EMBED", "TRUE"),
+        ("MODELSOURCE", MODEL_SOURCE),
+        ("ID", model),
+        ("ROTX", degrees_text(rotation[0])),
+        ("ROTY", degrees_text(rotation[1])),
+        ("ROTZ", degrees_text(rotation[2])),
+        ("DZ", str(dz)),
+        ("CHECKSUM", BODY_CHECKSUM),
+        ("NAME", name),
+    )
+    text = "|".join(f"{key}={value}" for key, value in fields).encode("ascii") + b"\0"
+    return struct.pack("<I", len(text)) + text
 
 
 # --- the Embedded Board Array (change c0173, task 7.2) -----------------------------------------------------
@@ -1102,6 +1251,13 @@ __all__ = [
     "body_layer",
     "body_model_id",
     "body_record",
+    "degrees_text",
+    "MODEL_BODY_COLOR",
+    "MODEL_BODY_KEYS",
+    "model_body_record",
+    "model_id",
+    "model_name_problem",
+    "model_record",
     "BOARD_LAYER_MAP",
     "BOTTOM_LAYER",
     "BOTTOM_SIDE",

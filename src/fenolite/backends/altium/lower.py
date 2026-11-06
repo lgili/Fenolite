@@ -115,6 +115,7 @@ MORE_KINDS: tuple[str, ...] = (
     "footprint-copper",
     "footprint-text",
     "net-tie",
+    "model",
     "severity",
     "dnp",
     "pin-net",
@@ -137,8 +138,10 @@ copper layer, which is not written unless the footprint is a net tie (change c04
 text or a field that the text record cannot hold. ``AltiumInputs.written`` counts the written graphics, the
 written net-tie copper and the texts under the three keys. ``dnp``
 (change c0159) is a component whose do-not-populate flag is set: the documents hold no fitted flag outside
-variants, so the part is written as fitted."""
+variants, so the part is written as fitted. ``model`` (change c0449) is a 3D model of a footprint that the
+caller gives (``pcbdoc.FootprintModel``): written as a body that names an embedded model, or not."""
 DNP_KIND = "dnp"
+MODEL_KIND = "model"
 DNP_REASON = "the Altium documents hold no fitted flag outside variants"
 CONNECT_REASON = "a connector pad is written as a surface pad with no paste and no mask opening"
 """The reason a pad of kind ``connect`` is counted changed under ``pad`` (change c0160): the record has no
@@ -1373,6 +1376,7 @@ def _footprints(
     copper: Sequence[str] = (),
     options: LowerOptions | None = None,
     copper_ids: Mapping[str, int] | None = None,
+    models: Mapping[str, Sequence[pcbdoc.FootprintModel]] | None = None,
 ) -> tuple[list[pcbdoc.PlacedComponent], list[pcbdoc.FreePad]]:
     """The components and the free pads of the document. With ``bodies`` ``extruded`` (change c0121) the
     bodies of a written footprint that have a record are appended to ``placed_bodies``, placed in
@@ -1380,9 +1384,13 @@ def _footprints(
     pattern, the library names, the link, the comment and the sheet of a component are the build's."""
     components = {component.id: component for component in design.circuit.components}
 
+    found_models = models or {}
+
     def skip_bodies(fp: FootprintInstance, reason: str) -> None:
         for body in fp.bodies:
             account.skip_body(body.id, reason)
+        for model in found_models.get(fp.id, ()):
+            account.skip(MODEL_KIND, model.ident, model.reason or reason)
 
     links = unique_links(design)
     placed: list[pcbdoc.PlacedComponent] = []
@@ -1506,7 +1514,54 @@ def _footprints(
             else:
                 placed_bodies.append(found)
                 account.wrote("body")
+        for model in found_models.get(fp.id, ()):
+            if bodies == "off" and model.model is not None:
+                account.skip(MODEL_KIND, model.ident, pcbdoc.BODIES_OFF)
+                continue
+            _place_model(model, len(placed) - 1, bottom, frame, placed_bodies, account)
     return placed, free
+
+
+MODEL_UNPLACED = "the document has no frame for bodies"
+
+
+def _place_model(
+    model: pcbdoc.FootprintModel,
+    component: int,
+    bottom: bool,
+    frame: pcbdoc.Frame | None,
+    placed_bodies: list[pcbdoc.PlacedBody] | None,
+    account: _Account,
+) -> None:
+    """A model of a written footprint as a body that names it (change c0449), on Mechanical 13 or 14 by the
+    footprint's side, or counted under ``model`` with its reason. Without ``--altium-bodies extruded`` the
+    caller counts a model lost with the reason of the bodies, and the document is the one of before."""
+    if model.model is None or frame is None or placed_bodies is None:
+        account.skip(MODEL_KIND, model.ident, model.reason or MODEL_UNPLACED)
+        return
+    if len(pcbdoc.body_vertices(model.outline, frame)) < 3:
+        account.skip(MODEL_KIND, model.ident, pcbdoc.BODY_NO_OUTLINE)
+        return
+    if rec.to_units(model.height) <= rec.to_units(model.standoff):
+        account.skip(MODEL_KIND, model.ident, "the model has no height above the face it stands on")
+        return
+    placed_bodies.append(
+        pcbdoc.PlacedBody(
+            component=component,
+            layer=rec.body_layer("", bottom=bottom),
+            outline=model.outline,
+            height=model.height,
+            standoff=model.standoff,
+            bottom=bottom,
+            model_id=rec.model_id(model.model.data),
+            body_id=model.ident,
+            model=model.model,
+        )
+    )
+    if model.changed:
+        account.change(MODEL_KIND, model.ident, model.changed)
+    else:
+        account.wrote(MODEL_KIND)
 
 
 # --- copper and free items ------------------------------------------------------------------------------
@@ -1948,6 +2003,7 @@ def from_design(
     full_drill: bool = False,
     bodies: str = "off",
     edges: Outline | None = None,
+    models: Mapping[str, Sequence[pcbdoc.FootprintModel]] | None = None,
 ) -> AltiumInputs:
     """The inputs of the PCB and schematic writers from ``design`` alone, or with ``options`` those of a
     build (change c0126, ``LowerOptions``). ``corner_ratios`` maps a pad id
@@ -2018,6 +2074,7 @@ def from_design(
                 bodies=body_mode,
                 options=options,
                 edges=edges,
+                models=models,
             )
     schematic = schematic_design(design, name, account)
     modelled = {component.id: component.lib_footprint_ref for component in schematic.circuit.components}
@@ -2083,6 +2140,7 @@ def _document(
     bodies: pcbdoc.BodyMode = "off",
     options: LowerOptions | None = None,
     edges: Outline | None = None,
+    models: Mapping[str, Sequence[pcbdoc.FootprintModel]] | None = None,
 ) -> pcbdoc.PcbDocSpec:
     net_names: dict[str, str] = {}
     for net in design.circuit.nets:
@@ -2140,6 +2198,7 @@ def _document(
         copper=layers,
         options=options,
         copper_ids=dict(zip(layers, rec.copper_stack(layers, tuple(planes)), strict=True)),
+        models=models,
     )
     tracks, arcs, vias, zones, arc_records = _copper(
         board, layers, planes, net_names, frame, account, full_drill=full_drill
@@ -2216,6 +2275,7 @@ def write_design(
     pour: PourMode | None = None,
     source_rules: Sequence[tuple[int, tuple[tuple[str, str], ...]]] = (),
     parameters: Sequence[tuple[str, str]] = (),
+    models: Mapping[str, Sequence[pcbdoc.FootprintModel]] | None = None,
 ) -> ProjectWrite:
     """The files of an Altium project written from ``design`` alone: ``<name>.PcbDoc`` when the design holds a
     board with an outline or an item, and ``<name>.SchDoc`` with its libraries and ``<name>.PrjPcb`` when the
@@ -2231,7 +2291,10 @@ def write_design(
     started from, each its kind number and its keys from ``RULEKIND`` on: the document holds them as they
     are, then only the rules of ``design`` that none of them gave (``PcbDocSpec.source_rules``).
     ``parameters`` are written as the project file's ``[Parameter<n>]`` entries (change c0451: the text
-    variables of a converted KiCad project)."""
+    variables of a converted KiCad project).
+    ``models`` (change c0449) maps a footprint instance id to its 3D models, which the
+    conversion found beside the source: each is written as a body that names an embedded model, or counted
+    under ``model`` with its reason."""
     refuse_bom_only(design)
     if schematic is not None:
         refuse_bom_only(schematic)
@@ -2244,6 +2307,7 @@ def write_design(
         full_drill=full_drill,
         bodies=bodies,
         edges=edges,
+        models=models,
     )
     if source_rules and inputs.pcb is not None:  # the source's own rule records (change c0434)
         inputs = dataclasses.replace(
