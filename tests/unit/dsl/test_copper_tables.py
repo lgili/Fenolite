@@ -88,8 +88,10 @@ def test_other_refusals() -> None:
         d.track_table("T/1", net=gnd, layer="In1.Cu", width=mm("0.2"), rows_nm=((0, 0, 1, 0),))
     with pytest.raises(DslError, match="width"):
         d.track_table("T/1", net=gnd, layer="F.Cu", width=0.2, rows_nm=((0, 0, 1, 0),))
-    with pytest.raises(DslError, match="drill"):
-        d.via_table("V/1", net=gnd, diameter=mm("0.3"), drill=mm("0.3"), rows_nm=((0, 0),))
+    with pytest.raises(DslError, match="drill 400000 nm is larger than the diameter 300000 nm"):
+        d.via_table("V/1", net=gnd, diameter=mm("0.3"), drill=mm("0.4"), rows_nm=((0, 0),))
+    # an equal drill is a via without a ring, which a source document can hold (change c0426)
+    d.via_table("V/0", net=gnd, diameter=mm("0.3"), drill=mm("0.3"), rows_nm=((0, 0),))
     d.via("V/1", mm(1), mm(1), net=gnd, diameter=mm("0.6"), drill=mm("0.3"))
     with pytest.raises(DslError, match="already used"):
         d.via_table("V/1", net=gnd, diameter=mm("0.6"), drill=mm("0.3"), rows_nm=((0, 0),))

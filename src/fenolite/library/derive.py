@@ -29,7 +29,7 @@ from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence, Level
 from fenolite.geometry.transform import FULL_TURN
 from fenolite.library.codes import issue
-from fenolite.model.board import FootprintInstance, Graphic
+from fenolite.model.board import Graphic
 from fenolite.model.design import Design
 from fenolite.model.library import FootprintDef
 
@@ -107,18 +107,16 @@ def derive_from_model(
         zip(board.footprints, nodes, strict=True), key=lambda p: (refs.get(p[0].component_id, ""), p[0].id)
     )
     variants: dict[str, list[tuple[str, str, FootprintDef, str, list[str]]]] = {}
-
-    def source_of(fp: FootprintInstance) -> str:
-        return fp.lib_ref.rsplit(":", 1)[-1] or refs.get(fp.component_id, "") or fp.id
-
-    mine = [
-        (fp, root) for fp, root in pairs if nickname is None or nickname_of(fp.lib_ref, default) == nickname
+    chosen = [
+        (fp, root, fp.lib_ref.rsplit(":", 1)[-1] or refs.get(fp.component_id, "") or fp.id)
+        for fp, root in pairs
+        if nickname is None or nickname_of(fp.lib_ref, default) == nickname
     ]
-    # a variant's name is never a name of the board's own footprints (change c0425)
-    given = {source_of(fp) for fp, _ in mine}
-    for fp, root in mine:
+    # a variant is never named as another footprint of the board, nor as another variant (change c0426):
+    # a library whose own footprints are named ``<name>_2`` would otherwise give two footprints one file
+    taken = {source for _, _, source in chosen}
+    for fp, root, source in chosen:
         ref = refs.get(fp.component_id, "")
-        source = source_of(fp)
         found: list[Issue] = []
         local = local_footprint(root, fp.rotation, fp.side, found)
         if found:
@@ -142,13 +140,8 @@ def derive_from_model(
                 members.append(ref)
                 break
         else:
-            name = source
-            if rows:
-                suffix = len(rows) + 1
-                while f"{source}_{suffix}" in given:
-                    suffix += 1
-                name = f"{source}_{suffix}"
-                given.add(name)
+            name = source if not rows else _variant_name(source, len(rows) + 1, taken)
+            taken.add(name)
             definition = _named(definition, name, library)
             written = write_footprint(definition, target=target, allow_lossy=True)
             if rows:
@@ -167,6 +160,13 @@ def derive_from_model(
         for name, _, definition, written, members in rows
     ]
     return Derived(tuple(sorted(footprints, key=lambda fp: fp.name)), tuple(issues))
+
+
+def _variant_name(source: str, number: int, taken: set[str]) -> str:
+    """``<source>_<number>``, or the first higher number whose name no footprint of ``taken`` holds."""
+    while f"{source}_{number}" in taken:
+        number += 1
+    return f"{source}_{number}"
 
 
 def _named(definition: FootprintDef, name: str, library: str) -> FootprintDef:

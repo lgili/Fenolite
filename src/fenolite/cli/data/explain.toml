@@ -2349,7 +2349,7 @@ fix = "Use a copper layer of the board; a via must join two different layers."
 see = "build"
 
 ["kicad.copper.bad-size"]
-meaning = "A size is not positive, or a drill is not smaller than its via diameter."
+meaning = "A size is not positive, or a drill is larger than its via diameter."
 fix = "Correct the width, the diameter or the drill."
 see = "build"
 

@@ -127,6 +127,33 @@ def test_a_variant_name_the_board_already_holds() -> None:
     assert next(fp for fp in derived.footprints if fp.name == "R_0603_2").source == "R_0603_2"
 
 
+def with_named_variant(text: str) -> str:
+    """The board with ``R9`` (``R1`` with pad 2 moved by 0.1 mm) and ``R5``, a footprint of its own named
+    ``R_0603_2`` whose pad 2 is moved by -0.1 mm: the name a variant of ``R_0603`` would take."""
+    text = with_second_resistor(text, moved=True)
+    start = text.index('\t(footprint "Fenolite_Test:R_0603"')
+    end = text.index("\t(footprint ", start + 1)
+    copy = text[start:end].replace('"Fenolite_Test:R_0603"', '"Fenolite_Test:R_0603_2"')
+    copy = copy.replace('"R1"', '"R5"').replace("(at 20 15 90)", "(at 30 25 90)")
+    copy = copy.replace("d75df7ee-5c1f-4a9f-9213-5cb13ccc38b7", "d75df7ee-5c1f-4a9f-9213-5cb13ccc38b5")
+    copy = copy.replace("(at 0.8 0 90)", "(at 0.7 0 90)")
+    return text[:end] + copy + text[end:]
+
+
+def test_a_variant_takes_no_name_of_another_footprint() -> None:
+    """Scenario "A variant name that the board already holds" (change c0426): the variant of ``R_0603`` is
+    ``R_0603_3``, so the board's own ``R_0603_2`` keeps its file and its pads."""
+    derived = derive_library(with_named_variant(board_text()), library="lib", target=10)
+    names = [fp.name for fp in derived.footprints]
+    assert names == ["LED_THT_3mm", "R_0603", "R_0603_2", "R_0603_3"]
+    by_name = {fp.name: fp for fp in derived.footprints}
+    assert by_name["R_0603_2"].refs == ("R5",) and by_name["R_0603_3"].refs == ("R9",)
+    second = {pad.number: pad.position.x for pad in by_name["R_0603_2"].definition.pads}
+    third = {pad.number: pad.position.x for pad in by_name["R_0603_3"].definition.pads}
+    assert second["2"] == 700_000 and third["2"] == 900_000
+    assert len(derived.files()) == len(names)
+
+
 def test_drift_of_a_library(tmp_path: Path) -> None:
     """Scenario "Silkscreen edited on the board": the library's footprint holds a silkscreen line that the
     board's instance lacks; a footprint the library lacks is ``missing``."""

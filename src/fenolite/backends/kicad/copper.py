@@ -356,10 +356,10 @@ def _via_sizes(
         )
     _positive(diameter, "via diameter", key)
     _positive(drill, "via drill", key)
-    if drill >= diameter:
+    if drill > diameter:  # an equal drill is a via without a ring (change c0426)
         raise _Refused(
             "kicad.copper.bad-size",
-            f"{key}: the drill {drill} nm is not smaller than the diameter {diameter} nm",
+            f"{key}: the drill {drill} nm is larger than the diameter {diameter} nm",
             key,
         )
     return diameter, drill

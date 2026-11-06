@@ -457,7 +457,7 @@ copper"), which is why a band is one zone.
 | `kicad.copper.unknown-net` | error | a named net is not a net of the design |
 | `kicad.copper.no-net` | error | a via, a stitch or a track without a pad end names no net |
 | `kicad.copper.size-missing` | error | a width, via size or clearance is neither given nor set by the net's class |
-| `kicad.copper.bad-size` | error | a size is not positive, or a drill is not smaller than its diameter |
+| `kicad.copper.bad-size` | error | a size is not positive, or a drill is larger than its diameter (an equal drill is a via without a ring, change c0426) |
 | `kicad.copper.stale` | warning | script copper of an earlier build has no intent any more and is removed |
 | `kicad.copper.end-unplaced` | warning | an intent ends at a staged part and creates nothing |
 | `kicad.copper.stitch-empty` | warning | a stitch keeps no candidate |

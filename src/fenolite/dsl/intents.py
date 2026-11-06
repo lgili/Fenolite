@@ -808,8 +808,10 @@ def record_table(
         via_kind = _kind(kind, what)
         size = _table_size(diameter, f"{what}: diameter")
         hole = _table_size(drill, f"{what}: drill")
-        if hole >= size:
-            raise DslError(f"{what}: the drill {hole} nm is not smaller than the diameter {size} nm")
+        # a drill equal to the diameter is a via without a ring, which a source document can hold
+        # (change c0426); a larger drill is refused
+        if hole > size:
+            raise DslError(f"{what}: the drill {hole} nm is larger than the diameter {size} nm")
         span = _via_layers(layers, via_kind, what)
         if span is not None:
             for named in span:
