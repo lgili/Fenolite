@@ -410,6 +410,7 @@ a claim), `see` (its code runs only inside the operations of the named modules o
 | `read.dwfdraw` | `EVIDENCE` INFERRED: `H-A-DWF-GEOM` |
 | `read.ini` | see `read.project` |
 | `read.outjob` | see `read.project` |
+| `read.packages` | see `import_evidence`, `read.project` |
 | `read.pcb` | `EVIDENCE` CORPUS-VERIFIED: `H-A-RD-PCB-FRAME`, `H-A-RD-PCB-IDENTITY`, `H-A-RD-PCB-LENGTHS`, `H-A-RD-PCB-REGION`, `H-A-RD-PCB-TEXT-2`, `H-A-RD-PCB-RULE`, `H-A-RD-PCB-POLYNAME`, `H-A-RD-PCB-CODEC` |
 | `read.pcblib` | `EVIDENCE` CORPUS-VERIFIED: `H-A-RD-PCB-FRAME`, `H-A-RD-PCB-IDENTITY`, `H-A-RD-PCB-LENGTHS`, `H-A-RD-PCB-CODEC` |
 | `read.pcbprims` | see `read.pcb`, `read.pcblib` |
@@ -432,6 +433,7 @@ a claim), `see` (its code runs only inside the operations of the named modules o
 | `read.sch.units` | see `read.sch` |
 | `read.schlib` | see `read.sch` |
 | `read.scope` | see `import_evidence`, `read.project` |
+| `read.scopedoc` | see `import_evidence`, `read.project` |
 | `read.sheet` | `EVIDENCE` INFERRED: `H-A-RD-SHT-AREA`, `H-A-RD-SHT-BORDER`, `H-A-RD-SHT-IMAGE`, `H-A-RD-SHT-OWNER`, `H-A-RD-SHT-SAME`, `H-A-RD-SHT-STRINGS`, `H-A-RD-SHT-TEXT`, `H-A-RD-SHT-WIDTH` |
 | `read.stackup` | see `read.project` |
 | `read.textfile` | see `read.project` |

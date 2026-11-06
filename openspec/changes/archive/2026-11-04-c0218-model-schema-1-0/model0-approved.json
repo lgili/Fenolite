@@ -9637,7 +9637,9 @@
       "fields": [
         {
           "name": "op",
-          "type": "Literal['all', 'net', 'netclass', 'ref', 'layer', 'item_kind', 'area', 'diff_pair', 'and', 'or', 'not']",
+          "type": "Literal['all', 'net', 'netclass', 'ref', 'layer', 'item_kind', 'area', 'diff_pair', 'zone', 'hole', 'pad_type', 'and', 'or', 'not']",
+          "widened_from": "Literal['all', 'net', 'netclass', 'ref', 'layer', 'item_kind', 'area', 'diff_pair', 'and', 'or', 'not']",
+          "approved": "approved 2026-11-06, c0462, coordinator under maintainer delegation: Selector.op widened by zone, hole and pad_type; every approved value kept; input-compatible",
           "default": {
             "kind": "required"
           }

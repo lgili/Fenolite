@@ -107,7 +107,7 @@ def test_reserved_names_stay_reserved() -> None:
 def test_designs_without_devices_are_unchanged() -> None:
     namespace = runpy.run_path(str(ROOT / "examples" / "blink_2layer" / "design.py"))
     texts = canonical.dump_texts(to_model(namespace["design"]))
-    assert json.loads(texts["meta.json"])["schema_version"] == "1.0"
+    assert json.loads(texts["meta.json"])["schema_version"] == "1.1"
     legacy = {**texts, "meta.json": legacy_meta_bytes(texts["meta.json"].encode()).decode()}
     assert _digest(legacy) == BLINK_DIGEST
     assert "fenolite.device" not in "".join(texts.values())

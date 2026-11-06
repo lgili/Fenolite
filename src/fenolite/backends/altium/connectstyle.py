@@ -23,7 +23,7 @@ from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence, Level
 from fenolite.core.units import Nm, Udeg
 from fenolite.model.board import Board, Zone, ZoneSettings
-from fenolite.model.rules import LEAF_OPS, RuleSubject, Selector
+from fenolite.model.rules import CASED_LEAVES, LEAF_OPS, RuleSubject, Selector
 
 ConnectKind = Literal["relief", "direct", "none"]
 ObjectKind = Literal["th_pad", "smd_pad", "via"]
@@ -189,7 +189,7 @@ def read_connect_styles(records: Sequence[Sequence[tuple[str, str | None]]]) -> 
 
 
 def _fold(selector: Selector) -> Selector:
-    if selector.op in LEAF_OPS and selector.op not in ("area", "diff_pair"):
+    if selector.op in LEAF_OPS and selector.op not in CASED_LEAVES:
         return replace(selector, value=selector.value.casefold())
     if selector.items:
         return replace(selector, items=tuple(_fold(item) for item in selector.items))

@@ -52,7 +52,7 @@ PINNED_VERSION = "0.2.1"
 """The version the canonical text carried when ``UNCHANGED`` was measured: ``canonical.dumps`` writes the
 running version into the header, so the digest is taken with that field set back (change c0150)."""
 PINNED_SCHEMA_VERSION = "0"
-"""Original c0126 metadata marker; c0218 authorizes only this marker's0→1.0 transition."""
+"""Original c0126 metadata marker; c0218 authorizes only this marker's 0→1.0 transition, c0462 its 1.0→1.1."""
 
 
 def _pinned_digest(design: Design) -> str:
@@ -60,7 +60,7 @@ def _pinned_digest(design: Design) -> str:
     text = canonical.dumps(design)
     field = f'"fenolite_version": "{fenolite.__version__}"'
     assert text.count(field) == 1, field
-    schema_field = '"schema_version": "1.0"'
+    schema_field = '"schema_version": "1.1"'
     assert text.count(schema_field) == 1, schema_field
     pinned = text.replace(field, f'"fenolite_version": "{PINNED_VERSION}"').replace(
         schema_field, f'"schema_version": "{PINNED_SCHEMA_VERSION}"'
@@ -94,7 +94,7 @@ def test_read_is_unchanged(name: str) -> None:
 def test_metadata_transition_preserves_native_bytes_and_original_pins(name: str, target: int) -> None:
     """Keep original digests: the independently constructed legacy header changes no board content."""
     design = _read(name)
-    assert design.header.schema_version == "1.0"
+    assert design.header.schema_version == "1.1"
     legacy = dataclasses.replace(
         design,
         header=dataclasses.replace(

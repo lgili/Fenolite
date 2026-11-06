@@ -1213,6 +1213,9 @@
             "item_kind",
             "area",
             "diff_pair",
+            "zone",
+            "hole",
+            "pad_type",
             "and",
             "or",
             "not"

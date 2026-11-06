@@ -31,8 +31,8 @@ def test_every_release_loads_readonly_and_preserves_layers(folder: Path) -> None
     design = canonical.load_dir(folder)
     notes = [i for i in design.findings.issues if i.code == "model.migrated"]
     assert len(notes) == 1 and notes[0].severity == "info" and notes[0].where == str(folder)
-    assert "0 -> 1.0" in notes[0].message
-    assert design.header.schema_version == "1.0" and len(design.circuit.components) == 3
+    assert "0 -> 1.0" in notes[0].message and "1.0 -> 1.1" in notes[0].message
+    assert design.header.schema_version == "1.1" and len(design.circuit.components) == 3
     findings = dataclasses.replace(
         design.findings, issues=tuple(i for i in design.findings.issues if i not in notes)
     )
@@ -51,10 +51,10 @@ def test_current_folder_and_unrelated_files(tmp_path: Path) -> None:
     assert before == {p.name: p.read_bytes() for p in tmp_path.iterdir()}
 
 
-@pytest.mark.parametrize("version", ["1.1", "2.0", "99.0"])
+@pytest.mark.parametrize("version", ["1.2", "2.0", "99.0"])
 def test_future_refused_before_unknown_layers(tmp_path: Path, version: str) -> None:
     (tmp_path / "meta.json").write_text(json.dumps({"schema_version": version, "future_field": "unknown"}))
-    with pytest.raises(FutureVersionError, match=rf"{version!r}.*'1.0'") as caught:
+    with pytest.raises(FutureVersionError, match=rf"{version!r}.*'1.1'") as caught:
         canonical.load_dir(tmp_path)
     assert caught.value.locator == "/schema_version" and caught.value.cli_code == "FEN-3002"
 
@@ -102,7 +102,7 @@ def _round_trip_legacy(design: Design) -> None:
     raw = {name: json.loads(text) for name, text in current.items()}
     raw["meta.json"]["schema_version"] = "0"
     migrated, steps = migrate(raw, "0")
-    assert steps == ("0 -> 1.0",)
+    assert steps == ("0 -> 1.0", "1.0 -> 1.1")
     assert canonical.dump_texts(canonical.from_data(migrated)) == current
 
 
@@ -117,7 +117,7 @@ def test_corpus_of_the_tests_generated_models(design: Design) -> None:
 def test_corpus_of_the_tests_committed_documents(path: Path) -> None:
     if path.name in dict((name, cls) for name, _, cls in canonical.LAYER_FILES):
         folder = path.parent
-        assert canonical.load_dir(folder).header.schema_version == "1.0"
+        assert canonical.load_dir(folder).header.schema_version == "1.1"
     else:
         # Standalone older board/rules layers have no folder version to migrate.
         text = path.read_text(encoding="utf-8")

@@ -667,6 +667,11 @@ def test_inner_layers() -> None:
     assert details([inner], TWO) == [
         ("no-layer", "OnMid on a board without an internal signal layer: the rule applies to no object")
     ]
+    # change c0462: its info says so, in place of altium.rule.unmapped; the record stays Unmapped (kept)
+    ((info,),) = [map_rules([inner], origin="b", layers=TWO).issues]
+    assert (info.code, info.severity, info.where) == ("altium.rule.applies-to-nothing", "info", "b#0")
+    four = map_rules([inner], origin="b", layers=FOUR).issues
+    assert [i.code for i in four] == ["altium.rule.unmapped"]
     assert reasons([inner], layers=PLANES) == ["no-layer"]  # an internal plane is no signal layer
     ((reason, detail),) = details([inner], FOUR)
     assert reason == "scope" and "internal signal layers" in detail

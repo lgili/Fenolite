@@ -37,7 +37,7 @@ Mappings:
 #### Scenario: Mixed operators by Altium's precedence
 - **GIVEN** `InNet('A') Or InNet('B') And IsTrack` and `(OnTopLayer Or OnBottomLayer) && InNet('GND')`
 - **WHEN** `uv run pytest tests/unit/backends/altium/test_scope_c0462.py -k precedence` parses them
-- **THEN** the first is `or(net A, and(net B, item_kind track))`, and the second is `and(or(layer F.Cu, layer B.Cu), net GND)`
+- **THEN** the first is `or(net A, and(net B, item_kind track))`, and the second is `and(or(and(layer F.Cu, not(M)), and(layer B.Cu, not(M))), net GND)`, where `M` is `or(item_kind via, pad_type th, pad_type npth)`, the objects on Multi-Layer
 
 #### Scenario: A comparison under And
 - **GIVEN** `HoleDiameter > 1 And IsPad` and `HoleDiameter > 1 && IsPad` in a document of millimetres
@@ -49,19 +49,51 @@ Mappings:
 - **WHEN** `uv run pytest tests/unit/backends/altium/test_scope_c0462.py -k wildcard` parses them
 - **THEN** the first matches the nets `PWR1` and `PWR*`, and the second matches the net `PWR[1]` and not `PWR1`
 
+### Requirement: Text reader issue codes
+`fenolite.backends.altium.read.textfile.TEXT_READ_CODES` SHALL be this closed mapping, and every issue of the modules of this capability MUST use one of its codes with the severity given:
+
+| code | severity | when |
+|---|---|---|
+| `altium.text.encoding-assumed` | warning | no byte-order mark and the bytes are not UTF-8; read as Latin-1 |
+| `altium.text.mixed-line-ends` | info | more than one kind of line end |
+| `altium.text.duplicate-key` | info | a key repeated in one section |
+| `altium.text.stray-line` | info | a line that is neither a section, a key nor empty |
+| `altium.text.unknown-key` | info | a key line of an annotation file that names no unique-id path with a designator |
+| `altium.project.no-design-section` | warning | a project file without `[Design]` |
+| `altium.project.hierarchy-mode-unknown` | warning | a `HierarchyMode` outside `HIERARCHY_MODES` |
+| `altium.project.document-kind-unknown` | info | a document extension outside `DOCUMENT_KINDS` |
+| `altium.project.document-missing` | warning | a listed document is not a file |
+| `altium.project.document-outside` | warning | a document path leaves the project folder |
+| `altium.project.companion-unreadable` | warning | a listed companion raised `FormatError` |
+| `altium.outjob.output-incomplete` | warning | an output without its type |
+| `altium.rule.record-malformed` | warning | a line of an export file without a rule kind |
+| `altium.rule.summary-form` | info | a summary-form file: its rules are not mapped |
+| `altium.rule.unmapped` | info | one rule that is not mapped, with its reason |
+| `altium.rule.applies-to-nothing` | info | in place of `altium.rule.unmapped`: a rule whose scope applies to no object of the board (`OnMid` without an internal signal layer, c0462) |
+| `altium.stackup.unknown-form` | warning | more than one generation of layer keys |
+| `altium.stackup.length-unreadable` | warning | a thickness that is not a length |
+
+No issue of this capability MUST have the severity `error`: malformed input raises `FormatError`, which the CLI maps to `FEN-3004`. An issue message MUST NOT hold a path outside the project folder.
+
+#### Scenario: Closed set
+- **GIVEN** the issues produced by the unit cases of this capability and the `altium.text.`, `altium.project.`, `altium.outjob.`, `altium.rule.` and `altium.stackup.` literals in `src/fenolite/backends/altium/read/*.py`
+- **WHEN** `uv run pytest tests/unit/backends/altium/read/test_text_codes.py` runs
+- **THEN** every produced code is a key of `TEXT_READ_CODES` with the table's severity, and the set of literals of the ten text modules equals the keys of `TEXT_READ_CODES`
+
 ## ADDED Requirements
 
 ### Requirement: Scope functions read from the document
 `parse_scope` with a `document` SHALL read the functions of change c0462 (design D2 and D3) from the document, and MUST record each one in `rule-file.md` with its source and evidence label.
 
-- `OnLayer`, `OnTopLayer`, `OnBottomLayer` and `OnMid` MUST give `layer` leaves of the copper layers of the board.
-- `WithinRoom` MUST give `area` leaves of the rooms read as rule areas.
-- `InDifferentialPair`, `InAnyDifferentialPair` and `IsDifferentialPair` MUST give `diff_pair` leaves.
-- `InDifferentialPairClass`, `InxSignal` and `InxSignalClass` MUST be expanded from the document's definitions.
-- `HasFootprint`, `IsComponent`, `IsNetTieComponent`, `IsSOIC`, `IsBGA`, `IsLCC` and `InNamedUnion` MUST be expanded to `ref` leaves of the components they select, or to `not(all)` when none match.
+- `OnTopLayer`, `OnBottomLayer`, `OnOutside` and `OnMid` MUST give `layer` leaves of the copper layers of the board without the objects on Multi-Layer (S-2212: `OnOutside` returns none of them). `ExistsOnLayer` and `OnLayer` MUST give the `layer` leaf with the objects on Multi-Layer, and MUST be refused with the reason `via-span` when a via of the document spans part of the stack.
+- `WithinRoom` MUST give `area` leaves of the rooms read as rule areas; until rooms are read (task 2.3) it MUST be refused with the reason `room`.
+- `InDifferentialPair`, `InAnyDifferentialPair` and `IsDifferentialPair` MUST give the `net` leaves of the pairs' two nets: a primitive's subject does not carry its pair, and the nets select the same primitives.
+- `InDifferentialPairClass` MUST be expanded from the document's class definitions. `InxSignal` and `InxSignalClass` MUST be refused with the reason `xsignal`, and `InNamedUnion` with the reason `union`: no neutral leaf holds an xSignal, and the reader does not read unions.
+- `HasFootprint`, `IsComponent`, `IsNetTieComponent`, `InComponentClass`, `IsSOIC`, `IsBGA`, `IsLCC` and `CompPinCount` MUST be expanded to `ref` leaves of the components they select, or to `not(all)` when none match; a designator that also names a component not selected MUST give the reason `designator`.
+- A function that returns parent objects without their children (`IsNamedPolygon`, `IsComponent`, `IsNetTieComponent`, `InComponentClass`, the package checks, `IsDifferentialPair`, `InDifferentialPairClass`; S-2212) MUST map only for a rule kind whose subject is that parent, and MUST otherwise be refused with the reason `object-kind`.
 - `IsNamedPolygon` and `InNamedPolygon` MUST give `zone` leaves; `HoleDiameter` comparisons `hole` leaves; `PadIsPlated` `pad_type` leaves.
 - An expansion MUST be the same for the same document. `fenolite.dsl` MUST print an expanded rule with a comment naming its source function.
-- A definition the document lacks MUST give the reason `undefined`. A package check that disagrees with the kit oracle MUST give `package-check`.
+- A definition the document lacks MUST give the reason `undefined`. A package check that cannot decide (a component turned off the board's axes) or that disagrees with the kit oracle MUST give `package-check`.
 
 #### Scenario: Package checks on authored footprints
 - **GIVEN** authored footprints: an 8-pad SOIC, a 4 × 4 LCC of 16 pads, a 10 × 10 BGA of 100 pads, and a 2-pad chip
@@ -104,7 +136,7 @@ The rest of the requirement:
 - MatchedLengths MUST map to `skew` and, with a target length, to `length`.
 - An unscoped SolderMaskExpansion MUST give `Board.mask_margin`.
 - A record that relaxes a check Fenolite performs itself MUST give the warning `altium.rules.check-relaxed`, and `check` MUST honour it.
-- An `OnMid` scope on a board with no internal copper layer MUST give the info `altium.rules.applies-to-nothing` and no `Unmapped`.
+- An `OnMid` scope on a board with no internal signal layer MUST give the info `altium.rule.applies-to-nothing` in place of `altium.rule.unmapped`. Its record MUST stay an `Unmapped` with the reason `no-layer`, one of `rules.NOT_APPLYING`: it is no unread rule, and a conversion keeps it (c0424).
 
 #### Scenario: Every corpus kind is listed
 - **WHEN** `uv run pytest tests/corpus/test_altium_rule_kinds_c0462.py -q -n 0` reads every rule record of the public Altium rows

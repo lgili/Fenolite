@@ -199,6 +199,13 @@ def test_frozen_model_zero_bytes_and_input_compatibility() -> None:
     from fenolite.cli.results.compatibility import schema_changes
 
     receipt = json.loads((ROOT / "schemas/frozen-model-v0.json").read_text())
+    review = ROOT / "openspec/changes/archive/2026-11-04-c0218-model-schema-1-0/model0-approved.json"
+    widened = [
+        (c["class"].rsplit(".", 1)[1], f["name"])
+        for c in json.loads(review.read_text())["classes"]
+        for f in c["fields"]
+        if "widened_from" in f
+    ]
     assert receipt["source_commit"] == "cbd1e08550f74810f8287edb6a9c0d0ae61af773"
     assert len(receipt["sha256"]) == 10
     for name, expected in receipt["sha256"].items():
@@ -206,4 +213,12 @@ def test_frozen_model_zero_bytes_and_input_compatibility() -> None:
         assert hashlib.sha256(old.read_bytes()).hexdigest() == expected, name
         before = json.loads(old.read_text())
         after = json.loads((ROOT / "schemas/fenolite.model.v1" / name).read_text())
+        # a Literal widened with its own approval (model0-approved.json, ``widened_from``) keeps every old
+        # value; with the old values put back, nothing else may differ
+        for cls, field in widened:
+            old = before.get("$defs", {}).get(cls, {}).get("properties", {}).get(field)
+            new = after.get("$defs", {}).get(cls, {}).get("properties", {}).get(field)
+            if old is not None and new is not None and old != new:
+                assert set(old["enum"]) < set(new["enum"]), (name, cls, field)
+                new["enum"] = old["enum"]
         assert schema_changes(before, after, name=name, input_mode=True) == (), name

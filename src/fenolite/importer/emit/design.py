@@ -43,6 +43,7 @@ from fenolite.importer.emit.printer import (
     Tup,
     angle,
     area_mm2,
+    comment_block,
     flat,
     identifier,
     length,
@@ -90,7 +91,7 @@ from fenolite.model.board import (
 )
 from fenolite.model.design import Design
 from fenolite.model.rules import NO_NET as NO_NET_SELECTOR
-from fenolite.model.rules import Rule, Selector
+from fenolite.model.rules import Rule, Selector, hole_interval
 
 COPPER_COUNTS = tuple(range(2, 33, 2))
 NAME = re.compile(r"^[A-Za-z0-9_.+-]+$")
@@ -597,6 +598,14 @@ def _selector(selector: Selector, classes: set[str], parent: int = 0) -> str | N
         return f"select.{leaf[op]}({string(value)})" if value else None
     if op == "item_kind":
         return f"select.item({string(value)})" if value in SELECT_ITEMS else None
+    if op == "zone":
+        return None if set(value) & set("'\"?[]") else f"select.zone({string(value)})"
+    if op == "pad_type":
+        return f"select.pad_type({string(value)})"
+    if op == "hole":  # change c0462
+        lo, hi = hole_interval(value)
+        bounds = [f"{side}={bound}" for side, bound in (("lo", lo), ("hi", hi)) if bound is not None]
+        return f"select.hole({', '.join(bounds)})"
     if op in ("and", "or", "not"):
         rank = _PRECEDENCE[op]
         parts = [_selector(item, classes, rank) for item in selector.items]
@@ -625,6 +634,26 @@ def _limits_said(rule: Rule) -> bool:
     if any(value is not None and value <= 0 for value in (rule.opt, rule.max)):
         return False
     return all(a <= b for a, b in zip(given, given[1:], strict=False))
+
+
+_WORD = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+_QUOTED = re.compile(r"'[^']*'")
+
+
+def _expanded_note(rule: Rule) -> list[str]:
+    """The comment over a rule whose Altium scope uses a function expanded from the document read (change
+    c0462, D2): its selector is a list frozen at import, which a later edit of the board does not update."""
+    held = rule.ext.get("altium")
+    if held is None:
+        return []
+    from fenolite.backends.altium.read.scope import EXPANDED_FUNCTIONS
+
+    pairs = dict(held.payload)
+    words = {w for key in ("scope1", "scope2") for w in _WORD.findall(_QUOTED.sub("", pairs.get(key, "")))}
+    found = sorted(words & EXPANDED_FUNCTIONS)
+    if not found:
+        return []
+    return [f"expanded from Altium {', '.join(found)} over the board read: a fixed list"]
 
 
 def _rule_call(rule: Rule, classes: set[str], taken: set[str]) -> Call | None:
@@ -697,7 +726,7 @@ def _minimums(source: Source, classes: set[str], ledger: Ledger, writer: _Writer
     keeps, then the project's board-setup minimums that differ from a new project's and that no rule gave;
     then a ``design.rules.rule()`` call for each other custom rule the DSL can write, with its priority."""
     scopes: dict[str | None, dict[str, int]] = {}
-    others: list[Call] = []
+    others: list[tuple[Call, list[str]]] = []
     taken: set[str] = set()
     rules = _ranked(source.custom_rules)
     native = _native_kinds(source, rules, classes)
@@ -712,7 +741,7 @@ def _minimums(source: Source, classes: set[str], ledger: Ledger, writer: _Writer
             if made is None:
                 ledger.add("custom-rule", rule.name)
             else:
-                others.append(made)
+                others.append((made, _expanded_note(rule)))
             continue
         scopes.setdefault(found[0], {})[found[1]] = cast(int, rule.min)
     if source.major in MINIMUM_KEYS and not (source.backend == "kicad" and source.project_text is not None):
@@ -732,9 +761,9 @@ def _minimums(source: Source, classes: set[str], ledger: Ledger, writer: _Writer
             given.append(("netclass", text(scope)))
         if values:
             out.append(statement(Call("design.rules.minimum", (), tuple(given))))
-    if any("select." in flat(call) for call in others):
+    if any("select." in flat(call) for call, _ in others):
         writer.imports.add("select")
-    out += [statement(call) for call in others]
+    out += [comment_block(note) + statement(call) for call, note in others]
     out += _native_rules(source, rules, native)
     return out
 

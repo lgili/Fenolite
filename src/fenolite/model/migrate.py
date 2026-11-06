@@ -62,12 +62,24 @@ def _to_one(folder: Folder) -> Folder:
     return folder
 
 
+def _to_one_one(folder: Folder) -> Folder:
+    folder["meta.json"]["schema_version"] = "1.1"
+    return folder
+
+
 STEPS: tuple[Step, ...] = (
     Step(
         "0",
         "1.0",
         _to_one,
         "Keep all existing fields, ids, integer units and opaque fragments; update only the schema marker.",
+    ),
+    Step(
+        "1.0",
+        "1.1",
+        _to_one_one,
+        "Change c0462: the selector ops zone, hole and pad_type are new; a 1.0 folder holds none of them, so "
+        "only the schema marker changes.",
     ),
 )
 

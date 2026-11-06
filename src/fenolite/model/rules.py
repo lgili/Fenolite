@@ -51,12 +51,26 @@ layer clause a kind takes, and for which targets it is written, is the backend's
 (``backends.kicad.rulemap.KIND_SELECTORS`` and ``KIND_SUPPORT``)."""
 RuleSeverity = Literal["error", "warning", "ignore"]
 SelectorOp = Literal[
-    "all", "net", "netclass", "ref", "layer", "item_kind", "area", "diff_pair", "and", "or", "not"
-]
-LEAF_OPS = ("net", "netclass", "ref", "layer", "item_kind", "area", "diff_pair")
+    "all", "net", "netclass", "ref", "layer", "item_kind", "area", "diff_pair", "zone", "hole", "pad_type",
+    "and", "or", "not",
+]  # fmt: skip
+LEAF_OPS = ("net", "netclass", "ref", "layer", "item_kind", "area", "diff_pair", "zone", "hole", "pad_type")
 """The leaves. The value of ``diff_pair`` is a pair base (``model.pairs``) or ``*``, compared with its
 letter case; the value of ``area`` is the name of a rule area, compared with its letter case and with ``*``
-as a glob; the other leaves hold globs over names."""
+as a glob; ``hole`` holds ``lo..hi``, a closed interval of finished hole diameters in nanometres, either side
+open (``hole_value``); ``pad_type`` holds one of ``PAD_TYPES``; the other leaves, ``zone`` among them (a
+glob over a zone's name, compared with letter case), hold globs over names. ``zone``, ``hole`` and
+``pad_type`` were added by change c0462 (model 1.1)."""
+CASED_LEAVES = ("area", "diff_pair", "zone", "hole", "pad_type")
+"""The leaves whose value a check compares as written, never case-folded: KiCad compares area, pair and zone
+names with their letter case, and the values of ``hole`` and ``pad_type`` are no names."""
+PAD_TYPES = ("smd", "th", "npth")
+"""The values of a ``pad_type`` leaf: a pad without a hole, a plated through-hole pad, a pad whose hole is
+not plated (change c0462)."""
+PAD_TYPE_OF: dict[str, str] = {"smd": "smd", "thru_hole": "th", "np_thru_hole": "npth"}
+"""A pad kind (``model.board.PadKind``) → its ``pad_type``; a ``connect`` pad (KiCad's edge connector) has
+none."""
+_HOLE = re.compile(r"(?P<lo>[0-9]*)\.\.(?P<hi>[0-9]*)")
 
 
 @dataclass(frozen=True, slots=True)
@@ -72,6 +86,33 @@ class RuleSubject:
     """The names of the rule areas the object lies in (letter case counts)."""
     #: The base of the subject's net when the design holds the coupled net (``model.pairs.net_bases``).
     diff_pair: str | None = None
+    zone: str | None = None
+    """The name of the zone the subject is (the copper of a zone), else ``None`` (change c0462)."""
+    hole: Nm | None = None
+    """The finished diameter of the subject's hole in nanometres, ``None`` without a hole (change c0462)."""
+    pad_type: str | None = None
+    """One of ``PAD_TYPES`` for a pad, ``None`` for any other object, a via among them (change c0462)."""
+
+
+def hole_value(lo: Nm | None, hi: Nm | None) -> str:
+    """The value of a ``hole`` leaf for the closed interval ``lo..hi`` (``None``: open on that side)."""
+    if lo is None and hi is None:
+        raise ValueError("a hole interval needs at least one bound")
+    if min(b for b in (lo, hi, 0) if b is not None) < 0 or (lo is not None and hi is not None and lo > hi):
+        raise ValueError(f"the hole interval {lo}..{hi} is empty or negative")
+    return f"{'' if lo is None else lo}..{'' if hi is None else hi}"
+
+
+def hole_interval(value: str) -> tuple[Nm | None, Nm | None]:
+    """The bounds of a ``hole`` leaf's value ``lo..hi``; ``ValueError`` for another text."""
+    match = _HOLE.fullmatch(value)
+    if match is None or (not match["lo"] and not match["hi"]):
+        raise ValueError(f"a hole selector holds lo..hi in nanometres, not {value!r}")
+    lo = int(match["lo"]) if match["lo"] else None
+    hi = int(match["hi"]) if match["hi"] else None
+    if lo is not None and hi is not None and lo > hi:
+        raise ValueError(f"the hole interval {value!r} is empty")
+    return lo, hi
 
 
 @dataclass(frozen=True, slots=True)
@@ -91,6 +132,10 @@ class Selector:
             raise ValueError(f"selector '{self.op}' needs a value")
         if self.op in (*LEAF_OPS, "all") and self.items:
             raise ValueError(f"selector '{self.op}' takes no items")
+        if self.op == "hole":
+            hole_interval(self.value)
+        if self.op == "pad_type" and self.value not in PAD_TYPES:
+            raise ValueError(f"selector 'pad_type' takes one of {', '.join(PAD_TYPES)}, not {self.value!r}")
 
     def matches(self, subject: RuleSubject) -> bool:
         match self.op:
@@ -116,6 +161,15 @@ class Selector:
                 return any(fnmatch.fnmatchcase(name, self.value) for name in subject.areas)
             case "diff_pair":
                 return base_matches(subject.diff_pair, self.value)
+            case "zone":
+                return _glob(subject.zone, self.value)
+            case "hole":
+                if subject.hole is None:
+                    return False
+                lo, hi = hole_interval(self.value)
+                return (lo is None or subject.hole >= lo) and (hi is None or subject.hole <= hi)
+            case "pad_type":
+                return subject.pad_type == self.value
 
 
 def _glob(value: str | None, pattern: str) -> bool:
@@ -139,7 +193,8 @@ def selector_rank(selector: Selector) -> int:
         return 0
     if selector.op == "net":
         return 3 if any(char in selector.value for char in "*?[") else 5
-    return {"area": 1, "item_kind": 1, "layer": 1, "netclass": 2, "diff_pair": 4, "ref": 4}[selector.op]
+    ranks = {"area": 1, "item_kind": 1, "layer": 1, "zone": 1, "hole": 1, "pad_type": 1, "netclass": 2}
+    return ranks.get(selector.op, 4)  # diff_pair and ref
 
 
 @dataclass(frozen=True, slots=True)
@@ -1138,6 +1193,11 @@ __all__ = [
     "RuleSubject",
     "Selector",
     "SelectorOp",
+    "CASED_LEAVES",
+    "PAD_TYPES",
+    "PAD_TYPE_OF",
+    "hole_interval",
+    "hole_value",
     "Terminal",
     "TeardropRule",
     "TraceGeometry",

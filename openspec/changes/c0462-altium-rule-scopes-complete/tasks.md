@@ -17,25 +17,25 @@ Rules for every task:
 
 ## 2. Functions
 
-- [ ] 2.1 The layer functions and `OnMid` (`applies-to-nothing` with no internal layer). Proof: the same
+- [x] 2.1 The layer functions and `OnMid` (`applies-to-nothing` with no internal layer). Proof: the same
   file, `-k layer`.
-- [ ] 2.2 The pair, xSignal and class expansions from the document. Proof: the same file, `-k pair`.
+- [x] 2.2 The pair, xSignal and class expansions from the document. Proof: the same file, `-k pair`.
 - [ ] 2.3 Rooms read as rule areas, and `WithinRoom`. Proof:
   `uv run pytest tests/unit/backends/altium/test_rooms_c0462.py -q -n 0`.
-- [ ] 2.4 Component expansions (`HasFootprint`, `IsComponent`, `IsNetTieComponent`, `InNamedUnion`) and
+- [x] 2.4 Component expansions (`HasFootprint`, `IsComponent`, `IsNetTieComponent`, `InNamedUnion`) and
   `read/packages.py` (`IsSOIC`, `IsBGA`, `IsLCC`). Proof:
   `uv run pytest tests/unit/backends/altium/test_scope_packages_c0462.py -q -n 0`.
 
 ## 3. Neutral leaves
 
-- [ ] 3.1 `zone`, `hole` and `pad_type` in `model.rules`, `RuleSubject`, `selector_rank`, the checks'
+- [x] 3.1 `zone`, `hole` and `pad_type` in `model.rules`, `RuleSubject`, `selector_rank`, the checks'
   subjects and `fenolite.dsl.select`. Model review approval, then regenerate the schemas and the agent
   guide. Proof: `uv run pytest tests/unit/model/test_selector_leaves_c0462.py -q -n 0`,
   `uv run python tools/model_review.py --check`, `uv run python tools/gen_schemas.py --check`,
   `uv run python tools/gen_agent_guide.py --check`.
 - [ ] 3.2 The KiCad writer for the three leaves, from S-2213. Proof:
   `uv run pytest tests/unit/backends/kicad/test_rulemap_leaves_c0462.py -q -n 0`.
-- [ ] 3.3 `IsNamedPolygon`, `InNamedPolygon`, `HoleDiameter` and `PadIsPlated` onto the leaves. Proof:
+- [x] 3.3 `IsNamedPolygon`, `InNamedPolygon`, `HoleDiameter` and `PadIsPlated` onto the leaves. Proof:
   `tests/unit/backends/altium/test_scope_c0462.py -k "polygon or hole or plated"`.
 
 ## 4. Record keys and kinds

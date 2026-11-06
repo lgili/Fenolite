@@ -25,7 +25,13 @@ from dataclasses import dataclass
 from typing import Literal
 
 from fenolite.backends.altium.read.proptext import parse_length
-from fenolite.backends.altium.read.scope import LayerScope, ScopeDocument, parse_layer_scope, parse_scope
+from fenolite.backends.altium.read.scope import (
+    LayerScope,
+    ScopeDocument,
+    for_kind,
+    parse_layer_scope,
+    parse_scope,
+)
 from fenolite.backends.altium.read.textfile import text_issue
 from fenolite.core.errors import Issue
 from fenolite.core.ids import derived_id
@@ -358,11 +364,14 @@ class RuleMapping:
 class _Refusal(Exception):
     reason: UnmappedReason
     detail: str
+    nothing: bool
+    """The rule applies to no object (change c0462): its info is ``altium.rule.applies-to-nothing``."""
 
-    def __init__(self, reason: UnmappedReason, detail: str) -> None:
+    def __init__(self, reason: UnmappedReason, detail: str, *, nothing: bool = False) -> None:
         super().__init__(detail)
         self.reason = reason
         self.detail = detail
+        self.nothing = nothing
 
 
 def _get(fields: Sequence[Field], key: str) -> str | None:
@@ -539,7 +548,9 @@ def _layer_scope(first: LayerScope, second: LayerScope | None, layers: CopperLay
                 "or a through-hole pad is on them, so the pairs of the rule are not known",
             )
         raise _Refusal(
-            "no-layer", "OnMid on a board without an internal signal layer: the rule applies to no object"
+            "no-layer",
+            "OnMid on a board without an internal signal layer: the rule applies to no object",
+            nothing=True,
         )
     named: list[str] = []
     for name in first.names:
@@ -620,7 +631,7 @@ def _map_one(
         raise _Refusal("layer-kind", f"LAYERKIND={layer_kind}; the table needs {SAME_LAYER}")
     _check_keys(fields, kind, table)
     groups = _limits(fields, kind, table)
-    selector_a, selector_b, on_layers = _scopes(fields, table, layers, document)
+    selector_a, selector_b, on_layers = _scopes(fields, table, layers, for_kind(document, kind))
     if table.pair_scope:
         selector_a = _pairs(selector_a)
     if kind == "RoutingLayers":
@@ -740,7 +751,10 @@ def map_rules(
     two rules (``RuleMapping.sources``) or one ``Unmapped`` with the first reason of ``UNMAPPED_REASONS``
     that holds. ``origin`` names the source in ids and issue locations (``<origin>#<index>``). With
     ``summary`` (the records of a summary-form file) no record maps and one info
-    ``altium.rule.summary-form`` comes first. ``layers`` are the copper layers of the board the records
+    ``altium.rule.summary-form`` comes first. A record that applies to no object (``OnMid`` on a board
+    without an internal signal layer) stays an ``Unmapped`` with ``no-layer``, one of ``NOT_APPLYING``, so a
+    conversion keeps it, and gives the info ``altium.rule.applies-to-nothing`` in place of
+    ``altium.rule.unmapped`` (change c0462). ``layers`` are the copper layers of the board the records
     belong to (the records of a PCB document); without them, as for a rule file, a layer condition is
     refused. ``document`` is what the scope functions read from the records' document (change c0462,
     ``read.scope.ScopeDocument``)."""
@@ -768,6 +782,12 @@ def map_rules(
             unmapped.append(Unmapped(index, kind, name, refusal.reason, refusal.detail))
             issues.append(
                 text_issue(
+                    "altium.rule.applies-to-nothing",
+                    f"the rule {name!r} of kind {kind or '(none)'} applies to no object: {refusal.detail}",
+                    f"{origin}#{index}",
+                )
+                if refusal.nothing
+                else text_issue(
                     "altium.rule.unmapped",
                     f"the rule {name!r} of kind {kind or '(none)'} is not mapped ({refusal.reason}): "
                     f"{refusal.detail}",

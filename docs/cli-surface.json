@@ -28434,6 +28434,25 @@
               }
             ]
           },
+          "hole": {
+            "kind": "function",
+            "parameters": [
+              {
+                "annotation": "Nm | None",
+                "default": null,
+                "kind": "KEYWORD_ONLY",
+                "name": "lo",
+                "required": false
+              },
+              {
+                "annotation": "Nm | None",
+                "default": null,
+                "kind": "KEYWORD_ONLY",
+                "name": "hi",
+                "required": false
+              }
+            ]
+          },
           "item": {
             "kind": "function",
             "parameters": [
@@ -28474,6 +28493,18 @@
             "kind": "function",
             "parameters": []
           },
+          "pad_type": {
+            "kind": "function",
+            "parameters": [
+              {
+                "annotation": "str",
+                "default": null,
+                "kind": "POSITIONAL_OR_KEYWORD",
+                "name": "kind",
+                "required": true
+              }
+            ]
+          },
           "pair": {
             "kind": "function",
             "parameters": [
@@ -28491,6 +28522,18 @@
             "parameters": [
               {
                 "annotation": "str | Part",
+                "default": null,
+                "kind": "POSITIONAL_OR_KEYWORD",
+                "name": "name",
+                "required": true
+              }
+            ]
+          },
+          "zone": {
+            "kind": "function",
+            "parameters": [
+              {
+                "annotation": "str",
                 "default": null,
                 "kind": "POSITIONAL_OR_KEYWORD",
                 "name": "name",

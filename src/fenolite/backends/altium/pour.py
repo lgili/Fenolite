@@ -56,7 +56,7 @@ from fenolite.geometry.shapes import BBox
 from fenolite.geometry.transform import rotate_point
 from fenolite.model.board import Board, Zone, rule_areas
 from fenolite.model.design import Design
-from fenolite.model.rules import LEAF_OPS, Rule, RuleSubject, Selector
+from fenolite.model.rules import CASED_LEAVES, LEAF_OPS, PAD_TYPE_OF, Rule, RuleSubject, Selector
 
 PourMode = Literal["outline", "computed"]
 POUR_MODES: tuple[PourMode, ...] = ("outline", "computed")
@@ -417,6 +417,10 @@ class PourObject:
     """For a pad or a via: the object kind of its Polygon Connect Style setting."""
     center: Point | None = None
     rotation: int = 0
+    pad_type: str | None = None
+    """For a pad or the hole of a pad: ``smd``, ``th`` or ``npth`` (``model.rules.PAD_TYPES``)."""
+    hole: Nm | None = None
+    """The diameter of the object's hole: of a via, of a pad with a hole, of a free hole (change c0462)."""
 
 
 def _box(core: Sequence[Point], width: int) -> BBox:
@@ -497,11 +501,24 @@ class LayerObjects:
         connect: ObjectKind | None = None,
         center: Point | None = None,
         rotation: int = 0,
+        pad_type: str | None = None,
+        hole: Nm | None = None,
     ) -> PourObject:
         core, width, _ = shape
         netclass = self.netclass.get(net, DEFAULT_CLASS)
         return PourObject(
-            kind, net, netclass, ref, shape, _box(core, width), ident, connect, center, rotation
+            kind,
+            net,
+            netclass,
+            ref,
+            shape,
+            _box(core, width),
+            ident,
+            connect,
+            center,
+            rotation,
+            pad_type,
+            hole,
         )
 
     def _tracks(self, board: Board, tol: int) -> None:
@@ -529,23 +546,26 @@ class LayerObjects:
             hole = via.diameter == via.drill
             for layer in _span(self.copper, via.layers, via.via_type == "through"):
                 if hole:
-                    self._add(layer, self._object("hole", net, shape, via.id))
+                    self._add(layer, self._object("hole", net, shape, via.id, hole=via.drill))
                 else:
-                    self._add(
-                        layer, self._object("via", net, shape, via.id, connect="via", center=via.position)
+                    item = self._object(
+                        "via", net, shape, via.id, connect="via", center=via.position, hole=via.drill
                     )
+                    self._add(layer, item)
 
     def _pads(self, pads: Sequence[BoardPad]) -> None:
         kinds: dict[str, ObjectKind] = {"thru_hole": "th_pad", "smd": "smd_pad"}
         for pad in pads:
             kind = kinds.get(pad.kind)
+            pad_type = PAD_TYPE_OF.get(pad.kind)
+            drill = pad.drill if pad.hole and pad.drill and pad.kind != "smd" else None
             ref = pad.ref or None
             on = {entry.layer for entry in pad.copper}
             for entry in pad.copper:
                 shape = (entry.core, entry.width, entry.filled)
                 item = self._object(
                     "pad", pad.net, shape, pad.pad_id, ref=ref, connect=kind, center=pad.position,
-                    rotation=pad.rotation,
+                    rotation=pad.rotation, pad_type=pad_type, hole=drill,
                 )  # fmt: skip
                 self._add(entry.layer, item)
             if pad.hole and pad.drill and pad.kind != "smd":
@@ -553,7 +573,10 @@ class LayerObjects:
                 for layer in self.copper:
                     if layer not in on:
                         shape = (pad.hole, pad.drill, False)
-                        self._add(layer, self._object("hole", net, shape, pad.pad_id, ref=ref))
+                        item = self._object(
+                            "hole", net, shape, pad.pad_id, ref=ref, pad_type=pad_type, hole=pad.drill
+                        )
+                        self._add(layer, item)
             elif not pad.copper and pad.kind != "np_thru_hole":
                 for layer in pad.layers:
                     if layer in self.unshaped:
@@ -567,7 +590,10 @@ class LayerObjects:
                 else _slot_core(hole.position, hole.length, hole.drill, hole.rotation)
             )
             for layer in self.copper:
-                self._add(layer, self._object("hole", None, (core, hole.drill, False), hole.id))
+                item = self._object(
+                    "hole", None, (core, hole.drill, False), hole.id, pad_type="npth", hole=hole.drill
+                )
+                self._add(layer, item)
         for keepout in rule_areas(board):
             if not keepout.no_copper_pour or len(keepout.outline) < 3:
                 continue
@@ -717,7 +743,7 @@ class LayerObjects:
 
 
 def _fold(selector: Selector) -> Selector:
-    if selector.op in LEAF_OPS and selector.op not in ("area", "diff_pair"):
+    if selector.op in LEAF_OPS and selector.op not in CASED_LEAVES:
         return replace(selector, value=selector.value.casefold())
     if selector.items:
         return replace(selector, items=tuple(_fold(item) for item in selector.items))
@@ -791,6 +817,7 @@ class Clearances:
     def __init__(self, reading: PourReading) -> None:
         from fenolite.backends.altium.adapter.layers import copper_layers_of
         from fenolite.backends.altium.read.rules import NOT_APPLYING, map_rules
+        from fenolite.backends.altium.read.scopedoc import scope_document
 
         design = reading.design
         rules = design.rules.rules if design.rules is not None else ()
@@ -813,7 +840,10 @@ class Clearances:
         board = design.board
         layers = copper_layers_of(board.layers) if board is not None else None
         mapping = map_rules(
-            [record.fields for record in reading.document.rules], origin="pour", layers=layers
+            [record.fields for record in reading.document.rules],
+            origin="pour",
+            layers=layers,
+            document=scope_document(reading.document, layers),
         )
         records = reading.document.rules
         self._unmapped: list[tuple[int, str, str | None]] = []
@@ -1071,9 +1101,29 @@ def _board_area(reading: PourReading, geometry: _Geometry, tol: int) -> tuple[Po
 
 
 def rule_subject(
-    layer: str, kind: str, net: str | None, netclass: str, ref: str | None = None
+    layer: str,
+    kind: str,
+    net: str | None,
+    netclass: str,
+    ref: str | None = None,
+    *,
+    zone: str | None = None,
+    pad_type: str | None = None,
+    hole: Nm | None = None,
 ) -> RuleSubject:
-    return RuleSubject(item_kind=RULE_KINDS[kind], net=net, netclass=netclass, ref=ref, layer=layer)
+    """The subject of an object of the pour: ``zone`` the name of a polygon's copper, ``pad_type`` and
+    ``hole`` of a pad, a pad's hole, a via or a free hole (change c0462)."""
+    return RuleSubject(
+        item_kind=RULE_KINDS[kind], net=net, netclass=netclass, ref=ref, layer=layer, zone=zone,
+        hole=hole, pad_type=pad_type,
+    )  # fmt: skip
+
+
+def object_subject(layer: str, item: PourObject) -> RuleSubject:
+    """The subject of the pour object ``item`` on ``layer``."""
+    return rule_subject(
+        layer, item.kind, item.net, item.netclass, item.ref, pad_type=item.pad_type, hole=item.hole
+    )
 
 
 def _bar(center: Point, angle: int, length: int, width: int) -> Polygon:
@@ -1234,7 +1284,7 @@ def _pour(polygon: PourPolygon, state: _Layer, context: _Context) -> tuple[tuple
     """The pieces of one polygon, or the reason it is refused (I1 to I21, in the order of I11)."""
     geometry, objects, rules = context.geometry, context.objects, context.rules
     layer, net, tol = polygon.layer, polygon.net, polygon.tol
-    me = rule_subject(layer, "zone", net, objects.netclass.get(net, DEFAULT_CLASS))
+    me = rule_subject(layer, "zone", net, objects.netclass.get(net, DEFAULT_CLASS), zone=polygon.name)
     reach = polygon.box.inflate(context.reach + polygon.neck)
     for box, _what in objects.unshaped.get(layer, []):
         if box.intersects(reach):
@@ -1259,7 +1309,7 @@ def _pour(polygon: PourPolygon, state: _Layer, context: _Context) -> tuple[tuple
     for item in objects.by_layer.get(layer, []):
         if not item.box.intersects(reach):
             continue
-        subject = rule_subject(layer, item.kind, item.net, item.netclass, item.ref)
+        subject = object_subject(layer, item)
         own = net is not None and item.net == net
         if own and item.kind in ("via", "pad") and item.connect is not None:
             found = governing_connection(context.styles, subject, me, item.connect, polygon.name)
@@ -1281,7 +1331,9 @@ def _pour(polygon: PourPolygon, state: _Layer, context: _Context) -> tuple[tuple
             continue
         if net is not None and other.net == net and polygon.pour_over != "none":
             continue
-        them = rule_subject(layer, "zone", other.net, objects.netclass.get(other.net, DEFAULT_CLASS))
+        them = rule_subject(
+            layer, "zone", other.net, objects.netclass.get(other.net, DEFAULT_CLASS), zone=other.name
+        )
         value = rules.clearance(me, them, polygons=(polygon.name, other.name))
         if isinstance(value, str):
             return (), value
@@ -1386,12 +1438,12 @@ def check_pour(reading: PourReading, result: PourResult) -> tuple[int, ...]:
             if index in failed:
                 continue
             name = polygons[index].name
-            me = rule_subject(layer, "zone", net, objects.netclass.get(net, DEFAULT_CLASS))
+            me = rule_subject(layer, "zone", net, objects.netclass.get(net, DEFAULT_CLASS), zone=name)
             near = box.inflate(rules.largest + 1)
             for item in objects.by_layer.get(layer, []):
                 if (net is not None and item.net == net) or not item.box.intersects(near):
                     continue
-                subject = rule_subject(layer, item.kind, item.net, item.netclass, item.ref)
+                subject = object_subject(layer, item)
                 value = rules.clearance(me, subject, polygons=(name,))
                 if isinstance(value, str):
                     continue
@@ -1404,7 +1456,10 @@ def check_pour(reading: PourReading, result: PourResult) -> tuple[int, ...]:
             for other, other_net, other_shape, other_box in found:
                 if other == index or (net is not None and other_net == net) or not other_box.intersects(near):
                     continue
-                them = rule_subject(layer, "zone", other_net, objects.netclass.get(other_net, DEFAULT_CLASS))
+                them = rule_subject(
+                    layer, "zone", other_net, objects.netclass.get(other_net, DEFAULT_CLASS),
+                    zone=polygons[other].name,
+                )  # fmt: skip
                 value = rules.clearance(me, them, polygons=(name, polygons[other].name))
                 if not isinstance(value, str) and thick_closer_than(shape, other_shape, value):
                     failed.add(max(index, other))

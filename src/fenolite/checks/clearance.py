@@ -27,7 +27,7 @@ from typing import Literal
 from fenolite.core.units import Nm
 from fenolite.model.design import Design
 from fenolite.model.pairs import coupled_name, net_bases
-from fenolite.model.rules import LEAF_OPS, Rule, RuleSeverity, RuleSubject, Selector
+from fenolite.model.rules import CASED_LEAVES, LEAF_OPS, Rule, RuleSeverity, RuleSubject, Selector
 
 CopperKind = Literal["track", "arc", "via", "pad", "fill", "zone", "keepout", "edge", "hole", "graphic"]
 """The kinds of copper items; a rule sees an arc as a ``track`` and a fill as a ``zone``. ``keepout`` names
@@ -125,8 +125,9 @@ def _fold_selector(selector: Selector) -> Selector:
     """``selector`` with every leaf value case-folded: names compare without regard to letter case. An
     ``area`` leaf is kept as written: KiCad compares area names with letter case (``H-K-AREA-COND``). A
     ``diff_pair`` leaf keeps its value too, because KiCad compares a pair base with its letter case
-    (``H-K-DRU-PAIRSEL``)."""
-    if selector.op in ("area", "diff_pair"):
+    (``H-K-DRU-PAIRSEL``). A ``zone``, ``hole`` or ``pad_type`` leaf is kept too
+    (``model.rules.CASED_LEAVES``)."""
+    if selector.op in CASED_LEAVES:
         return selector
     if selector.op in LEAF_OPS:
         return dataclasses.replace(selector, value=selector.value.casefold())
@@ -144,6 +145,9 @@ def _fold_subject(subject: RuleSubject) -> RuleSubject:
         layer=_fold(subject.layer),
         areas=subject.areas,
         diff_pair=subject.diff_pair,
+        zone=subject.zone,
+        hole=subject.hole,
+        pad_type=subject.pad_type,
     )
 
 
@@ -299,11 +303,15 @@ class ClearanceResolver:
         ref: str | None,
         layer: str,
         areas: frozenset[str] = frozenset(),
+        zone: str | None = None,
+        hole: Nm | None = None,
+        pad_type: str | None = None,
     ) -> RuleSubject:
         """The subject of a copper item of ``kind`` on ``layer``: its net name and class name, the
         component reference for a pad, and the names of the rule areas it lies in on that layer. An item
         without a net, or whose net has no class, is in the class named ``Default``. ``diff_pair`` is the
-        base of the net when the design holds its coupled net."""
+        base of the net when the design holds its coupled net. ``zone``, ``hole`` and ``pad_type`` are the
+        zone name of a fill, and the hole and pad type of a pad or via (change c0462)."""
         name, netclass = (
             self._nets.get(net_id, (None, DEFAULT_CLASS)) if net_id is not None else (None, DEFAULT_CLASS)
         )
@@ -315,6 +323,9 @@ class ClearanceResolver:
             layer=layer,
             areas=areas,
             diff_pair=self._bases.get(name) if name is not None else None,
+            zone=zone,
+            hole=hole,
+            pad_type=pad_type,
         )
 
     def _class_candidates(self, a: RuleSubject, b: RuleSubject) -> tuple[tuple[Nm, str], ...]:

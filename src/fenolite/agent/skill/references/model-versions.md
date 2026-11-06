@@ -6,12 +6,13 @@ summary: Read and migrate canonical model folders.
 
 # Reading and migrating model folders
 
-A build stores six JSON model layers in `out/.fenolite`. The model's `schema_version` is `1.0`;
+A build stores six JSON model layers in `out/.fenolite`. The model's `schema_version` is `1.1`;
 it is independent of the package and CLI versions. Coordinates stay integer nanometres and angles
 stay integer microdegrees.
 
-Reading a version `0` folder migrates it in memory, reports `model.migrated` and writes nothing.
-The `0 -> 1.0` step keeps existing fields, ids, defaults and opaque backend fragments.
+Reading a version `0` or `1.0` folder migrates it in memory, reports `model.migrated` and writes nothing.
+The `0 -> 1.0` step keeps existing fields, ids, defaults and opaque backend fragments; `1.0 -> 1.1`
+changes only the marker.
 `migrate` saves that folder in the current form:
 
 ```fenolite-cmd
@@ -33,7 +34,7 @@ fenolite migrate blink/build/.fenolite --dry-run --json  # exit 0
 fenolite migrate blink/build/.fenolite --confirm --json  # exit 0
 ```
 
-A future version, including `1.1`, gives `FEN-3002` (exit 3). Use a reader that supports that version;
+A future version, including `1.2`, gives `FEN-3002` (exit 3). Use a reader that supports that version;
 do not change the marker by hand. Malformed versions and missing migration paths give `FEN-3004`.
 There is no downgrade.
 

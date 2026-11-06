@@ -28,11 +28,11 @@ def test_reject_noncanonical_version(version: str) -> None:
 
 
 def test_readability_and_writer_are_model_versions() -> None:
-    assert SCHEMA_VERSION == "1.0"
-    assert readable("0") and readable("1.0")
-    assert not any(readable(version) for version in ("0.1", "0.0", "1.1", "2.0"))
+    assert SCHEMA_VERSION == "1.1"
+    assert readable("0") and readable("1.0") and readable("1.1")
+    assert not any(readable(version) for version in ("0.1", "0.0", "1.2", "2.0"))
     meta = json.loads(canonical.dump_texts(Design.new("authored", seed=1))["meta.json"])
-    assert meta["schema_version"] == "1.0"
+    assert meta["schema_version"] == "1.1"  # the writer always stamps the current version (c0462, D4)
     assert meta["fenolite_version"] == __version__ == "0.7.0.dev0"
 
 
@@ -44,18 +44,21 @@ def test_pure_step_keeps_integer_units_ids_and_opaque_fragments() -> None:
     before = copy.deepcopy(data)
     migrated, steps = migrate(data, "0")
     assert data == before
-    assert steps == ("0 -> 1.0",)
-    before["meta.json"]["schema_version"] = "1.0"
+    assert steps == ("0 -> 1.0", "1.0 -> 1.1")
+    before["meta.json"]["schema_version"] = "1.1"
     assert migrated == before
     migrated["board.json"]["ext"]["kicad"].append("changed")
     assert data != migrated and data["board.json"]["ext"]["kicad"] == ["opaque", {"n": 7}]
-    again, steps = migrate(before, "1.0")
+    again, steps = migrate(before, "1.1")
     assert again == before and again is not before and steps == ()
+    one = copy.deepcopy(before)
+    one["meta.json"]["schema_version"] = "1.0"
+    assert migrate(one, "1.0") == (before, ("1.0 -> 1.1",))
 
 
-@pytest.mark.parametrize("version", ["1.1", "2.0"])
+@pytest.mark.parametrize("version", ["1.2", "2.0"])
 def test_future_version_names_reader_and_input(version: str) -> None:
-    with pytest.raises(FutureVersionError, match=rf"{version!r}.*'1.0'") as caught:
+    with pytest.raises(FutureVersionError, match=rf"{version!r}.*'1.1'") as caught:
         migrate({"meta.json": {"schema_version": version}}, version)
     assert caught.value.cli_code == "FEN-3002"
 
@@ -109,7 +112,7 @@ def test_current_fields_and_bom_validation_survive_legacy_read() -> None:
     assert upgraded["label"] == payload["label"]
 
 
-@pytest.mark.parametrize("version", ["0", "1.1", "2.0"])
+@pytest.mark.parametrize("version", ["0", "1.0", "2.0"])
 def test_legacy_pin_view_refuses_noncurrent_schema_markers(version):
     import json
 
@@ -122,8 +125,8 @@ def test_legacy_pin_view_refuses_noncurrent_schema_markers(version):
 def test_legacy_pin_view_preserves_every_other_byte():
     from _schema_pin import legacy_meta_bytes
 
-    current = b'{"schema_version": "1.0", "extra": [0, false, "1.0"], "opaque": "kept"}\n'
+    current = b'{"schema_version": "1.1", "extra": [0, false, "1.1"], "opaque": "kept"}\n'
     assert (
         legacy_meta_bytes(current)
-        == b'{"schema_version": "0", "extra": [0, false, "1.0"], "opaque": "kept"}\n'
+        == b'{"schema_version": "0", "extra": [0, false, "1.1"], "opaque": "kept"}\n'
     )

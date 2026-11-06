@@ -90,7 +90,7 @@ def test_v021_document_loads_and_serialises_to_its_bytes() -> None:
     board = loads(text, Board)
     assert board.stackup is None
     assert dumps(board).encode("utf-8") == OLD_BOARD.read_bytes()
-    assert SCHEMA_VERSION == "1.0"
+    assert SCHEMA_VERSION == "1.1"  # c0462 raised it for its selector ops; this key needed no change
     for name in ("docs/design-model.md", "CHANGELOG.md"):
         assert SENTENCE in " ".join((ROOT / name).read_text(encoding="utf-8").split()), name
 

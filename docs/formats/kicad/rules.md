@@ -150,6 +150,9 @@ Side `S` is `A` for `selector_a` and `B` for `selector_b`.
 | `item_kind v`, v in `track`, `via`, `pad`, `zone` | `S.Type == 'Track'`, `'Via'`, `'Pad'`, `'Zone'` | `item_kind` |
 | `area v` (c0103) | `S.intersectsArea('v')` | `area` |
 | `diff_pair v`, v a pair base or `*` | `S.inDiffPair('v')` | `diff_pair` |
+| `zone v` (c0462) | `S.Name == 'v'` | `zone` |
+| `pad_type v`, v in `smd`, `th`, `npth` (c0462) | `S.Pad_Type == 'SMD'`, `'Through-hole'`, `'NPTH, mechanical'` | `pad_type` |
+| `hole lo..hi` (c0462) | `((S.Type == 'Via' && S.Hole >= lo && S.Hole <= hi) \|\| (S.Type == 'Pad' && S.Hole_Size_X >= lo && S.Hole_Size_X <= hi))`; an open bound leaves its term out, an open lower bound is `> 0mm` | `hole` |
 | `and(x, y, …)` | `(x && y && …)` | `and` |
 | `or(x, y, …)` | `(x \|\| y \|\| …)` | `or` |
 | `not(x)` | `!(x)` | `not` |
@@ -179,6 +182,18 @@ Side `S` is `A` for `selector_a` and `B` for `selector_b`.
   the copper check. On both sides of a `clearance` rule it sets the clearance inside a pair. Its
   `SELECTOR_SUPPORT` entry holds the majors of the probe `dru-cond-diff_pair`: 9 and 10, since the probe
   was recorded `present` on 9.0.9 on 2026-10-08 (`H-K-DRU-PAIRSEL`).
+
+- The leaves `zone`, `pad_type` and `hole` (change c0462; S-2213, `H-K-DRU-LEAF-C0462`) are written as KiCad's
+  custom-rule page gives the properties: a zone's `Name`, a pad's `Pad_Type`, a via's `Hole` (the finished
+  diameter) and a pad's `Hole_Size_X`. A pad without a hole has the size 0, which the neutral `hole` leaf never
+  selects, hence `> 0mm` for an open lower bound. `Edge connector` pads have no `pad_type` value. The probes
+  `dru-cond-zone`, `dru-cond-pad_type` and `dru-cond-hole` (a probe zone named `probe` against one named
+  `control`; SMD pads against through-hole pads; a 0.4 mm via and through-hole pads against a 0.3 mm via and
+  SMD pads, with `hole 350000..`) were recorded `present` on 10.0.6 on 2026-11-06 (local `kicad-cli`). A key
+  joins `SELECTOR_SUPPORT` only for the majors whose probe is recorded `present`; until then a rule with the
+  leaf is a reported loss on write, and `read_rules` keeps a KiCad rule that uses `Name`, `Pad_Type`, `Hole` or
+  `Hole_Size_X` opaque. Only the written hole form reads back as `hole`; any other comparison keeps the rule
+  opaque.
 
 ### Selectors per kind
 

@@ -76,7 +76,8 @@ Counts are from the coordinating session's survey of 2026-11-06 (S-2210):
   reading". It lists each of the 40 kinds the corpus holds as neutral, read by a backend part, checked by
   Fenolite's own check, or carried only (c0434). A carried-only kind must not change check, route or pour.
 - **`OnMid` with no internal layer** is a rule that applies to no object. It gives the info
-  `altium.rules.applies-to-nothing`, not `Unmapped`.
+  `altium.rule.applies-to-nothing` in place of `altium.rule.unmapped`; the record stays `Unmapped` with
+  `no-layer` (`NOT_APPLYING`), so a conversion to KiCad keeps it (c0424).
 
 ## Impact
 

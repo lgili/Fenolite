@@ -29,7 +29,7 @@ from fenolite.model.manufacturing import Manifest
 from fenolite.model.presentation import PAPER_SIZES, PARAM_NAME, US_SIZES, SheetFrameRef, TitleBlock
 from fenolite.model.rules import RuleSet
 
-SCHEMA_VERSION = "1.0"
+SCHEMA_VERSION = "1.1"
 
 
 def parse_version(version: object) -> tuple[int, int]:

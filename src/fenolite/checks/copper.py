@@ -63,7 +63,7 @@ from fenolite.model.board import Board, Graphic, Keepout, Zone, placed_keepout
 from fenolite.model.board import rule_areas as all_rule_areas
 from fenolite.model.design import Design
 from fenolite.model.findings import Waiver
-from fenolite.model.rules import RuleSubject
+from fenolite.model.rules import PAD_TYPE_OF, RuleSubject
 
 ARC_TOL_NM = 1_000
 """Compatibility tolerance for polygonised topology; clearance decisions use exact arc cores."""
@@ -191,6 +191,12 @@ class _Item:
     tie: tuple[str, int] | None = None
     """For a pad whose number is in a net-tie group of its footprint: the footprint's id and the index of
     that group (change c0114). Two pads with one ``tie`` are not judged."""
+    pad_type: str | None = None
+    """For a pad: ``smd``, ``th`` or ``npth`` (``model.rules.PAD_TYPES``; change c0462)."""
+    hole: Nm | None = None
+    """The diameter of the hole of a via or a pad (change c0462)."""
+    zone: str | None = None
+    """For a fill: the name of its zone (change c0462)."""
 
 
 def _sort_key(found: Issue) -> tuple[str, str, str]:
@@ -347,7 +353,7 @@ class _Items:
             except (GeometryError, ValueError):
                 self.unsupported["via"] += 1
                 continue
-            item = _Item(self._ref("via", via, via.net_id), via.net_id)
+            item = _Item(self._ref("via", via, via.net_id), via.net_id, hole=via.drill)
             layers = self.span(via.layers, via.via_type == "through")
             self._add(item, [(layer, shape, shape, True) for layer in layers])
 
@@ -381,7 +387,10 @@ class _Items:
             )
             group = self._ties.get(record.footprint_id, {}).get(record.number) if record.number else None
             tie = None if group is None else (record.footprint_id, group)
-            item = _Item(ref, record.net_id, record.ref or None, tie=tie)
+            item = _Item(
+                ref, record.net_id, record.ref or None, tie=tie, pad_type=PAD_TYPE_OF.get(record.kind),
+                hole=record.drill if record.kind != "smd" else None,
+            )  # fmt: skip
             self._add(item, [(layer, shape, shape, exact) for layer, shape, exact in shapes])
 
     def _graphics(self, board: Board, arc_tol: int) -> None:
@@ -442,6 +451,7 @@ class _Items:
                     CopperRef("fill", _where(zone), zone.id, self.net_name(zone.net_id), net_id=zone.net_id),
                     zone.net_id,
                     zone_clearance=zone.settings.clearance,
+                    zone=zone.name or None,
                 )
                 self._add(item, shapes)
                 self.kinds["fill"] += len(shapes) - 1  # fills are counted, not zones
@@ -1031,6 +1041,9 @@ class _Judge:
                 ref=item.component,
                 layer=layer,
                 areas=self.areas.names(index, layer),
+                zone=item.zone,
+                hole=item.hole,
+                pad_type=item.pad_type,
             )
             self._subjects[key] = found
         return found

@@ -80,6 +80,11 @@ def test_pending_review_check_is_repeatable(tmp_path: Path, monkeypatch, capsys)
     assert "all decisions PENDING" in capsys.readouterr().out
 
 
+def _literal(text: str) -> set[str]:
+    assert text.startswith("Literal[") and text.endswith("]"), text
+    return {value.strip().strip("'") for value in text[len("Literal[") : -1].split(",")}
+
+
 def test_actual_approved_model0_shapes_are_preserved_by_migration_candidate():
     root = Path(__file__).resolve().parents[2]
     review = root / "openspec/changes/archive/2026-11-04-c0218-model-schema-1-0"
@@ -99,12 +104,19 @@ def test_actual_approved_model0_shapes_are_preserved_by_migration_candidate():
     # an approved field keeps its name, type, default and order; a later change may only add fields with a
     # default (the design model's additive rule: a document written before it loads unchanged), e.g. c0411
     # FootprintInstance.keepouts and c0419 SymbolDef.fields
+    # A field's type changes only with its own approval, and only by widening a Literal: every approved value
+    # stays, so a document written before it loads unchanged (c0462: Selector.op gains zone, hole, pad_type).
     for c in approved["classes"]:
         assert c["decision"] == "keep"
         found = shapes.pop(c["class"])["fields"]
         names = [f["name"] for f in found]
         kept = [f for f in found if f["name"] in {g["name"] for g in c["fields"]}]
-        assert kept == c["fields"], c["class"]
+        assert kept == [{k: g[k] for k in ("name", "type", "default")} for g in c["fields"]], c["class"]
+        for g in c["fields"]:
+            if "widened_from" in g:
+                assert g["approved"].startswith("approved 20"), (c["class"], g["name"])
+                assert _literal(g["widened_from"]) < _literal(g["type"]), (c["class"], g["name"])
+            assert set(g) <= {"name", "type", "default", "widened_from", "approved"}, (c["class"], g["name"])
         added = [f for f in found if f not in kept]
         assert all(f["default"]["kind"] != "required" for f in added), (c["class"], names)
     added_classes = set(shapes) - {"fenolite.model.migrate.Step"}

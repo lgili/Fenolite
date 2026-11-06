@@ -254,7 +254,7 @@ checked in this order.
 
 `scope.parse_scope` accepts only these forms, spelled as written, and returns a neutral selector; any
 other text is refused with a reason (`scope.Refusal`, whose `reason` is `grammar`, `type`, `unit`,
-`undefined`, `document` or `syntax`) and the rule is reported with the reason `scope`.
+`undefined`, `document`, `syntax` or one of the reasons of "Scope functions that read the document" below) and the rule is reported with the reason `scope`.
 
 | expression | selector |
 |---|---|
@@ -336,6 +336,71 @@ clearance applies to the primitives of the pour (S-1702; change c0412, `H-A-RULE
 KiCad's `A.Type == 'Zone'` (`item_kind zone`) names the same copper in a clearance. `InNamedPolygon('n')`,
 which names one pour, stays outside the grammar.
 
+### Scope functions that read the document
+
+Change c0462 (task 2; S-2212, `H-A-RD-PRJ-SCOPE`, INFERRED) reads the functions below when the caller gives a
+`scope.ScopeDocument`, which `read.scopedoc.scope_document` gathers from the read PCB document: the copper layers,
+whether any via spans part of the stack, the nets, the differential pairs (`DifferentialPairs6`, `NAME`,
+`POSITIVENETNAME`, `NEGATIVENETNAME`), the classes, the components with their designators, footprints, kinds,
+rotations and pads, the polygon names, and whether the pads without a hole are plated. A function expands to
+the neutral leaves of the objects it selects in that document; a function whose selection no leaf holds
+exactly is refused with a named reason, never widened. An expansion that selects no object is `not(all)`
+(`scope.NOTHING`). Names are compared in any letter case, `*` and `?` as wildcards (`H-A-RD-PRJ-SCOPE-WILD`);
+the leaves carry the document's own names, every glob character escaped.
+
+| function | selector | refused (reason) |
+|---|---|---|
+| `OnTopLayer`, `OnBottomLayer`, `OnOutside`, `OnMid` | `and(layer…, not(MULTI_LAYER))`, the layers of id 1, 32, both, or the inner signal layers | a board without the layer (`undefined`) |
+| `OnMultiLayer` | `MULTI_LAYER` = `or(item_kind via, pad_type th, pad_type npth)` | — |
+| `ExistsOnLayer('L')`, `OnLayer('L')` | `or(layer L, MULTI_LAYER)` | `L` no copper layer (`undefined`); a via spanning part of the stack (`via-span`) |
+| `InDrillLayerPair('A - B')` | `item_kind via` for the pair of the top and bottom layers, else `NOTHING` | a via spanning part of the stack (`drill-pair`) |
+| `InDifferentialPair('P', …)`, `InAnyDifferentialPair` | `or(net positive, net negative, …)` of the pairs | — |
+| `IsDifferentialPair`, `InDifferentialPairClass('C')` | the same nets, for a rule that judges pair objects | any other rule (`object-kind`); `C` not defined once (`undefined`) |
+| `HasFootprint('F')` | `or(ref …)` of the components whose footprint matches | a designator shared with another component, or empty (`designator`) |
+| `IsComponent`, `IsNetTieComponent`, `InComponentClass('C')`, `IsBGA`, `IsSOIC`, `IsLCC` | `or(ref …)`, for a rule that judges component objects | any other rule (`object-kind`); a component kind not known to be Net Tie or not (`undefined`); a package check that cannot decide (`package-check`) |
+| `CompPinCount` compared with a number | `or(ref …)` of the components whose pad count complies | as `HasFootprint` |
+| `HoleDiameter`, `HoleSize` compared with a length | `hole lo..hi` | an interval that holds 0 (`hole-zero`); a pad on one layer with a hole size (`document`) |
+| `PadIsPlated = True`, `PadIsPlated = False` | `or(pad_type th, …)` of the plated pads, or of the unplated ones | pads without a hole that are neither all plated nor all unplated (`pad-plated`) |
+| `InNamedPolygon('P')` | `zone P` | `P` not in the document (`undefined`) |
+| `IsNamedPolygon('P')` | `zone P`, for a rule that judges pour objects | any other rule (`object-kind`); as `InNamedPolygon` |
+| `InxSignal`, `InxSignalClass` | — | always (`xsignal`): an xSignal runs between two pads, which no leaf holds |
+| `InNamedUnion` | — | always (`union`) |
+| `WithinRoom` | — | always (`room`); rooms as rule areas are a later step |
+
+**Layer property and Multi-Layer** (`H-A-RD-PRJ-SCOPE-MULTI`, INFERRED). The Layer Checks page says `OnOutside` returns
+no object on Multi-Layer and points to `ExistsOnLayer` to include them (S-2212). So an `On…` check reads an
+object's Layer property, and vias and pads with a hole, whose Layer is Multi-Layer, are not on the top layer;
+`ExistsOnLayer` returns them, and they exist on every copper layer only when every via spans the whole stack, so a
+document with blind or buried vias refuses it. The design of change c0462 wrote `OnTopLayer` as `layer F.Cu`; that
+would take the vias too, so the reading follows S-2212.
+
+**Parents and children.** `IsNamedPolygon`, `IsComponent`, `IsNetTieComponent`, `InComponentClass`, `IsBGA`, `IsSOIC`,
+`IsLCC`, `IsDifferentialPair` and `InDifferentialPairClass` return the parent object without its children (S-2212). A
+neutral rule judges copper primitives, so they map only for a rule kind whose subject is that parent:
+`ComponentClearance` and `FanoutControl` (components), `PolygonConnect` (pours) and `DiffPairsRouting` (pairs)
+(`scope.PARENTS`, `scope.for_kind`). `InDifferentialPair` and `InNamedPolygon` return the parent with its children,
+and the children are the objects of the pair's two nets and the copper of the pour. A pair maps to `net` leaves, not
+`diff_pair`: a primitive's subject does not carry its pair, and the nets select the same primitives.
+
+**Units of a number** (`H-A-RD-PRJ-SCOPE-UNIT`, INFERRED). A number compared with `HoleDiameter` without `AsMils` or
+`AsMM` is in the document's measurement unit (S-2212, "Fields"). `scope_document` takes it from the board record's
+`DISPLAYUNIT` (1 mil, 0 mm; `pcb-document.md`); that the query reads this unit is not stated by a source.
+The bound `0` needs no unit: it is the same length in every unit, so `HoleDiameter > 0` maps to `hole 1..` whatever
+the document's unit, and a non-zero bare number on a document without `DISPLAYUNIT` is refused. On the public rows
+(2026-11-06) the only scopes that compare a hole size are the two Hole Size records of row 05, both
+`HoleDiameter > 0` (with `PadIsPlated` `True` and `False`): both map, and no row holds a non-zero bare number, so the
+corpus can neither confirm nor refute the unit.
+
+**Package checks** (`read.packages`; `H-A-RD-PRJ-SCOPE-PACKAGE`, INFERRED). The Attribute Checks page defines the three
+checks by rows and columns of a component's pads, all surface mount (S-2212): `IsBGA` at least 10 rows and 10 columns,
+rows and columns differing by less than 6, and at least half of rows times columns pads; `IsSOIC` exactly 2 rows and at
+least 3 columns, or the converse, every place of the grid holding a pad; `IsLCC` two rows and two columns of at least 4
+pads each. The page does not say how pads are grouped into rows. `read.packages` groups pad centres along the
+board's axes into lines within 100 file units (`LINE_TOLERANCE`) and refuses a component turned by an angle
+that is not a multiple of 90 degrees (`package-check`). `tests/unit/backends/altium/test_scope_packages_c0462.py`
+holds an authored SOIC of 8, an LCC of 16 on four sides, a BGA of 10 by 10 and a two-pad chip; each check selects
+only its own.
+
 **Unmapped forms on the public boards** (change c0377, task 1.1; S-0580 documents, read 2026-11-04 with
 Fenolite's own reader, counts only). Kinds with no neutral counterpart, per rule record: FanoutControl 40,
 PolygonConnect 18, MatchedLengths 15, SolderMaskExpansion 11, ComponentClearance 10, PlaneConnect 9,
@@ -347,8 +412,8 @@ with via template keys 4, BoardOutlineClearance object matrices 3, Clearance sco
 
 | form | reason it does not map (a declared loss: the rule is reported unmapped with this reason) |
 |---|---|
-| `HasFootprint`, `InNamedPolygon`, `InComponentClass`, `WithinRoom`, `IsDifferentialPair`, `InDifferentialPairClass`, `HoleDiameter` | the neutral selector has no footprint name, pour, component class, room, pair object or hole size leaf |
-| `OnLayer`, `OnTopLayer`, `OnBottomLayer` joined with other terms | a layer condition maps only as the whole scope (change c0125) |
+| `WithinRoom`, `InNamedUnion`, `InxSignal`, `InxSignalClass`; and, outside the rule kinds that judge them, `IsDifferentialPair`, `InDifferentialPairClass`, `InComponentClass`, `IsNamedPolygon` | no neutral leaf holds a room, a union or an xSignal, and a rule on copper primitives does not judge a parent object (since change c0462 the other functions map, "Scope functions that read the document") |
+| `OnLayer`, `ExistsOnLayer` on a board with blind or buried vias | the neutral subject holds no via span (`via-span`; since change c0462 the layer functions map when joined with other terms) |
 | Clearance with `NETSCOPE=AnyNet` | a neutral clearance holds between different nets; a clearance between objects of one net has no counterpart, so mapping the record would drop half of it |
 | HoleToHoleClearance with `ALLOWSTACKEDMICROVIAS=TRUE` | the neutral rule has no exception for stacked micro-vias |
 | Clearance with `IGNOREPADTOPADCLEARANCEINFOOTPRINT=TRUE`, an object matrix of differing cells | the neutral rule cannot leave out the pads of one footprint or tell the objects apart (change c0125) |
@@ -424,7 +489,7 @@ every layer it spans. So a condition maps in two cases only:
 | `ExistsOnLayer` of every copper layer | any | a rule for all objects with `layers` = the board's copper layers: there is no other layer on which a pair could be judged |
 | `ExistsOnLayer` of some copper layers | has others | unmapped (`scope`): two vias that exist on a named layer are governed by the record on the other layers too, where the neutral rule is not in force |
 | `ExistsOnLayer` of a name that no copper layer, or more than one, holds | any | unmapped (`scope`) |
-| `OnMid` | no internal signal layer | unmapped with `no-layer`: no object is on such a layer, so the rule applies to nothing. The record is no unread rule (`rules.NOT_APPLYING`) |
+| `OnMid` | no internal signal layer | unmapped with `no-layer`: no object is on such a layer, so the rule applies to nothing. The record is no unread rule (`rules.NOT_APPLYING`), and its info is `altium.rule.applies-to-nothing`, not `altium.rule.unmapped` (c0462) |
 | `OnMid` | an internal signal layer | unmapped (`scope`): no permitted source says whether a via or a through-hole pad is "on" an internal signal layer |
 
 A layer name is compared letter for letter with the name the board record gives the layer. An internal

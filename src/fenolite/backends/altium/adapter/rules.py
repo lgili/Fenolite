@@ -30,10 +30,12 @@ from fenolite.backends.altium.read.rules import (
     RuleMapping,
     map_rules,
 )
+from fenolite.backends.altium.read.scope import ScopeDocument
 from fenolite.core.errors import Issue
 from fenolite.model.rules import Rule, RuleSet
 
-MAPPER_PER_RULE = "altium.rule.unmapped"
+MAPPER_PER_RULE = frozenset({"altium.rule.unmapped", "altium.rule.applies-to-nothing"})
+"""The per-record infos of the mapper: the import counts their records by kind and reason instead."""
 RECORD_PAIR = "record"
 STORAGE = "Rules6"
 
@@ -147,7 +149,7 @@ def adopt(
                 ext=bag(pairs),
             )
         )
-    issues.extend(found for found in mapping.issues if found.code != MAPPER_PER_RULE)
+    issues.extend(found for found in mapping.issues if found.code not in MAPPER_PER_RULE)
     by_kind: dict[str, Counter[str]] = {}
     for unmapped in mapping.unmapped:
         by_kind.setdefault(unmapped.kind or "(none)", Counter())[unmapped.reason] += 1
@@ -175,13 +177,15 @@ def import_rules(
     layers: CopperLayers | None = None,
     numbers: Sequence[int] = (),
     kept: list[str] | None = None,
+    document: ScopeDocument | None = None,
 ) -> RuleSet:
     """The rule set of the rule records ``records`` (each a record's whole pair list, ``RuleRecord.fields``
     of c0041): ``map_rules(records, origin=file)`` with the import's ids, provenance and bags. ``layers``
     are the copper layers of the board the records belong to (a PCB document); a rule file has none. With
     ``kept`` (a PCB document, whose record kind numbers are ``numbers``) the ``kept_rule`` texts of the
-    records ``kept_indexes`` names are appended to it, in record order (change c0424)."""
-    mapping = map_rules(records, origin=file, layers=layers)
+    records ``kept_indexes`` names are appended to it, in record order (change c0424). ``document`` is what
+    the scope functions of change c0462 read from the PCB document (``read.scopedoc.scope_document``)."""
+    mapping = map_rules(records, origin=file, layers=layers, document=document)
     held = kept_indexes(records, mapping) if kept is not None else frozenset[int]()
     if kept is not None:
         kept.extend(kept_text(numbers[index], records[index]) for index in sorted(held))

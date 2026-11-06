@@ -29,6 +29,7 @@ from fenolite.backends.altium.adapter.rules import connect_texts, import_rules
 from fenolite.backends.altium.read.bodies import BodyRecord, read_bodies
 from fenolite.backends.altium.read.pcb import ComponentRecord, PcbDocument
 from fenolite.backends.altium.read.pcbprims import PadRecord, RawPrimitive, TextRecord
+from fenolite.backends.altium.read.scopedoc import scope_document
 from fenolite.core.coords import Point
 from fenolite.core.errors import Issue
 from fenolite.geometry.transform import Transform
@@ -457,6 +458,7 @@ def read_board(doc: PcbDocument, *, file: str, sha256: str, ids: Ids) -> BoardIm
         layers=layers.copper_layers(),
         numbers=[r.kind_number for r in doc.rules],
         kept=kept,
+        document=scope_document(doc, layers.copper_layers()),
     )
     for name, streams in sorted(doc.storages.items()):
         if name and name not in DECODED_STORAGES and any(streams.get(s) for s in streams if s != "Header"):

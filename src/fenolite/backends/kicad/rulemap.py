@@ -16,6 +16,7 @@ import dataclasses
 import re
 from collections.abc import Callable, Mapping, Sequence
 from types import MappingProxyType
+from typing import cast
 
 from fenolite.backends.kicad import slots as slotlib
 from fenolite.backends.kicad.layers import is_canonical
@@ -24,7 +25,16 @@ from fenolite.core.errors import Issue, Severity
 from fenolite.core.ids import derived_id
 from fenolite.core.units import Nm, format_length, parse_length
 from fenolite.model.base import Modeled, Slot
-from fenolite.model.rules import NO_NET, Rule, RuleKind, RuleSeverity, Selector, SelectorOp
+from fenolite.model.rules import (
+    NO_NET,
+    Rule,
+    RuleKind,
+    RuleSeverity,
+    Selector,
+    SelectorOp,
+    hole_interval,
+    hole_value,
+)
 
 KIND_MAP: Mapping[RuleKind, str] = MappingProxyType(
     {
@@ -102,7 +112,7 @@ class KindGrammar:
     glob: bool = True
 
 
-_LEAVES = frozenset({"net", "netclass", "ref", "item_kind", "area", "diff_pair"})
+_LEAVES = frozenset({"net", "netclass", "ref", "item_kind", "area", "diff_pair", "zone", "hole", "pad_type"})
 _PAIR_LEAVES = frozenset({"diff_pair", "net", "netclass"})
 KIND_SELECTORS: Mapping[RuleKind, KindGrammar] = MappingProxyType(
     {
@@ -137,6 +147,10 @@ ITEM_TYPES: Mapping[str, str] = MappingProxyType(
     {"track": "Track", "via": "Via", "pad": "Pad", "zone": "Zone"}
 )
 """``item_kind`` values → KiCad ``Type`` names."""
+PAD_TYPE_NAMES: Mapping[str, str] = MappingProxyType(
+    {"smd": "SMD", "th": "Through-hole", "npth": "NPTH, mechanical"}
+)
+"""``pad_type`` values → KiCad ``Pad_Type`` names (S-2213; change c0462). ``Edge connector`` has no leaf."""
 SELECTOR_KEYS = (
     "net",
     "netclass",
@@ -151,6 +165,9 @@ SELECTOR_KEYS = (
     "selector_b",
     "layer_clause",
 )
+LEAF_KEYS_C0462 = ("zone", "hole", "pad_type")
+"""The leaves of change c0462 (S-2213): written as below, and kept out of ``SELECTOR_SUPPORT`` until their
+``dru-cond-<key>`` probes are recorded ``present``; until then a rule that uses one is a reported loss."""
 _BOTH = frozenset({9, 10})
 _ONLY_10 = frozenset({10})
 SELECTOR_SUPPORT: Mapping[str, frozenset[int]] = MappingProxyType(dict.fromkeys(SELECTOR_KEYS, _BOTH))
@@ -210,8 +227,20 @@ CLAUSE_ORDER = ("name", "layer", "condition", "constraint", "severity")
 """Where a clause the slots lack is inserted (the manuals' syntax summary; INFERRED, order has no meaning)."""
 
 _VALUE = re.compile(r"^([+-]?(?:\d+(?:\.\d*)?|\.\d+))(mm|mil|in)$")
-_LEAF_PROPS = {"net": "NetName", "netclass": "NetClass", "item_kind": "Type"}
+_LEAF_PROPS = {
+    "net": "NetName",
+    "netclass": "NetClass",
+    "item_kind": "Type",
+    "zone": "Name",
+    "pad_type": "Pad_Type",
+}
 _PROP_OPS = {prop: op for op, prop in _LEAF_PROPS.items()}
+_PAD_TYPE_KINDS = {name: kind for kind, name in PAD_TYPE_NAMES.items()}
+_HOLE_PROPS = {"via": "Hole", "pad": "Hole_Size_X"}
+"""The hole of a via is its ``Hole``, of a pad its ``Hole_Size_X`` (S-2213): ``hole lo..hi`` is written
+``((S.Type == 'Via' && S.Hole >= lo && S.Hole <= hi) || (S.Type == 'Pad' && S.Hole_Size_X >= lo && …))``,
+an open lower bound as ``> 0mm``, since a pad without a hole has the size 0 and the neutral leaf never
+selects it."""
 _CALL_OPS: Mapping[str, SelectorOp] = MappingProxyType(
     {"memberOfFootprint": "ref", "intersectsArea": "area", "inDiffPair": "diff_pair"}
 )
@@ -303,7 +332,23 @@ def _term(selector: Selector, side: str, target: int, rule: Rule, issues: list[I
         if value not in ITEM_TYPES:
             return refuse(f"item kind {value!r} is not one of {', '.join(ITEM_TYPES)}")
         value = ITEM_TYPES[value]
+    if op == "pad_type":
+        value = PAD_TYPE_NAMES[value]
+    if op == "hole":
+        return hole_condition(side, value)
     return f"{side}.{_LEAF_PROPS[op]} == '{value}'"
+
+
+def hole_condition(side: str, value: str) -> str:
+    """The condition of the leaf ``hole value`` on ``side`` (``_HOLE_PROPS``)."""
+    lo, hi = hole_interval(value)
+    parts: list[str] = []
+    for kind, prop in _HOLE_PROPS.items():
+        bounds = [f"{side}.{prop} >= {format_value(lo)}" if lo is not None else f"{side}.{prop} > 0mm"]
+        if hi is not None:
+            bounds.append(f"{side}.{prop} <= {format_value(hi)}")
+        parts.append(f"({side}.Type == '{ITEM_TYPES[kind]}' && {' && '.join(bounds)})")
+    return f"({parts[0]} || {parts[1]})"
 
 
 def condition_text(rule: Rule, *, target: int) -> tuple[str | None, tuple[Issue, ...]]:
@@ -336,7 +381,8 @@ def condition_text(rule: Rule, *, target: int) -> tuple[str | None, tuple[Issue,
 # --- conditions: text → model ---------------------------------------------------------------------
 
 _TOKEN = re.compile(
-    r"\s*(?:(?P<op>&&|\|\||==|!|\(|\))|(?P<str>'[^']*')|(?P<leaf>[AB]\.[A-Za-z]+)|(?P<bad>\S))"
+    r"\s*(?:(?P<op>&&|\|\||==|>=|<=|>|!|\(|\))|(?P<str>'[^']*')|(?P<leaf>[AB]\.[A-Za-z_]+)"
+    r"|(?P<num>[0-9]+(?:\.[0-9]+)?(?:mm|mil|in))|(?P<bad>\S))"
 )
 
 
@@ -396,6 +442,12 @@ class _Parse:
             self.take(")")
             return found
         side, prop = self.take(kind="leaf").split(".", 1)
+        if prop in _HOLE_PROPS.values():
+            token = self.peek()
+            if token is None or token[1] not in (">=", "<=", ">"):
+                raise ValueError(f"{prop} takes >=, <= or >")
+            symbol = self.take()
+            return ("cmp", (side, prop, symbol, parse_value(self.take(kind="num"))))
         if prop in _CALL_OPS:
             self.take("(")
             value = self.take(kind="str")[1:-1]
@@ -412,11 +464,67 @@ class _Parse:
             if value not in _TYPE_KINDS:
                 raise ValueError(f"type {value!r} is outside the closed grammar")
             value = _TYPE_KINDS[value]
+        if op == "pad_type":
+            if value not in _PAD_TYPE_KINDS:
+                raise ValueError(f"pad type {value!r} is outside the closed grammar")
+            value = _PAD_TYPE_KINDS[value]
         if not value and op == "net":  # change c0409: the empty net name is an item without a net
             return ("leaf", (side, NO_NET))
         if not value:
             raise ValueError("empty value")
         return ("leaf", (side, Selector(op, value)))  # type: ignore[arg-type]
+
+
+def _hole_branch(tree: _Tree) -> tuple[str, str, Nm | None, Nm | None] | None:
+    """``(side, kind, lo, hi)`` of one branch of a written hole condition, or ``None``."""
+    op, payload = tree
+    if op != "and":
+        return None
+    items = cast(list[_Tree], payload)
+    if len(items) not in (2, 3) or items[0][0] != "leaf":
+        return None
+    side, first = cast(tuple[str, Selector], items[0][1])
+    if first.op != "item_kind" or first.value not in _HOLE_PROPS:
+        return None
+    lo: Nm | None = None
+    hi: Nm | None = None
+    for index, item in enumerate(items[1:]):
+        if item[0] != "cmp":
+            return None
+        cside, prop, symbol, nm = cast(tuple[str, str, str, Nm], item[1])
+        if cside != side or prop != _HOLE_PROPS[first.value]:
+            return None
+        if index == 0 and symbol == ">" and nm == 0:
+            continue
+        if index == 0 and symbol == ">=" and nm > 0:
+            lo = nm
+        elif index == 1 and symbol == "<=":
+            hi = nm
+        else:
+            return None
+    return side, first.value, lo, hi
+
+
+def _holes(tree: _Tree) -> _Tree:
+    """``tree`` with each written hole condition (``hole_condition``) read as the leaf ``hole``;
+    ``ValueError`` for a comparison outside one."""
+    op, payload = tree
+    if op == "cmp":
+        raise ValueError("a hole comparison stands outside the written hole condition")
+    if op == "leaf":
+        return tree
+    items = cast(list[_Tree], payload)
+    if op == "or" and len(items) == 2:
+        branches = [_hole_branch(item) for item in items]
+        if all(branches):
+            (side_a, kind_a, lo_a, hi_a), (side_b, kind_b, lo_b, hi_b) = cast(
+                list[tuple[str, str, Nm | None, Nm | None]], branches
+            )
+            if (side_a, kind_a, kind_b) == (side_b, "via", "pad") and (lo_a, hi_a) == (lo_b, hi_b):
+                if lo_a is None and hi_a is None:
+                    raise ValueError("a hole condition without a bound")
+                return ("leaf", (side_a, Selector("hole", hole_value(lo_a, hi_a))))
+    return (op, [_holes(item) for item in items])
 
 
 def _side(tree: _Tree) -> set[str]:
@@ -463,6 +571,7 @@ def parse_condition(text: str, *, reference: bool = False) -> tuple[Selector, Se
         tree = parser.expr()
         if parser.peek() is not None:
             return None
+        tree = _holes(tree)
     except ValueError:
         return None
     conjuncts: list[_Tree] = tree[1] if tree[0] == "and" else [tree]  # type: ignore[assignment]
@@ -686,6 +795,8 @@ def _outside_kind(
     for leaf in (*_leaves(selector_a), *_leaves(selector_b)):
         if leaf.op not in grammar.leaves:
             return f"the selector '{leaf.op}' is not taken by {kind}"
+        if leaf.op in LEAF_KEYS_C0462 and not SELECTOR_SUPPORT.get(leaf.op):
+            return f"the selector '{leaf.op}' has no probe recorded present, so the rule stays as written"
         if "*" in leaf.value and not grammar.glob:
             return f"a glob is not taken by {kind}"
     return None

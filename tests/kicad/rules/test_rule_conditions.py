@@ -48,3 +48,16 @@ def test_letter_case_recorded() -> None:
     (result,) = rc.condition("case")
     rb.require_canary(result.report, result.bench)
     assert run("dru-cond-case") in ("present", "absent")
+
+
+@pytest.mark.parametrize("key", rc.LEAF_KEYS_C0462)
+def test_leaf_c0462(key: str) -> None:
+    """The leaves of change c0462 as S-2213 writes them (``rulemap.hole_condition``, ``PAD_TYPE_NAMES``):
+    the outcome is recorded per version; the key joins ``SELECTOR_SUPPORT`` only where it is ``present``."""
+    from fenolite.backends.kicad.rulemap import SELECTOR_SUPPORT
+
+    for result in rc.condition(key):
+        rb.require_canary(result.report, result.bench)
+    outcome = run(f"dru-cond-{key}")
+    assert outcome in ("present", "absent")
+    assert (rc.major() in SELECTOR_SUPPORT.get(key, frozenset())) == (outcome == "present")

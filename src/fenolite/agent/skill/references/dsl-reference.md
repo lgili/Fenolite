@@ -446,6 +446,12 @@ Function: `select.area(area: 'str \| RuleArea') -> 'Select'`
 
 The items whose copper reaches into a rule area, given by name or as the `RuleArea` of `design.rule_area()`.
 
+### select.hole
+
+Function: `select.hole(*, lo: 'Nm \| None' = None, hi: 'Nm \| None' = None) -> 'Select'`
+
+The pads and vias whose finished hole diameter lies in `lo..hi`, both ends included, in nanometres (`mm("1.0")`); leave one end out for an open interval.
+
 ### select.item
 
 Function: `select.item(kind: 'str') -> 'Select'`
@@ -470,6 +476,12 @@ Function: `select.no_net() -> 'Select'`
 
 The items without a net: a pad that no net reaches, a netless track or zone.
 
+### select.pad_type
+
+Function: `select.pad_type(kind: 'str') -> 'Select'`
+
+The pads of one type: `smd` (no hole), `th` (a plated hole) or `npth` (a hole that is not plated).
+
 ### select.pair
 
 Function: `select.pair(x: 'Interface \| str') -> 'Select'`
@@ -481,6 +493,12 @@ The items on the two nets of a differential pair: a `DiffPair`, a `USB2` or anot
 Function: `select.ref(name: 'str \| Part') -> 'Select'`
 
 The items of a part (for a courtyard rule, the part's footprint), by reference or as the `Part`.
+
+### select.zone
+
+Function: `select.zone(name: 'str') -> 'Select'`
+
+The copper of the zones of a name.
 
 ## series
 

@@ -53,6 +53,7 @@ TEXT_READ_CODES: dict[str, Severity] = {
     "altium.rule.record-malformed": "warning",
     "altium.rule.summary-form": "info",
     "altium.rule.unmapped": "info",
+    "altium.rule.applies-to-nothing": "info",
     "altium.stackup.unknown-form": "warning",
     "altium.stackup.length-unreadable": "warning",
 }

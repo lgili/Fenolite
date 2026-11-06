@@ -87,7 +87,7 @@ def test_layer_refused_without_a_document() -> None:
     [
         ("InNet('A') And All", "All stands below the top level"),
         ("(All)", "All stands below the top level"),
-        ("OnTopLayer", "layer function OnTopLayer"),
+        ("OnTopLayer", "OnTopLayer reads the document's layers"),
         ("InNet('A') And OnLayer('Top Layer')", "OnLayer"),
         ("IsPolygon", "function IsPolygon"),
         ("InNet('')", "is empty"),

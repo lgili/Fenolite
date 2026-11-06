@@ -34,9 +34,9 @@ serialises to the bytes it had.
 
 ## Model schema versions
 
-The active canonical model schema is `1.0`, independently of package and CLI versions.
+The active canonical model schema is `1.1` (change c0462: the selector ops `zone`, `hole` and `pad_type`), independently of package and CLI versions.
 A model minor adds optional fields with defaults; changing a field's type, meaning or name, or
-removing one, raises the major. This reader accepts legacy `0` through the explicit `0 -> 1.0` migration and accepts
+removing one, raises the major. This reader accepts legacy `0` and `1.0` through the explicit `0 -> 1.0` and `1.0 -> 1.1` migrations (the second changes only the marker: a 1.0 folder holds none of the new ops) and accepts
 its current major only through its supported minor. Newer minors/majors refuse with `FEN-3002` before
 unknown content is decoded; malformed input raises `FEN-3004`. Reading migrates in memory without writes; `fenolite migrate` reviews
 six atomic writes and keeps backups. See [model folders and migration](model-versions.md).
@@ -51,7 +51,8 @@ The informational finding `model.migrated` records in-memory migration.
 | Version | Reading and writing |
 |---|---|
 | `0` | Read-only legacy input; preserved schemas and release fixtures |
-| `1.0` | Active canonical writer and current reader |
+| `1.0` | Read through the identity step `1.0 -> 1.1` |
+| `1.1` | Active canonical writer and current reader; the writer always stamps `1.1`, whether or not a document uses a new op |
 
 ## Units
 
@@ -75,7 +76,7 @@ objects change; the diff matches such objects by content.
 
 | File | Class | Contents |
 |---|---|---|
-| `meta.json` | `DesignHeader` | id, name, `schema_version` (`"1.0"`), `fenolite_version` |
+| `meta.json` | `DesignHeader` | id, name, `schema_version` (`"1.1"`), `fenolite_version` |
 | `circuit.json` | `Circuit` | components (pins), nets (pin members), net classes, interfaces, modules, block ports, no-connect marks |
 | `board.json` | `Board` | outline, layers, stack-up, footprints (pads), tracks, arcs, vias, zones, keep-outs, texts, graphics, holes |
 | `rules.json` | `RuleSet` | rules: kind, selectors, layers, min/opt/max, severity, priority (1 = highest); check severities |

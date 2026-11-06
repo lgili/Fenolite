@@ -50,11 +50,11 @@ One existing refusal goes: the mixed-operator refusal (S-0296), which now has a 
 
 | function | selector | note |
 |---|---|---|
-| `OnLayer('L')`, `OnTopLayer`, `OnBottomLayer` | `layer <copper name>` | through `copper_layers_of`. A multi-layer object matches only when the layer is named (S-2212). The subject of a through-hole pad on a layer is that layer: as now, for `ExistsOnLayer`. |
-| `OnMid` | `or(layer In1.Cu, …)` | with no internal layer it is a rule of no object: the info `altium.rules.applies-to-nothing`, and no `Unmapped` |
+| `OnLayer('L')`, `OnTopLayer`, `OnBottomLayer` | `layer <copper name>`; implemented as `and(layer…, not(MULTI_LAYER))` for the `On…` checks and `or(layer L, MULTI_LAYER)` for `OnLayer`, because S-2212's `OnOutside` returns no Multi-Layer object (`H-A-RD-PRJ-SCOPE-MULTI`) | through `copper_layers_of`. A multi-layer object matches only when the layer is named (S-2212). The subject of a through-hole pad on a layer is that layer: as now, for `ExistsOnLayer`. |
+| `OnMid` | `or(layer In1.Cu, …)` | with no internal signal layer it is a rule of no object: the info `altium.rule.applies-to-nothing` in place of `altium.rule.unmapped`; the record stays `Unmapped` with `no-layer` (`NOT_APPLYING`), so a conversion keeps it (c0424) |
 | `ExistsOnLayer('L')`, `InAnyNet` | as now | |
 | `WithinRoom('R1', …)` | `or(area R1, …)` | rooms read as rule areas (task 2.3). A pad or via is in a room by its centre; other objects need to lie wholly inside (S-2212). `RuleSubject.areas` follows that per kind. |
-| `InDifferentialPair('P')`, `InAnyDifferentialPair`, `IsDifferentialPair` | `diff_pair P` or `diff_pair *` | through the pairs the document defines (`model.pairs`) |
+| `InDifferentialPair('P')`, `InAnyDifferentialPair`, `IsDifferentialPair` | `diff_pair P` or `diff_pair *`; implemented as the `net` leaves of the pairs' nets, since the subjects of primitives do not carry `diff_pair` | through the pairs the document defines (`model.pairs`) |
 | `InDifferentialPairClass('C')`, `InxSignalClass('C')`, `InxSignal('X')` | `or` of `diff_pair` or `net` leaves | expanded from the document's class or xSignal definitions. Undefined: refused, `undefined` |
 | `HasFootprint('P')`, `IsComponent`, `IsNetTieComponent`, `IsSOIC`, `IsBGA`, `IsLCC`, `InNamedUnion('U')` | `or(ref R1, …)`, or `not(all)` when none match | expanded at read time over the document's components. For the package checks, the pad-grid definition of S-2212 is evaluated on the component's surface-mount pads. `InNamedUnion` of primitives other than components is refused (`union-kind`). |
 | `InDrillLayerPair('A - B')` | `and(item_kind via, …)` | exact only when the pair is the whole stack and the document has no other pair. Otherwise refused, `drill-pair`, until the model holds via spans. |
@@ -87,9 +87,16 @@ guessed.
 ## D4: three additive leaves
 
 `SelectorOp` gains `zone`, `hole` and `pad_type`. The model is frozen at 1.0 (c0218), so adding them is a
-minor version.
+minor version: `SCHEMA_VERSION` is `1.1`, with the identity migration step `1.0 -> 1.1`. The writer always
+stamps the current version, so every document is written as `1.1`, whether or not it uses a new op; a
+document that uses one therefore says it needs a 1.1 reader, and a 1.0 reader refuses every 1.1 document
+with `FEN-3002`.
 
-- The model review tool approves the new ops.
+- The model review records the widening of `Selector.op` with its own approval (`model0-approved.json`,
+  the field's new `type`, its `widened_from` and `approved`: approved 2026-11-06, c0462, coordinator under
+  maintainer delegation, the form c0465 uses too); the freeze tests accept only such a recorded widening,
+  and only when every approved value is kept: the schema drift test puts the old values back and then
+  finds no other change.
 - `gen_schemas` is regenerated.
 - `RuleSubject` gains `zone: str | None`, `hole: int | None` (finished diameter, nm) and
   `pad_type: str | None`. A subject that does not set them still evaluates every old selector the same
