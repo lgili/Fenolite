@@ -222,7 +222,7 @@ def test_reasons_in_their_order() -> None:
     assert reasons([record("Width", width, ENABLED="FALSE", NETSCOPE="DifferentNets")]) == ["disabled"]
     assert reasons([record("Width", width, NETSCOPE="SameNet", LAYERKIND="AdjacentLayers")]) == ["net-scope"]
     assert reasons([record("Width", ("BOGUS", "1"), LAYERKIND="AdjacentLayers")]) == ["layer-kind"]
-    assert reasons([record("Width", ("TOPLAYER_MINWIDTH", "1mil"), ("MINLIMIT", "x"))]) == ["keys"]
+    assert reasons([record("Width", ("BOGUSLAYER_MINWIDTH", "1mil"), ("MINLIMIT", "x"))]) == ["keys"]
     assert reasons([record("Width", ("MINLIMIT", "10"), SCOPE1EXPRESSION="OnLayer('Top')")]) == ["value"]
     assert reasons([record("Width")]) == ["value"]
     assert reasons([record("Clearance", ("GENERICCLEARANCE", "1mil"))]) == ["keys"]

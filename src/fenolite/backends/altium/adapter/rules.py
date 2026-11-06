@@ -24,10 +24,12 @@ from fenolite.backends.altium.adapter.ids import Ids, bag
 from fenolite.backends.altium.read.rules import (
     BACKEND,
     CELL_PAIR,
+    LAYER_PAIR,
     WRITTEN_KINDS,
     CopperLayers,
     Field,
     RuleMapping,
+    holds_layer_values,
     map_rules,
 )
 from fenolite.backends.altium.read.scope import ScopeDocument
@@ -69,7 +71,9 @@ def kept_indexes(records: Sequence[Sequence[Field]], mapping: RuleMapping) -> fr
     """The records that give no rule which ``rulemap.lower`` writes again in its own form (change c0424):
     a record the mapper does not map (any reason), a record of a kind outside ``read.rules.WRITTEN_KINDS``,
     and a Hole To Hole Clearance with stacked micro vias allowed. A Polygon Connect Style record is not among
-    them (the board keeps it as ``polygon_connect``), nor a record without ``RULEKIND``."""
+    them (the board keeps it as ``polygon_connect``), nor a record without ``RULEKIND``. A record that holds
+    per-layer values (``read.rules.holds_layer_values``) is kept too: the lowering writes one form per rule
+    and no per-layer key (change c0462)."""
     unmapped = {item.index for item in mapping.unmapped}
     found: set[int] = set()
     for index, fields in enumerate(records):
@@ -77,7 +81,8 @@ def kept_indexes(records: Sequence[Sequence[Field]], mapping: RuleMapping) -> fr
         if not kind or kind == POLYGON_CONNECT:
             continue
         stacked = kind == STACKED[0] and _get(fields, STACKED[1]) == STACKED[2]
-        if index in unmapped or kind not in WRITTEN_KINDS or stacked:
+        layered = holds_layer_values(fields)
+        if index in unmapped or kind not in WRITTEN_KINDS or stacked or layered:
             found.add(index)
     return frozenset(found)
 
@@ -131,7 +136,7 @@ def adopt(
         fields = records[index]
         kind, name = _get(fields, "RULEKIND"), _get(fields, "NAME")
         more = [pair for pair in _mapper_pairs(rule) if pair[0] != RECORD_PAIR]
-        cell = "".join(f":{value}" for key, value in more if key == CELL_PAIR)
+        cell = "".join(f":{value}" for key, value in more if key in (CELL_PAIR, LAYER_PAIR))
         ident, native = ids.native("rul", f"rule:{kind}:{name}:{rule.kind}{cell}")
         pairs = [
             ("rule_kind", kind),

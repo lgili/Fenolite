@@ -70,7 +70,7 @@ on it, S-0580).
 | RULEKIND | neutral kind | min | opt | max | net scope | further conditions |
 |---|---|---|---|---|---|---|
 | `Clearance` | `clearance` | `GAP` | — | — | `DifferentNets` | `OBJECTCLEARANCES` absent, blank, uniform or a matrix of exact cells (each one more rule); `GENERICCLEARANCE` absent or equal to `GAP`; `IGNOREPADTOPADCLEARANCEINFOOTPRINT` absent or `FALSE`; `ISMATRIX`, `SOURCERULE`, `CELLROWNAME`, `CELLROWTYPE`, `CELLCOLNAME`, `CELLCOLTYPE`, `INNERLAYERS` and `OUTERLAYERS` absent or as in "Clearance forms that map" |
-| `Width` | `track_width` | `MINLIMIT` | `PREFEREDWIDTH` | `MAXLIMIT` | `AnyNet` | — |
+| `Width` | `track_width` | `MINLIMIT` | `PREFEREDWIDTH` | `MAXLIMIT` | `AnyNet` | per-layer keys as in "Per-layer values"; `CHECKCONNECTEDCOPPER` absent or `FALSE`; `IMPEDANCEPROFILEDRIVEN` absent, `FALSE` or `TRUE`; `IMPEDANCEPROFILEID`, `IMPEDANCEPROFILEVALUE`, `MINIMP`, `MAXIMP` and `FAVIMP` allowed and unused |
 | `RoutingVias` | `via_diameter` | `MINWIDTH` | `WIDTH` | `MAXWIDTH` | `AnyNet` | `VIASTYLE` is `Through Hole` |
 | `RoutingVias` | `via_drill` | `MINHOLEWIDTH` | `HOLEWIDTH` | `MAXHOLEWIDTH` | `AnyNet` | `VIASTYLE` is `Through Hole` |
 | `HoleSize` | `hole_size` | `MINLIMIT` | — | `MAXLIMIT` | `AnyNet` | `ABSOLUTEVALUES` is `TRUE`; `MINPERCENT` and `MAXPERCENT` allowed and unused |
@@ -79,8 +79,8 @@ on it, S-0580).
 | `MinimumAnnularRing` | `annular_width` | `MINIMUMRING` | — | — | `AnyNet` | — |
 | `SilkToSilkClearance` | `silk_clearance` | `SILKTOSILKCLEARANCE` | — | — | `AnyNet` | — |
 | `ComponentClearance` | `courtyard_clearance` | `GAP` | — | — | `AnyNet` | `VERTICALGAP`, `COLLISIONCHECKMODE` and `SHOWDISTANCES` allowed and unused |
-| `DiffPairsRouting` | `diff_pair_gap` | `MINLIMIT` | `MOSTFREQGAP` | `MAXLIMIT` | `AnyNet` | `IMPEDANCEPROFILEDRIVEN`, `IMPEDANCEPROFILEID` and `IMPEDANCEPROFILEVALUE` allowed and unused |
-| `DiffPairsRouting` | `diff_pair_uncoupled` | — | — | `MAXUNCOUPLEDLENGTH` | `AnyNet` | as the row above: `IMPEDANCEPROFILEDRIVEN`, `IMPEDANCEPROFILEID`, `IMPEDANCEPROFILEVALUE` |
+| `DiffPairsRouting` | `diff_pair_gap` | `MINLIMIT` | `MOSTFREQGAP` | `MAXLIMIT` | `AnyNet` | per-layer gap keys as in "Per-layer values"; `IMPEDANCEPROFILEDRIVEN` absent, `FALSE` or `TRUE`; `IMPEDANCEPROFILEID` and `IMPEDANCEPROFILEVALUE` allowed and unused |
+| `DiffPairsRouting` | `diff_pair_uncoupled` | — | — | `MAXUNCOUPLEDLENGTH` | `AnyNet` | as the row above: `IMPEDANCEPROFILEDRIVEN`, `IMPEDANCEPROFILEID`, `IMPEDANCEPROFILEVALUE`; no per-layer key |
 
 `rules.PENDING_KINDS`: kinds that have a neutral counterpart but no permitted source for their keys,
 reported apart with the reason `no-verified-keys`. The table is empty since change c0084, which found the
@@ -100,6 +100,39 @@ joined to another scope with `and`), and its per-layer keys `<LAYER>_MINWIDTH`, 
 `_PREFWIDTH` are allowed and unused. A Routing Layers record (`RoutingLayers`, no limit) gives one
 `no_tracks` rule on the board's signal layers whose key is `FALSE`, none when no key is `FALSE`; its layer
 keys are allowed, and without the Altium ids of the board's layers it is refused with `no-layer`.
+
+## Per-layer values
+
+Change c0462 (design D5) reads the per-layer keys of Width and Differential Pairs Routing
+(`rules.LAYER_VALUE_KEY`, `KindMap.layer_values`). The routing rules page sets the limits for all layers or
+per layer (S-2248); the public records hold them as below (S-2219).
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| A per-layer key is `<LAYER>_<LIMIT><QUANTITY>`: `<LAYER>` is `TOPLAYER` (layer id 1), `MIDLAYER<n>` (id n + 1, n from 1 to 30) or `BOTTOMLAYER` (id 32); `<LIMIT>` is `MIN`, `PREF` or `MAX`; `<QUANTITY>` is `WIDTH` (Width, and the unused pair widths of Differential Pairs Routing) or `GAP` (Differential Pairs Routing) | S-2248, S-2219 | INFERRED | H-A-RULE-LAYER-VALUES |
+| A layer holds only the limits that differ from the record's general ones: a Width record of a public row holds `MIDLAYER<n>_MINWIDTH` and `_PREFWIDTH` and leaves out `_MAXWIDTH` on every layer where that equals `MAXLIMIT`; another holds `_MAXWIDTH` only | S-2219 | INFERRED | H-A-RULE-LAYER-VALUES |
+| With "Use Impedance Profile" the values of a layer come from the profile, and the grid shows the profile's layers only; the record holds the profile's id and impedance (`IMPEDANCEPROFILEID`, `IMPEDANCEPROFILEVALUE`), not the profile. The 3 public pair records with `IMPEDANCEPROFILEDRIVEN=TRUE` hold gap keys on some signal layers of their board only | S-2248, S-2219 | INFERRED | H-A-RULE-LAYER-VALUES |
+| `MINIMP`, `MAXIMP` and `FAVIMP` of a Width record are impedances (two public records hold `50.000000` with no profile key) | S-2219 | INFERRED | H-A-RULE-LAYER-VALUES |
+
+The reading:
+
+- Each signal layer of the board (ids 1 to 32) takes each limit from its per-layer key, or else the
+  general one. A layer with at least one limit that differs from the general one gives one rule of the
+  record's neutral kind, `and(scope, layer L)` (just `layer L` for the scope `All`), named
+  `<record name>/<L>` and at the record's priority, so it governs on its layer (`checks.clearance.rule_precedence`
+  sorts names within one priority). A layer whose limits equal the general ones gives no rule.
+- A per-layer key of a layer the board does not hold applies to no object: the record maps and the mapper
+  gives one info `altium.rules.layer-absent` that names those layers.
+- With `IMPEDANCEPROFILEDRIVEN=TRUE`, a signal layer of the board for which the record holds no value of the
+  quantity is refused with `impedance-profile`: the record does not say whether the layer is outside the
+  profile or holds the general values. Fenolite's impedance targets are not inferred from the record.
+- `MINIMP`, `MAXIMP` and `FAVIMP` without a profile key are read and unused: the widths the record holds
+  are the rule. `CHECKCONNECTEDCOPPER=TRUE` judges the width of connected copper (tracks, arcs, fills, pads
+  and vias together), which no neutral rule says: it stays `keys`.
+- Without the Altium ids of the board's copper layers (a rule file), a record whose per-layer values differ
+  from the general ones, or that is profile-driven, is refused with `scope`.
+- A record that holds per-layer keys is kept for an Altium write ("Kept rule records"): the lowering writes
+  one form per rule and no per-layer key.
 
 ## Rule kinds seen
 
@@ -247,6 +280,9 @@ checked in this order.
 | `layer-kind` | `LAYERKIND` is not `SameLayer` |
 | `keys` | a key outside the header keys, the keys before `RULEKIND` and the keys of the kind, or a further condition fails |
 | `value` | a limit the table needs is missing (`GAP`; at least one limit otherwise) or is not a length |
+| `impedance-profile` | the record takes per-layer values from an impedance profile it does not hold ("Per-layer values") |
+| `template` | the record takes its via sizes from a via template the document does not hold ("Via templates") |
+| `matrix-kind` | a cell of an object matrix names an object kind no neutral kind holds ("Cells of an object matrix") |
 | `scope` | a scope is outside the closed grammar and the two are no layer condition that maps, or `SCOPE2EXPRESSION` is not `All` for a unary kind |
 | `no-layer` | the two scopes are a layer condition for a kind of layer the board does not hold: the rule applies to no object ("Layer scopes of Clearance") |
 

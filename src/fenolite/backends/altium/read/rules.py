@@ -60,6 +60,15 @@ SAME_LAYER = "SameLayer"
 ALL = "All"
 TOP_LAYER_ID, BOTTOM_LAYER_ID = 1, 32
 """The Altium ids of the top and the bottom signal layer (``pcb-records.md``, "Layer ids")."""
+LAYER_VALUE_KEY = re.compile(r"(TOPLAYER|BOTTOMLAYER|MIDLAYER([1-9][0-9]?))_(MIN|PREF|MAX)(WIDTH|GAP)")
+"""A per-layer key of a Width or a Differential Pairs Routing record: the layer (``TOPLAYER``, id 1;
+``MIDLAYER<n>``, id ``n + 1``; ``BOTTOMLAYER``, id 32), the limit and the quantity (``rule-file.md``,
+"Per-layer values"; ``H-A-RULE-LAYER-VALUES``, ``INFERRED``)."""
+MID_LAYERS = 30
+"""The number of internal signal layers an Altium document numbers (``MIDLAYER1`` to ``MIDLAYER30``, ids 2
+to 31)."""
+LAYER_PAIR = "layer_value"
+"""The pair that the mapper adds to the bag of a per-layer rule: the neutral name of its copper layer."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -107,9 +116,16 @@ class KindMap:
     pair_scope: bool = False
     """The rules select differential pairs: the scope ``All`` is ``diff_pair *``, another scope is joined
     to ``diff_pair *`` with ``and`` (change c0424)."""
+    layer_values: tuple[tuple[str, RuleKind], ...] = ()
+    """The suffixes of the record's per-layer keys (``LAYER_VALUE_KEY``) and the neutral kind whose limits
+    they set on one copper layer (change c0462, design D5): ``WIDTH`` of a Width record, ``GAP`` of a
+    Differential Pairs Routing record."""
 
     def allows(self, key: str) -> bool:
-        """Whether ``key`` matches one of ``patterns``."""
+        """Whether ``key`` matches one of ``patterns`` or is a per-layer key of ``layer_values``."""
+        found = LAYER_VALUE_KEY.fullmatch(key)
+        if found is not None and found.group(4) in dict(self.layer_values):
+            return True
         return any(re.fullmatch(pattern, key) for pattern in self.patterns)
 
     @property
@@ -229,7 +245,20 @@ RULE_KIND_MAP: dict[str, KindMap] = {
         ),
         binary=True,
     ),
-    "Width": KindMap((NeutralLimits("track_width", "MINLIMIT", "PREFEREDWIDTH", "MAXLIMIT"),), "AnyNet"),
+    "Width": KindMap(
+        (NeutralLimits("track_width", "MINLIMIT", "PREFEREDWIDTH", "MAXLIMIT"),),
+        "AnyNet",
+        (
+            Condition("CHECKCONNECTEDCOPPER", ("FALSE",)),
+            Condition("IMPEDANCEPROFILEDRIVEN", ("FALSE", "TRUE")),
+            Condition("IMPEDANCEPROFILEID", read_only=True),
+            Condition("IMPEDANCEPROFILEVALUE", read_only=True),
+            Condition("MINIMP", read_only=True),
+            Condition("MAXIMP", read_only=True),
+            Condition("FAVIMP", read_only=True),
+        ),
+        layer_values=(("WIDTH", "track_width"),),
+    ),
     "RoutingVias": KindMap(
         (
             NeutralLimits("via_diameter", "MINWIDTH", "WIDTH", "MAXWIDTH"),
@@ -278,12 +307,13 @@ RULE_KIND_MAP: dict[str, KindMap] = {
         ),
         "AnyNet",
         (
-            Condition("IMPEDANCEPROFILEDRIVEN"),
-            Condition("IMPEDANCEPROFILEID"),
-            Condition("IMPEDANCEPROFILEVALUE"),
+            Condition("IMPEDANCEPROFILEDRIVEN", ("FALSE", "TRUE")),
+            Condition("IMPEDANCEPROFILEID", read_only=True),
+            Condition("IMPEDANCEPROFILEVALUE", read_only=True),
         ),
         patterns=(r"[A-Z0-9]+_(?:MIN|MAX|PREF)WIDTH",),
         pair_scope=True,
+        layer_values=(("GAP", "diff_pair_gap"),),
     ),
     "RoutingLayers": KindMap((), "AnyNet", patterns=(r"[A-Z][A-Z0-9 ]*_V5",)),
 }
@@ -306,6 +336,9 @@ UnmappedReason = Literal[
     "layer-kind",
     "keys",
     "value",
+    "impedance-profile",
+    "template",
+    "matrix-kind",
     "scope",
     "no-layer",
 ]
@@ -319,6 +352,9 @@ UNMAPPED_REASONS: tuple[UnmappedReason, ...] = (
     "layer-kind",
     "keys",
     "value",
+    "impedance-profile",
+    "template",
+    "matrix-kind",
     "scope",
     "no-layer",
 )
@@ -603,11 +639,120 @@ def _scopes(
     return selector_a, selector_b, ()
 
 
+def _layer_id(token: str) -> int:
+    """The Altium layer id of the layer part of a per-layer key (``LAYER_VALUE_KEY``), 0 for none."""
+    if token == "TOPLAYER":
+        return TOP_LAYER_ID
+    if token == "BOTTOMLAYER":
+        return BOTTOM_LAYER_ID
+    number = int(token.removeprefix("MIDLAYER"))
+    return number + 1 if 1 <= number <= MID_LAYERS else 0
+
+
+LayerLimits = tuple[str, NeutralLimits, tuple[Nm | None, ...]]
+"""One per-layer rule to give: the neutral name of the copper layer, the limits and their values."""
+
+
+def _layer_values(
+    fields: Sequence[Field],
+    table: KindMap,
+    groups: Sequence[tuple[NeutralLimits, tuple[Nm | None, ...]]],
+    layers: CopperLayers | None,
+) -> tuple[list[LayerLimits], list[str]]:
+    """The per-layer rules of a record (``KindMap.layer_values``; change c0462, design D5) and the layer
+    parts of its keys that name no copper layer of the board.
+
+    A per-layer key sets one limit on one copper layer; a limit the record leaves out for a layer is the
+    general one (Altium writes a per-layer key only where it differs, ``H-A-RULE-LAYER-VALUES``). A layer
+    whose limits all equal the general ones gives no rule. With ``IMPEDANCEPROFILEDRIVEN=TRUE`` the limits
+    of a layer come from an impedance profile: a signal layer of the board for which the record holds no
+    value is refused (``impedance-profile``), as the profile is not in the record."""
+    if not table.layer_values:
+        return [], []
+    held: dict[tuple[str, str], dict[str, Nm]] = {}
+    for key, value in fields:
+        found = LAYER_VALUE_KEY.fullmatch(key)
+        if found is None or found.group(4) not in dict(table.layer_values):
+            continue
+        if not _layer_id(found.group(1)):
+            raise _Refusal("keys", f"{key} names no layer an Altium document numbers")
+        length = parse_length(value or "")
+        if length is None:
+            raise _Refusal("value", f"{key}={value} is not a length (a decimal number and mil or mm)")
+        held.setdefault((found.group(4), found.group(1)), {})[found.group(3)] = length
+    profile = _get(fields, "IMPEDANCEPROFILEDRIVEN") == "TRUE"
+    general = {limits.kind: values for limits, values in groups}
+    kinds = dict(table.layer_values)
+    if layers is None or any(not layer.altium_id for layer in layers.layers):
+        none: tuple[Nm | None, ...] = (None, None, None)
+        differs = any(
+            _layer_limits(general.get(kinds[suffix], none), values) != general.get(kinds[suffix], none)
+            for (suffix, _token), values in held.items()
+        )
+        if profile or differs:
+            raise _Refusal(
+                "scope", "per-layer values need the Altium ids of the copper layers of the record's board"
+            )
+        return [], []
+    by_id = {layer.altium_id: layer for layer in layers.layers}
+    signal = [layer for layer in layers.layers if TOP_LAYER_ID <= layer.altium_id <= BOTTOM_LAYER_ID]
+    absent = sorted(
+        {token for (_suffix, token) in held if _layer_id(token) not in by_id},
+        key=lambda token: (_layer_id(token) == BOTTOM_LAYER_ID, _layer_id(token)),
+    )
+    found_rules: list[LayerLimits] = []
+    for suffix, kind in table.layer_values:
+        limits = next((limits for limits, _values in groups if limits.kind == kind), None)
+        if limits is None:
+            continue
+        tokens = {_layer_id(token): token for (held_suffix, token) in held if held_suffix == suffix}
+        if profile:
+            missing = [layer.name for layer in signal if layer.altium_id not in tokens]
+            if missing:
+                raise _Refusal(
+                    "impedance-profile",
+                    f"IMPEDANCEPROFILEDRIVEN=TRUE and the record holds no {suffix} value for "
+                    f"{', '.join(missing)}: Altium takes them from an impedance profile the record does "
+                    "not hold",
+                )
+        for layer in signal:
+            token = tokens.get(layer.altium_id)
+            values = _layer_limits(general[kind], held.get((suffix, token), {}) if token else {})
+            if values != general[kind]:
+                found_rules.append((layer.name, limits, values))
+    return found_rules, absent
+
+
+def holds_layer_values(fields: Sequence[Field]) -> bool:
+    """Whether the record ``fields`` holds a per-layer key of its kind (``KindMap.layer_values``)."""
+    table = RULE_KIND_MAP.get(_get(fields, "RULEKIND") or "")
+    if table is None:
+        return False
+    suffixes = dict(table.layer_values)
+    for key, _value in fields:
+        found = LAYER_VALUE_KEY.fullmatch(key)
+        if found is not None and found.group(4) in suffixes:
+            return True
+    return False
+
+
+def _layer_limits(general: tuple[Nm | None, ...], held: dict[str, Nm]) -> tuple[Nm | None, ...]:
+    """The limits of one layer: each held per-layer value (``MIN``, ``PREF``, ``MAX``) or else the general
+    one."""
+    return tuple(held.get(part, value) for part, value in zip(("MIN", "PREF", "MAX"), general, strict=True))
+
+
+def _and(selector: Selector, leaf: Selector) -> Selector:
+    """``selector`` narrowed by ``leaf``: ``leaf`` alone when ``selector`` is ``all``."""
+    return leaf if selector.op == "all" else Selector("and", items=(selector, leaf))
+
+
 def _map_one(
     fields: Sequence[Field],
     index: int,
     origin: str,
     layers: CopperLayers | None,
+    notes: list[Issue],
     document: ScopeDocument | None = None,
 ) -> list[Rule]:
     kind, name, priority = _header(fields)
@@ -631,6 +776,7 @@ def _map_one(
         raise _Refusal("layer-kind", f"LAYERKIND={layer_kind}; the table needs {SAME_LAYER}")
     _check_keys(fields, kind, table)
     groups = _limits(fields, kind, table)
+    per_layer, absent = _layer_values(fields, table, groups, layers)
     selector_a, selector_b, on_layers = _scopes(fields, table, layers, for_kind(document, kind))
     if table.pair_scope:
         selector_a = _pairs(selector_a)
@@ -660,6 +806,33 @@ def _map_one(
                 max=high,
                 severity="error",
                 priority=priority,
+            )
+        )
+    for layer, limits, (low, preferred, high) in per_layer:
+        rules.append(
+            Rule(
+                id=derived_id("rul", BACKEND, f"{origin}:{index}:{limits.kind}:{layer}"),
+                native_ids=dict(native),
+                ext={BACKEND: ExtBag(payload=(record, (LAYER_PAIR, layer)))},
+                name=f"{name}/{layer}",
+                kind=limits.kind,
+                selector_a=_and(selector_a, Selector("layer", layer)),
+                selector_b=selector_b,
+                layers=on_layers,
+                min=low,
+                opt=preferred,
+                max=high,
+                severity="error",
+                priority=priority,
+            )
+        )
+    if absent:
+        notes.append(
+            text_issue(
+                "altium.rules.layer-absent",
+                f"the rule {name!r} of kind {kind} holds values for {len(absent)} layer(s) the board does "
+                f"not hold ({', '.join(absent)}): they apply to no object",
+                f"{origin}#{index}",
             )
         )
     for first, second, value in matrix.cells if matrix is not None else ():
@@ -777,7 +950,8 @@ def map_rules(
         try:
             if summary:
                 raise _Refusal("summary-form", "the value has no unit")
-            mapped = _map_one(fields, index, origin, layers, document)
+            notes: list[Issue] = []
+            mapped = _map_one(fields, index, origin, layers, notes, document)
         except _Refusal as refusal:
             unmapped.append(Unmapped(index, kind, name, refusal.reason, refusal.detail))
             issues.append(
@@ -795,6 +969,7 @@ def map_rules(
                 )
             )
             continue
+        issues += notes
         rules += mapped
         rule_records += [index] * len(mapped)
     ruleset = RuleSet(id=derived_id("rst", BACKEND, origin), rules=tuple(rules))
@@ -806,6 +981,8 @@ __all__ = [
     "CELL_PAIR",
     "HEADER_KEYS",
     "ITEM_KINDS",
+    "LAYER_PAIR",
+    "LAYER_VALUE_KEY",
     "MATRIX_KINDS",
     "MATRIX_UNIT",
     "NOT_APPLYING",
@@ -823,6 +1000,7 @@ __all__ = [
     "RuleMapping",
     "Unmapped",
     "UnmappedReason",
+    "holds_layer_values",
     "map_rules",
     "matrix_problem",
     "read_matrix",

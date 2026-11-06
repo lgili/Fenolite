@@ -13,7 +13,7 @@ from fenolite.backends.altium.read.ini import parse_ini
 from fenolite.backends.altium.read.outjob import read_outjob
 from fenolite.backends.altium.read.project import load_project, read_project
 from fenolite.backends.altium.read.rul import read_rule_file
-from fenolite.backends.altium.read.rules import CopperLayer, CopperLayers, map_rules
+from fenolite.backends.altium.read.rules import HEADER_KEYS, CopperLayer, CopperLayers, map_rules
 from fenolite.backends.altium.read.stackup import read_stackup
 from fenolite.backends.altium.read.textfile import TEXT_READ_CODES, split_text
 from fenolite.core.errors import Issue
@@ -31,7 +31,7 @@ TEXT_MODULES = (
     "stackup",
     "annotation",
 )
-LITERAL = re.compile(r"[\"'](altium\.(?:text|project|outjob|rule|stackup)\.[a-z0-9-]+)[\"']")
+LITERAL = re.compile(r"[\"'](altium\.(?:text|project|outjob|rules?|stackup)\.[a-z0-9-]+)[\"']")
 
 
 def test_literals_equal_the_table() -> None:
@@ -61,6 +61,12 @@ def _every_issue(tmp_path: Path) -> list[Issue]:
     ]  # fmt: skip
     top = CopperLayers((CopperLayer("Top Layer", "F.Cu"), CopperLayer("Bottom Layer", "B.Cu")))
     issues += map_rules([onmid], origin="o", layers=top).issues
+    header = dict.fromkeys(HEADER_KEYS, "") | {"RULEKIND": "Width", "NETSCOPE": "AnyNet"}
+    header |= {"LAYERKIND": "SameLayer", "SCOPE1EXPRESSION": "All", "SCOPE2EXPRESSION": "All"}
+    header |= {"NAME": "W", "ENABLED": "TRUE", "PRIORITY": "1"}
+    width = [*header.items(), ("MINLIMIT", "1mil"), ("MIDLAYER5_MINWIDTH", "2mil")]
+    top = CopperLayers((CopperLayer("Top Layer", "F.Cu", False, 1),))
+    issues += map_rules([width], origin="o", layers=top).issues  # altium.rules.layer-absent
     issues += read_annotation(b"[S]\nVersion=1\n").issues
     issues += read_stackup(b"|STACKUPVERSION=1|LAYER_V7_0COPTHICK=x|LAYER_V8_0COPTHICK=y").issues
     (tmp_path / "bad.RUL").write_bytes(b"hello")

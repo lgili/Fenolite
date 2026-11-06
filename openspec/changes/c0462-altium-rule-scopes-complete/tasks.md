@@ -40,7 +40,7 @@ Rules for every task:
 
 ## 4. Record keys and kinds
 
-- [ ] 4.1 Per-layer Width and DiffPairsRouting values, and Width impedance keys. Proof:
+- [x] 4.1 Per-layer Width and DiffPairsRouting values, and Width impedance keys. Proof:
   `uv run pytest tests/unit/backends/altium/test_rule_keys_c0462.py -k "layer or impedance" -q -n 0`.
 - [ ] 4.2 RoutingVias templates. Proof: the same file, `-k template`.
 - [ ] 4.3 `OBJECTCLEARANCES` matrices of Clearance and BoardOutlineClearance. Proof: the same file,
