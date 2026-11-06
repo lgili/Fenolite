@@ -20,7 +20,7 @@ Refusals:
 
 Mappings:
 
-- The functions MUST map as that table says: c0042's `All`, `InNet`, `InNetClass`, `InComponent`, item kinds and `InPolygon`, and change c0462's layer, room, pair, xSignal, component, polygon, hole and pad functions.
+- The functions MUST map as that table says: c0042's `All`, `InNet`, `InNetClass`, `InComponent`, item kinds and `InPolygon`, and change c0462's layer, pair, xSignal, component, polygon, hole and pad functions; `WithinRoom` is refused (below).
 - An `InNet` or `InComponent` value MUST become a glob in which Altium's wildcards `*` and `?` stay wildcards and every other glob character matches itself (S-2212: `InNet('V*')` returns the nets whose names start with V); an `InNetClass` value MUST match its name only.
 - A scope MUST never be approximated: each selector MUST select exactly the objects Altium selects in the document read.
 
@@ -86,7 +86,7 @@ No issue of this capability MUST have the severity `error`: malformed input rais
 `parse_scope` with a `document` SHALL read the functions of change c0462 (design D2 and D3) from the document, and MUST record each one in `rule-file.md` with its source and evidence label.
 
 - `OnTopLayer`, `OnBottomLayer`, `OnOutside` and `OnMid` MUST give `layer` leaves of the copper layers of the board without the objects on Multi-Layer (S-2212: `OnOutside` returns none of them). `ExistsOnLayer` and `OnLayer` MUST give the `layer` leaf with the objects on Multi-Layer, and MUST be refused with the reason `via-span` when a via of the document spans part of the stack.
-- `WithinRoom` MUST give `area` leaves of the rooms read as rule areas; until rooms are read (task 2.3) it MUST be refused with the reason `room`.
+- `WithinRoom` of a room the document holds (`ScopeDocument.rooms`, "Altium rooms are rule areas") MUST be refused with the reason `room-membership`, naming the function: a pad or a via is in a room by its centre and any other object only wholly within it (S-2212), which no neutral leaf selects. A room the document does not hold MUST be refused with `undefined`.
 - `InDifferentialPair`, `InAnyDifferentialPair` and `IsDifferentialPair` MUST give the `net` leaves of the pairs' two nets: a primitive's subject does not carry its pair, and the nets select the same primitives.
 - `InDifferentialPairClass` MUST be expanded from the document's class definitions. `InxSignal` and `InxSignalClass` MUST be refused with the reason `xsignal`, and `InNamedUnion` with the reason `union`: no neutral leaf holds an xSignal, and the reader does not read unions.
 - `HasFootprint`, `IsComponent`, `IsNetTieComponent`, `InComponentClass`, `IsSOIC`, `IsBGA`, `IsLCC` and `CompPinCount` MUST be expanded to `ref` leaves of the components they select, or to `not(all)` when none match; a designator that also names a component not selected MUST give the reason `designator`.

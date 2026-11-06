@@ -420,6 +420,7 @@ a claim), `see` (its code runs only inside the operations of the named modules o
 | `read.pcbstack` | see `read.pcb`, `read.pcblib` |
 | `read.project` | `EVIDENCE` INFERRED: `H-A-RD-PRJ-DOCS`, `H-A-RD-PRJ-ENC-2`, `H-A-RD-PRJ-HIER`, `H-A-RD-PRJ-INI`, `H-A-RD-PRJ-NETSCOPE-ONE`, `H-A-RD-PRJ-OUTJOB`, `H-A-RD-PRJ-PARAM`, `H-A-RD-PRJ-RUL-EXPORT`, `H-A-RD-PRJ-RUL-SUMMARY`, `H-A-RD-PRJ-RULE-MAP`, `H-A-RD-PRJ-SCOPE`, `H-A-RD-PRJ-SCOPE-CASE`, `H-A-RD-PRJ-SCOPE-PREC`, `H-A-RD-PRJ-SCOPE-WILD`, `H-A-RD-PRJ-STACKUP` |
 | `read.proptext` | see `read.project` |
+| `read.rooms` | see `import_evidence`, `read.project` |
 | `read.rul` | see `read.project` |
 | `read.rules` | see `import_evidence`, `read.project` |
 | `read.sch` | `EVIDENCE` INFERRED: `H-A-RD-SCH-FRAME`, `H-A-RD-SCH-IDENT`, `H-A-RD-SCH-HEADER`, `H-A-RD-SCH-CASE`, `H-A-RD-SCH-TEXT-2`, `H-A-RD-SCH-OWNER`, `H-A-RD-SCH-ADDOWNER`, `H-A-RD-SCH-LIBOWNER`, `H-A-RD-SCH-FRAC`, `H-A-RD-SCH-PARTS`, `H-A-RD-SCH-PIN`, `H-A-RD-SCH-PINSIDE`, `H-A-RD-SCH-STORAGE`, `H-A-RD-SCH-ASCII`, `H-A-RD-SCH-KICAD` |

@@ -20,7 +20,7 @@ Rules for every task:
 - [x] 2.1 The layer functions and `OnMid` (`applies-to-nothing` with no internal layer). Proof: the same
   file, `-k layer`.
 - [x] 2.2 The pair, xSignal and class expansions from the document. Proof: the same file, `-k pair`.
-- [ ] 2.3 Rooms read as rule areas, and `WithinRoom`. Proof:
+- [x] 2.3 Rooms read as rule areas, and `WithinRoom` refused (`room-membership`; option 2 of the coordinator, 2026-11-06). Proof:
   `uv run pytest tests/unit/backends/altium/test_rooms_c0462.py -q -n 0`.
 - [x] 2.4 Component expansions (`HasFootprint`, `IsComponent`, `IsNetTieComponent`, `InNamedUnion`) and
   `read/packages.py` (`IsSOIC`, `IsBGA`, `IsLCC`). Proof:

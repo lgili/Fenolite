@@ -53,7 +53,7 @@ One existing refusal goes: the mixed-operator refusal (S-0296), which now has a 
 | `OnLayer('L')`, `OnTopLayer`, `OnBottomLayer` | `layer <copper name>`; implemented as `and(layer…, not(MULTI_LAYER))` for the `On…` checks and `or(layer L, MULTI_LAYER)` for `OnLayer`, because S-2212's `OnOutside` returns no Multi-Layer object (`H-A-RD-PRJ-SCOPE-MULTI`) | through `copper_layers_of`. A multi-layer object matches only when the layer is named (S-2212). The subject of a through-hole pad on a layer is that layer: as now, for `ExistsOnLayer`. |
 | `OnMid` | `or(layer In1.Cu, …)` | with no internal signal layer it is a rule of no object: the info `altium.rule.applies-to-nothing` in place of `altium.rule.unmapped`; the record stays `Unmapped` with `no-layer` (`NOT_APPLYING`), so a conversion keeps it (c0424) |
 | `ExistsOnLayer('L')`, `InAnyNet` | as now | |
-| `WithinRoom('R1', …)` | `or(area R1, …)` | rooms read as rule areas (task 2.3). A pad or via is in a room by its centre; other objects need to lie wholly inside (S-2212). `RuleSubject.areas` follows that per kind. |
+| `WithinRoom('R1', …)` | refused | rooms are read as named rule areas that restrict nothing (task 2.3, `read.rooms`); the record stays a kept record (c0434), so an Altium write gives it back as read. A pad or via is in a room by its centre, any other object only wholly inside (S-2212), while the neutral `area` leaf selects an object whose copper touches the area (`H-K-AREA-COND`): a room the document holds is refused `room-membership`, one it does not hold `undefined`. `RuleSubject.areas` and the `area` leaf keep their meaning. |
 | `InDifferentialPair('P')`, `InAnyDifferentialPair`, `IsDifferentialPair` | `diff_pair P` or `diff_pair *`; implemented as the `net` leaves of the pairs' nets, since the subjects of primitives do not carry `diff_pair` | through the pairs the document defines (`model.pairs`) |
 | `InDifferentialPairClass('C')`, `InxSignalClass('C')`, `InxSignal('X')` | `or` of `diff_pair` or `net` leaves | expanded from the document's class or xSignal definitions. Undefined: refused, `undefined` |
 | `HasFootprint('P')`, `IsComponent`, `IsNetTieComponent`, `IsSOIC`, `IsBGA`, `IsLCC`, `InNamedUnion('U')` | `or(ref R1, …)`, or `not(all)` when none match | expanded at read time over the document's components. For the package checks, the pad-grid definition of S-2212 is evaluated on the component's surface-mount pads. `InNamedUnion` of primitives other than components is refused (`union-kind`). |
@@ -172,6 +172,12 @@ On the 8 public rows:
   cascades that remain are c0463's.
 - For each distinct mapped scope, the objects selected equal the objects Altium's filter selects
   (task 5.1, S-2214).
+
+Follow-up for `WithinRoom` (coordinator, 2026-11-06): the exact mapping needs a neutral room membership,
+such as a defaulted `Keepout` field (`touch` or `room`) that the copper check and the pour honour and the
+KiCad writer reports as a loss. It waits for a kit sample or a public row that holds a room: no public
+document holds one, the four `WithinRoom` scopes of rows 04 and 07 name a room their board does not hold,
+and the record keys of a document's room are `INFERRED` from the public rule file (`H-A-RD-ROOM`).
 
 ## Risks
 

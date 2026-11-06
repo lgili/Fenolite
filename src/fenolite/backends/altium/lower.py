@@ -43,6 +43,7 @@ from fenolite.backends.altium.cfb import CompoundTooLarge, name_key
 from fenolite.backends.altium.cutouts import cutout_items, unwritten_reason
 from fenolite.backends.altium.docboard import Dielectric, StackSpec
 from fenolite.backends.altium.pour import BackendUnavailable, PourMode
+from fenolite.backends.altium.read.rooms import is_room_area
 from fenolite.backends.altium.schlib import storage_name
 from fenolite.core.coords import Point
 from fenolite.core.errors import FenoliteError, Issue, Severity
@@ -1021,6 +1022,10 @@ def _library_keepout(area: Keepout, *, bottom: bool) -> Keepout:
     )
 
 
+ROOM_REASON = (
+    "the rule area of an Altium room is written as the room's Room Definition record, which the board keeps "
+    "as it was read (change c0462), not as a keep-out region"
+)
 KEEPOUT_LAYER_REASON = (
     "the layer(s) {layers} of the rule area of a footprint are no copper layer: an Altium keep-out lies on "
     "a signal layer or the Keep-Out layer and restricts copper only (vias, tracks, copper, SMD and TH pads)"
@@ -1812,6 +1817,11 @@ def _items(
     _count_strokes([area for area in board.keepouts if area not in areas], written, account)
     stroked = len(written)
     for keepout in areas:
+        if is_room_area(keepout):
+            # a room read from an Altium document (change c0462): its record is a kept record of the board,
+            # written back as it was read; the area itself is no keep-out region
+            account.change("keep-out", keepout.id, ROOM_REASON)
+            continue
         problem = pcbdoc.keepout_problem(keepout, layers)
         if problem is None:
             keepouts.append(keepout)

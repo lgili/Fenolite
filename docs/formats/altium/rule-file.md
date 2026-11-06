@@ -365,7 +365,7 @@ the leaves carry the document's own names, every glob character escaped.
 | `IsNamedPolygon('P')` | `zone P`, for a rule that judges pour objects | any other rule (`object-kind`); as `InNamedPolygon` |
 | `InxSignal`, `InxSignalClass` | — | always (`xsignal`): an xSignal runs between two pads, which no leaf holds |
 | `InNamedUnion` | — | always (`union`) |
-| `WithinRoom` | — | always (`room`); rooms as rule areas are a later step |
+| `WithinRoom` | — | always: a room the document holds is `room-membership` (a pad or via is in a room by its centre, any other object only wholly inside, S-2212; the neutral `area` leaf selects by touch, `H-K-AREA-COND`), one it does not hold `undefined`. The rooms are read as rule areas (`read.rooms`, c0462 task 2.3) |
 
 **Layer property and Multi-Layer** (`H-A-RD-PRJ-SCOPE-MULTI`, INFERRED). The Layer Checks page says `OnOutside` returns
 no object on Multi-Layer and points to `ExistsOnLayer` to include them (S-2212). So an `On…` check reads an

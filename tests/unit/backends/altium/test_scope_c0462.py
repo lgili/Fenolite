@@ -420,7 +420,7 @@ def test_component_functions(text: str, parents: tuple[scope.ParentKind, ...], s
         ("HasFootprint('A')", ScopeDocument(components=(_part("X1", "A"), _part("X1", "B"))), "designator"),
         ("HasFootprint('A')", ScopeDocument(components=(_part("", "A"),)), "designator"),
         ("InNamedUnion('Unions')", COMPONENTS, "union"),
-        ("WithinRoom('R')", COMPONENTS, "room"),
+        ("WithinRoom('R')", COMPONENTS, "document"),  # the rooms are not given: test_rooms_c0462.py
     ],
 )  # fmt: skip
 def test_component_refusals(text: str, document: ScopeDocument, reason: str) -> None:

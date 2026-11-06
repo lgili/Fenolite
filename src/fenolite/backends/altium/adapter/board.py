@@ -29,11 +29,20 @@ from fenolite.backends.altium.adapter.rules import connect_texts, import_rules
 from fenolite.backends.altium.read.bodies import BodyRecord, read_bodies
 from fenolite.backends.altium.read.pcb import ComponentRecord, PcbDocument
 from fenolite.backends.altium.read.pcbprims import PadRecord, RawPrimitive, TextRecord
+from fenolite.backends.altium.read.rooms import LOCATOR, read_rooms
 from fenolite.backends.altium.read.scopedoc import scope_document
 from fenolite.core.coords import Point
 from fenolite.core.errors import Issue
 from fenolite.geometry.transform import Transform
-from fenolite.model.board import Board, ComponentBody, FootprintAttribute, FootprintInstance, Hole, Pad
+from fenolite.model.board import (
+    Board,
+    ComponentBody,
+    FootprintAttribute,
+    FootprintInstance,
+    Hole,
+    Keepout,
+    Pad,
+)
 from fenolite.model.circuit import Circuit, Component, Net, NetClass, Pin, PinRef
 from fenolite.model.design import SCHEMA_VERSION, Design, DesignHeader
 from fenolite.model.rules import RuleSet
@@ -175,6 +184,42 @@ def _bodies(doc: PcbDocument, ctx: Context) -> dict[int, list[tuple[int, BodyRec
         else:
             found.setdefault(record.component, []).append((record.index, record))
     return found
+
+
+def _rooms(doc: PcbDocument, ctx: Context) -> None:
+    """Each room of ``doc`` (``read.rooms``, change c0462 task 2.3) as a named rule area in ``ctx.keepouts``
+    that restricts nothing, on the copper layer of its side, its provenance the room's record. Only a room
+    on the top or the bottom side whose outline is straight edges gives one. The record itself stays a kept
+    record (``kept_rule``), so an Altium write gives it back as it was read; ``WithinRoom`` stays refused
+    (``read.scope``, ``room-membership``)."""
+    rooms, found = read_rooms([r.fields for r in doc.rules])
+    ctx.issues.extend(found)
+    for room in rooms:
+        if room.side is None or not room.lines:
+            continue
+        exact = Exact(ctx.census)
+        points: list[Point] = []
+        for k, vertex in enumerate(room.vertices):
+            x, x_exact = units.units_length(vertex.x)
+            y, y_exact = units.units_length(vertex.y)
+            if not x_exact:
+                exact.inexact(f"outline.{k}.x", str(vertex.x))
+            if not y_exact:
+                exact.inexact(f"outline.{k}.y", str(vertex.y))
+            points.append(Point(x, -y))
+        if len(points) > 1 and points[0] == points[-1]:
+            points.pop()
+        pairs = exact.pairs()
+        ctx.keepouts.append(
+            Keepout(
+                id=ctx.ids.content("kpo", "room", room.index, room.name),
+                provenance=ctx.provenance(f"{LOCATOR}{room.index}"),
+                ext=bag(pairs) if pairs else {},
+                outline=tuple(points),
+                layers=(room.side,),
+                name=room.name,
+            )
+        )
 
 
 def read_board(doc: PcbDocument, *, file: str, sha256: str, ids: Ids) -> BoardImport:
@@ -460,6 +505,7 @@ def read_board(doc: PcbDocument, *, file: str, sha256: str, ids: Ids) -> BoardIm
         kept=kept,
         document=scope_document(doc, layers.copper_layers()),
     )
+    _rooms(doc, ctx)
     for name, streams in sorted(doc.storages.items()):
         if name and name not in DECODED_STORAGES and any(streams.get(s) for s in streams if s != "Header"):
             ctx.census.note(name)

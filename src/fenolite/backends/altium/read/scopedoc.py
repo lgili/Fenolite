@@ -16,6 +16,7 @@ from collections.abc import Mapping
 
 from fenolite.backends.altium.read.pcb import PcbDocument
 from fenolite.backends.altium.read.pcbprims import PadRecord, TextRecord, ViaRecord
+from fenolite.backends.altium.read.rooms import read_rooms
 from fenolite.backends.altium.read.rules import CopperLayers
 from fenolite.backends.altium.read.scope import (
     ScopeClass,
@@ -117,6 +118,7 @@ def scope_document(document: PcbDocument, layers: CopperLayers | None) -> ScopeD
         ),
         components=_components(document),
         polygons=tuple(p.name for p in document.polygons if p.name),
+        rooms=tuple(room.name for room in read_rooms([r.fields for r in document.rules])[0] if room.name),
         smd_plated=None if len(plated) > 1 else plated == {True},
         smd_holes=any(pad.hole > 0 for pad in single),
     )

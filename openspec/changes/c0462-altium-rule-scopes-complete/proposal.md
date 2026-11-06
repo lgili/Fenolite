@@ -44,7 +44,8 @@ Counts are from the coordinating session's survey of 2026-11-06 (S-2210):
   as `HoleDiameter > (1 And IsPad)`.
 - **Functions onto the neutral selectors that exist.** Each mapping is exact:
   - `OnLayer`, `OnTopLayer`, `OnBottomLayer`, `OnMid` and `ExistsOnLayer` map to `layer`.
-  - `WithinRoom` maps to `area`. Rooms are read as rule areas.
+  - Rooms are read as rule areas. `WithinRoom` stays refused (`room-membership`): Altium's room membership
+    differs from the neutral area's, and the exact mapping waits for a room on a public row or a kit sample.
   - The differential pair functions map to `diff_pair`.
   - `InxSignal`, `InxSignalClass` and `InDifferentialPairClass` map to the nets and pairs that the
     document defines for them.

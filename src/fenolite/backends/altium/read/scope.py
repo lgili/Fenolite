@@ -98,7 +98,7 @@ LOGIC: dict[str, Literal["and", "or", "xor"]] = {
 
 RefusalReason = Literal[
     "grammar", "type", "unit", "undefined", "document", "syntax", "object-kind", "via-span", "drill-pair",
-    "designator", "package-check", "xsignal", "union", "room", "pad-plated", "hole-zero",
+    "designator", "package-check", "xsignal", "union", "room-membership", "pad-plated", "hole-zero",
 ]  # fmt: skip
 """Why a scope is refused: outside the grammar (a function or operator it does not read), a typed reading
 that is not a set of objects (``type``), a number whose unit the document does not give (``unit``), a name
@@ -108,9 +108,10 @@ the reasons of its functions: a function that returns parent objects only (a pol
 in a rule that does not judge them (``object-kind``); a layer function on a board with blind or buried vias
 (``via-span``) or a drill pair that is not the whole stack (``drill-pair``); a designator that names more
 components than a function selects (``designator``); a package check the document's pads do not decide
-(``package-check``); xSignals, unions and rooms, which the reader does not read (``xsignal``, ``union``,
-``room``); ``PadIsPlated`` on a board whose pads without a hole are not all plated or all unplated
-(``pad-plated``); and a hole interval that holds 0, the hole size of a pad without a hole (``hole-zero``)."""
+(``package-check``); xSignals and unions, which the reader does not read (``xsignal``, ``union``); a room
+the document holds, whose membership no neutral leaf selects (``room-membership``); ``PadIsPlated`` on a
+board whose pads without a hole are not all plated or all unplated (``pad-plated``); and a hole interval
+that holds 0, the hole size of a pad without a hole (``hole-zero``)."""
 
 
 class Refusal(str):
@@ -204,6 +205,8 @@ class ScopeDocument:
     components: tuple[ScopeComponent, ...] | None = None
     polygons: tuple[str, ...] | None = None
     """The names of the document's polygons."""
+    rooms: tuple[str, ...] | None = None
+    """The names of the document's rooms (``read.rooms``, task 2.3)."""
     smd_plated: bool | None = None
     """``True`` when every pad without a hole is plated, ``False`` when none is (or there is none),
     ``None`` when they differ."""
@@ -885,6 +888,24 @@ def _polygon_function(parser: _Parser, name: str) -> _Value:
     return _Set(_any_of([Selector("zone", _escaped(n, False)) for n in found]), grouped=True)
 
 
+def _room_function(parser: _Parser, name: str) -> _Value:
+    """``WithinRoom('R', …)``: refused. A room the document does not hold is ``undefined``. One it holds
+    is ``room-membership``: a pad or a via is in a room by its centre, any other object only when it lies
+    wholly within it (S-2212), while the neutral ``area`` leaf selects an object whose copper touches the
+    area (``H-K-AREA-COND``), so no leaf selects the objects of a room (task 2.3; the exact mapping needs a
+    neutral room membership)."""
+    wanted = parser.strings(name, many=True)
+    held = {n.casefold() for n in _need(parser, name, "rooms").rooms or ()}
+    missing = [w for w in wanted if w.casefold() not in held]
+    if missing:
+        raise _Refused(f"{name} names the room {missing[0]!r}, which the document does not hold", "undefined")
+    raise _Refused(
+        f"{name} names the room {wanted[0]!r}: a pad or a via is in a room by its centre and any other "
+        "object only wholly within it, and no neutral leaf selects that way",
+        "room-membership",
+    )
+
+
 def _refuse(reason: RefusalReason, why: str) -> FunctionHandler:
     def handler(parser: _Parser, name: str) -> _Value:
         raise _Refused(f"{name}: {why}", reason)
@@ -916,7 +937,7 @@ FUNCTIONS: dict[str, FunctionHandler] = {
     "InxSignal": _refuse("xsignal", "an xSignal runs between two pads, which no neutral leaf holds"),
     "InxSignalClass": _refuse("xsignal", "an xSignal runs between two pads, which no neutral leaf holds"),
     "InNamedUnion": _refuse("union", "the reader does not read the document's unions"),
-    "WithinRoom": _refuse("room", "the reader does not read the document's rooms as rule areas yet"),
+    "WithinRoom": _room_function,
 }
 """The functions of the grammar beyond the membership checks, by name (change c0462)."""
 EXPANDED_FUNCTIONS = frozenset(FUNCTIONS) - {"AsMils", "AsMM", "OnMultiLayer"}
