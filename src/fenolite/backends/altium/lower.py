@@ -1975,7 +1975,8 @@ def from_design(
     if board is not None:
         arc_starts: frozenset[int] = frozenset()
         if options is not None and board.outline is not None:
-            outline = tuple(board.outline.points)
+            # a build's outline as given, its arcs as arc vertices as a conversion writes them (c0448)
+            outline, arc_starts = _arc_ring(_open(board.outline.points), board.outline.arcs)
         else:
             if edges is not None and (
                 board.outline is not None or not _edge_ring(board, edges, _Account())[0]

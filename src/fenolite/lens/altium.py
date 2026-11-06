@@ -50,6 +50,7 @@ from fenolite.backends.altium.project import WRITE_KINDS, component_path, split_
 from fenolite.backends.altium.read.outjob import OutputGroup, record_fields
 from fenolite.backends.altium.symbols import natural_key
 from fenolite.backends.kicad import slots as kicad_slots
+from fenolite.backends.kicad._fpmap import MARGIN_HEADS
 from fenolite.backends.kicad.embed import footprint_extent
 from fenolite.backends.kicad.layers import created_layers
 from fenolite.backends.kicad.liberrors import LibraryError
@@ -88,6 +89,7 @@ from fenolite.model.board import (
     Graphic,
     Hole,
     Keepout,
+    Outline,
     Pad,
 )
 from fenolite.model.circuit import Component, Net, Pin, PinRef
@@ -521,7 +523,9 @@ PAD_DROPPED: Mapping[str, str] = MappingProxyType(
         "die_length": "die length",
     }
 )
-"""KiCad pad children Altium's pad record has no field for: left out with ``altium.primitive-dropped``."""
+"""KiCad pad children Altium's pad record has no field for: left out with ``altium.primitive-dropped``
+unless the model holds them as a pad field (``kicad._fpmap.MARGIN_HEADS``), which ``pcblib.pad_bytes``
+writes (changes c0440, c0448)."""
 PAD_REFUSED: Mapping[str, str] = MappingProxyType(
     {
         "chamfer_ratio": "has chamfered corners",
@@ -594,6 +598,8 @@ def pad_extras(defn: FootprintDef) -> dict[str, pcblib.PadExtras]:
             elif head in PAD_DROPPED and PAD_DROPPED[head] not in dropped:
                 if _decimal_atom(node) == 0:
                     continue
+                if getattr(pad, MARGIN_HEADS.get(head, ""), None) is not None:
+                    continue  # the pad writer writes it as a manual expansion (changes c0440, c0448)
                 dropped.append(PAD_DROPPED[head])
         # an authored pad holds its shape in the model (change c0277)
         if ratio is None and pad.corner_ratio is not None and pad.shape == "roundrect":
@@ -1177,6 +1183,13 @@ def cutout_issues(board: Board | None) -> list[Issue]:
     return found
 
 
+def _ring_vertices(outline: Outline) -> int:
+    """The vertices of the board record (``docboard.board_records``): the points of the board ring without a
+    closing repeat. An arc is the vertex at its start (change c0441); its mid is no vertex."""
+    points = outline.points
+    return len(points) - (len(points) > 1 and points[0] == points[-1])
+
+
 def lowered_pcb(
     design: Design,
     *,
@@ -1214,12 +1227,17 @@ def lowered_pcb(
     with_links = [c for c in components if c.lib_footprint_ref]
     if board is None or board.outline is None or not board.outline.points:
         reason = "the design has no board outline"
-    elif any(arc.ring == 0 for arc in board.outline.arcs):
-        # no fact row gives the form of an arc in the board ring of the document (change c0102); the arcs of
-        # a cut-out are polygonised in its region (change c0168)
-        reason = "the board outline has arcs, which the document does not write"
-    elif len(board.outline.points) < 3:
-        reason = "the design has no board outline"
+    elif _ring_vertices(board.outline) < 3:
+        # an arc of the board ring is an arc vertex (change c0441), written by a build as by a conversion
+        # (change c0448; c0102 refused it), but the board record needs three vertices and an arc's mid is
+        # none: a ring of fewer, such as a round board, is not written; the arcs of a cut-out are
+        # polygonised (c0168)
+        has_arcs = any(arc.ring == 0 for arc in board.outline.arcs)
+        reason = (
+            "the board outline has arcs and fewer than three vertices, which the document does not write"
+            if has_arcs
+            else "the design has no board outline"
+        )
     else:
         altium = [c.ref for c in with_links if footprint_source(c.lib_footprint_ref) == "altium"]
         missing = [

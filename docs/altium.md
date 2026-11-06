@@ -390,9 +390,12 @@ rectangular and rounded-rectangle shapes, round holes, plated or not), the slott
 of one shape (change c0170: hole shape Slot, hole size the drill, the slot length, and the slot rotation
 relative to the pad), lines, rectangles, arcs and circles on the mapped layers. Refused, with
 `altium.footprint-unsupported` (warning; the footprint is not written): trapezoid and custom pads,
-connector pads, padstacks, a slot of a pad with a shape per layer, offset drills, chamfered corners, a through-hole pad with copper on one side, and graphics on copper layers. Dropped, with
-`altium.primitive-dropped` (warning): polygons, filled rectangles and circles, graphics on unmapped layers,
-and pad settings the Altium record has no field for (mask and paste margins, zone and thermal settings).
+connector pads, padstacks, a slot of a pad with a shape per layer, offset drills, chamfered corners, a through-hole pad with copper on one side, and graphics on copper layers, except those of a net tie (change
+c0448: written on `F.Cu` and `B.Cu`, dropped on an inner layer; the PCB document writes them all as a
+conversion does, c0431). Dropped, with `altium.primitive-dropped` (warning): polygons, filled rectangles
+and circles, graphics on unmapped layers, and pad settings the Altium record has no field for (zone and
+thermal settings, and a mask or paste margin that is not one number; a margin of one number is written as a
+manual expansion, changes c0440 and c0448).
 Texts, properties and 3D model links are not written (`altium.footprint-extras-dropped`, info); Altium adds
 the designator and comment when it places a footprint. Two KiCad links with one footprint name give
 `altium.footprint-name-collision` and neither is written.
@@ -422,9 +425,10 @@ the placements and the net classes are no longer reported by `altium.not-lowered
 texts, graphics and holes are written ("Complete board" below). A document edited in Altium is refused on
 the next build like any edited output; `--discard-layout` replaces it. Fenolite never merges it.
 
-**Outlines with arcs, and holes.** An outline whose board ring has arcs plans no PCB document:
-`altium.pcbdoc-not-written` names the arcs, because no fact row gives the form of an arc in the board
-outline of the document. The parts of `design.hole()` are not components of an Altium build: they get no
+**Outlines with arcs, and holes.** An arc of the board ring is written as one arc vertex, as a conversion
+writes it (change c0448, after c0441; before, the build planned no PCB document). A ring of arcs with fewer
+than three vertices, such as a round board, plans none: the board record needs three vertices, and an
+arc's mid is none; `altium.pcbdoc-not-written` names the arcs. The parts of `design.hole()` are not components of an Altium build: they get no
 schematic symbol, no library footprint and no component record. A hole that is not plated is written as
 a board hole, the free pad without copper, and counted under `hole` of `result.pcb.written`. A plated
 hole has no such record: it gives one `altium.not-lowered` whose `where` is `hole/<component id>` and is

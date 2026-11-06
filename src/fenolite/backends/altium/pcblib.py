@@ -339,7 +339,9 @@ def check_footprint(
         dropped += _pad_drops(pad, pad_extras)
     graphics: list[Graphic] = []
     for graphic in defn.graphics:
-        if _is_copper(graphic.layer):
+        # a net tie's copper joins its pads on purpose (change c0448): the library writes it as a graphic
+        # of an outer layer, and a document writes it as a conversion does (change c0431)
+        if _is_copper(graphic.layer) and not defn.net_ties:
             return FootprintCheck(f"a {graphic.kind} lies on the copper layer {graphic.layer}")
         drop = _graphic_drop(graphic)
         if drop is None:
