@@ -21,7 +21,7 @@ Refusals:
 Mappings:
 
 - The functions MUST map as that table says: c0042's `All`, `InNet`, `InNetClass`, `InComponent`, item kinds and `InPolygon`, and change c0462's layer, room, pair, xSignal, component, polygon, hole and pad functions.
-- An `InNet` value MUST be escaped into a glob that matches that name only.
+- An `InNet` or `InComponent` value MUST become a glob in which Altium's wildcards `*` and `?` stay wildcards and every other glob character matches itself (S-2212: `InNet('V*')` returns the nets whose names start with V); an `InNetClass` value MUST match its name only.
 - A scope MUST never be approximated: each selector MUST select exactly the objects Altium selects in the document read.
 
 #### Scenario: Class and item kind
@@ -45,9 +45,9 @@ Mappings:
 - **THEN** the first is refused with the reason `type` naming `And`, and the second is `and(hole 1000001.., item_kind pad)`
 
 #### Scenario: A wildcard in a net name
-- **GIVEN** `InNet('PWR*')`
-- **WHEN** `parse_scope` is called
-- **THEN** it returns a `net` selector that matches the net `PWR*` and does not match `PWR1`
+- **GIVEN** `InNet('PWR*')` and `InNet('PWR[1]')`
+- **WHEN** `uv run pytest tests/unit/backends/altium/test_scope_c0462.py -k wildcard` parses them
+- **THEN** the first matches the nets `PWR1` and `PWR*`, and the second matches the net `PWR[1]` and not `PWR1`
 
 ## ADDED Requirements
 

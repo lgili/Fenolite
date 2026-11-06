@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
-"""The closed scope grammar (capability altium-project-reader, "Closed scope grammar")."""
+"""The closed scope grammar (capability altium-project-reader, "Closed scope grammar"). Change c0462 reads
+mixed operators by Altium's precedence and InNet's wildcards; ``test_scope_c0462.py`` holds its own cases."""
 
 from __future__ import annotations
 
@@ -69,18 +70,16 @@ def test_accepted(text: str, selector: Selector) -> None:
     assert parse_scope(text) == selector
 
 
-def test_mixed_operators_without_parentheses() -> None:
-    """Scenario "Mixed operators without parentheses" (the rule side is in test_rule_map.py)."""
-    reason = parse_scope("InNet('A') Or InNet('B') And IsTrack")
-    assert isinstance(reason, str) and "mixes the operators And and Or" in reason
+def test_mixed_operators_by_precedence() -> None:
+    """Scenario "Mixed operators by Altium's precedence" (change c0462): And binds tighter than Or."""
+    assert parse_scope("InNet('A') Or InNet('B') And IsTrack") == Selector(
+        "or", items=(NET_A, Selector("and", items=(NET_B, TRACK)))
+    )
 
 
-def test_layer_and_wildcard_refused() -> None:
-    """Scenario "Layer and wildcard refused"."""
+def test_layer_refused_without_a_document() -> None:
     layer = parse_scope("OnLayer('Top Layer')")
-    wildcard = parse_scope("InNet('PWR*')")
     assert isinstance(layer, str) and "OnLayer" in layer
-    assert isinstance(wildcard, str) and "character *" in wildcard
 
 
 @pytest.mark.parametrize(
@@ -91,18 +90,12 @@ def test_layer_and_wildcard_refused() -> None:
         ("OnTopLayer", "layer function OnTopLayer"),
         ("InNet('A') And OnLayer('Top Layer')", "OnLayer"),
         ("IsPolygon", "function IsPolygon"),
-        ("InNet('A?')", "character ?"),
-        ("InNet('[A]')", "character ["),
-        ("InNet('A]')", "character ]"),
         ("InNet('')", "is empty"),
         ("InNet('A", "unclosed quote"),
-        ("InNet('a'b')", "takes one quoted value"),
+        ("InNet('a'b')", "takes quoted values"),
         ("InNet('a''b')", "quote '"),
-        ("InNet(A)", "one quoted value"),
+        ("InNet(A)", "takes quoted values"),
         ("InNet", "ends where"),
-        ("Not IsVia And IsTrack", "Not must be the whole"),
-        ("IsTrack And Not IsVia", "mixes Not with And"),
-        ("Not Not IsVia", "operator Not stands where an operand"),
         ("IsTrack IsVia", "text left over"),
         ("InNet('A')) ", "text left over"),
         ("(IsTrack", "not closed"),
@@ -110,9 +103,7 @@ def test_layer_and_wildcard_refused() -> None:
         ("", "empty"),
         ("   ", "empty"),
         ("Width > 10", "function Width"),
-        ("'A'", "quoted value"),
-        ("InNet('A') And NOT IsVia", "mixes Not with And"),
-        ("InNet('A') and InNet('B') or IsVia", "mixes the operators And and Or"),
+        ("'A'", "gives a string"),
         ("all", "function all"),
     ],
 )

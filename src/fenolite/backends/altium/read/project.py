@@ -41,6 +41,8 @@ EVIDENCE = Evidence(
         "H-A-RD-PRJ-RULE-MAP",
         "H-A-RD-PRJ-SCOPE",
         "H-A-RD-PRJ-SCOPE-CASE",
+        "H-A-RD-PRJ-SCOPE-PREC",
+        "H-A-RD-PRJ-SCOPE-WILD",
         "H-A-RD-PRJ-STACKUP",
     ),
 )

@@ -9,9 +9,9 @@ Rules for every task:
 
 ## 1. Grammar
 
-- [ ] 1.1 Record S-2211 (precedence) and S-2212 (functions) in `rule-file.md`, "Closed scope grammar".
+- [x] 1.1 Record S-2211 (precedence) and S-2212 (functions) in `rule-file.md`, "Closed scope grammar".
   Replace S-0296's mixed-operator note. Proof: `uv run pytest tests/unit/agent tests/unit/docs -q -n 0`.
-- [ ] 1.2 A typed precedence-climbing `parse_scope`: `Xor`, boolean comparisons, units (`AsMils`, `AsMM`),
+- [x] 1.2 A typed precedence-climbing `parse_scope`: `Xor`, boolean comparisons, units (`AsMils`, `AsMM`),
   the `type` and `unit` refusals, escaped `InNet` values. Every existing scope test still passes.
   Proof: `uv run pytest tests/unit/backends/altium/test_scope_c0462.py tests/unit/backends/altium/read/test_scope.py -q -n 0`.
 

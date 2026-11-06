@@ -253,16 +253,19 @@ checked in this order.
 ## Closed scope grammar
 
 `scope.parse_scope` accepts only these forms, spelled as written, and returns a neutral selector; any
-other text is refused with a reason and the rule is reported with the reason `scope`.
+other text is refused with a reason (`scope.Refusal`, whose `reason` is `grammar`, `type`, `unit`,
+`undefined`, `document` or `syntax`) and the rule is reported with the reason `scope`.
 
 | expression | selector |
 |---|---|
 | `All` | `all` |
 | `InNet('v')` | `net v` |
+| `InNet('v1', 'v2', …)` | `or(net v1, net v2, …)` |
 | `InNet('No Net')` | `not(net *)` (`NO_NET`) |
 | `InAnyNet` | `net *` (so `Not InAnyNet` is `NO_NET`) |
 | `InNetClass('v')` | `netclass v` |
 | `InComponent('v')` | `ref v` |
+| `InComponent('v1', 'v2', …)` | `or(ref v1, ref v2, …)` |
 | `IsTrack` | `item_kind track` |
 | `IsVia` | `item_kind via` |
 | `IsPad` | `item_kind pad` |
@@ -270,15 +273,48 @@ other text is refused with a reason and the rule is reported with the reason `sc
 | `InPoly` | `item_kind zone` |
 | `x And y`, `x && y` | `and(x, y, …)` |
 | `x Or y`, `x \|\| y` | `or(x, y, …)` |
+| `x Xor y` | `or(and(x, not(y)), and(not(x), y))` |
 | `Not x` | `not(x)` |
+| `x = True`, `x = 'True'`, `x <> False` | `x` |
+| `x = False`, `x = 'False'`, `x <> True` | `not(x)` |
 | `(x)` | `x` |
 
 The operators are read in any letter case: `and` and `AND` are `And`, `or` and `OR` are `Or`, `not`
 and `NOT` are `Not` (change c0377; `H-A-RD-PRJ-SCOPE-CASE`, INFERRED). No public source states Altium's letter-case
 rule (S-1531 states none); the public documents, which Altium saved, hold scopes written with `not` and
-`AND` (S-0580), and Altium's pages spell `And`, `AND` and `Not` in their examples. Altium states the
-precedence, highest first: brackets, `Not`, `And`, `Or`, then `&&` and `||`, ties from left to right
-(S-1531); the grammar still holds one kind of operator per parenthesis level, which needs no precedence.
+`AND` (S-0580), and Altium's pages spell `And`, `AND` and `Not` in their examples. Change c0462 reads
+`Xor`, `Div`, `Mod`, `Between`, `Like`, `True` and `False` the same way.
+
+**Order of precedence** (change c0462; S-2211; `H-A-RD-PRJ-SCOPE-PREC`, INFERRED). Altium's Query Language page
+gives the order, tightest first: brackets; `Not`; `^ * / Div Mod And`; `+ - Or Xor`; the comparisons
+`= <> < > <= >=`; `&& ||`. Equal levels are read from left to right, and the page advises brackets
+wherever a reading could be doubted. `parse_scope` is a precedence-climbing parser over that table. So
+`InNet('A') Or InNet('B') And IsTrack` is `or(net A, and(net B, item_kind track))`, and `Not IsVia And
+IsTrack` is `and(not(item_kind via), item_kind track)`. Operands of one operator next to each other merge
+(`a And b && c` is one `and`), and a bracketed group stays one operand. This replaces the reading of change
+c0042, which refused mixed operators because S-0296 did not give the order.
+
+The parse is typed. A value is a set of objects (a selector), a number, a string, a boolean string
+(`True`, `False`, bare or quoted) or a numeric field of the objects. An operator applied to the wrong types
+is refused with the reason `type`, naming it, and the query is never bracketed again. `And` binds tighter
+than a comparison, so `HoleDiameter > 1 And IsPad` is `HoleDiameter > (1 And IsPad)`, refused; `HoleDiameter
+> 1 && IsPad` reads as written. `x Between a And b` takes the bound `a` up to its `And`; the bound `b` binds as
+any operand at the comparison level, so `x Between 1 And 2 And IsPad` is refused too. `Xor` is written with
+`and`, `or` and `not`. The arithmetic operators and `Like` are outside the grammar.
+
+**Numbers and units** (change c0462; S-2212, "Membership Checks"). `AsMils(field)` and `AsMM(field)` compare a
+length field in mils or millimetres. Without them a number is in the workspace's units, which a saved
+document does not state, so a number other than 0 compared with a length is refused with the reason
+`unit` unless the caller's `ScopeDocument` gives the unit. A comparison becomes a closed interval of
+nanometres: `> v` is `v + 1` upward, `= v` is `v..v`, `<> v` is `not(v..v)`, `Between a And b` is `a..b`.
+
+**Wildcards** (change c0462; S-2211, S-2212; `H-A-RD-PRJ-SCOPE-WILD`, INFERRED). Altium's wildcards are `*` and
+`?`. The Membership Checks page gives `InNet('V*')` as the nets whose names start with V, and `InComponent('U*')`
+as the components whose names start with U. Both functions take one or more names. So their values become
+globs, `*` and `?` kept as wildcards and `[` and `]` escaped (`[[]`, `[]]`), so that a bracket matches itself.
+`InNetClass` takes one class name with no wildcard in the page's examples, so every glob character of it is
+escaped. The design of change c0462 asked for `InNet` values escaped whole; that would select another set
+of nets than Altium does, so the reading follows S-2212.
 
 `InNet('No Net')` selects the objects without a net (change c0409, B7; `H-A-RD-PRJ-SCOPE-NONET`, INFERRED): an
 object without a net has the Net property `No Net` (S-1680), and no public source states that `InNet` reads the

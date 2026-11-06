@@ -25,7 +25,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 from fenolite.backends.altium.read.proptext import parse_length
-from fenolite.backends.altium.read.scope import LayerScope, parse_layer_scope, parse_scope
+from fenolite.backends.altium.read.scope import LayerScope, ScopeDocument, parse_layer_scope, parse_scope
 from fenolite.backends.altium.read.textfile import text_issue
 from fenolite.core.errors import Issue
 from fenolite.core.ids import derived_id
@@ -562,7 +562,10 @@ def _layer_scope(first: LayerScope, second: LayerScope | None, layers: CopperLay
 
 
 def _scopes(
-    fields: Sequence[Field], table: KindMap, layers: CopperLayers | None = None
+    fields: Sequence[Field],
+    table: KindMap,
+    layers: CopperLayers | None = None,
+    document: ScopeDocument | None = None,
 ) -> tuple[Selector, Selector | None, tuple[str, ...]]:
     first = _get(fields, "SCOPE1EXPRESSION")
     second = _get(fields, "SCOPE2EXPRESSION")
@@ -572,7 +575,7 @@ def _scopes(
         layered = parse_layer_scope(first)
         if layered is not None:
             return Selector("all"), None, _layer_scope(layered, parse_layer_scope(second), layers)
-    selector_a = parse_scope(first)
+    selector_a = parse_scope(first, document=document)
     if isinstance(selector_a, str):
         raise _Refusal("scope", f"SCOPE1EXPRESSION: {selector_a}")
     if not table.binary:
@@ -583,13 +586,19 @@ def _scopes(
         raise _Refusal("scope", "the record has no SCOPE2EXPRESSION")
     if second.strip() == ALL:
         return selector_a, None, ()
-    selector_b = parse_scope(second)
+    selector_b = parse_scope(second, document=document)
     if isinstance(selector_b, str):
         raise _Refusal("scope", f"SCOPE2EXPRESSION: {selector_b}")
     return selector_a, selector_b, ()
 
 
-def _map_one(fields: Sequence[Field], index: int, origin: str, layers: CopperLayers | None) -> list[Rule]:
+def _map_one(
+    fields: Sequence[Field],
+    index: int,
+    origin: str,
+    layers: CopperLayers | None,
+    document: ScopeDocument | None = None,
+) -> list[Rule]:
     kind, name, priority = _header(fields)
     table = RULE_KIND_MAP.get(kind)
     if table is None:
@@ -611,7 +620,7 @@ def _map_one(fields: Sequence[Field], index: int, origin: str, layers: CopperLay
         raise _Refusal("layer-kind", f"LAYERKIND={layer_kind}; the table needs {SAME_LAYER}")
     _check_keys(fields, kind, table)
     groups = _limits(fields, kind, table)
-    selector_a, selector_b, on_layers = _scopes(fields, table, layers)
+    selector_a, selector_b, on_layers = _scopes(fields, table, layers, document)
     if table.pair_scope:
         selector_a = _pairs(selector_a)
     if kind == "RoutingLayers":
@@ -725,6 +734,7 @@ def map_rules(
     origin: str,
     summary: bool = False,
     layers: CopperLayers | None = None,
+    document: ScopeDocument | None = None,
 ) -> RuleMapping:
     """Map the field lists ``records`` onto neutral rules. Every record is either the source of one or
     two rules (``RuleMapping.sources``) or one ``Unmapped`` with the first reason of ``UNMAPPED_REASONS``
@@ -732,7 +742,8 @@ def map_rules(
     ``summary`` (the records of a summary-form file) no record maps and one info
     ``altium.rule.summary-form`` comes first. ``layers`` are the copper layers of the board the records
     belong to (the records of a PCB document); without them, as for a rule file, a layer condition is
-    refused."""
+    refused. ``document`` is what the scope functions read from the records' document (change c0462,
+    ``read.scope.ScopeDocument``)."""
     issues: list[Issue] = []
     rules: list[Rule] = []
     rule_records: list[int] = []
@@ -752,7 +763,7 @@ def map_rules(
         try:
             if summary:
                 raise _Refusal("summary-form", "the value has no unit")
-            mapped = _map_one(fields, index, origin, layers)
+            mapped = _map_one(fields, index, origin, layers, document)
         except _Refusal as refusal:
             unmapped.append(Unmapped(index, kind, name, refusal.reason, refusal.detail))
             issues.append(

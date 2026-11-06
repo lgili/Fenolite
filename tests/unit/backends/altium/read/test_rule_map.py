@@ -236,11 +236,15 @@ def test_reasons_in_their_order() -> None:
     ]
 
 
-def test_reasons_mixed_operators_give_scope() -> None:
-    """Scenario "Mixed operators without parentheses": the rule is ``Unmapped`` with the reason scope."""
+def test_mixed_operators_map_by_precedence() -> None:
+    """Scenario "Mixed operators by Altium's precedence" (change c0462): And binds tighter than Or, so the
+    rule maps."""
     fields = record("Width", ("MINLIMIT", "10mil"), SCOPE1EXPRESSION="InNet('A') Or InNet('B') And IsTrack")
     mapping = map_rules([fields], origin="x.RUL")
-    assert [(u.reason, "mixes" in u.detail) for u in mapping.unmapped] == [("scope", True)]
+    track = Selector("and", items=(Selector("net", "B"), Selector("item_kind", "track")))
+    assert mapping.unmapped == ()
+    expected = Selector("or", items=(Selector("net", "A"), track))
+    assert [rule.selector_a for rule in mapping.ruleset.rules] == [expected]
 
 
 def test_reasons_keys_before_rulekind_are_allowed() -> None:
