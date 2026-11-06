@@ -95,7 +95,10 @@ def test_unwritable_copper_shape_refuses_a_lossless_write(tmp_path: Path) -> Non
     board = dataclasses.replace(design.board, graphics=(*design.board.graphics, circle))
     with pytest.raises(lower.LossyWriteError) as refused:
         lower.write_design(dataclasses.replace(design, board=board))
-    assert [(i.where, "filled circle" in i.message) for i in refused.value.issues] == [("copper-shape", True)]
+    first, *also = refused.value.issues
+    assert (first.where, "filled circle" in first.message) == ("copper-shape", True)
+    # change c0434: the refusal also lists the losses that consent would accept with it
+    assert all(found.where not in lower.LOSS_KINDS for found in also)
 
 
 def test_build_lens_passes_copper_graphics_with_net_names(tmp_path: Path) -> None:

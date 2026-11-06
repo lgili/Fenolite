@@ -119,6 +119,23 @@ def add_bus(folder: Path) -> None:
         board=replace(source.board, holes=(), footprints=(*source.board.footprints, footprint)),
     )
     canonical.dump_dir(models["kicad"], folder / "kicad" / ".fenolite")
+    # A Routing Via Style record holds a preferred hole, which a KiCad via_drill rule cannot hold. The
+    # Altium model states its own (the 0.3 mm drill of the vias); since change c0434 no record is
+    # synthesized from net-class defaults to stand in for it.
+    rules = models["altium"].rules
+    if rules is None:
+        raise ValueError("acceptance model has no rules")
+    models["altium"] = replace(
+        models["altium"],
+        rules=replace(
+            rules,
+            rules=tuple(
+                replace(rule, opt=300_000) if rule.kind == "via_drill" and rule.opt is None else rule
+                for rule in rules.rules
+            ),
+        ),
+    )
+    canonical.dump_dir(models["altium"], folder / "altium" / ".fenolite")
     board = pcb.write_board(models["kicad"], target=10)
     (folder / "kicad" / f"{NAME}.kicad_pcb").write_text(board.text, encoding="utf-8", newline="\n")
     findings = []

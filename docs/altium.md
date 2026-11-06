@@ -593,7 +593,15 @@ expected: the six rows of the items (`H-A-PCBX-STACK`, `-VIASPAN`, `-TEXT`, `-KE
 - One net class per `design.rules.netclass(...)`, with its nets.
 - Clearance, Width and Routing Via Style rules: one per class value, and one `All` rule per kind with
   Fenolite's defaults (0.2 mm, 0.25 mm, a 0.6 mm via with a 0.3 mm hole). Width and via limits span the
-  written copper, so the document's own copper never breaks them.
+  written copper, so the document's own copper never breaks them. A build writes them all. A write of a
+  model (`fenolite convert --to altium`, `AltiumBackend.write`) writes the model's own rules, those a
+  source record or the user gave, and of these only what KiCad checks (change c0434):
+  - the class clearances and the `All` clearance, unless a clearance rule on every object overrides them;
+  - no class track width and no via size.
+
+  It counts each net class with a value left out as `changed`. A KiCad project gives every class KiCad's
+  defaults. On public row -08 converted to KiCad and back, they had become 14 Clearance, 14 Width and 15
+  Routing Via Style records, where the source has 4, 1 and 3.
 
 **Layers.** An inner layer is a signal layer unless the script declares it a plane:
 

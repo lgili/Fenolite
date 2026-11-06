@@ -555,6 +555,9 @@ class PcbDocSpec:
     net_classes: tuple[NetClassSpec, ...] = ()
     rules: bool = True
     """``False`` leaves ``Rules6`` empty (the bisection variants without rules)."""
+    class_kinds: frozenset[str] = frozenset({"Clearance", "Width", "RoutingVias"})
+    """The kinds whose net class rules and ``All`` default of change c0038 ``rule_records`` writes: every
+    kind for a build, fewer for the write of a model, whose rules are its own (change c0434)."""
     texts: tuple[Text, ...] = ()
     graphics: tuple[Graphic, ...] = ()
     keepouts: tuple[Keepout, ...] = ()
@@ -1815,15 +1818,16 @@ def _class_rules(spec: PcbDocSpec) -> list[_Planned]:
 def rule_records(spec: PcbDocSpec, filename: str) -> list[bytes]:
     """The ``Rules6`` records (``pcb-copper.md``, "Rules" and "Rule kinds lowered"), by kind in the order of
     ``rulemap.KIND_ORDER``. Per kind, first the lowered rules of the design (``spec.design_rules``) in
-    their order, then the rules of change c0038: one rule ``<Kind>_<class>`` scoped
-    ``InNetClass('<class>')`` for each net class that holds the kind's value, in class-name order, and one
-    rule named after the kind with the scope ``All`` and Fenolite's default. A rule of c0038 whose two
-    scopes are those of a rule of the design is left out: the design's rule replaces it. Priorities count
-    from 1 within a kind. The limits of a width or via rule of c0038 span its preferred value and the
-    written copper of its scope. The rules of c0038 are written only for a spec with copper or net
-    classes; no rule is written with ``rules`` off. A document whose stack holds an internal plane ends with
-    one Plane Connect and one Plane Clearance rule scoped ``All`` (``PLANE_CONNECT_KEYS``,
-    ``PLANE_CLEARANCE_KEYS``; change c0389, task 2.7), so Altium does not fall back on its own default."""
+    their order, then the rules of change c0038 (of the kinds ``spec.class_kinds``, change c0434): one rule
+    ``<Kind>_<class>`` scoped ``InNetClass('<class>')`` for each net class that holds the kind's value, in
+    class-name order, and one rule named after the kind with the scope ``All`` and Fenolite's default. A
+    rule of c0038 whose two scopes are those of a rule of the design is left out: the design's rule
+    replaces it. Priorities count from 1 within a kind. The limits of a width or via rule of c0038 span
+    its preferred value and the written copper of its scope. The rules of c0038 are written only for a
+    spec with copper or net classes; no rule is written with ``rules`` off. A document whose stack holds
+    an internal plane ends with one Plane Connect and one Plane Clearance rule scoped ``All``
+    (``PLANE_CONNECT_KEYS``, ``PLANE_CLEARANCE_KEYS``; change c0389, task 2.7), so Altium does not fall
+    back on its own default."""
     if not spec.rules:
         return []
     has_copper = bool(spec.tracks or spec.arcs or spec.vias or spec.zones or spec.net_classes)
@@ -1834,6 +1838,8 @@ def rule_records(spec: PcbDocSpec, filename: str) -> list[bytes]:
     taken = {(kind, first, second) for _n, kind, _name, first, second, _net, _keys in planned}
     names = {name for _n, _kind, name, _first, _second, _net, _keys in planned}
     for rule in _class_rules(spec) if has_copper else []:
+        if rule[1] not in spec.class_kinds:
+            continue
         if (rule[1], rule[3], rule[4]) in taken:
             continue
         name = f"{rule[2]}_class" if rule[2] in names else rule[2]  # a net named like a class rule

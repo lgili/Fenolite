@@ -268,14 +268,21 @@ def curve_error_issue(board: Board | None) -> Issue | None:
 
 class LossyWriteError(FenoliteError):
     """A write of a model would leave out items of ``LOSS_KINDS`` and ``allow_lossy`` was not given;
-    ``issues`` holds one ``altium.not-lowered`` per kind."""
+    ``issues`` holds one ``altium.not-lowered`` per kind: those of ``LOSS_KINDS``, then those of the other
+    kinds that ``allow_lossy`` would leave out with them (``also``, change c0434), so a consent covers every
+    loss it was shown."""
 
     cli_code = "FEN-7001"
 
-    def __init__(self, issues: Sequence[Issue]) -> None:
-        self.issues = tuple(issues)
-        kinds = ", ".join(found.where for found in self.issues)
-        super().__init__(f"the Altium documents would not hold every item of the model ({kinds})")
+    def __init__(self, issues: Sequence[Issue], also: Sequence[Issue] = ()) -> None:
+        self.issues = (*issues, *also)
+        kinds = ", ".join(found.where for found in issues)
+        more = (
+            f"; --allow-lossy also leaves out items of {', '.join(found.where for found in also)}"
+            if also
+            else ""
+        )
+        super().__init__(f"the Altium documents would not hold every item of the model ({kinds}){more}")
 
 
 def refuse_bom_only(design: Design) -> None:
@@ -1714,6 +1721,46 @@ def _classes(design: Design, nets: frozenset[str], account: _Account) -> tuple[p
     return tuple(found)
 
 
+CLASS_KINDS_BUILT = frozenset({"Clearance", "Width", "RoutingVias"})
+"""The kinds of the net class rules of change c0038 that a build writes."""
+CLASS_VALUES_CHANGED = (
+    "not every value is written as a rule: a write of a model writes no class track width or via size, "
+    "which KiCad does not check, and no class clearance that a clearance rule on every object overrides "
+    "(change c0434)"
+)
+"""The reason of a net class some of whose values a write of a model does not write as rules."""
+
+
+def _model_class_kinds(records: Sequence[rulemap.LoweredRule]) -> frozenset[str]:
+    """The kinds of the net class rules of change c0038 that a write of a model writes (change c0434):
+    Clearance alone, as KiCad checks a class's clearance and not its track width or via size; none when a
+    Clearance record of the design applies to every object, which overrides every class clearance as an
+    unconditioned rule does in KiCad."""
+    every = any(
+        r.kind == "Clearance" and r.scope1 == rulemap.ALL_SCOPE and r.scope2 == rulemap.ALL_SCOPE
+        for r in records
+    )
+    return frozenset() if every else frozenset({"Clearance"})
+
+
+def _class_values_changed(
+    design: Design, classes: Sequence[pcbdoc.NetClassSpec], kinds: frozenset[str], account: _Account
+) -> None:
+    """Count ``changed`` each written net class that holds a value that a write of a model leaves out (the
+    kinds outside ``kinds``; change c0434)."""
+    left = {
+        spec.name
+        for spec in classes
+        if spec.track_width is not None
+        or spec.via_diameter is not None
+        or spec.via_drill is not None
+        or (spec.clearance is not None and "Clearance" not in kinds)
+    }
+    for item in sorted(design.circuit.netclasses, key=lambda c: c.name):
+        if item.name in left:
+            account.change("netclass", item.id, CLASS_VALUES_CHANGED)
+
+
 # --- the schematic's design -----------------------------------------------------------------------------
 
 
@@ -2077,6 +2124,11 @@ def _document(
     if options is not None:
         # a build names every net of its circuit, in the circuit's order (change c0126)
         names = tuple(net.name for net in design.circuit.nets)
+    classes = _classes(design, nets, account)
+    class_kinds = CLASS_KINDS_BUILT
+    if options is None:  # a write of a model writes only its own rules (change c0434)
+        class_kinds = _model_class_kinds(lowered.records)
+        _class_values_changed(design, classes, class_kinds, account)
     return pcbdoc.PcbDocSpec(
         outline,
         tuple(components),
@@ -2089,7 +2141,8 @@ def _document(
         vias=tuple(vias),
         via_protection=board.via_protection,  # the default of the tenting flags (c0112)
         zones=tuple(zones),
-        net_classes=_classes(design, nets, account),
+        net_classes=classes,
+        class_kinds=class_kinds,
         texts=tuple(texts_),
         graphics=tuple(graphics),
         keepouts=tuple(keepouts),
@@ -2166,7 +2219,8 @@ def write_design(
         inputs, library = derived_library(design, inputs)
     lost = [found for found in issues if found.where in LOSS_KINDS]
     if lost and not allow_lossy:
-        raise LossyWriteError(lost)
+        also = [found for found in issues if found.code == NOT_LOWERED and found.where not in LOSS_KINDS]
+        raise LossyWriteError(lost, also)
     name = inputs.name
     files: dict[str, bytes] = {}
     mode: PourMode = pour or "computed"

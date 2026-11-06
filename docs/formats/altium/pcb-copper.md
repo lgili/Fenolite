@@ -352,7 +352,10 @@ track and via flags above). Altium Designer's own view of a written lock is step
   RoutingVias) one rule `<Kind>_<class>` per class that holds the value, scope `InNetClass('<class>')`,
   priorities from 1 in class-name order, then one rule named after the kind with the scope `All`.
   Defaults of the `All` rules: clearance 0.2 mm, width 0.25 mm, via 0.6 mm with a 0.3 mm hole. Width and
-  via limits span the preferred value and the written copper of the rule's scope.
+  via limits span the preferred value and the written copper of the rule's scope. A build writes the
+  three kinds. A write of a model writes Clearance alone, and none under a Clearance rule of the design
+  scoped `All` to `All` (`PcbDocSpec.class_kinds`, change c0434, S-1931). It counts each net class with a
+  value left out `changed`.
 - **Rules of the design (c0084).** `rulemap.lower` writes a neutral rule only when its row is `exact`,
   its severity is `error`, it gives exactly the limits of its row, and its selectors are all objects, a
   net, a net class, a reference, an item kind (track, via, pad, zone) or `and`, `or` and `not` of those
