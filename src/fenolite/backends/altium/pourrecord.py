@@ -15,6 +15,8 @@ Pure: it takes a document's bytes and returns plain data. Reading the files and 
 tool's (``tools/kit_pour_c0463.py``), since this package does no file access.
 """
 
+# evidence: see read.pcb
+
 from __future__ import annotations
 
 import hashlib

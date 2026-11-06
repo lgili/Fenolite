@@ -6,6 +6,8 @@
 pours it, and the conversion back to Altium compares a KiCad zone's outline with it (``convert.zonearcs``).
 Pure integer geometry: no optional dependency."""
 
+# evidence: see pour, pcbdoc
+
 from __future__ import annotations
 
 from collections.abc import Sequence
