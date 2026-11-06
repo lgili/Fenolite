@@ -18,7 +18,7 @@ from dataclasses import dataclass, replace
 from typing import Literal
 
 from fenolite.backends.altium.read.proptext import parse_length
-from fenolite.backends.altium.read.scope import parse_scope
+from fenolite.backends.altium.read.scope import ScopeDocument, parse_scope
 from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence, Level
 from fenolite.core.units import Nm, Udeg
@@ -130,19 +130,22 @@ def named_polygons(text: str) -> frozenset[str] | None:
     return frozenset(names) or None
 
 
-def _scope(text: str | None) -> tuple[Selector | None, frozenset[str]]:
+def _scope(text: str | None, document: ScopeDocument | None = None) -> tuple[Selector | None, frozenset[str]]:
     """The selector of a scope and the polygons it names: ``(POLYGON_ITEM, names)`` for a scope of named
-    polygons, ``(selector, ∅)`` for one of the closed grammar and ``(None, ∅)`` for any other."""
+    polygons, ``(selector, ∅)`` for one that ``read.scope.parse_scope`` reads with the document's
+    ``document`` (Altium's precedence, change c0462) and ``(None, ∅)`` for any other."""
     named = named_polygons(text or "")
     if named is not None:
         return POLYGON_ITEM, named
-    found = parse_scope(text or "")
+    found = parse_scope(text or "", document=document)
     return (found if isinstance(found, Selector) else None), frozenset()
 
 
-def read_connect_style(fields: Sequence[tuple[str, str | None]]) -> ConnectStyle | None:
+def read_connect_style(
+    fields: Sequence[tuple[str, str | None]], document: ScopeDocument | None = None
+) -> ConnectStyle | None:
     """The record ``fields`` as a ``ConnectStyle``, ``None`` when it is not an enabled Polygon Connect
-    Style record."""
+    Style record; its scopes are read with ``document`` (``read.scope.ScopeDocument``)."""
     values = {key: value or "" for key, value in fields}
     if values.get("RULEKIND") != RULE_KIND or values.get("ENABLED", "TRUE").upper() != "TRUE":
         return None
@@ -150,8 +153,8 @@ def read_connect_style(fields: Sequence[tuple[str, str | None]]) -> ConnectStyle
     priority_text = values.get("PRIORITY", "")
     priority = int(priority_text) if priority_text.isdigit() and int(priority_text) >= 1 else 0
     (scope1, named1), (scope2, named2) = (
-        _scope(values.get("SCOPE1EXPRESSION")),
-        _scope(values.get("SCOPE2EXPRESSION")),
+        _scope(values.get("SCOPE1EXPRESSION"), document),
+        _scope(values.get("SCOPE2EXPRESSION"), document),
     )
     keys = [key for key, _ in fields]
     own = [key for key in keys[keys.index("RULEKIND") :] if key not in HEADER] if "RULEKIND" in keys else []
@@ -181,10 +184,14 @@ def read_connect_style(fields: Sequence[tuple[str, str | None]]) -> ConnectStyle
     )
 
 
-def read_connect_styles(records: Sequence[Sequence[tuple[str, str | None]]]) -> tuple[ConnectStyle, ...]:
+def read_connect_styles(
+    records: Sequence[Sequence[tuple[str, str | None]]], document: ScopeDocument | None = None
+) -> tuple[ConnectStyle, ...]:
     """The enabled Polygon Connect Style records of ``records`` (the field lists of a document's rules),
     the governing one first: by priority, then by name."""
-    found = [style for style in (read_connect_style(fields) for fields in records) if style is not None]
+    found = [
+        style for style in (read_connect_style(fields, document) for fields in records) if style is not None
+    ]
     return tuple(sorted(found, key=lambda style: (style.priority, style.name)))
 
 
@@ -344,13 +351,15 @@ def connect_fields(text: str) -> tuple[Field, ...]:
     return tuple((key, value) for key, _, value in (item.partition("=") for item in text.split("|")))
 
 
-def kept_mapping(records: Sequence[Sequence[Field]]) -> tuple[bool, tuple[tuple[str, str], ...]]:
+def kept_mapping(
+    records: Sequence[Sequence[Field]], document: ScopeDocument | None = None
+) -> tuple[bool, tuple[tuple[str, str], ...]]:
     """Whether the Polygon Connect Style records of a read document map exactly, and (name, reason) of each
     that does not: an enabled record maps when Fenolite reads its style and both scopes; a disabled one
     governs nothing and maps as it is."""
     problems: list[tuple[str, str]] = []
     for fields in records:
-        style = read_connect_style(fields)
+        style = read_connect_style(fields, document)
         if style is None:
             continue
         reason = style.reason or ("connect-scope" if style.scope1 is None or style.scope2 is None else "")

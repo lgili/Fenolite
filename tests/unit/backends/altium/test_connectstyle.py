@@ -13,6 +13,7 @@ from fenolite.backends.altium.connectstyle import (
     Connection,
     ConnectStyle,
     governing_connection,
+    kept_mapping,
     lower_zone_styles,
     named_polygons,
     pad_overrides,
@@ -159,6 +160,31 @@ def test_named_polygon_scopes() -> None:
     mid = governing_connection(swapped, _pad("GND"), _zone("GND"), "smd_pad", "mid")
     assert isinstance(mid, Connection) and mid.style == "relief"
     assert governing_connection(swapped, _pad("GND"), _zone("GND"), "smd_pad", "top") == "connect-none"
+
+
+def test_scopes_by_altium_precedence() -> None:
+    """Change c0462, task 4.5: a scope of mixed operators reads by Altium's precedence (S-2211), ``And``
+    before ``Or``, so the record governs the nets of VDD and the vias of VIN; before c0462 it refused the
+    pour with ``connect-scope``."""
+    styles = read_connect_styles(
+        [
+            _record("Mixed", 1, "InNet('VDD') or InNet('VIN') and IsVia", "All", *_simple("Direct")),
+            _record("Rest", 2, "All", "All", *_simple("Relief")),
+        ]
+    )
+    assert styles[0].scope1 is not None and styles[0].reason == ""
+    vdd = governing_connection(styles, _pad("VDD"), _zone("VDD"), "th_pad")
+    vin_via = governing_connection(styles, _pad("VIN", "via"), _zone("VIN"), "via")
+    vin_pad = governing_connection(styles, _pad("VIN"), _zone("VIN"), "th_pad")
+    assert isinstance(vdd, Connection) and vdd.style == "direct"
+    assert isinstance(vin_via, Connection) and vin_via.style == "direct"
+    assert isinstance(vin_pad, Connection) and vin_pad.style == "relief"
+    assert kept_mapping(
+        [_record("Mixed", 1, "InNet('VDD') or InNet('VIN') and IsVia", "All", *_simple())]
+    ) == (
+        True,
+        (),
+    )
 
 
 def _zone_entity(ident: str, net: str, priority: int, settings: ZoneSettings) -> Zone:

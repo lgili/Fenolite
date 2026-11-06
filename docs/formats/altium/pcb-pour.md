@@ -52,8 +52,11 @@ keep-outs", and `pcb-read.md`, "Regions".
 
 A Polygon Connect Style scope of named polygons (`IsNamedPolygon('n')`, or such terms joined by `Or` or `||`,
 one pair of parentheses round the whole allowed) governs the pours of those names, compared without case, and no
-other pour (change c0420, B5; `connectstyle.named_polygons`). Any other polygon query stays a `connect-scope`
-refusal. In a conversion to KiCad each zone takes the record that governs it by its own name; a pad whose
+other pour (change c0420, B5; `connectstyle.named_polygons`). Any other scope is read by `read.scope.parse_scope`
+with the document's `ScopeDocument`, by Altium's precedence (change c0462, task 4.5; S-2211): `InNet('A') or
+InNet('B') and IsVia` is the nets of A and the vias of B. A scope that parser refuses stays a `connect-scope`
+refusal. On the public rows that leaves 5 records, each waiting for a c0462 function: `HasFootprint` (3, task
+2.4), a layer function (1, task 2.1) and `IsNamedPolygon` inside a larger query (1, task 3.3). In a conversion to KiCad each zone takes the record that governs it by its own name; a pad whose
 governing records give it another style than its zones do gets its own `zone_connection` when they give it one
 style for every zone of its net, and keeps its setting with a `pad` change when they give it different styles,
 since a KiCad pad holds one connection for every zone.
