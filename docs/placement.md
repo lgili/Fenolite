@@ -100,12 +100,19 @@ outline as rings. All predicates are exact integer geometry.
 | `place.no-outline` | info | the board has no closed outline; only overlaps and keep-outs are judged |
 
 In `fenolite build` every placement issue is at most a warning: a build never refuses for placement.
-In `fenolite place` an error refuses the write unless `--force` is given. The rule findings
+In `fenolite place` an error refuses the write unless `--force` is given. Only the findings the move makes
+are judged (change c0432): the check also runs on the board before the moves, and an error found there too,
+with the same code, `where` and message, on parts the command did not move, is `place.existing` (warning).
+A board converted from Altium often has such findings, parts in a cut-out or courtyards that overlap, and
+they no longer refuse every move. `result.legality` still counts the findings of the layout by their own
+codes. The rule findings
 (`placement.too-far`, `placement.rule-unresolved`, `placement.rule-skipped`) are no legality codes: `place`
 and `build` report them as warnings at most ("Placement rules" below).
 
 The other codes of `fenolite place` are `place.no-definition`, `place.locked` and `place.unknown-ref`
-(errors), and `place.no-room`, `place.copper-left` and `place.script-locked` (warnings); the table in
+(errors), and `place.no-room`, `place.copper-left`, `place.script-locked` and `place.existing` (warnings).
+A converted or imported board keeps each part's lock, so its parts are often `place.locked`; `--force`
+moves them. The table in
 `docs/cli-contract.md` lists all of them.
 
 What the check does not judge:
@@ -403,9 +410,11 @@ fenolite place build/board --shift U1,C1,C2,C3,C4 --by 1mm,-1mm --confirm
    measured against the move of its old position: farther than 1 µm is `place.group-failed`.
 2. **Copper.** Each joined group of a net (tracks, arcs, vias and pads, without fills) that holds a pad of
    the group and no other pad moves with it, and each zone whose stored fill joins pads of the group only
-   (its fill moves too: `place.fill-stale`). Copper that joins the group to another part stays, as for
-   `--move` (`place.copper-left`). Copper is not moved because a part "owns" it: the model has no owner
-   of copper.
+   (its fill moves too: `place.fill-stale`). The copper on the group's pads is dragged (change c0432): a
+   via that touches a pad of the group and no pad of another part moves with it, and the end of a track
+   that touches a pad of the group or such a via moves too, its other end staying, so the track stretches.
+   An arc that joins the group to another part stays (`place.copper-left`), as all copper does for
+   `--move`.
 3. **Checks.** The copper check with the project's rules compares the board before and after; a new
    finding is `place.group-failed` and nothing is written. The legality check judges the layout as for
    every strategy.

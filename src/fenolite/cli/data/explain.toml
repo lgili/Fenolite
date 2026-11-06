@@ -3547,8 +3547,13 @@ meaning = "A footprint without a courtyard has pads in a rule area that forbids 
 fix = "Move the part out of the area, or give its footprint a courtyard so that KiCad judges it too."
 see = "place"
 
+["place.existing"]
+meaning = "A legality finding (named in the message) that the board had before the move, on parts the command did not move. The move did not make it, so it does not refuse the write; on a converted board these are often parts in a cut-out or courtyards that already overlap."
+fix = "Nothing for the move. Fix the finding where the board has it, then check the board."
+see = "place"
+
 ["place.locked"]
-meaning = "The footprint is locked on the board, so it was not moved."
+meaning = "The footprint is locked on the board, so it was not moved. A board converted from Altium or imported keeps each part's lock, so its parts are often locked."
 fix = "Pass --force to move it, or unlock it in KiCad."
 see = "place"
 

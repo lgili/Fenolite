@@ -42,6 +42,7 @@ EXPECTED = {
     "place.region-crossing": "warning",
     "place.group-failed": "error",
     "place.fill-stale": "info",
+    "place.existing": "warning",
 }
 BOTH_MAJORS = "KICAD-VERIFIED (9.0.x, 10.0.x)"
 

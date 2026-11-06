@@ -195,7 +195,10 @@ def move_footprint(
     ref = footprint_ref(design, old)
     if old.locked and not force:
         raise _refuse(
-            "place.locked", f"{ref} is locked on the board and is not moved", ref, "pass --force to move it"
+            "place.locked",
+            f"{ref} is locked on the board and is not moved",
+            ref,
+            "pass --force to move it; a board converted or imported keeps each part's lock",
         )
     new_at = old.position if at is None else at
     new_rotation = old.rotation if rotation is None else rotation % pcb.FULL_TURN

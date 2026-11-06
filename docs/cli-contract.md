@@ -2878,13 +2878,14 @@ KiCad's DRC judges the board.
 | `place.courtyard-overlap` | error | two courtyards on the same face overlap; `where` is `REF1,REF2`, sorted |
 | `place.outside-outline` | error | a courtyard leaves the board outline or enters a cut-out |
 | `place.no-definition` | error | a rotation or side change of a footprint whose library definition is not found |
-| `place.locked` | error | a footprint that is locked on the board, without `--force` |
+| `place.locked` | error | a footprint that is locked on the board, without `--force`; a converted or imported board keeps each part's lock |
 | `place.unknown-ref` | error | `--move` or `--only` names a reference that the board does not hold |
 | `place.keepout` | error | a courtyard enters a rule area that forbids footprints, on the face the area's copper layer judges (`F.Cu` the front, `B.Cu` the back); KiCad's DRC reports the same part |
 | `place.edge-clearance` | warning | a courtyard is closer to the board edge than the edge clearance |
 | `place.no-room` | warning | the grid found no place for a part; it stays where it was |
 | `place.copper-left` | warning | a moved footprint had copper ending on its pads; the copper stays |
 | `place.script-locked` | warning | the part has a locked placement in `.fenolite/`; the next build restores it |
+| `place.existing` | warning | an error of the legality check that the board before the moves has too, on parts not moved; it does not refuse the write (c0432) |
 | `place.keepout-no-courtyard` | warning | the pads of a part without a courtyard lie in a rule area that forbids footprints; KiCad's DRC does not report such a part |
 | `place.no-extent` | info | a footprint has neither a courtyard nor pad copper; it is not judged |
 | `place.no-outline` | info | the board has no closed outline; only courtyard overlaps are judged |
@@ -3035,8 +3036,9 @@ protocol, legality check, placement rules and measures as the grid. `X,Y` is in 
   1 µm is `place.group-failed`.
 - **Copper.** Each joined group of a net (tracks, arcs, vias and pads, without fills) that holds a pad of
   the group and no other pad moves with it, and each zone whose stored fill joins pads of the group only
-  (`place.fill-stale`). Copper that joins a pad of the group to another pad stays (`place.copper-left`).
-  The copper check with the rules of the project beside the board compares the board before and after;
+  (`place.fill-stale`). A via that touches a pad of the group and no pad of another part moves with it,
+  and a track end that touches a pad of the group or such a via moves, the other end staying (c0432); an
+  arc that joins a pad of the group to another pad stays (`place.copper-left`). The copper check with the rules of the project beside the board compares the board before and after;
   a new finding is `place.group-failed` and nothing is written.
 - **`--pose-search`** with `--turn` and `--about`, and `--within LENGTH` instead of `--angle`, tries the
   four quarter turns about the point with every shift of step `--pitch` (default `0.5mm`) within

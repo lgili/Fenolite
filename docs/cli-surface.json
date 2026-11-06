@@ -15467,6 +15467,12 @@
         "warning"
       ]
     },
+    "place.existing": {
+      "experimental": false,
+      "severities": [
+        "warning"
+      ]
+    },
     "place.fill-stale": {
       "experimental": false,
       "severities": [

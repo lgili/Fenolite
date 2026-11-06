@@ -95,21 +95,22 @@ def test_a_module_turned_with_its_satellites(monkeypatch: pytest.MonkeyPatch, tm
     assert [row["ref"] for row in env["result"]["moved"]] == sorted(GROUP)
 
 
-def test_a_track_to_a_part_outside_the_group_stays_shift(
+def test_a_track_to_a_part_outside_the_group_stretches_shift(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """Scenario "A track to a part outside the group stays": the track from ``C1`` to ``R9`` stays with
-    one ``place.copper-left``, and the tracks among the group move by 1 mm."""
+    """Scenario "A track to a part outside the group stretches" (change c0432): the end on ``C1`` of the
+    track from ``C1`` to ``R9`` moves by 1 mm and its end on ``R9`` stays, with no ``place.copper-left``,
+    and the tracks among the group move by 1 mm."""
     code, env, _, before = place(
         monkeypatch, tmp_path, "--shift", ",".join(GROUP), "--by", "1mm,0mm", "--confirm", outside=True
     )
     assert code == 0, env["issues"]
-    assert [(found["code"], found["where"]) for found in env["issues"]] == [("place.copper-left", "C1")]
+    assert env["issues"] == []
     after = read_board(tmp_path / "board.kicad_pcb")
     assert after.board is not None and before.board is not None
     ends = {(t.start, t.end) for t in after.board.tracks}
     e = next(t for t in before.board.tracks if t.start == Point(21 * MM, 15 * MM))
-    assert (e.start, e.end) in ends
+    assert (e.start, e.end) not in ends and (Point(e.start.x + MM, e.start.y), e.end) in ends
     shifted = {(Point(t.start.x + MM, t.start.y), Point(t.end.x + MM, t.end.y)) for t in before.board.tracks}
     assert len(ends & shifted) == 6
     assert env["result"]["group"]["transform"] == {"rotation": 0, "x": MM, "y": 0}

@@ -34,6 +34,7 @@ ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "place.region-crossing": "warning",
         "place.group-failed": "error",
         "place.fill-stale": "info",
+        "place.existing": "warning",
     }
 )
 """Every code that ``placement``, ``backends.kicad.replace`` and the ``place`` command emit."""
