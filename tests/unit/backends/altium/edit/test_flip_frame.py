@@ -142,10 +142,40 @@ def test_a_body_follows_the_side(board: Path, tmp_path: Path) -> None:
     assert (keys_before["BODYPROJECTION"], keys_before["MODEL.3D.ROTZ"]) == ("0", "0.000")
     _session(source, tmp_path / "down.PcbDoc", [("flip", "D1", 0)])
     keys = rec.region_keys(State.of((tmp_path / "down.PcbDoc").read_bytes()).get("ComponentBodies6")[-1])
-    turned = (keys["BODYPROJECTION"], keys["MODEL.3D.ROTZ"], keys["MODEL.2D.ROTATION"])
-    assert turned == ("1", "180.000", "180.000")
-    for key in ("MODEL.3D.ROTX", "MODEL.3D.ROTY", "MODEL.3D.DZ", "STANDOFFHEIGHT", "OVERALLHEIGHT"):
-        assert keys.get(key) == keys_before.get(key), key
+    # Altium's own flip (S-2123): BODYPROJECTION=1, the top body's angles, and TEXTUREROTATION 0 as 360
+    flipped = (
+        keys["BODYPROJECTION"],
+        keys["MODEL.3D.ROTZ"],
+        keys["MODEL.2D.ROTATION"],
+        keys["TEXTUREROTATION"],
+    )
+    assert flipped == ("1", "0.000", "0.000", " 3.60000000000000E+0002")
+    moved = {"BODYPROJECTION", "TEXTUREROTATION", "MODEL.2D.X", "MODEL.2D.Y"}
+    assert {k: v for k, v in keys.items() if k not in moved} == {
+        k: v for k, v in keys_before.items() if k not in moved
+    }
     _session(tmp_path / "down.PcbDoc", tmp_path / "up.PcbDoc", [("flip", "D1", 1)])
     keys_after = rec.region_keys(State.of((tmp_path / "up.PcbDoc").read_bytes()).get("ComponentBodies6")[-1])
-    assert keys_after == keys_before
+    # back on top, a texture rotation of 360 is kept: no source gives Altium's rule for it
+    assert keys_after == keys_before | {"TEXTUREROTATION": " 3.60000000000000E+0002"}
+
+
+def test_a_flipped_body_keeps_other_texture_rotations(board: Path, tmp_path: Path) -> None:
+    """A body whose texture rotation is not 0 keeps it, and keeps its angles, on a flip (S-2123 measures only
+    the value 0)."""
+    source = _with_body(board)
+    state = State.of(source.read_bytes())
+    raw = state.get("ComponentBodies6")[-1]
+    turned = {
+        "TEXTUREROTATION": " 9.00000000000000E+0001",
+        "MODEL.3D.ROTZ": "90.000",
+        "MODEL.2D.ROTATION": "90.000",
+    }
+    state.replace(
+        "ComponentBodies6", len(state.get("ComponentBodies6")) - 1, rec.set_region_keys(raw, turned)
+    )
+    source.write_bytes(state.data())
+    _session(source, tmp_path / "down.PcbDoc", [("flip", "D1", 0)])
+    keys = rec.region_keys(State.of((tmp_path / "down.PcbDoc").read_bytes()).get("ComponentBodies6")[-1])
+    assert keys["BODYPROJECTION"] == "1"
+    assert {key: keys[key] for key in turned} == turned

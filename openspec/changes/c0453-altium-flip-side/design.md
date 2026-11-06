@@ -32,8 +32,13 @@ documents (S-2121). The flip toggles it. The body's layer already moves by the d
 
 `MODEL.3D.ROTX`, `ROTY` and `DZ` agree for the same model on both sides. `MODEL.3D.ROTZ − R` agrees on 540
 of the 846 pairs of row -08 and differs by 180 on 306 (rotation-symmetric models and turns per placement).
-The flip therefore keeps `ROTZ − R`, and keeps `MODEL.2D.ROTATION − R`, which row -08 pairs in the same way.
-The rule is INFERRED until the kit run shows Altium's own flip of a body.
+The flip therefore kept `ROTZ − R`, and `MODEL.2D.ROTATION − R`, which row -08 pairs in the same way, until
+the kit run showed Altium's own flip of a body (S-2123, task 3.3). Altium writes `BODYPROJECTION=1` with
+the top body's `MODEL.3D.ROTZ` and `MODEL.2D.ROTATION`, 0 and 0, and its first save turns the 180 and 180
+Fenolite wrote back to 0 and 0. `TEXTUREROTATION` 0 becomes 360 in both Altium's flip and the save of
+Fenolite's. The flip now keeps both angles and writes `TEXTUREROTATION` 0 as 360 on the way down. Another
+texture rotation is kept: the census gives no single rule for it, and a kit case with a texture rotation
+of 90 settles it.
 
 ## Kit
 

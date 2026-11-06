@@ -369,11 +369,24 @@ def _turned(keys: Mapping[str, str], key: str, turn: float) -> dict[str, str]:
         return {}
 
 
-def _body_model_keys(raw: bytes, move: rec.Transform, turn: float, flip_turn: float | None = None) -> bytes:
+FLIPPED_TEXTURE_ROTATION = " 3.60000000000000E+0002"
+"""``TEXTUREROTATION`` of a body with the value 0 after Altium's own flip to the bottom (S-2123)."""
+
+
+def _texture_zero(text: str | None) -> bool:
+    try:
+        return text is not None and float(text) == 0
+    except ValueError:
+        return False
+
+
+def _body_model_keys(raw: bytes, move: rec.Transform, turn: float, flipped: bool = False) -> bytes:
     """A body with its ``MODEL.2D.X``/``Y`` moved and ``MODEL.3D.ROTZ`` turned, where it holds them. With
-    ``flip_turn`` (a flip, the change of its component's ``ROTATION``), ``BODYPROJECTION`` changes side and
-    ``MODEL.3D.ROTZ`` and ``MODEL.2D.ROTATION`` turn by ``flip_turn``, keeping their rotation relative to the
-    component (change c0453, ``pcb-document.md``, "Frame of a bottom part")."""
+    ``flipped`` (a flip), ``BODYPROJECTION`` changes side, and ``MODEL.3D.ROTZ`` and ``MODEL.2D.ROTATION``
+    keep their values: Altium's own flip writes those of the top body, and its save turns a half turn there
+    back to them (S-2123, change c0453 task 3.3). A body flipped to the bottom with ``TEXTUREROTATION`` 0
+    takes Altium's 360 (S-2123); any other texture rotation is kept, its rule being unknown
+    (``pcb-document.md``, "Frame of a bottom part")."""
     keys = rec.region_keys(raw)
     x, y = parse_mil(keys.get("MODEL.2D.X")), parse_mil(keys.get("MODEL.2D.Y"))
     changes: dict[str, str] = {}
@@ -382,26 +395,27 @@ def _body_model_keys(raw: bytes, move: rec.Transform, turn: float, flip_turn: fl
         changes["MODEL.2D.X"], changes["MODEL.2D.Y"] = mil_text(round(nx)), mil_text(round(ny))
     if turn:
         changes |= _turned(keys, "MODEL.3D.ROTZ", turn)
-    if flip_turn is not None:
-        if "BODYPROJECTION" in keys:
-            changes["BODYPROJECTION"] = "0" if keys["BODYPROJECTION"].strip() == "1" else "1"
-        changes |= _turned(keys, "MODEL.3D.ROTZ", flip_turn) | _turned(keys, "MODEL.2D.ROTATION", flip_turn)
+    if flipped and "BODYPROJECTION" in keys:
+        down = keys["BODYPROJECTION"].strip() != "1"
+        changes["BODYPROJECTION"] = "1" if down else "0"
+        if down and _texture_zero(keys.get("TEXTUREROTATION")):
+            changes["TEXTUREROTATION"] = FLIPPED_TEXTURE_ROTATION
     return rec.set_region_keys(raw, changes) if changes else raw
 
 
 def move_primitives(
     state: State, index: int, move: rec.Transform, *, turn: float = 0.0, mirror: bool = False,
-    layers: Mapping[int, int] | None = None, flip_turn: float | None = None,
+    layers: Mapping[int, int] | None = None, flipped: bool = False,
 ) -> None:  # fmt: skip
     """Every primitive of component ``index`` moved by ``move``, turned by ``turn``, mirrored, and put on
-    the other layer of its pair in ``layers``, which maps long layer ids (``flip_layers``). ``flip_turn`` is
-    a flip's change of the component's ``ROTATION``, which its bodies follow (``_body_model_keys``)."""
+    the other layer of its pair in ``layers``, which maps long layer ids (``flip_layers``). ``flipped``: the
+    move is a flip, and the bodies change side (``_body_model_keys``)."""
     for storage, positions in component_primitives(state, index).items():
         for position in positions:
             raw = state.get(storage)[position]
             new = rec.transform(raw, move, turn=turn, mirror=mirror, shape_based=storage in SHAPE_BASED)
             if storage.endswith("ComponentBodies6"):
-                new = _body_model_keys(new, move, turn, flip_turn)
+                new = _body_model_keys(new, move, turn, flipped)
             if layers:
                 held = layer_of(new)
                 if held is not None and held in layers:
@@ -591,7 +605,7 @@ def flip(state: State, item: Component, old_side: str) -> None:
     changes = {"LAYER": "BOTTOM" if side == "TOP" else "TOP", "ROTATION": rotation_text(rotation)}
     state.replace("Components6", index, rec.set_property(record.raw, changes))
     mirror = rec.mirror_x(float(x))
-    move_primitives(state, index, mirror, mirror=True, layers=flip_layers(state), flip_turn=rotation - held)
+    move_primitives(state, index, mirror, mirror=True, layers=flip_layers(state), flipped=True)
 
 
 MECHPAIR_KEY = re.compile(r"MECHPAIR(\d+)L([12])")

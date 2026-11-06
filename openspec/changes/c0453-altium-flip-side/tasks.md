@@ -30,6 +30,9 @@
   and `MODEL.2D.ROTATION` of the top body, not 180/180, so Altium's first save changes no byte of it. Proof:
   `uv run pytest tests/unit/backends/altium/edit/test_flip_frame.py -q -n 0` and the VM reopen of
   `c0453-flip-body.PcbDoc` with its body bytes unchanged.
+  Code done 2026-11-06: the flip's body record equals byte for byte that of Altium's save of the earlier
+  flip (`c0453-flip-body-saved.PcbDoc`); the VM reopen of `c0453-flip-body2.PcbDoc` is pending
+  (`~/fenolite-altium-checks/claude-2026-11-06/c0453-flip-body2/`).
 
 ## 4. Close
 
