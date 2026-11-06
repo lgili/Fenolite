@@ -439,6 +439,58 @@ def _draft(rule: Rule, row: RuleRow) -> _Draft:
     return _Draft(row, scope1, scope2, "_".join(parts), _lengths(rule, row), (rule,))
 
 
+_RECORD_HOLE_KEYS: dict[str, tuple[str, ...]] = {"min": ("MINHOLEWIDTH",), "max": ("MAXHOLEWIDTH",)}
+"""The keys of a Routing Via Style record that a ``hole_size`` rule of vias gives (``adapter.rules``)."""
+
+
+def _record_keys(record_kind: str, rule: Rule) -> dict[str, tuple[str, ...]] | None:
+    """Limit → the keys of a record of ``record_kind`` that hold it for ``rule``; ``None`` when no key of
+    that record holds the rule's kind."""
+    if record_kind == "RoutingVias" and rule.kind == "hole_size":
+        return _RECORD_HOLE_KEYS
+    row = _ROWS.get(rule.kind)
+    if row is None or row.altium != record_kind:
+        return None
+    return {
+        limit: _LENGTH_KEYS[(rule.kind, limit)] for limit in row.limits if (rule.kind, limit) in _LENGTH_KEYS
+    }
+
+
+def edited_fields(
+    fields: Sequence[tuple[str, str]], rules: Sequence[Rule]
+) -> tuple[tuple[str, str], ...] | None:
+    """The keys of a source rule record (from ``RULEKIND`` on) with the limits of ``rules``, the rules it
+    gave whose limits alone were edited in KiCad (change c0457). A key keeps its text when its value did not
+    change. ``None`` when a limit of a rule has no key in the record, or no whole PCB unit: the rules are
+    then lowered as KiCad holds them."""
+    from fenolite.backends.altium.adapter.units import text_length
+
+    keys = dict(fields)
+    kind = keys.get("RULEKIND", "")
+    new: dict[str, str] = {}
+    for rule in rules:
+        table = _record_keys(kind, rule)
+        if table is None:
+            return None
+        for limit, value in (("min", rule.min), ("opt", rule.opt), ("max", rule.max)):
+            if value is None:
+                continue
+            names = table.get(limit, ())
+            if not names or any(name not in keys for name in names) or value < 0:
+                return None
+            try:
+                units = rec.to_units(value)
+            except ValueError:
+                return None
+            if value > 0 and units == 0:
+                return None
+            for name in names:
+                read = text_length(keys[name])
+                same = read is not None and read[0] >= 0 and rec.to_units(read[0]) == units
+                new[name] = keys[name] if same else rec.mil_text(units)
+    return tuple((key, new.get(key, value)) for key, value in fields)
+
+
 def governing_order(rules: Sequence[Rule]) -> tuple[Rule, ...]:
     """``rules`` from the most governing to the least: priority 1, 2, … and then priority 0 (unset); ties
     by falling name, then id. It is the reverse of the order in which the KiCad build writes its rules,
@@ -610,6 +662,7 @@ __all__ = [
     "ALL_SCOPE",
     "EVIDENCE",
     "EXACT",
+    "edited_fields",
     "KIND_ORDER",
     "NOT_LOWERED_REASONS",
     "TABLE",

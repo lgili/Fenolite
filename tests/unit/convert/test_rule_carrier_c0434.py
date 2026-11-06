@@ -129,7 +129,10 @@ def test_a_rule_edited_in_kicad_is_written_as_kicad_holds_it(tmp_path: Path) -> 
     back, _report = _back(board, tmp_path)
     assert [r for r in back if r in before] == before[1:]
     (width,) = [dict(r[1]) for r in back if dict(r[1])["RULEKIND"] == "Width"]
-    assert width["PREFEREDWIDTH"] == "7.874mil" and width["PRIORITY"] == "1"
+    # change c0457: a record whose limits alone were edited keeps its name and priority
+    assert (
+        width["PREFEREDWIDTH"] == "7.874mil" and width["PRIORITY"] == "3" and width["NAME"] == "Signal Width"
+    )
 
 
 def test_a_source_rule_kicad_lost_needs_consent_and_a_kicad_rule_does_not(tmp_path: Path) -> None:

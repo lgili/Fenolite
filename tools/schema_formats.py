@@ -55,6 +55,12 @@ FORMATS: dict[str, Format] = {
     "fenolite.altium-rules.v0": Format(
         "internal", None, "Rule records of an Altium source in a KiCad board property (c0434).", "internal"
     ),
+    "fenolite.altium-rules.v1": Format(
+        "internal",
+        None,
+        "Rule records of an Altium source in a KiCad board property (c0434, keyed by content in c0457).",
+        "internal",
+    ),
     "fenolite.altium-schematic-layout.v0": Format(
         "internal", None, "Protected native-layout observation used only by rebuilds.", "internal"
     ),

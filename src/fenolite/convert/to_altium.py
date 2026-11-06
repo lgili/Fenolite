@@ -109,22 +109,32 @@ def _zone_fills(
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class _Carried:
-    """What the rule records carried beside the project give the way back (change c0434): the design
-    without the rules those records give again, the records written as they are, the names of the rules
-    that came from a record and were edited in KiCad, and how many rules the records stand for (the rules
-    taken out, and one per record that gave none)."""
+    """What the rule records carried in the board give the way back (changes c0434, c0457): the design
+    without the rules those records give again, the records written (as read, or with the limits KiCad
+    holds), the names of the rules that came from a record and were edited otherwise in KiCad, how many
+    rules the records stand for (the rules taken out, and one per record that gave none), and the ids of
+    the rules whose limits a record now holds."""
 
     design: Design
     records: tuple[tuple[int, tuple[tuple[str, str], ...]], ...] = ()
     edited: frozenset[str] = frozenset()
     count: int = 0
+    limits: tuple[str, ...] = ()
+
+
+LIMITS_EDITED = "a rule record whose limits were edited in KiCad is written with KiCad's limits"
+"""Change c0457: the record keeps its name, priority, scopes and enabled state."""
+EDITED_LOWERED = "a rule record edited in KiCad is written as a rule of its kind, as KiCad holds it"
+"""Change c0457: the lowered rule takes the next priority of its kind and a name of its own."""
 
 
 def _carried(source: SourceProject, design: Design) -> _Carried:
-    """The rule records an Altium conversion wrote in the board (``rulecarrier.PROPERTY``), read against the
-    project's rules file as it is now; nothing without the property or for one that does not read."""
+    """The rule records an Altium conversion wrote in the board (``rulecarrier.PROPERTY``), matched against
+    the project's rules file as it is now (``rulecarrier.match``); nothing without the property or for one
+    that does not read."""
+    from fenolite.backends.altium.rulemap import edited_fields
     from fenolite.backends.kicad.boardcarrier import carried as board_carried
-    from fenolite.convert.rulecarrier import PROPERTY, dru_blocks, read_carrier
+    from fenolite.convert.rulecarrier import PROPERTY, dru_rules, match, read_carrier
 
     rules = design.rules
     if rules is None or source.path.suffix != ".kicad_pcb":
@@ -137,14 +147,39 @@ def _carried(source: SourceProject, design: Design) -> _Carried:
     except (OSError, UnicodeDecodeError, ValueError, FormatError):
         return _Carried(design)
     dru = source.files.get(source.path.stem + ".kicad_dru")
-    current = dru_blocks(dru.read_text(encoding="utf-8") if dru is not None else None)
-    kept = [record for record in carried if record.kept(current)]
-    taken = {name for record in kept for name in record.blocks}
-    edited = frozenset(name for record in carried if not record.kept(current) for name in record.blocks)
+    matched = match(carried, dru_rules(dru.read_text(encoding="utf-8") if dru is not None else None))
+    by_name = {rule.name: rule for rule in rules.rules}
+    written: dict[int, tuple[tuple[str, str], ...]] = {id(record): record.fields for record in matched.kept}
+    taken = set(matched.taken)
+    edited = set(matched.edited)
+    limits: list[str] = []
+    for record, names in matched.limits:
+        own = [by_name[name] for name in names if name in by_name]
+        fields = edited_fields(record.fields, own) if len(own) == len(names) else None
+        if fields is None:  # KiCad's limits have no place in the record: the rules are lowered
+            edited |= set(names)
+            continue
+        written[id(record)] = fields
+        taken |= set(names)
+        limits += [rule.id for rule in own]
     left = tuple(rule for rule in rules.rules if rule.name not in taken)
-    count = len(rules.rules) - len(left) + sum(1 for record in kept if not record.blocks)
+    count = len(rules.rules) - len(left) + sum(1 for record in matched.kept if not record.blocks)
     design = dataclasses.replace(design, rules=dataclasses.replace(rules, rules=left))
-    return _Carried(design, tuple((r.number, r.fields) for r in kept), edited, count)
+    records = tuple((r.number, written[id(r)]) for r in carried if id(r) in written)
+    return _Carried(design, records, frozenset(edited), count, tuple(limits))
+
+
+def _rule_changes(
+    design: Design, carried: _Carried, lost: Mapping[str, tuple[str, ...]]
+) -> dict[str, tuple[str, ...]]:
+    """The rule changes of the way back (change c0457): the rules whose limits a source record now holds
+    (``LIMITS_EDITED``), and the rules of source records edited otherwise that were written as rules of
+    their kind (``EDITED_LOWERED``); a rule of such a record that was not written is a loss."""
+    gone = {i for ids in lost.values() for i in ids}
+    rules = design.rules.rules if design.rules is not None else ()
+    lowered = tuple(r.id for r in rules if r.name in carried.edited and r.id not in gone)
+    found = {LIMITS_EDITED: carried.limits, EDITED_LOWERED: lowered}
+    return {reason: ids for reason, ids in found.items() if ids}
 
 
 def _source_rule_losses(
@@ -268,6 +303,9 @@ def write(source: SourceProject, options: Options) -> Written:
     lost.update(_extra_losses(design, written))
     if "rule" in lost and carried.edited:
         lost["rule"] = _source_rule_losses(lost["rule"], design, carried.edited)
+    rule_changes = _rule_changes(design, carried, lost.get("rule", {}))
+    if rule_changes:  # change c0457: a source rule edited in KiCad is a change, not a loss
+        changed["rule"] = {**changed.get("rule", {}), **rule_changes}
     counts = census(design)
     held = dict(inputs.written)
     if carried.count:  # the rules the source's records give again, as they were read

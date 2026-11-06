@@ -200,6 +200,20 @@ A conversion of the board back to Altium reads it. Two cases:
   Altium record can hold is a loss that needs `--allow-lossy` (`SOURCE_RULE_LOST`). A loss of a rule that
   KiCad alone holds is reported only.
 
+Change c0457 compares rule lists by content, not by text. Each list is keyed by its children after the
+name, in sorted order, with a condition's runs of spaces made one (`rulecarrier.rule_keys`, property
+schema `fenolite.altium-rules.v1`). So a rules file that a build of the imported design writes again,
+with other names (an unscoped rule the import made a board minimum is `fenolite_0_min_clearance`) or in
+another order, still holds the records' rules. A rule of the same content as a kept record's is a copy and
+is not written again. An edit in KiCad is a change, not a loss:
+
+- A record whose rules keep their names and their shapes (everything but the values of `min`, `opt` and
+  `max`) is written with KiCad's limits and its own name, priority, scopes and enabled state
+  (`rulemap.edited_fields`); a Routing Via Style takes the `hole_size` of vias in `MINHOLEWIDTH` and
+  `MAXHOLEWIDTH`.
+- Any other edit is lowered as a rule of its kind. `SOURCE_RULE_LOST` stays for an edit that no Altium
+  record can hold.
+
 On that way back no other record is added: no rule of a net class, no `All` default, no Polygon Connect
 Style lowered from the zones when the source holds one, and no plane rule of a kind that the source holds.
 Without the file, the way back writes the rules of the KiCad project, as before.

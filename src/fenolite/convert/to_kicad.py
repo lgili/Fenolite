@@ -450,7 +450,7 @@ def _carried_rules(source: SourceProject, design: Design, rules_text: str | None
     from fenolite.backends.altium.read.pcb import read_pcbdoc
     from fenolite.backends.kicad.lowering import written_names
     from fenolite.convert.altium_to_kicad import board_document
-    from fenolite.convert.rulecarrier import Carried, dru_blocks
+    from fenolite.convert.rulecarrier import Carried, dru_blocks, dru_shapes
 
     path = board_document(source, source.design)
     if path is None:
@@ -468,7 +468,7 @@ def _carried_rules(source: SourceProject, design: Design, rules_text: str | None
             head, _, index = locator.partition("#")
             if head.endswith("/Data") and index.isdigit():
                 names.setdefault(int(index), []).extend(written.get(rule.id, ()))
-    blocks = dru_blocks(rules_text)
+    blocks, shapes = dru_blocks(rules_text), dru_shapes(rules_text)
     carried: list[Carried] = []
     for index, record in enumerate(records):
         fields = tuple(record.record.fields)
@@ -476,7 +476,7 @@ def _carried_rules(source: SourceProject, design: Design, rules_text: str | None
             continue
         number, pairs = kept_fields(kept_text(record.kind_number, fields))
         held = {n: blocks[n] for n in names.get(index, ()) if n in blocks}
-        carried.append(Carried(number, pairs, held))
+        carried.append(Carried(number, pairs, held, {n: shapes[n] for n in held}))
     return tuple(carried)
 
 

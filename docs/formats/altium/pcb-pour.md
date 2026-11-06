@@ -78,5 +78,12 @@ since a KiCad pad holds one connection for every zone.
   the file's frame; the twin of each region stands at the same position of `ShapeBasedRegions6`.
 - **Polygons.** With the pour mode `computed` the polygon record gets `OPTIMALVOIDROTATION=FALSE`
   (I15); every other key is the key of `pcb-copper.md`, "Fenolite's choices".
+- **A scope that is not read, on the way back** (change c0457). Since change c0434 a Clearance record
+  whose scope the pour does not read comes back from KiCad as read, so the pour of the way back refuses
+  the polygons it could govern (`rule-scope`, then `depends-on-refused`), as the pour of the source does.
+  Public row -04 refuses its 9 polygons both ways (S-2160). Neither ignoring the record (what lote-27 did
+  by losing it) nor pouring with the larger of its gap and the governing gap matches Altium: 8 of the 9
+  saved pours of -04 differ from either by 3.5 to 7.4 times the M1 allowance, and 4 polygons of -07 by up
+  to 10.9 times (S-2160). So the refusal stays.
 - **Polygon Connect Style.** The records of change c0215, Decision 11: the Advanced form, one rule per
   net scoped `InNet` and one `All` rule.
