@@ -142,10 +142,12 @@ The reading:
 | A Routing Via Style takes its sizes from its limits ("Min/Max preferred", whose minimum and maximum the check obeys) or from one or more enabled via templates ("Template preferred"); the page does not say what the check tests in template mode | S-2248 | INFERRED | H-A-RULE-VIA-TEMPLATE |
 | A record in template mode holds `USEVIATEMPLATES=TRUE` and, per template, `VIATEMPLATEGUID#<n>` and `VIATEMPLATENAME#<n>`; it still holds its own limits, which differ from the template's sizes (`50mil` and `28mil` beside a template of 16 mil and 8 mil). One public record holds the template keys without `USEVIATEMPLATES` | S-2219 | INFERRED | H-A-RULE-VIA-TEMPLATE |
 | The document holds the templates in `PadViaLibraryCache/Data`: one block of the library's header keys, then one block per template after one lead byte, each with `TEMPLATE.TEMPLATEID` (the GUID a record names), `TEMPLATE.TEMPLATENAME`, `TEMPLATE.VIA.HOLESIZE`, `TEMPLATE.VIA.STACKDATA0.DIAMETER` and `TEMPLATE.TOLERANCE.POSITIVE` and `.NEGATIVE` (`214748.3647mil` in every public template); a template can be listed twice | S-2219 | INFERRED | H-A-RULE-VIA-TEMPLATE |
+| A record in template mode whose named template Altium does not resolve (shown as library `<Unknown>`: absent from the document, or an authored cache block without `TEMPLATE.HASH`, which Altium ignores and drops at its save) checks no via: vias of the template's sizes, of the record's sizes and of neither pass alike, where the same record without template mode flags every via outside its limits. A save keeps the record and `USEVIATEMPLATES=TRUE`. What the check tests for a resolved template is not measured | S-2247 | INFERRED (one agent run on 24.5.2, which raises no level) | H-A-RULE-VIA-TEMPLATE |
 
 A record with `USEVIATEMPLATES=TRUE` is refused with `template`: its vias take the sizes of the templates,
 and no permitted source says whether the check tests those sizes (with a tolerance the document holds), the
-record's own limits, or nothing. Neither reading is taken until a measurement decides it. The template keys
+record's own limits, or nothing. A template Altium does not resolve makes the record check nothing (S-2247);
+a resolved one is not measured, so neither reading is taken, and the refusal stays for both. The template keys
 of a record without `USEVIATEMPLATES=TRUE` are allowed and unused: its own limits are the rule.
 
 ## Rule kinds and their reading

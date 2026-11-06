@@ -43,6 +43,8 @@ Rules for every task:
 - [x] 4.1 Per-layer Width and DiffPairsRouting values, and Width impedance keys. Proof:
   `uv run pytest tests/unit/backends/altium/test_rule_keys_c0462.py -k "layer or impedance" -q -n 0`.
 - [x] 4.2 RoutingVias templates. Proof: the same file, `-k template`.
+  Kit run 2026-11-06 (S-2247): a named template Altium does not resolve makes the record check no via; a
+  resolved template is not measured, so the refusal `template` stays.
 - [ ] 4.3 `OBJECTCLEARANCES` matrices of Clearance and BoardOutlineClearance. Proof: the same file,
   `-k matrix`.
 - [ ] 4.4 MatchedLengths onto `skew` and `length`; mask and paste expansions; `check-relaxed`. Add the

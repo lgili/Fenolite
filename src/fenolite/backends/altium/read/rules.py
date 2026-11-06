@@ -815,7 +815,8 @@ def _templates(fields: Sequence[Field]) -> None:
     """Refuse a Routing Via Style record in template mode (``USEVIATEMPLATES=TRUE``; ``rule-file.md``, "Via
     templates"). Its vias take the sizes of the enabled via templates, and no public source states what the
     rule check tests in that mode (S-2248): neither the template's sizes, whose tolerance the document holds,
-    nor the record's own limits are known to be the rule. The keys of the templates without
+    nor the record's own limits are known to be the rule; a template Altium does not resolve makes the record
+    check no via (S-2247), and a resolved one is not measured. The keys of the templates without
     ``USEVIATEMPLATES=TRUE`` are allowed and unused: the record's limits are the rule."""
     if _get(fields, "USEVIATEMPLATES") != "TRUE":
         return
