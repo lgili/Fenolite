@@ -15,6 +15,9 @@
 
 - [x] 2.1 Round trip of public rows `-01`, `-03`, `-04` and `-06` (S-2010); `pcb-records.md` row,
   `equivalence.md`, CHANGELOG; `uv run pytest tests/unit/test_format_facts.py`.
-- [ ] 2.2 altium-rounds-2 opens the round trip of row `-01` in Altium Designer: the Keep-Out layer holds
+- [x] 2.2 altium-rounds-2 opens the round trip of row `-01` in Altium Designer: the Keep-Out layer holds
   12 tracks and 8 arcs without the keep-out flag and no keep-out region, and DRC finds no new violation
   against them (kit request).
+  Done 2026-11-06 (S-2011): 12 tracks and 8 arcs, no keep-out region, as in the source; the record's
+  flag byte stays 0, and Altium reads `IsKeepout` True on each, as on the source's. DRC under the
+  document's rules gives 3 729 after Repour All, the same counts as before c0442.
