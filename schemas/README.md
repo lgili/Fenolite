@@ -89,6 +89,7 @@ tracked separately in `frozen-v0.json` while the active CLI writer remains v0.
 | `fenolite.altium-kit-probes.v0` | internal | `internal` | Kit-specific probe input. |
 | `fenolite.altium-kit-run.v0` | public | `fenolite.cli.file_formats:KitRunFile` | User-authored input or agent-readable output. |
 | `fenolite.altium-kit.v0` | public | `fenolite.cli.file_formats:KitFile` | User-authored input or agent-readable output. |
+| `fenolite.altium-model-heights.v0` | internal | `internal` | Stored heights of the embedded Altium models in a KiCad board property (c0449). |
 | `fenolite.altium-observations.v0` | public | `fenolite.cli.file_source_formats:AltiumObservationsFile` | Value-free observation output; native verdict stays unjudged. |
 | `fenolite.altium-rules.v0` | internal | `internal` | Rule records of an Altium source in a KiCad board property (c0434). |
 | `fenolite.altium-rules.v1` | internal | `internal` | Rule records of an Altium source in a KiCad board property (c0434, keyed by content in c0457). |
