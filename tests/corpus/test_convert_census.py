@@ -110,24 +110,25 @@ NOT_WRITTEN: dict[str, dict[str, int]] = {
 """Per-board refused items, measured after c0160 on 2026-10-12 (16 light boards). Change c0412 (B12) writes
 the shapes on copper of ``11`` (2) and ``14`` (4) as regions, so their ``copper-shape`` losses are gone."""
 DIFFERENCES: dict[str, tuple[int, dict[str, int]]] = {
-    "01": (5, {"dnp": 2, "pad-kind": 2, "pad-missing": 8}),
+    "01": (5, {"dnp": 2, "pad-kind": 2, "pad-missing": 1}),
     "02": (5, {}),
     "03": (5, {}),
-    "04": (5, {"pad-missing": 1}),
+    "04": (5, {}),
     "05": (5, {"pad-kind": 62}),
-    "07": (5, {"pad-missing": 2}),
-    "08": (4, {"ref-ambiguous": 1}),
+    "07": (5, {}),
+    "08": (4, {}),
     "09": (5, {}),
     "10": (5, {}),
-    "11": (5, {"dnp": 11, "pad-missing": 15, "pin-missing": 12}),
-    "12": (5, {"pad-missing": 10, "pin-missing": 2}),
-    "13": (5, {"dnp": 22, "pad-kind": 6, "pad-missing": 28, "pin-missing": 18, "route-connectivity": 2}),
+    "11": (5, {"dnp": 11, "pad-missing": 12, "pin-missing": 12}),
+    "12": (5, {"pad-missing": 2, "pin-missing": 2}),
+    "13": (5, {"dnp": 22, "pad-kind": 6, "pad-missing": 22, "pin-missing": 18, "route-connectivity": 2}),
     "14": (5, {}),
     "15": (5, {}),
-    "16": (5, {"dnp": 11, "pad-missing": 20, "ref-ambiguous": 4, "route-connectivity": 1}),
-    "17": (5, {"pad-kind": 120, "pad-missing": 8}),
+    "16": (5, {"dnp": 11, "pad-missing": 17, "route-connectivity": 1}),
+    "17": (5, {"pad-kind": 120}),
 }
-"""Per-board comparison after c0160, within 10 nm and 20 ppm (2026-10-12)."""
+"""Per-board comparison after c0160, within 10 nm and 20 ppm (2026-10-12); repinned after c0433 keeps pads
+without a number in their component (2026-11-06): their pad-missing and ref-ambiguous are gone."""
 LARGEST_NM = 2
 """The largest per-coordinate difference without tolerance over every written board (2026-10-09): the
 written unit is 2.54 nm and the reader rounds it to the nanometre."""

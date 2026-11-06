@@ -24,7 +24,7 @@
     "16": {
       "differences": {
         "dnp": 11,
-        "pad-missing": 20,
+        "pad-missing": 17,
         "route-connectivity": 1
       },
       "explained": [
@@ -46,7 +46,7 @@
         [
           "pad-missing",
           "pad",
-          "20"
+          "17"
         ],
         [
           "route-connectivity",
@@ -77,7 +77,7 @@
           130
         ]
       ],
-      "writer_ledger_sha256": "3e7a30a219bbfb14ae7bd294c8422f396f8fb74c51548cffaebcad558f579747"
+      "writer_ledger_sha256": "a96dc4f5909391813c86d53861152b28998fe5ffdf5bf7fa82d3cd3623eec62b"
     }
   },
   "schema": "fenolite.conversion-comparison.v0",

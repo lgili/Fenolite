@@ -258,7 +258,6 @@ rows without the `net-tie` row; its compared differences are unchanged.
 | CM5_MINIMA_3 | pin-net | lost | 1 | the pin's membership of unconnected-(J502-MountPin-PadMP)_1 is omitted: the largest net, then name, wins |
 | CM5_MINIMA_3 | pin-net | lost | 1 | the pin's membership of unconnected-(J503-MountPin-PadMP)_1 is omitted: the largest net, then name, wins |
 | CM5_MINIMA_3 | footprint | changed | 33 | differs from the library footprint |
-| CM5_MINIMA_3 | pad | changed | 14 | the pad number is empty, so it is written as a free pad at its board position |
 | CM5_MINIMA_3 | pad | changed | 2 | a connector pad is written as a surface pad with no paste and no mask opening |
 | CM5_MINIMA_3 | pad | lost | 2 | the pad is a surface pad without a copper layer |
 | CM5_MINIMA_3 | footprint-graphic | lost | 3 | a filled circle has no record: a region holds straight edges only |
@@ -278,7 +277,6 @@ rows without the `net-tie` row; its compared differences are unchanged.
 | ecc83-pp | stackup | lost | 1 | the document has no key for the solder mask thickness, the colours; the copper and dielectric values are written |
 | ecc83-pp | schematic | changed | 1 | the schematic is generated from the circuit on one sheet with generic symbols |
 | ecc83-pp_v2 | footprint | changed | 4 | differs from the library footprint |
-| ecc83-pp_v2 | pad | changed | 1 | the pad number is empty, so it is written as a free pad at its board position |
 | ecc83-pp_v2 | zone-fill | changed | 1 | a polygon is written unpoured; Altium fills it on a repour |
 | ecc83-pp_v2 | stackup | lost | 1 | the document has no key for the solder mask thickness, the colours; the copper and dielectric values are written |
 | ecc83-pp_v2 | schematic | changed | 1 | the schematic is generated from the circuit on one sheet with generic symbols |
@@ -289,7 +287,6 @@ rows without the `net-tie` row; its compared differences are unchanged.
 | interf_u | dimension | lost | 2 | the document has no dimension record |
 | interf_u | schematic | changed | 1 | the schematic is generated from the circuit on one sheet with generic symbols |
 | kit-dev-coldfire-xilinx_5213 | footprint | changed | 87 | differs from the library footprint |
-| kit-dev-coldfire-xilinx_5213 | pad | changed | 2 | the pad number is empty, so it is written as a free pad at its board position |
 | kit-dev-coldfire-xilinx_5213 | zone-fill | changed | 3 | a polygon is written unpoured; Altium fills it on a repour |
 | kit-dev-coldfire-xilinx_5213 | stackup | lost | 1 | the document has no key for the solder mask thickness, the colours, the finish; the copper and dielectric values are written |
 | kit-dev-coldfire-xilinx_5213 | text | lost | 1 | the text holds a control character or a line break |
@@ -311,7 +308,6 @@ rows without the `net-tie` row; its compared differences are unchanged.
 | One-Air-Max | dnp | lost | 11 | the Altium documents hold no fitted flag outside variants |
 | One-Air-Max | footprint | changed | 118 | differs from the library footprint |
 | One-Air-Max | pad | lost | 12 | the pad has the shape custom, which has no exact Altium form |
-| One-Air-Max | pad | changed | 5 | the pad number is empty, so it is written as a free pad at its board position |
 | One-Air-Max | footprint-copper | lost | 3 | a graphic of a footprint on a copper layer has no record written: it would be copper |
 | One-Air-Max | footprint-graphic | lost | 1 | degenerate arc on F.SilkS is not written |
 | One-Air-Max | net-tie | changed | 2 | the component is written as a net tie, which ties all its pads: Altium marks the whole component, not groups of pads |
@@ -322,7 +318,6 @@ rows without the `net-tie` row; its compared differences are unchanged.
 | One-Air-Max | text | lost | 1 | the text holds a control character or a line break |
 | One-Air-Max | schematic | changed | 1 | the schematic is generated from the circuit on one sheet with generic symbols |
 | pic_programmer | footprint | changed | 18 | differs from the library footprint |
-| pic_programmer | pad | changed | 9 | the pad number is empty, so it is written as a free pad at its board position |
 | pic_programmer | pad | lost | 2 | the pad has the shape custom, which has no exact Altium form |
 | pic_programmer | zone-fill | changed | 1 | a polygon is written unpoured; Altium fills it on a repour |
 | pic_programmer | stackup | lost | 1 | the document has no key for the solder mask thickness, the colours; the copper and dielectric values are written |
@@ -331,7 +326,6 @@ rows without the `net-tie` row; its compared differences are unchanged.
 | RoyalBlue54L-Feather | footprint | changed | 24 | differs from the library footprint |
 | RoyalBlue54L-Feather | pad | lost | 39 | the pad has the shape custom, which has no exact Altium form |
 | RoyalBlue54L-Feather | pad | lost | 9 | the pad is a surface pad without a copper layer |
-| RoyalBlue54L-Feather | pad | changed | 9 | the pad number is empty, so it is written as a free pad at its board position |
 | RoyalBlue54L-Feather | pad | changed | 6 | a connector pad is written as a surface pad with no paste and no mask opening |
 | RoyalBlue54L-Feather | footprint-copper | lost | 1 | a graphic of a footprint on a copper layer has no record written: it would be copper |
 | RoyalBlue54L-Feather | zone | lost | 2 | the model holds no outline of the zone (an outline with an arc is kept by the reader) |
@@ -352,7 +346,6 @@ rows without the `net-tie` row; its compared differences are unchanged.
 | tinytapeout-demo | footprint | changed | 63 | differs from the library footprint |
 | tinytapeout-demo | pad | lost | 16 | the pad has the shape custom, which has no exact Altium form |
 | tinytapeout-demo | pad | lost | 4 | the pad is a surface pad without a copper layer |
-| tinytapeout-demo | pad | changed | 3 | the pad number is empty, so it is written as a free pad at its board position |
 | tinytapeout-demo | footprint-copper | lost | 25 | a graphic of a footprint on a copper layer has no record written: it would be copper |
 | tinytapeout-demo | footprint-graphic | lost | 9 | the layer Edge.Cuts has no layer in the document for a graphic |
 | tinytapeout-demo | footprint-graphic | lost | 6 | a filled circle has no record: a region holds straight edges only |
@@ -366,11 +359,11 @@ rows without the `net-tie` row; its compared differences are unchanged.
 | tinytapeout-demo | schematic | changed | 1 | the schematic is generated from the circuit on one sheet with generic symbols |
 | video | footprint | changed | 119 | differs from the library footprint |
 | video | pad | changed | 120 | a connector pad is written as a surface pad with no paste and no mask opening |
-| video | pad | changed | 24 | the pad number is empty, so it is written as a free pad at its board position |
 | video | zone-fill | changed | 2 | a polygon is written unpoured; Altium fills it on a repour |
 | video | stackup | lost | 1 | the document has no key for the solder mask thickness, the colours, the finish; the copper and dielectric values are written |
 | video | dimension | lost | 2 | the document has no dimension record |
 | video | schematic | changed | 1 | the schematic is generated from the circuit on one sheet with generic symbols |
+
 <!-- ledger:end -->
 
 ## Differences explained
@@ -384,23 +377,21 @@ Each difference of the read-back, per board, with the kind of the lost item that
 | CM5_MINIMA_3 | dnp | footprint | 1 |
 | CM5_MINIMA_3 | edge-ring | outline | 2 |
 | CM5_MINIMA_3 | pad-kind | pad | 2 |
-| CM5_MINIMA_3 | pad-missing | pad | 8 |
-| ecc83-pp_v2 | pad-missing | pad | 1 |
+| CM5_MINIMA_3 | pad-missing | pad | 1 |
 | interf_u | pad-kind | pad | 62 |
-| kit-dev-coldfire-xilinx_5213 | pad-missing | pad | 2 |
 | microwave | ref-ambiguous | source | 1 |
 | One-Air-Max | dnp | dnp | 1 |
 | One-Air-Max | dnp | footprint | 10 |
 | One-Air-Max | edge-ring | outline | 2 |
-| One-Air-Max | pad-missing | pad | 15 |
+| One-Air-Max | pad-missing | pad | 12 |
 | One-Air-Max | pin-missing | pad | 12 |
-| pic_programmer | pad-missing | pad | 10 |
+| pic_programmer | pad-missing | pad | 2 |
 | pic_programmer | pin-missing | pad | 2 |
 | RoyalBlue54L-Feather | dnp | dnp | 20 |
 | RoyalBlue54L-Feather | dnp | footprint | 2 |
 | RoyalBlue54L-Feather | edge-ring | outline | 2 |
 | RoyalBlue54L-Feather | pad-kind | pad | 6 |
-| RoyalBlue54L-Feather | pad-missing | pad | 28 |
+| RoyalBlue54L-Feather | pad-missing | pad | 22 |
 | RoyalBlue54L-Feather | pin-missing | pad | 18 |
 | RoyalBlue54L-Feather | route-connectivity | footprint | 1 |
 | RoyalBlue54L-Feather | route-connectivity | zone | 1 |
@@ -412,7 +403,7 @@ Each difference of the read-back, per board, with the kind of the lost item that
 | tinytapeout-demo | ref-ambiguous | source | 4 |
 | tinytapeout-demo | route-connectivity | footprint | 1 |
 | video | pad-kind | pad | 120 |
-| video | pad-missing | pad | 8 |
+
 <!-- explained:end -->
 
 ## What the ledger asks of the writers
