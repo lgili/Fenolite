@@ -12,6 +12,6 @@
 
 - [x] 2.1 altium-rounds-2 opens the A/B round trips of rows `-04` and `-08` (A with the carried storage, B
   without): B pours and holds no Board Outline Clearance collision inside the board, A does not (S-2182;
-  row `-08`: B pours 33 of 33, A none).
+  rows `-04` and `-08`: B pours 9 of 9 and 33 of 33, A none).
 - [x] 2.2 Census of `BoardRegions` in the public rows (S-2181); rows in `pcb-records.md` and
   `docs/hypotheses.md`, c0450's storage list, CHANGELOG; `uv run pytest tests/unit/test_format_facts.py`.
