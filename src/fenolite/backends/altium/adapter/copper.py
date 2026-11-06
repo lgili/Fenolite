@@ -37,7 +37,7 @@ from fenolite.backends.altium.adapter import units
 from fenolite.backends.altium.adapter.arcring import record_outline
 from fenolite.backends.altium.adapter.codes import issue
 from fenolite.backends.altium.adapter.context import Context
-from fenolite.backends.altium.adapter.ids import UNION_KEY, VIA_UNION_OFFSET, Exact, bag
+from fenolite.backends.altium.adapter.ids import STROKE_FONT_KEY, UNION_KEY, VIA_UNION_OFFSET, Exact, bag
 from fenolite.backends.altium.adapter.layers import EDGE, MULTI
 from fenolite.backends.altium.adapter.pads import WILDCARD_ALL
 from fenolite.backends.altium.read.pcb import SPLIT_PLANE_POLYGON, PcbDocument, PolygonRecord
@@ -1128,7 +1128,7 @@ def footprint_items(
             fields[name] = FootprintField(
                 id=ctx.ids.content("fld", section, name, _xy(position), layer, height, thickness, angle),
                 provenance=ctx.provenance(locator),
-                ext=bag(exact.pairs()),
+                ext=bag([*exact.pairs(), *stroke_font(item)]),
                 name=name,
                 position=position,
                 layer=layer,
@@ -1148,7 +1148,7 @@ def footprint_items(
                         "txt", section, item.text, _xy(position), layer, height, thickness, angle
                     ),
                     provenance=ctx.provenance(locator),
-                    ext=bag(exact.pairs()),
+                    ext=bag([*exact.pairs(), *stroke_font(item)]),
                     text=lines(item.text),
                     position=position,
                     layer=layer,
@@ -1551,6 +1551,14 @@ def truetype(item: TextRecord) -> tuple[str, bool, bool] | None:
     return item.font_name, bool(item.bold), bool(item.italic)
 
 
+def stroke_font(item: TextRecord) -> list[tuple[str, str]]:
+    """The ``stroke_font`` pair of a stroke text record that names a font (change c0460, S-2253):
+    ``<bold><italic> <name>``; none for a TrueType text or a record without a name."""
+    if item.font_type is None or item.font_type == TRUETYPE or not item.font_name:
+        return []
+    return [(STROKE_FONT_KEY, f"{int(bool(item.bold))}{int(bool(item.italic))} {item.font_name}")]
+
+
 def texts(doc: PcbDocument, ctx: Context, owned: Collection[int] = ()) -> list[Text]:
     """The free texts; the text is the wide string when the record names one (the reader resolved it).
     A free text on an internal plane gives nothing."""
@@ -1579,7 +1587,7 @@ def texts(doc: PcbDocument, ctx: Context, owned: Collection[int] = ()) -> list[T
                     "txt", "texts", item.text, _xy(position), layer, height, thickness, rotation
                 ),
                 provenance=ctx.provenance(locator),
-                ext=bag(exact.pairs()),
+                ext=bag([*exact.pairs(), *stroke_font(item)]),
                 text=lines(item.text),
                 position=position,
                 layer=layer,

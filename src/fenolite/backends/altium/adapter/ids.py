@@ -71,9 +71,13 @@ EXT_KEYS: tuple[str, ...] = (
     "kept_record",
     "stroke",
     "union_index",
+    "stroke_font",
 )
 """The closed table of extension-bag keys, in bag order; each is a row of
 ``docs/formats/altium/import.md``, "Extension-bag keys"."""
+STROKE_FONT_KEY = "stroke_font"
+"""The key of a stroke text's font (change c0460, S-2253): ``<bold><italic> <name>``, each flag ``0`` or
+``1``, as the text record holds them though a stroke text draws with neither."""
 UNION_KEY = "union_index"
 """The key of a union member's union index (change c0460, ``backends.altium.unions``)."""
 VIA_UNION_OFFSET = 70

@@ -22,3 +22,16 @@ The Altium import SHALL record the non-zero union index of a via (offset 70 of i
 - **GIVEN** a via whose record holds the union index 1048581 at offset 70
 - **WHEN** the document is imported
 - **THEN** the via's `altium` bag holds `union_index` = `1048581`
+
+### Requirement: Stroke texts keep the font their record names
+
+The Altium import SHALL record, for a text, a footprint text and a designator or comment field read from a
+text record of font type 0 that names a font, the record's bold and italic bytes and its font name in the
+item's `altium` bag under the key `stroke_font`, as `<bold><italic> <name>` with each flag `0` or `1`. It
+SHALL NOT give such a text a face.
+
+#### Scenario: A stroke comment keeps its font name
+
+- **GIVEN** a component whose comment text record has font type 0, bold 0, italic 0 and the font name `Arial`
+- **WHEN** the document is imported
+- **THEN** the footprint's comment field has no face and its `altium` bag holds `stroke_font` = `00 Arial`

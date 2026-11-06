@@ -44,6 +44,7 @@ import fenolite.backends.altium.pcbrecords as rec
 import fenolite.backends.altium.rulemap as rulemap
 import fenolite.backends.altium.unions as unions
 from fenolite.backends.altium.adapter.arcring import ArcPolygon
+from fenolite.backends.altium.adapter.ids import STROKE_FONT_KEY
 from fenolite.backends.altium.ascii import Field, text_problem
 from fenolite.backends.altium.cfb import Entry, Storage, write_compound
 from fenolite.backends.altium.docboard import (
@@ -319,11 +320,13 @@ only for a panel, never for a board, so they are not named here."""
 @dataclass(frozen=True, slots=True)
 class TextFont:
     """The font of a TrueType text (change c0460): its ``face``, at most ``FONT_NAME_CHARS`` characters,
-    and whether it is ``bold`` and ``italic``."""
+    and whether it is ``bold`` and ``italic``. With ``truetype`` false it is the font a stroke text record
+    names (S-2253): the text stays a stroke text, its record holds the name and the two flags."""
 
     face: str
     bold: bool = False
     italic: bool = False
+    truetype: bool = True
 
 
 FONT_NAME_CHARS = 31
@@ -1086,9 +1089,8 @@ def text_record(
         if len(font.face) > FONT_NAME_CHARS:
             raise ValueError(f"the font name {font.face!r} is longer than {FONT_NAME_CHARS} characters")
         name = font.face.encode("utf-16-le")
-        body += (
-            bytes((*flags, 0, TRUETYPE_FONT, int(font.bold), int(font.italic))) + name + bytes(64 - len(name))
-        )
+        kind = TRUETYPE_FONT if font.truetype else 0
+        body += bytes((*flags, 0, kind, int(font.bold), int(font.italic))) + name + bytes(64 - len(name))
     body += b"\0" + struct.pack("<iI", 0, wide_index) + bytes(TEXT_SIZE - 119)
     assert len(body) == TEXT_SIZE
     # a component text outside 7-bit ASCII (change c0090, a model that was read) is written like a free one
@@ -1111,12 +1113,18 @@ def truetype_face(item: Text | FootprintField) -> str:
 
 
 def text_font(item: Text | FootprintField) -> TextFont | None:
-    """The TrueType font of a text or field (change c0460): its face with its bold and italic, or ``None``
-    for a stroke text (no face, or KiCad's stroke font by name)."""
+    """The TrueType font of a text or field (change c0460): its face with its bold and italic. For a stroke
+    text (no face, or KiCad's stroke font by name) the font its Altium bag names (``stroke_font``, S-2253),
+    else ``None``."""
     face = truetype_face(item)
-    if not face:
+    if face:
+        return TextFont(face, bool(item.bold), bool(item.italic))
+    bag = item.ext.get("altium")
+    value = dict(bag.payload).get(STROKE_FONT_KEY, "") if bag is not None else ""
+    flags, _, name = value.partition(" ")
+    if len(flags) != 2 or not set(flags) <= {"0", "1"} or not name or len(name) > FONT_NAME_CHARS:
         return None
-    return TextFont(face, bool(item.bold), bool(item.italic))
+    return TextFont(name, flags[0] == "1", flags[1] == "1", truetype=False)
 
 
 def short_text(text: str) -> bytes:

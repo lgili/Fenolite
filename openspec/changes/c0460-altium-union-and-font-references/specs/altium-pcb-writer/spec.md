@@ -24,3 +24,16 @@ record SHALL keep 0.
 - **GIVEN** a `PcbDocSpec` whose `unions` give the via `v1` the index 1048581
 - **WHEN** the document is written
 - **THEN** the record of `v1` holds 1048581 at offset 70 and every other via holds 0
+
+### Requirement: A stroke text is written with the font its bag names
+
+The Altium PCB writer SHALL write a text or a field without a face whose `altium` bag holds a well-formed
+`stroke_font` as a text record of font type 0 with that font name, bold and italic. A text without one, or
+with a value that is not two flags, a space and a name of at most 31 characters, SHALL be written with no
+font name, as before.
+
+#### Scenario: A stroke free text with its font
+
+- **GIVEN** a free board text without a face whose `altium` bag holds `stroke_font` = `11 Trebuchet MS`
+- **WHEN** the board is written
+- **THEN** its text record holds font type 0, bold 1, italic 1 and the font name `Trebuchet MS`

@@ -330,6 +330,22 @@ def _carried_planes(
     return made.design, planes, {reason: tuple(ids) for reason, ids in lost.items()}
 
 
+def _carried_fonts(source: SourceProject, design: Design) -> Design:
+    """``design`` whose stroke texts and fields a conversion to KiCad carried the font of hold it again
+    (change c0460, S-2253; ``strokefonts``); unchanged for a board that does not read or carries none."""
+    from fenolite.backends.kicad.boardcarrier import carried as board_carried
+    from fenolite.convert import strokefonts
+
+    if design.board is None or source.path.suffix != ".kicad_pcb":
+        return design
+    try:
+        found = board_carried(source.path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, FormatError):
+        return design
+    fonts = strokefonts.read_carrier(found.get(strokefonts.PROPERTY))
+    return dataclasses.replace(design, board=strokefonts.restored(design.board, fonts)) if fonts else design
+
+
 def _stored_models(source: SourceProject) -> tuple[dict[HeightKey, tuple[int, int]], CarriedIds]:
     """The stored heights and the source identities of the embedded models a conversion to KiCad placed
     (change c0449, task 4.3; ``models.read_heights`` and ``models.read_ids`` of the board properties
@@ -368,6 +384,7 @@ def write(source: SourceProject, options: Options) -> Written:
     )
     kept_storages, storage_losses = _carried_storages(source, design)  # changes c0450 and c0461
     design, planes, plane_losses = _carried_planes(source, design)  # change c0466
+    design = _carried_fonts(source, design)  # change c0460, S-2253
     try:
         written = lower.write_design(
             design,

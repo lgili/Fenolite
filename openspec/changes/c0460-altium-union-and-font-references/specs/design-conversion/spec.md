@@ -18,3 +18,16 @@ uuid. A conversion back SHALL give each member that the KiCad board still holds 
 - **GIVEN** an Altium document whose `SmartUnions` storage holds a record
 - **WHEN** it is converted to KiCad
 - **THEN** the report counts `SmartUnions` lost under `altium-storage`
+
+### Requirement: Stroke text fonts travel through KiCad
+
+A conversion of an Altium design to KiCad SHALL write the `stroke_font` of every text and field it writes
+that holds one as a board property `Fenolite.Altium.StrokeFonts`, keyed by the item's KiCad uuid. A
+conversion back SHALL give each text and field of a uuid in the map its `stroke_font` again.
+
+#### Scenario: Stroke comments come back with their font
+
+- **GIVEN** the public row `altium-third-party-pcbdoc-04`, whose 15 stroke comments name `Arial`
+- **WHEN** it is converted to KiCad and the KiCad board back to Altium
+- **THEN** the written document's 15 stroke texts name `Arial`, and every text record holds the font type,
+  name, bold and italic of the source's

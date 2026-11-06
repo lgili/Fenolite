@@ -12,6 +12,12 @@
   texts, footprint texts, fields); a stroke text keeps them in its slots and its canonical JSON. Proof:
   `uv run pytest tests/unit/convert/test_truetype_kicad_c0460.py tests/unit/backends/altium/test_truetype_texts.py -n 0`.
 
+- [x] 1.4 A stroke text keeps the font its record names (S-2253; the round trip of row `-04` wrote
+  `FONTNAME` '' on its 15 stroke comments, S-2191): the import keeps the name, bold and italic in the
+  text's `altium` bag (`stroke_font`), the conversion to KiCad carries them by KiCad uuid as
+  `Fenolite.Altium.StrokeFonts`, and the writer writes them in the stroke text's record. Proof:
+  `uv run pytest tests/unit/convert/test_stroke_fonts_c0460.py -n 0`.
+
 ## 2. Union members
 
 - [x] 2.1 The import records a via's, region's and component's non-zero union index in its `altium` bag;
@@ -29,4 +35,5 @@
 ## 4. Kit
 
 - [ ] 4.1 altium-rounds-2 opens the round trips of rows `-01` and `-04`: Altium lists the source's union
-  and TrueType texts (S-2191).
+  and TrueType texts (S-2191). Row `-04` at 332b79837: unions and TrueType texts identical, stroke
+  `FONTNAME` lost (task 1.4); row `-01` open.
