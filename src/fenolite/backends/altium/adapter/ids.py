@@ -66,6 +66,7 @@ EXT_KEYS: tuple[str, ...] = (
     "scope2",
     "rule_kind",
     "cell",
+    "layer_value",
     "cells_not_lifted",
     "kept_record",
     "stroke",

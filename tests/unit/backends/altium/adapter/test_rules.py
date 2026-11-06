@@ -257,6 +257,21 @@ def test_cell_rules_of_an_import_and_the_clearance_in_force() -> None:
     assert between("arc", "pad") == (101_600, "rule:Clearance")
 
 
+def test_a_per_layer_rule_of_an_import_keeps_its_layer_in_its_bag() -> None:
+    """A per-layer Width value (change c0462, task 4.1) becomes a rule whose bag holds ``layer_value``, a key
+    of the closed table: its import raised ``KeyError`` before the key entered ``EXT_KEYS``."""
+    record = rec.rule(
+        "Width", "Width", MINLIMIT="0.2mm", PREFEREDWIDTH="0.25mm", MAXLIMIT="1mm",
+        BOTTOMLAYER_PREFWIDTH="0.3mm",
+    )  # fmt: skip
+    design = import_board(rec.document(rules=[record]), file="a.PcbDoc", sha256=rec.SHA)
+    assert design.rules is not None
+    general, bottom = design.rules.rules
+    assert "layer_value" not in dict(general.ext["altium"].payload)
+    assert dict(bottom.ext["altium"].payload)["layer_value"] == "B.Cu"
+    assert general.id != bottom.id
+
+
 def test_the_copper_check_counts_the_cells(monkeypatch: pytest.MonkeyPatch) -> None:
     from fenolite.backends.altium.read import pcb
 
