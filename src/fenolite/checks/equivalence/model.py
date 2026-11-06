@@ -61,6 +61,7 @@ KINDS: tuple[tuple[LevelId, str, str], ...] = (
     (3, "pad-position", "position"),
     (3, "pad-rotation", "rotation"),
     (3, "pad-copper", "layers"),
+    (3, "net-tie-copper", "copper"),
     (4, "side", "side"),
     (4, "position", "position"),
     (4, "rotation", "rotation"),

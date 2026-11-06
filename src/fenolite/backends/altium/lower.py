@@ -129,8 +129,9 @@ component that has no footprint model in the generated schematic, and ``pin-pads
 holds what the model's map cannot say (the key ``pin_pads``: a record without a pad, or with a pad that
 another pin holds). Of the items of a footprint instance (change c0126): ``footprint-graphic`` is a graphic
 on a layer without a layer in the document, or one that no record holds; ``footprint-copper`` a graphic on a
-copper layer, which is not written; ``footprint-text`` a text or a field that the text record cannot hold.
-``AltiumInputs.written`` counts the written graphics and texts under the first and the third key. ``dnp``
+copper layer, which is not written unless the footprint is a net tie (change c0431); ``footprint-text`` a
+text or a field that the text record cannot hold. ``AltiumInputs.written`` counts the written graphics, the
+written net-tie copper and the texts under the three keys. ``dnp``
 (change c0159) is a component whose do-not-populate flag is set: the documents hold no fitted flag outside
 variants, so the part is written as fitted."""
 DNP_KIND = "dnp"
@@ -996,6 +997,29 @@ def _written_keepouts(fp: FootprintInstance, copper: Sequence[str], account: _Ac
     return tuple(out)
 
 
+FOOTPRINT_COPPER_REASON = (
+    "a graphic of a footprint on a copper layer has no record written: it would be copper"
+)
+"""Why a copper graphic of a footprint without net-tie groups is not written."""
+
+
+def net_tie_copper_problem(
+    fp: FootprintInstance, graphic: Graphic, copper_ids: Mapping[str, int], *, arc_known: bool = False
+) -> str | None:
+    """Why the copper graphic ``graphic`` of ``fp`` is not written as a component item (change c0431), or
+    ``None``: ``fp`` has no net-tie groups, its layer is no signal layer of ``copper_ids``, or no record
+    holds it (``pcbdoc.graphic_problem``)."""
+    if not fp.net_ties:
+        return FOOTPRINT_COPPER_REASON
+    layer = copper_ids.get(graphic.layer)
+    if layer is None:
+        return f"the layer {graphic.layer} of a net-tie graphic is not a copper layer of the written stack"
+    if layer >= rec.FIRST_PLANE:
+        return f"the layer {graphic.layer} of a net-tie graphic is a plane, which holds no track"
+    problem = pcbdoc.graphic_problem(graphic, arc_known=arc_known, copper=(graphic.layer,))
+    return None if problem is None else f"a net-tie graphic: {problem}"
+
+
 @dataclass(frozen=True, slots=True)
 class _Items:
     """What ``_footprint_items`` gives the placed component of one instance."""
@@ -1014,6 +1038,7 @@ def _footprint_items(
     copper: Sequence[str],
     frame: pcbdoc.Frame,
     account: _Account,
+    copper_ids: Mapping[str, int] | None = None,
 ) -> _Items:
     """The graphics, the fields ``Reference`` and ``Value`` and the texts of ``fp`` as the document writes
     them (capability altium-pcb-writer, "Footprint items of a written component"; change c0126).
@@ -1026,20 +1051,31 @@ def _footprint_items(
     rectangle or polygon as a region, a polygon outline as tracks. An ``arc`` that still says its kept
     record is written from it (``kept_arc``). A graphic on a copper layer is not written and counted under
     ``footprint-copper``; one without a layer in the document, or that no record holds, under
-    ``footprint-graphic``; a text or a field that the text record cannot hold under ``footprint-text``."""
+    ``footprint-graphic``; a text or a field that the text record cannot hold under ``footprint-text``.
+
+    A footprint with net-tie groups (change c0431) keeps its copper: a graphic on a signal layer of
+    ``copper_ids`` (the Altium id of each copper layer of the written stack) is a component item on that
+    layer, without a net, as KiCad holds it; Altium's DRC ignores the shorts inside a Net Tie component
+    (S-1900). Only a graphic on a plane, or one that ``pcbdoc.graphic_problem`` refuses, stays counted
+    under ``footprint-copper``."""
     bottom = fp.side == "bottom"
     to_board = Transform.placement(fp.position, fp.rotation)
     graphics: list[Graphic] = []
     arcs: dict[str, rec.ArcGeometry] = {}
     items: list[pcbdoc.ComponentGraphic] = []
     for graphic in fp.graphics:
-        if graphic.layer.endswith(".Cu") or graphic.layer in copper:
-            reason = "a graphic of a footprint on a copper layer has no record written: it would be copper"
-            account.skip("footprint-copper", graphic.id, reason)
-            continue
         kept = None
         if graphic.kind == "arc":
             kept = kept_arc(graphic, tuple(to_board.apply(p) for p in graphic.points), frame)
+        if graphic.layer.endswith(".Cu") or graphic.layer in copper:
+            reason = net_tie_copper_problem(fp, graphic, copper_ids or {}, arc_known=kept is not None)
+            if reason is None:
+                layer = (copper_ids or {})[graphic.layer]
+                items.append(pcbdoc.ComponentGraphic(graphic, layer, kept))
+                account.wrote("footprint-copper")
+            else:
+                account.skip("footprint-copper", graphic.id, reason)
+            continue
         drawn = not graphic.filled and graphic.kind in ("line", "rect", "circle", "arc")
         if drawn and graphic.layer in DEFINITION_LAYERS:
             top = _library_graphic(graphic, bottom=bottom)
@@ -1163,6 +1199,7 @@ def _footprints(
     layer_ids: Mapping[str, int] | None = None,
     copper: Sequence[str] = (),
     options: LowerOptions | None = None,
+    copper_ids: Mapping[str, int] | None = None,
 ) -> tuple[list[pcbdoc.PlacedComponent], list[pcbdoc.FreePad]]:
     """The components and the free pads of the document. With ``bodies`` ``extruded`` (change c0121) the
     bodies of a written footprint that have a record are appended to ``placed_bodies``, placed in
@@ -1235,7 +1272,7 @@ def _footprints(
         own = _Items()
         if frame is not None and (fp.graphics or fp.texts or fp.fields):
             ids = {**rec.BOARD_LAYER_MAP, **(layer_ids or {})}
-            own = _footprint_items(fp, ids, copper, frame, account)
+            own = _footprint_items(fp, ids, copper, frame, account, copper_ids)
         defn = FootprintDef(
             id=fp.id,
             name=pattern or "FOOTPRINT",
@@ -1848,6 +1885,7 @@ def _document(
         layer_ids=layer_ids,
         copper=layers,
         options=options,
+        copper_ids=dict(zip(layers, rec.copper_stack(layers, tuple(planes)), strict=True)),
     )
     tracks, arcs, vias, zones, arc_records = _copper(
         board, layers, planes, net_names, frame, account, full_drill=rewrite

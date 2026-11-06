@@ -1733,6 +1733,11 @@ meaning = "No exclusion profile exists for the running kicad-cli version line, s
 fix = "Read the differences as unattributed, or use a kicad-cli version that has a profile."
 see = "equivalent"
 
+["equiv.net-tie-copper"]
+meaning = "A piece of copper of a net-tie footprint (a segment, a region or an arc on a copper layer, in the footprint's frame) is on one side only: the copper that joins the tied nets, which the netlist and routing levels never see."
+fix = "Write the tie's copper on the other side too; a conversion that could not write it names a footprint-copper loss row."
+see = "equivalent"
+
 ["equiv.oracle-failed"]
 meaning = "kicad-cli wrote no board for the document, or a board that Fenolite's KiCad reader refuses, so no level ran."
 fix = "Read the tool's message; run again with a larger --timeout for a large document."

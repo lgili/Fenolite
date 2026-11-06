@@ -12,6 +12,7 @@ pure: it reads no file and runs no tool.
 
 from __future__ import annotations
 
+import math
 from collections import defaultdict
 from collections.abc import Collection, Mapping, Sequence
 from dataclasses import replace
@@ -376,6 +377,103 @@ def _grouped(footprint: FootprintInstance) -> dict[str, list[Pad]]:
     return groups
 
 
+def _copper_roles(board: Board) -> dict[str, str]:
+    """The role of each copper layer of ``board`` by its ordinal: ``top``, ``bottom`` or ``inner<k>``."""
+    copper = sorted((layer for layer in board.layers if layer.kind == "copper"), key=lambda x: x.ordinal)
+    roles: dict[str, str] = {}
+    for index, layer in enumerate(copper):
+        last = index == len(copper) - 1
+        roles[layer.name] = "top" if index == 0 else "bottom" if last else f"inner{index}"
+    return roles
+
+
+Piece = tuple[str, str, int, tuple[Point, ...]]
+"""One piece of copper of a footprint (change c0431): ``(role, form, width, points)``. A ``segment`` holds
+its two ends, a ``region`` its corners and an ``arc`` its start, middle and end; the points of a segment and
+a region are sorted, so the direction and the first corner do not count."""
+
+
+def _ends(points: Sequence[Point]) -> tuple[Point, ...]:
+    return tuple(sorted(points, key=lambda p: (p.x, p.y)))
+
+
+def copper_pieces(footprint: FootprintInstance, board: Board) -> list[Piece]:
+    """The copper of ``footprint``'s graphics in its own frame (change c0431): a line, and each side of a
+    rectangle or polygon outline, is a ``segment``; a filled rectangle or polygon is a ``region``; a circle
+    is an ``arc`` of its centre and its radius; an arc is an ``arc`` of its three points. A graphic on a
+    layer that is not a copper layer of ``board`` is not copper."""
+    roles = _copper_roles(board)
+    pieces: list[Piece] = []
+    for graphic in footprint.graphics:
+        role = roles.get(graphic.layer)
+        if role is None:
+            continue
+        points = graphic.points
+        if graphic.kind == "rect" and len(points) == 2:
+            s, e = points
+            points = (s, Point(e.x, s.y), e, Point(s.x, e.y))
+        if graphic.kind in ("rect", "polygon"):
+            if graphic.filled:
+                pieces.append((role, "region", 0, _ends(points)))
+                if graphic.width <= 0:
+                    continue
+            for index, point in enumerate(points):
+                following = points[(index + 1) % len(points)]
+                if point != following:
+                    pieces.append((role, "segment", graphic.width, _ends((point, following))))
+        elif graphic.kind == "line":
+            pieces.append((role, "segment", graphic.width, _ends(points)))
+        elif graphic.kind == "circle" and len(points) == 2:
+            centre, edge = points
+            radius = round(math.hypot(edge.x - centre.x, edge.y - centre.y))
+            pieces.append((role, "arc", graphic.width, (centre, Point(radius, 0))))
+        else:
+            ordered = (
+                points
+                if len(points) != 3 or (points[0].x, points[0].y) <= (points[2].x, points[2].y)
+                else points[::-1]
+            )
+            pieces.append((role, "arc", graphic.width, tuple(ordered)))
+    return sorted(pieces, key=lambda p: (p[0], p[1], p[2], [(q.x, q.y) for q in p[3]]))
+
+
+def _piece_text(piece: Piece) -> str:
+    role, form, width, points = piece
+    return f"{role} {form} width {width} at " + " ".join(_point(p) for p in points)
+
+
+def _same_piece(a: Piece, b: Piece, tolerances: Tolerances) -> bool:
+    return (
+        a[0] == b[0]
+        and a[1] == b[1]
+        and norm.lengths_equal(a[2], b[2], tolerances)
+        and len(a[3]) == len(b[3])
+        and all(norm.points_equal(p, q, tolerances) for p, q in zip(a[3], b[3], strict=True))
+    )
+
+
+def net_tie_copper_differences(
+    ref: str, one: FootprintInstance, other: FootprintInstance, a: Board, b: Board, tolerances: Tolerances
+) -> list[Difference]:
+    """The copper of a net-tie footprint that one side holds and the other does not (change c0431): the
+    copper that joins the nets of its pads, which levels 2 and 5 never see, since each pad keeps its own
+    net. One ``net-tie-copper`` difference per piece of ``copper_pieces`` that no piece of the other side
+    matches within ``tolerances``; nothing for a footprint that is a net tie on neither side."""
+    if not one.net_ties and not other.net_ties:
+        return []
+    left, right = copper_pieces(one, a), copper_pieces(other, b)
+    unmatched: list[Piece] = []
+    for piece in left:
+        found = next((k for k, held in enumerate(right) if _same_piece(piece, held, tolerances)), None)
+        if found is None:
+            unmatched.append(piece)
+        else:
+            del right[found]
+    return [_difference(3, "net-tie-copper", ref, _piece_text(p), "") for p in unmatched] + [
+        _difference(3, "net-tie-copper", ref, "", _piece_text(p)) for p in right
+    ]
+
+
 def level_footprints(
     a: Design, b: Design, refs: Sequence[str], tolerances: Tolerances = EXACT
 ) -> tuple[LevelResult, tuple[FootprintPair, ...]]:
@@ -420,6 +518,7 @@ def level_footprints(
                 differences += found
                 unknown += no_span
                 compared += 1
+        differences += net_tie_copper_differences(ref, one, other, a.board, b.board, tolerances)
     summary = {"footprints": len(pairs), "copper_unknown": unknown}
     return LevelResult(3, compared, _ordered(differences), (), summary), tuple(pairs)
 

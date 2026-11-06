@@ -432,6 +432,7 @@ AT_REF: tuple[str, ...] = (
     "pad-position",
     "pad-rotation",
     "pad-copper",
+    "net-tie-copper",
     "side",
     "position",
     "rotation",
@@ -465,6 +466,7 @@ EXPLAINS: tuple[Explains, ...] = (
     Explains("dnp", ("dnp",), "ref"),
     Explains("pin-net", ("net",), "pin"),
     Explains("footprint-copper", LEVEL5, "footprint-nets"),
+    Explains("footprint-copper", ("net-tie-copper",), "ref"),
     Explains("net-tie", LEVEL5, "footprint-nets"),
     Explains(SOURCE, ("ref-ambiguous",), "same"),
     Explains("shared-footprint", ("ref-ambiguous",), "ref"),
@@ -573,6 +575,11 @@ class Explainer:
             elif kind == "footprint-copper":
                 holders = {footprint_of_graphic.get(i) for i in ids}
                 self._add(kind, "footprint-nets", {net for fp_id in holders for net in fp_nets(fp_id)})
+                self._add(
+                    kind,
+                    "ref",
+                    {refs.get(by_footprint[h].component_id, "") for h in holders if h in by_footprint},
+                )
 
     def _add(self, kind: str, scope: Scope, places: set[str]) -> None:
         places.discard("")
