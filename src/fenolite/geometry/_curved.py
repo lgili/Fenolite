@@ -6,11 +6,17 @@ On closed pieces a distance minimum is an endpoint, a common point, or an interi
 pair. For circle/line pieces stationary radii are perpendicular to the line; for two nonconcentric
 circles they follow the line of centres. These are all enumerated with exact arc membership tests.
 Concentric arcs with overlapping directions have an endpoint radial projection in common.
+
+A piece of the other shape is evaluated exactly only when float bounds of its distance to the arc, widened
+by a slack many orders above their rounding, cannot rule it out: a lower bound above the smallest upper bound
+(or above the asked threshold) proves the piece strictly farther, so it can neither win nor tie, and an upper
+bound below the threshold proves it nearer. Every remaining decision is exact (change c0437).
 """
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+import math
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from fractions import Fraction
 from typing import TYPE_CHECKING
@@ -170,6 +176,83 @@ def _pieces(shape: Thick) -> Iterator[tuple[Point, Point]]:
             yield shape.core[k], shape.core[(k + 1) % count]
 
 
+SAMPLES = 8
+"""Float points along an arc for its upper distance bounds: the arc is cut into this many equal parts."""
+
+
+def _segment_distance(px: float, py: float, start: Point, end: Point) -> float:
+    dx, dy = end.x - start.x, end.y - start.y
+    length2 = dx * dx + dy * dy
+    along = 0.0 if not length2 else min(1.0, max(0.0, ((px - start.x) * dx + (py - start.y) * dy) / length2))
+    return math.hypot(px - (start.x + along * dx), py - (start.y + along * dy))
+
+
+@dataclass(frozen=True, slots=True)
+class _Gauge:
+    """Float data of one arc for ``_bounds``."""
+
+    arc: Arc
+    box: BBox
+    cx: float
+    cy: float
+    radius: float
+    scale: float
+    points: tuple[tuple[float, float], ...]
+
+    @classmethod
+    def of(cls, arc: Arc) -> _Gauge:
+        assert arc.centre is not None and arc.radius2 is not None
+        cx, cy = float(arc.centre[0]), float(arc.centre[1])
+        box, radius = arc.bbox(), math.sqrt(float(arc.radius2))
+        scale = max(abs(cx), abs(cy), radius, abs(box.x0), abs(box.y0), abs(box.x1), abs(box.y1))
+        first = math.atan2(arc.start.y - cy, arc.start.x - cx)
+        sweep = (math.atan2(arc.end.y - cy, arc.end.x - cx) - first) % math.tau
+        if (math.atan2(arc.mid.y - cy, arc.mid.x - cx) - first) % math.tau > sweep:
+            sweep -= math.tau  # the arc runs the other way round
+        samples = tuple(
+            (
+                cx + radius * math.cos(first + sweep * k / SAMPLES),
+                cy + radius * math.sin(first + sweep * k / SAMPLES),
+            )
+            for k in range(1, SAMPLES)
+        )
+        slack = 1.0 + scale * 1e-9
+        if radius > 1e12 or not all(
+            box.x0 - slack <= x <= box.x1 + slack and box.y0 - slack <= y <= box.y1 + slack
+            for x, y in samples
+        ):
+            samples = ()  # a radius too large for float angles, or a sweep not trusted: no samples
+        stored = tuple((float(p.x), float(p.y)) for p in (arc.start, arc.mid, arc.end))
+        return cls(arc, box, cx, cy, radius, scale, stored + samples)
+
+    def bounds(self, start: Point, end: Point) -> tuple[float, float, float]:
+        """``(lower, upper, slack)``: the exact distance between the arc and the closed segment lies in
+        ``[lower - slack, upper + slack]``. The lower bound is the larger of the box gap and the distance to
+        the whole circle; the upper bound is the nearest of the arc's stored points and of ``SAMPLES - 1``
+        points spread along it, each within float rounding of the true arc. The slack, 1 nm plus 10⁻⁹ of the
+        largest magnitude, exceeds the float rounding of these few operations (about 10⁻¹⁵ of that
+        magnitude) by many orders."""
+        box = self.box
+        gap_x = max(box.x0 - max(start.x, end.x), min(start.x, end.x) - box.x1, 0)
+        gap_y = max(box.y0 - max(start.y, end.y), min(start.y, end.y) - box.y1, 0)
+        near = _segment_distance(self.cx, self.cy, start, end)
+        far = max(math.hypot(p.x - self.cx, p.y - self.cy) for p in (start, end))
+        circle = near - self.radius if near > self.radius else self.radius - far if far < self.radius else 0.0
+        upper = min(_segment_distance(x, y, start, end) for x, y in self.points)
+        scale = max(self.scale, abs(start.x), abs(start.y), abs(end.x), abs(end.y))
+        return max(math.hypot(gap_x, gap_y), circle), upper, 1.0 + scale * 1e-9
+
+
+def _near(gauge: _Gauge, keys: Iterable[int], segments: tuple[tuple[Point, Point], ...]) -> list[int]:
+    """The keys, in their order, of the segments that may hold the closest pair: every other one is
+    strictly farther than some segment's upper bound."""
+    found = [(k, *gauge.bounds(*segments[k])) for k in keys]
+    if not found:
+        return []
+    ceiling = min(upper + slack for _, _, upper, slack in found)
+    return [k for k, lower, _, slack in found if lower - slack <= ceiling]
+
+
 def _best(candidates: Iterator[Closest]) -> Closest:
     best: Closest | None = None
     for candidate in candidates:
@@ -192,17 +275,49 @@ def closest(a: Thick, b: Thick, index: SpatialIndex[int] | None = None) -> Close
         return Closest(Real(), point, point)
     if b.arc is not None:
         return _best(_arc_arc(arc, b.arc))
+    segments = tuple(_pieces(b))
+    gauge = _Gauge.of(arc)
     if index is None:
-        return _best(candidate for start, end in _pieces(b) for candidate in _arc_segment(arc, start, end))
+        keys = _near(gauge, range(len(segments)), segments)
+        return _best(candidate for k in keys for candidate in _arc_segment(arc, *segments[k]))
     # Once a candidate is no farther than reach, segments outside this closed inflated true arc
     # box cannot improve or tie it. Every widening remains an exact integer broad-phase query.
-    segments = tuple(_pieces(b))
-    box, other = arc.bbox(), BBox.of_points(b.core)
+    box, other = gauge.box, BBox.of_points(b.core)
     reach = max(box.x0 - other.x1, other.x0 - box.x1, box.y0 - other.y1, other.y0 - box.y1, 0) + 1
     while True:
         pieces = index.query(box.inflate(reach))
         if pieces:
-            best = _best(candidate for k in pieces for candidate in _arc_segment(arc, *segments[k]))
+            keys = _near(gauge, pieces, segments)
+            best = _best(candidate for k in keys for candidate in _arc_segment(arc, *segments[k]))
             if (best.distance - reach).sign() <= 0:
                 return best
         reach *= 4
+
+
+def within(a: Thick, b: Thick, reach: int, strict: bool, index: SpatialIndex[int] | None = None) -> bool:
+    """Whether twice the distance is below ``reach`` (strictly) or at most ``reach``: ``closest`` with a
+    threshold, which visits only the segments near enough and stops at the first one within it."""
+    assert a.arc is not None or b.arc is not None
+    if a.arc is None:
+        return within(b, a, reach, strict, index)
+
+    def holds(distance: Real) -> bool:
+        sign = (distance.scaled(2) - reach).sign()
+        return sign < 0 if strict else sign <= 0
+
+    arc = a.arc
+    if b.filled and point_in_ring(arc.start, b.core) != Location.OUTSIDE:
+        return holds(Real())
+    if b.arc is not None:
+        return holds(_best(_arc_arc(arc, b.arc)).distance)
+    segments = tuple(_pieces(b))
+    gauge = _Gauge.of(arc)
+    reached = gauge.box.inflate(reach // 2 + 1)
+    keys: Iterable[int] = range(len(segments)) if index is None else index.query(reached)
+    for k in keys:
+        lower, upper, slack = gauge.bounds(*segments[k])
+        if 2 * (lower - slack) > reach:
+            continue
+        if 2 * (upper + slack) < reach or holds(_best(_arc_segment(arc, *segments[k])).distance):
+            return True
+    return False

@@ -18,6 +18,7 @@ from fractions import Fraction
 
 from fenolite.geometry._curved import Closest
 from fenolite.geometry._curved import closest as curved_closest
+from fenolite.geometry._curved import within as curved_within
 from fenolite.geometry.errors import GeometryError
 from fenolite.geometry.index import SpatialIndex
 from fenolite.geometry.polygon import Polygon
@@ -277,9 +278,8 @@ def _within(a: Thick, b: Thick, reach: int, strict: bool) -> bool:
     if not _core_box(a).inflate(grow).intersects(_core_box(b)):
         return False  # the cores are farther apart than reach / 2 along an axis
     if a.arc is not None or b.arc is not None:
-        first, second = _ordered(a, b)
-        sign = (_curved_distance(first, second).distance.scaled(2) - reach).sign()
-        return sign < 0 if strict else sign <= 0
+        other = b if b.arc is None else a if a.arc is None else None
+        return curved_within(a, b, reach, strict, _index(other) if other is not None else None)
     sa, sb = _segments(a), _segments(b)
     reach2 = reach * reach
     for i, j in _candidates(a, b, grow):
