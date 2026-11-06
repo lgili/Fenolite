@@ -49,6 +49,12 @@ FORMATS: dict[str, Format] = {
     ),
     "fenolite.altium-graduation.v0": Format("internal", None, "Packaged graduation policy.", "internal"),
     "fenolite.altium-kit-form.v0": Format("internal", None, "Kit-specific manual form.", "internal"),
+    "fenolite.altium-kit-pour-record.v0": Format(
+        "internal",
+        None,
+        "Record of a board Altium repoured, under tests/data/altium/kit (c0463).",
+        "internal",
+    ),
     "fenolite.altium-kit-probes.v0": Format("internal", None, "Kit-specific probe input.", "internal"),
     "fenolite.altium-kit-run.v0": public("KitRunFile"),
     "fenolite.altium-kit.v0": public("KitFile"),

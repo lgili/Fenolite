@@ -91,6 +91,29 @@ before the change, and their saved regions.
 | Altium's saved pour of each is one region whose outer ring follows the outline without the repeat (19 and 30 vertices, no hole), pulled in by clearances and rounded corners | S-2222 | CORPUS-VERIFIED | H-A-POUR-REGION |
 | No polygon of the eight rows has an outline that touches itself at a vertex or crosses itself, so the rows do not show how Altium fills either | S-2222 | CORPUS-VERIFIED | H-A-POUR-REGION |
 
+## Records of Altium's repour
+
+Change c0463, tasks 3.1 and 4.1. Two runs of Altium Designer 26 give the pour that Altium makes, with no
+saved pour to trust: step K6.12 of the kit repours the sample `pour-hatched` (S-2223), and the step
+`repour` repours the eight public rows of the pour census as published (S-2224).
+`tools/kit_pour_c0463.py prepare` writes the folder of the run outside the repository, and `record` reads
+the boards Altium saved into `tests/data/altium/kit/pour-hatched.json` and `tests/data/altium/kit/repour.json`
+(`backends.altium.pourrecord`, schema `fenolite.altium-kit-pour-record.v0`). Per polygon a record holds:
+
+- its `LAYER`, `HATCHSTYLE`, `GRIDSIZE`, `TRACKWIDTH`, `POURINDEX` and `SHELVED` as saved;
+- its regions: their count, holes, vertices, area in nm² and the SHA-256 of their rings (each ring from its
+  least vertex, counter-clockwise), which a test given the saved board checks;
+- the tracks and arcs that name it: their counts, the exact directions of the tracks (`dx:dy`) and widths.
+
+The record of the sample also lists every poured track and arc in file units, from which the hatch is built
+(task 3.2). The record of a row holds no coordinate: no stretch of a row's geometry enters the repository,
+and no board that Altium saved does. Each record names the tool, the date, the SHA-256 of each source and
+saved board, and the dialogs and message counts the run typed.
+
+The writer writes a zone whose `altium` pairs hold `hatch_style`, `grid_size` and `track_width` (nm) as a
+hatched polygon: `HATCHSTYLE`, `GRIDSIZE` and `TRACKWIDTH` (`docboard.polygon_fields`). A zone read with
+`hatch_style` alone keeps the solid pour's keys: the import does not keep the grid or the track width yet.
+
 ## Fenolite's choices
 
 - **Regions.** A computed pour is written after every other region of `Regions6`, so the positions of the

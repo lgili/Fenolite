@@ -1211,6 +1211,12 @@ corpus_id = ""
 notes = "kit sample: independent polygon-pour probes on the inner layers of a four-layer board, authored for Fenolite (c0215)"
 
 [[file]]
+path = "examples/kit/pour-hatched/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "kit sample: hatched polygons of the four styles, the grid's origin, a slanted edge, a self-touching and a self-crossing ring, authored for Fenolite (c0463, task 3.1)"
+
+[[file]]
 path = "examples/kit/tree/design.py"
 origin = "authored"
 corpus_id = ""

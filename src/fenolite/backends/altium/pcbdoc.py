@@ -47,6 +47,7 @@ from fenolite.backends.altium.adapter.arcring import ArcPolygon
 from fenolite.backends.altium.ascii import Field, text_problem
 from fenolite.backends.altium.cfb import Entry, Storage, write_compound
 from fenolite.backends.altium.docboard import (
+    HATCH_STYLES,
     LEGACY_ISLANDS_NM2,
     LEGACY_NECK_NM,
     OutlineArc,
@@ -1905,6 +1906,20 @@ def _pour_over(zone: Zone) -> str:
     return found if found in ("0", "1", "2") else "1"
 
 
+def _hatch(zone: Zone) -> tuple[str, int, int] | None:
+    """The zone's hatch (change c0463, task 3.1): its ``hatch_style`` pair with ``grid_size`` and
+    ``track_width`` in nanometres, as a script sets them; ``None`` (a solid pour) when one is missing or
+    unreadable, or the style is ``Solid``."""
+    bag = zone.ext.get("altium")
+    pairs = dict(bag.payload) if bag is not None else {}
+    style, grid, width = pairs.get("hatch_style"), pairs.get("grid_size"), pairs.get("track_width")
+    if style not in HATCH_STYLES or style == "Solid" or grid is None or width is None:
+        return None
+    if not (grid.isdigit() and width.isdigit()) or int(grid) <= 0 or int(width) <= 0:
+        return None
+    return style, int(grid), int(width)
+
+
 def _arc_vertices(
     carried: ArcPolygon, first: tuple[int, int]
 ) -> tuple[list[tuple[int, int]], dict[int, tuple[int, int, int, int, int]]]:
@@ -1969,6 +1984,7 @@ def polygon_records(
             pour_over=_pour_over(zone),
             arcs=bends,
             arc_resolution=carried.arc_resolution if carried is not None else None,
+            hatch=_hatch(zone),
         )
         out.append(rec.property_block(fields))
     return out

@@ -29,10 +29,13 @@ Check = Literal[
 STEP_ID = re.compile(r"K([1-9])\.([1-9][0-9]?)")
 RESULTS = "results"
 """The folder of a kit that a run fills."""
-SAMPLES: tuple[str, ...] = ("flat", "tree", "routed", "board6", "libs", "pour", "pour4", "slots")
-"""The kit's samples, each built from ``examples/kit/<name>/design.py``. ``pour`` and ``pour4`` (change
-c0215) are two free PCB documents each, ``computed/`` and ``reference/``, with ``probes.json``."""
-POUR_SAMPLES: tuple[str, ...] = ("pour", "pour4")
+SAMPLES: tuple[str, ...] = (
+    "flat", "tree", "routed", "board6", "libs", "pour", "pour4", "pour-hatched", "slots",
+)  # fmt: skip
+"""The kit's samples, each built from ``examples/kit/<name>/design.py``. ``pour``, ``pour4`` (change c0215)
+and ``pour-hatched`` (change c0463) are two free PCB documents each, ``computed/`` and ``reference/``, with
+``probes.json``."""
+POUR_SAMPLES: tuple[str, ...] = ("pour", "pour4", "pour-hatched")
 PROBES_FILE = "probes.json"
 """The probes of a pour sample: each polygon's probe and the declared points (``cli._kit``)."""
 PROBE_ROWS: Mapping[str, tuple[str, ...]] = MappingProxyType(
@@ -175,9 +178,9 @@ GROUPS: tuple[Group, ...] = (
     Group(
         6,
         "Repour",
-        "The polygon of `routed`, and the probes of `pour` and `pour4` against Fenolite's own pour (change "
-        "c0215).",
-        34,
+        "The polygon of `routed`, the probes of `pour` and `pour4` against Fenolite's own pour (change "
+        "c0215), and Altium's hatched pour of `pour-hatched` (change c0463).",
+        37,
     ),  # fmt: skip
     Group(7, "Output job", "The output job of `routed` opens and generates its containers.", 6),
     Group(8, "Sheet template and special strings", "The sheet template and the title block of `flat`.", 5),
@@ -259,6 +262,8 @@ _POUR_KIT = "H-A-POUR-KIT"
 _POUR_OPEN = ("H-A-POUR-OPEN", "H-A-POUR-REGION")
 _POUR4_INPUTS = ("H-A-POUR-CLEARANCE", "H-A-POUR-RELIEF", "H-A-POUR-VIAPAD")
 """The input rows that the probes of ``pour4`` name (P1 and P2 on the inner layers)."""
+_POUR_HATCH = "H-A-POUR-HATCH"
+"""The hatched pour (change c0463, task 3.1): step K6.12 observes it; no check compares it before task 3.2."""
 
 
 def _rebuilt(ident: str, sample: str, inputs: Sequence[str]) -> Step:
@@ -350,6 +355,17 @@ def _pour_steps() -> tuple[Step, ...]:
         _rebuilt("K6.9", "pour4", _POUR4_INPUTS),
         _kept("K6.10", "pour4"),
         _forced("K6.11", "pour4", "K6.9", _POUR4_INPUTS),
+        _file(
+            "K6.12",
+            "pour-hatched",
+            "Open `pour-hatched/reference/pour-hatched.PcbDoc` and run Tools » Polygon Pours » Repour "
+            "All, confirming every polygon. Save it with File » Save As as "
+            "`results/pour-hatched/repoured.PcbDoc`.",
+            "pour-hatched/repoured.PcbDoc",
+            (_POUR_HATCH, *_POUR_OPEN),
+            document="pour-hatched/reference/pour-hatched.PcbDoc",
+            checks=("repoured",),
+        ),
     )
 
 

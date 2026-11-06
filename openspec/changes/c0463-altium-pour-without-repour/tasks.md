@@ -45,6 +45,11 @@ Rules for every task:
 
 - [ ] 3.1 Kit sample `pour-hatched` authored and run (S-2223). Proof: the kit record, declared in
   `tests/data/MANIFEST.toml`, and `uv run pytest tests/corpus/test_manifest.py -q -n 0`.
+  Authored (2026-11-06): `examples/kit/pour-hatched/design.py` (P0 sentinel, P1 to P4 one per hatch style,
+  P5 and P6 the grid's origin, P7 a slanted edge, P8 a ring that touches itself, P9 a bow tie), kit step
+  K6.12 (`H-A-POUR-HATCH`, `repoured` only), the writer's hatch keys, and
+  `tools/kit_pour_c0463.py prepare|record` (`tests/unit/backends/altium/test_pourrecord_c0463.py`). Open:
+  the run, then `tests/data/altium/kit/pour-hatched.json` and S-2223.
 - [ ] 3.2 Hatched pour. Proof: `uv run pytest tests/corpus/test_altium_pour_hatched_c0463.py -q -n 0`.
 - [ ] 3.3 `unshaped-copper` and `unshaped-pad` shaped through the writer's text and pad geometry (c0460).
   `threshold` and `pour-over` read every documented value. Proof:
@@ -57,6 +62,12 @@ Rules for every task:
 
 - [ ] 4.1 The kit step `repour` (S-2224), and its records for the 8 rows. Proof:
   `uv run pytest tests/unit/cli/test_kit.py -q -n 0`, and the records declared in the manifest.
+  The step runs from `tools/kit_pour_c0463.py` (the rows as published, copied from the corpus cache), not
+  from `fenolite kit`: the rows are no kit sample. The record holds counts, areas and ring hashes only (the
+  coordinator's rule of 2026-11-06: no vertex list of a row, no saved board in the repository), so 4.2 runs
+  M1 to M4 against the saved boards of a folder named by an environment variable and checks their hashes
+  against the record. Proof of the tool: `tests/unit/backends/altium/test_pourrecord_c0463.py`. Open: the
+  run, `tests/data/altium/kit/repour.json` and S-2224.
 - [ ] 4.2 `tests/corpus/test_altium_pour_repour_c0463.py`, with stale saved pours named. Proof:
   `FENOLITE_HEAVY=1 uv run pytest tests/corpus/test_altium_pour_repour_c0463.py -q -n 0`.
 - [ ] 4.3 Repin the census to no refusals. Proof:

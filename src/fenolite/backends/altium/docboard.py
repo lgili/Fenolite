@@ -230,6 +230,8 @@ _POUR_HEAD: tuple[Field, ...] = (
     ("MINPRIMLENGTH", "3mil"),
 )
 """The keys of a solid polygon pour before its vertices (``pcb-copper.md``, "Polygon pour")."""
+HATCH_STYLES = ("Solid", "45Degree", "90Degree", "Horizontal", "Vertical", "None")
+"""The ``HATCHSTYLE`` values (``pcb-copper.md``, "Polygon pour")."""
 _POUR_TAIL: tuple[Field, ...] = (*_POLYGON_TAIL[:8], ("POUROVERSTYLE", "1"))
 """The keys after the vertices that a pour shares with the board outline, up to ``POUROVERSTYLE``; a pour
 sets ``REMOVEISLANDSBYAREA``, ``AREATHRESHOLD`` and ``NECKWIDTHTHRESHOLD`` from its zone (change c0446)."""
@@ -274,6 +276,7 @@ def polygon_fields(
     neck: int = LEGACY_NECK_NM,
     arcs: Mapping[int, OutlineArc] | None = None,
     arc_resolution: str | None = None,
+    hatch: tuple[str, int, int] | None = None,
 ) -> list[Field]:
     """The fields of one unpoured, solid polygon pour of ``Polygons6`` (``pcb-copper.md``, "Polygon pour"):
     the key set of the board outline with a net, a name and a pour index. ``layer_text`` is the ``LAYER``
@@ -288,13 +291,17 @@ def polygon_fields(
     ``ValueError`` for fewer than three vertices, another ``pour_over``, or an area or width that is not
     positive. ``arcs`` maps a vertex index to the arc that runs from it to the next, and ``arc_resolution``
     is the ``ARCRESOLUTION`` text: the source's arc vertices, written back by a conversion (change c0463,
-    task 1.3)."""
+    task 1.3). ``hatch`` is ``(HATCHSTYLE, GRIDSIZE, TRACKWIDTH)``, the two lengths in nanometres: a hatched
+    polygon (change c0463, task 3.1; ``ValueError`` for another style or a length that is not positive);
+    ``None`` writes the solid pour's ``Solid``, 20 mil and 8 mil."""
     if len(vertices) < 3:
         raise ValueError("a polygon needs at least three points")
     if pour_over not in ("0", "1", "2"):
         raise ValueError(f"POUROVERSTYLE is 0, 1 or 2, not {pour_over!r}")
     if (islands is not None and islands <= 0) or neck <= 0:
         raise ValueError("an island area and a neck width are positive")
+    if hatch is not None and (hatch[0] not in HATCH_STYLES or hatch[1] <= 0 or hatch[2] <= 0):
+        raise ValueError(f"a hatch is one of {', '.join(HATCH_STYLES)} with a positive grid and track width")
     fixed = {
         "REMOVEDEAD": "TRUE" if remove_dead else "FALSE",
         "POUROVER": "TRUE" if pour_over == "1" else "FALSE",
@@ -304,6 +311,10 @@ def polygon_fields(
     }
     if arc_resolution is not None:
         fixed["ARCRESOLUTION"] = arc_resolution
+    if hatch is not None:
+        fixed["HATCHSTYLE"] = hatch[0]
+        fixed["GRIDSIZE"] = rec.mil_text(rec.to_units(hatch[1]))
+        fixed["TRACKWIDTH"] = rec.mil_text(rec.to_units(hatch[2]))
     head = [(key, fixed.get(key, value)) for key, value in _POUR_HEAD]
     fields: list[Field] = [
         *common_fields(layer_text),
@@ -636,6 +647,7 @@ def board_text(
 
 __all__ = [
     "ANCHOR",
+    "HATCH_STYLES",
     "KIND",
     "OWNED_KEY",
     "OutlineArc",

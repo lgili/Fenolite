@@ -53,7 +53,7 @@ fenolite kit build --out kit --dry-run --json
 fenolite kit build --out kit --confirm --json
 ```
 
-The command runs in a source checkout: it builds the seven scripts under `examples/kit/` and loads the pinned authored `slots` catalogue (`--samples DIR`
+The command runs in a source checkout: it builds the eight scripts under `examples/kit/` and loads the pinned authored `slots` catalogue (`--samples DIR`
 names another folder). The two pour samples need the `geo` extra: without it the command exits 6. Without `--seed` and `--timestamp` it uses seed 0 and `2026-01-01T00:00:00Z`, so
 everyone who builds the same commit gets the same kit and the same `kit_sha256`. No external tool runs.
 
@@ -66,6 +66,7 @@ everyone who builds the same commit gets the same kit and the same `kit_sha256`.
 | `libs` | `examples/kit/libs/design.py` | a schematic library and a PCB library of seven parts |
 | `pour` | `examples/kit/pour/design.py` | eleven probes of the polygon pour on two layers (change c0215): two free PCB documents, `computed/pour.PcbDoc` with Fenolite's pour and `reference/pour.PcbDoc` without its regions, and `probes.json` |
 | `pour4` | `examples/kit/pour4/design.py` | the probes of the inner layers of four, with blind and buried vias, in the same form as `pour` |
+| `pour-hatched` | `examples/kit/pour-hatched/design.py` | hatched polygons of the four styles, two that show the grid's origin and one with a slanted edge, a ring that touches itself and one that crosses itself (change c0463), in the same form as `pour` |
 | `slots` | `examples/kit/slots/design.py` | the pinned authored Part S regions, clearance and gate-off projects and report; each project, schematic and PCB is source-bound, never a native-saved result |
 
 `routed` is built with the pour mode `outline` (as is every sample but the two pour samples), so step K6.1
@@ -111,7 +112,7 @@ without a run, not measurements.
 | K3 | Change order into an empty board | flat | 2 | 8 |
 | K4 | Rules editor and rule check | routed | 4 | 8 |
 | K5 | Layer stack, vias, texts, keep-outs | board6 | 5 | 10 |
-| K6 | Repour | routed, pour, pour4 | 11 | 34 |
+| K6 | Repour | routed, pour, pour4, pour-hatched | 12 | 37 |
 | K7 | Output job | routed | 2 | 6 |
 | K8 | Sheet template and special strings | flat, kit | 3 | 5 |
 | K9 | Libraries | libs | 2 | 5 |
@@ -130,6 +131,9 @@ All (`H-A-POUR-SCRIPT`: the two ways give the same copper). K6.4 and K6.10 save 
 K6.5 and K6.6 count the polygons the Polygon Manager and the rule check flag on it (0 each), K6.7 and K6.11
 force a repour of `computed/`, and K6.8 is the value of `PCB.Polygon.AdvancedPour` (off). Every one is a
 manual step: each that leaves a board ends in a save under a new name, which the script does not do.
+Step K6.12 (change c0463, task 3.1) repours `pour-hatched/reference/` with Repour All and saves it. Only
+`repoured` judges it: its saved board is the record of Altium's hatch (S-2223), from which the hatched pour
+is built (task 3.2); `pour-match` joins it then.
 
 Fenolite writes no component body, so no step reads one. The DSL has no bus, so the sample `tree` gets its
 bus from its script's `kit_model`; no step reads the bus in Altium, and `H-A-SCHX-BUS` stays an author

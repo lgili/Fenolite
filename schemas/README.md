@@ -86,6 +86,7 @@ tracked separately in `frozen-v0.json` while the active CLI writer remains v0.
 |---|---|---|---|
 | `fenolite.altium-graduation.v0` | internal | `internal` | Packaged graduation policy. |
 | `fenolite.altium-kit-form.v0` | internal | `internal` | Kit-specific manual form. |
+| `fenolite.altium-kit-pour-record.v0` | internal | `internal` | Record of a board Altium repoured, under tests/data/altium/kit (c0463). |
 | `fenolite.altium-kit-probes.v0` | internal | `internal` | Kit-specific probe input. |
 | `fenolite.altium-kit-run.v0` | public | `fenolite.cli.file_formats:KitRunFile` | User-authored input or agent-readable output. |
 | `fenolite.altium-kit.v0` | public | `fenolite.cli.file_formats:KitFile` | User-authored input or agent-readable output. |
