@@ -60,17 +60,18 @@ CLEARANCE_RULES = {
     "altium-third-party-pcbdoc-01": (1, 0),
     "altium-third-party-pcbdoc-02": (0, 1),
     "altium-third-party-pcbdoc-03": (2, 0),
-    "altium-third-party-pcbdoc-04": (1, 1),
+    "altium-third-party-pcbdoc-04": (2, 1),
     "altium-third-party-pcbdoc-05": (1, 0),
     "altium-third-party-pcbdoc-06": (0, 2),
-    "altium-third-party-pcbdoc-07": (2, 1),
+    "altium-third-party-pcbdoc-07": (3, 1),
     "altium-third-party-pcbdoc-08": (4, 1),
 }
 """Row → the clearance rules the check judges with and the Clearance records it could not read: facts
 of the documents' rule records, not findings (census of 2026-10-06; change c0125 moved the third row
 from ``(0, 3)``, and change c0130 the heavy row from ``(0, 4)``: one generic rule and one cell rule;
 change c0377 moved the heavy row from ``(2, 3)``: the two rules of the RF nets, scoped with ``or`` and
-``AND``)."""
+``AND``; change c0462 moved the fourth row from ``(1, 1)`` and the seventh from ``(2, 1)``: a record scoped to
+one footprint, and a record of the polygons and a differential pair, whose scope functions it reads)."""
 CELLS = {HEAVY_BOARD: {"judged": 1, "unjudged": 8}}
 """Row → the cells of its clearance matrices that the rules hold and do not hold, where it has any in an
 enabled record (the matrices of rows 02 and 06 are counted under them too)."""
