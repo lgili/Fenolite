@@ -115,9 +115,10 @@ def test_duplicate_designators_use_the_actual_source_footprint() -> None:
     )
 
 
-def test_bottom_unnumbered_pad_keeps_its_absolute_layer() -> None:
+def test_bottom_unnumbered_pad_stays_in_its_component() -> None:
+    """A pad without a number is a pad of its component with an empty name (change c0433), on its own
+    layer: the bottom-side component swaps it to the top in the definition and the record holds Bottom."""
     from fenolite.backends.altium import lower, pcbdoc
-    from fenolite.geometry.transform import Transform
 
     design = two_layer()
     assert design.board is not None
@@ -129,17 +130,17 @@ def test_bottom_unnumbered_pad_keeps_its_absolute_layer() -> None:
     design = dataclasses.replace(design, board=dataclasses.replace(design.board, footprints=(footprint,)))
     inputs = lower.from_design(design, issues=[])
     assert inputs.pcb is not None
-    free = next(p for p in inputs.pcb.free_pads if p.pad.id == pad.id)
-    assert free.pad.layers == ("B.Cu",)
-    assert free.pad.position == Transform.placement(footprint.position, footprint.rotation).apply(
-        pad.position
-    )
+    assert not inputs.pcb.free_pads
+    (component,) = inputs.pcb.components
+    assert [p.id for p in component.footprint.defn.pads] == [*(p.id for p in original.pads), pad.id]
+    assert "pad" not in inputs.changed
     document = read_pcbdoc(pcbdoc.write_pcbdoc(inputs.pcb))
     actual = next(p for p in document.pads if not p.name)
     assert actual.prefix.layer == 32
+    assert actual.prefix.component is not None
 
 
-def test_detached_pad_roundtrip_checks_its_geometry(tmp_path) -> None:
+def test_unnumbered_pad_roundtrip_checks_its_geometry(tmp_path) -> None:
     from fenolite.backends.altium import lower, rta3
     from fenolite.backends.altium.backend import AltiumBackend
     from fenolite.checks.rta3 import compare
@@ -162,21 +163,27 @@ def test_detached_pad_roundtrip_checks_its_geometry(tmp_path) -> None:
     second = AltiumBackend().read(path).design
     assert rta3.rt_a3(design, written, second, compare=compare, from_board=True).equal
     assert second.board is not None
-    free = next(f for f in second.board.footprints if "board_only" in f.attributes)
-    moved = dataclasses.replace(free, position=Point(free.position.x + 100000, free.position.y))
+    assert not [f for f in second.board.footprints if "board_only" in f.attributes]
+    owner = next(f for f in second.board.footprints if any(not p.number for p in f.pads))
+    assert len(owner.pads) == len(fp.pads)
+    pads = tuple(
+        dataclasses.replace(p, position=Point(p.position.x + 100000, p.position.y)) if not p.number else p
+        for p in owner.pads
+    )
+    moved = dataclasses.replace(owner, pads=pads)
     second = dataclasses.replace(
         second,
         board=dataclasses.replace(
-            second.board, footprints=tuple(moved if f.id == free.id else f for f in second.board.footprints)
+            second.board, footprints=tuple(moved if f.id == owner.id else f for f in second.board.footprints)
         ),
     )
     assert not rta3.rt_a3(design, written, second, compare=compare, from_board=True).equal
 
 
-def test_detached_hole_pads_read_back_as_holes(tmp_path) -> None:
-    """A detached pad whose copper is its hole is a free pad that the import reads as a board ``Hole``
-    (change c0168): RT-A3 expects it there, round or slotted, and judges its geometry (capability
-    altium-verification, "Detached hole pads in RT-A3"; c0171 task 1.8)."""
+def test_unnumbered_hole_pads_stay_in_their_component(tmp_path) -> None:
+    """A pad without a number whose copper is its hole stays a pad of its component (change c0433): RT-A3
+    compares it there, round or slotted, and a moved one is a difference (capability
+    altium-verification, "Unnumbered pads in RT-A3")."""
     from fenolite.backends.altium import lower, rta3
     from fenolite.backends.altium.backend import AltiumBackend
     from fenolite.checks.rta3 import compare
@@ -211,11 +218,22 @@ def test_detached_hole_pads_read_back_as_holes(tmp_path) -> None:
     path.write_bytes(written.files[f"{design.header.name}.PcbDoc"])
     second = AltiumBackend().read(path).design
     assert second.board is not None
-    assert sorted((h.drill, h.length or 0) for h in second.board.holes) == [(drill, 0), (drill, 2 * drill)]
+    assert not second.board.holes
     assert not [f for f in second.board.footprints if "board_only" in f.attributes]
+    read = next(f for f in second.board.footprints if f.position == fp.position)
+    assert sorted((p.drill, p.number) for p in read.pads if not p.number) == [(drill, ""), (drill, "")]
     assert rta3.rt_a3(design, written, second, compare=compare, from_board=True).equal
-    first, *rest = second.board.holes
-    moved = dataclasses.replace(first, position=Point(first.position.x + 100_000, first.position.y))
-    second = dataclasses.replace(second, board=dataclasses.replace(second.board, holes=(moved, *rest)))
-    trip = rta3.rt_a3(design, written, second, compare=compare, from_board=True)
-    assert not trip.equal and {change.path.split("/")[1] for change in trip.differences} == {"hole"}
+    pads = tuple(
+        dataclasses.replace(p, position=Point(p.position.x + 100_000, p.position.y))
+        if not p.number and p.shape == "circle"
+        else p
+        for p in read.pads
+    )
+    moved = dataclasses.replace(read, pads=pads)
+    second = dataclasses.replace(
+        second,
+        board=dataclasses.replace(
+            second.board, footprints=tuple(moved if f.id == read.id else f for f in second.board.footprints)
+        ),
+    )
+    assert not rta3.rt_a3(design, written, second, compare=compare, from_board=True).equal

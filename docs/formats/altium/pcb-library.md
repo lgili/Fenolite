@@ -156,11 +156,10 @@ an independent source (`pcb-document.md`).
   0 (`none`) with the expansion 0, the form the reader reports as a bag entry for each mask; the page's
   `Enabled` and `Tented` options are what that form must stand for (U1, U2), so
   `tests/unit/backends/altium/test_pcblib_stacks.py` and Part T step T6 measure it (change c0160).
-- A pad without a number is left out of a library footprint, because Altium leaves a designator empty for a
-  *free* pad only; the board document writes it as a free pad at its board position (the footprint's
-  position plus the pad's own position turned by the footprint's angle, with no component index), with its
-  own net and layer, counted `changed` under `pad` with the reason "the pad number '' is empty"
-  (change c0160).
+- A pad without a number stays a pad of its footprint with an empty designator, in the library and in the
+  board document, with its own net and layer: documents saved by Altium hold component pads without a name
+  (`pcb-records.md`, "Free pads as holes", census of S-0172, S-0200, S-0601; change c0433). Change c0160
+  wrote it as a free pad at its board position instead, which left the read-back footprint without it.
 
 ### Derived-library storage choices (c0160)
 

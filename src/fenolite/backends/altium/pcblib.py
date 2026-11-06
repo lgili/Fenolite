@@ -335,9 +335,6 @@ def check_footprint(
         refusal = _pad_refusal(pad, pad_extras, copper_layers=copper_layers)
         if refusal is not None:
             return FootprintCheck(refusal)
-        if not pad.number:
-            dropped.append("the pad has no number, which a library footprint cannot hold (change c0160)")
-            continue
         kept.append(pad)
         dropped += _pad_drops(pad, pad_extras)
     graphics: list[Graphic] = []

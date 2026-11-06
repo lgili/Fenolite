@@ -138,9 +138,6 @@ DNP_REASON = "the Altium documents hold no fitted flag outside variants"
 CONNECT_REASON = "a connector pad is written as a surface pad with no paste and no mask opening"
 """The reason a pad of kind ``connect`` is counted changed under ``pad`` (change c0160): the record has no
 such kind, so it is a surface pad whose two mask openings the writer removes."""
-FREE_PAD_REASON = "the pad number is empty, so it is written as a free pad at its board position"
-"""The reason a pad without a number is counted changed under ``pad`` (change c0160): Altium leaves a
-designator empty for a free pad only, so it leaves its footprint and the document holds it as a free pad."""
 NET_TIE_KIND = "net-tie"
 """A footprint with net-tie groups (change c0114): written as a component of the kind Net Tie (change c0420,
 N1; ``pcbdoc.PlacedComponent.net_tie``). Altium marks the whole component, so groups that are not one
@@ -1218,15 +1215,6 @@ def _footprints(
             problem = _pad_problem(pad, extras)
             if problem is not None:
                 account.skip("pad", pad.id, problem)
-                continue
-            if not pad.number:
-                # Altium leaves a designator empty for a free pad only (change c0160): the pad leaves its
-                # footprint, and the document writes it as a free pad at its board position.
-                at = Transform.placement(fp.position, fp.rotation).apply(pad.position)
-                rotation = (fp.rotation + pad.rotation) % FULL_TURN
-                moved = dataclasses.replace(pad, position=at, rotation=rotation, net_id=None)
-                free.append(pcbdoc.FreePad(moved, extras, net_names.get(pad.net_id or "")))
-                account.change("pad", pad.id, FREE_PAD_REASON)
                 continue
             if pad.kind == "connect":
                 account.change("pad", pad.id, CONNECT_REASON)
