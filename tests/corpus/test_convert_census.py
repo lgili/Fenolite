@@ -283,7 +283,8 @@ def test_difat_boards_are_converted(key: str) -> None:
 def test_exit_7_without_consent(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Scenario "Exit 7 without consent": ``RoyalBlue54L-Feather`` loses pads and fitted flags; without
     ``--allow-lossy`` the command exits 7 naming both kinds, with it the plan comes with one
-    ``convert.lossy`` warning per kind."""
+    ``convert.lossy`` warning per kind with losses: the refused kinds and, since change c0429, every
+    ``report`` kind with lost items (here the stackup)."""
     board = require(ITEMS["13"])
     monkeypatch.chdir(tmp_path)
     argv = [
@@ -310,7 +311,8 @@ def test_exit_7_without_consent(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
     assert main(["--allow-lossy", *argv]) == 0
     envelope = json.loads(out.getvalue())
     lossy = {i["where"] for i in envelope["issues"] if i["code"] == "convert.lossy"}
-    assert lossy == refused and envelope["result"]["plan"]
+    lost = {row["kind"] for row in envelope["result"]["report"]["rows"] if row["lost"]}
+    assert refused <= lossy == lost and envelope["result"]["plan"]
 
 
 @pytest.mark.needs_kicad  # the netlist of this schematic is outside Fenolite's own grammar
