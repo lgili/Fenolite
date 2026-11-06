@@ -30,6 +30,7 @@ for a module sheet, and after the sheet for the top sheet or the single sheet of
 from __future__ import annotations
 
 import dataclasses
+import math
 import struct
 from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, field
@@ -40,6 +41,7 @@ import fenolite.backends.altium.rulemap as rulemap
 from fenolite.backends.altium.ascii import Field, text_problem
 from fenolite.backends.altium.cfb import Entry, Storage, write_compound
 from fenolite.backends.altium.docboard import (
+    OutlineArc,
     StackSpec,
     angle_text,
     board_text,
@@ -96,6 +98,9 @@ FILE_HEADER_SIX_VERSION = 5.01
 BOARD_OFFSET_MIL = 1000
 """The board's lower-left corner and ``ORIGINX``/``ORIGINY`` lie at (1000 mil, 1000 mil)."""
 _OFFSET_NM = BOARD_OFFSET_MIL * 25_400
+UNIT_GRID_NM = 254
+"""The smallest length that is a whole number both of nanometres and of the document's units (1/10 000 mil,
+2.54 nm): 100 units (change c0441)."""
 DEFAULT_FILENAME = "Fenolite.PcbDoc"
 CUTOUT_REGIONS: Final = True
 """Whether a build or a write of a model writes the cut-outs and milled slots of the board outline as board
@@ -533,6 +538,10 @@ class PcbDocSpec:
     outline: tuple[Point, ...]
     components: tuple[PlacedComponent, ...] = ()
     nets: tuple[str, ...] = ()
+    outline_arcs: frozenset[int] = frozenset()
+    """The indices of ``outline`` that start an arc through the next point, its middle (change c0441):
+    ``board_record`` writes them as arc vertices. The middle stays in ``outline``, so every user of the
+    outline as a polygon sees the arc as two straight edges, as before."""
     copper_layers: tuple[str, ...] = ("F.Cu", "B.Cu")
     stack: StackSpec | None = None
     tracks: tuple[Track, ...] = ()
@@ -635,6 +644,14 @@ class Frame:
         return cls(min(p.x for p in outline), max(p.y for p in outline))
 
     @classmethod
+    def on_units(cls, outline: Sequence[Point]) -> Frame:
+        """``of(outline)`` with its corner moved out to a multiple of 254 nm, a whole number of the
+        document's units (change c0441): every point then moves by whole units, so a coordinate that was
+        a unit before, as one read from a PCB document is, is one after, and the shape is not rounded."""
+        frame = cls.of(outline)
+        return cls(frame.min_x - frame.min_x % UNIT_GRID_NM, frame.max_y + (-frame.max_y) % UNIT_GRID_NM)
+
+    @classmethod
     def document(cls) -> Frame:
         """The frame of a model that was read from a PCB document (change c0090): Y negated and nothing
         moved, the inverse of the import's ``Point(x, -y)``."""
@@ -673,10 +690,13 @@ def board_record(
     frame: Frame | None = None,
     origin: Point | None = None,
     layer_names: Mapping[int, str] | None = None,
+    arcs: Collection[int] = (),
 ) -> bytes:
     """The one ``Board6`` record (``docboard``): the outline in the Altium frame, the origin at the board's
     lower-left corner, the layers that primitives lie on. ``frame`` and ``origin`` (change c0090) replace
-    the frame of a build and its origin."""
+    the frame of a build and its origin. ``arcs`` (change c0441) are the indices of ``outline`` that start
+    an arc through the next point, its middle, to the point after it: the middle is not written as a
+    vertex, and the start is written as an arc vertex."""
     from fenolite.backends.altium.project import unique_id  # project imports this module
 
     frame = frame if frame is not None else Frame.of(outline)
@@ -684,8 +704,17 @@ def board_record(
     if origin is not None:
         at = (rec.to_units(origin.x), rec.to_units(origin.y))
     vertices: list[tuple[int, int]] = []
-    for point in outline:
+    written: dict[int, OutlineArc] = {}
+    count = len(outline)
+    mids = {(k + 1) % count for k in arcs}
+    for k, point in enumerate(outline):
+        if k in mids:
+            continue
         placed = frame(point)
+        if k in arcs:
+            arc = outline_arc(frame(point), frame(outline[(k + 1) % count]), frame(outline[(k + 2) % count]))
+            if arc is not None:
+                written[len(vertices)] = arc
         vertices.append((rec.to_units(placed.x), rec.to_units(placed.y)))
     text = board_text(
         filename,
@@ -695,8 +724,41 @@ def board_record(
         used_layers=used_layers,
         stack=stack,
         layer_names=layer_names,
+        arcs=written,
     )
     return rec.text_block(text)
+
+
+def _degrees(center: tuple[float, float], point: Point) -> float:
+    return math.degrees(math.atan2(point.y - center[1], point.x - center[0])) % 360.0
+
+
+def outline_arc(start: Point, mid: Point, end: Point) -> OutlineArc | None:
+    """The arc vertex (``docboard.OutlineArc``) of the arc from ``start`` through ``mid`` to ``end``, points
+    in nanometres in the Altium frame (Y up): the circle through them in binary units, and the
+    counter-clockwise sweep that holds ``mid`` as start and end angles in microdegrees (change c0441;
+    ``pcb-document.md``, "Board outline arcs"). ``None`` for three points on a line."""
+    ax, ay, bx, by, cx, cy = start.x, start.y, mid.x, mid.y, end.x, end.y
+    d = 2 * (ax * (by - cy) + bx * (cy - ay) + cx * (ay - by))
+    if d == 0:
+        return None
+    a2, b2, c2 = ax * ax + ay * ay, bx * bx + by * by, cx * cx + cy * cy
+    ux = (a2 * (by - cy) + b2 * (cy - ay) + c2 * (ay - by)) / d
+    uy = (a2 * (cx - bx) + b2 * (ax - cx) + c2 * (bx - ax)) / d
+    center = (ux, uy)
+    radius = math.hypot(ax - ux, ay - uy)
+    first, middle, last = _degrees(center, start), _degrees(center, mid), _degrees(center, end)
+    if (middle - first) % 360.0 <= (last - first) % 360.0:
+        low, high = first, last  # counter-clockwise from start to end
+    else:
+        low, high = last, first
+    return (
+        rec.to_units(round(ux)),
+        rec.to_units(round(uy)),
+        rec.to_units(round(radius)),
+        round(low * 1_000_000),
+        round(high * 1_000_000),
+    )
 
 
 def _net_record(name: str, filename: str) -> bytes:
@@ -2065,6 +2127,7 @@ def _write(
             [
                 board_record(
                     spec.outline,
+                    arcs=spec.outline_arcs,
                     filename=filename,
                     used_layers=used,
                     stack=stack,

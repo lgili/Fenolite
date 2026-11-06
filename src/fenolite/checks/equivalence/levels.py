@@ -646,7 +646,14 @@ def compare_designs(
         if level >= 7:
             results.append(
                 level_geometry(
-                    a, b, pairs, tolerances, aliases=aliases, keepout_layers=keepout_layers, across=across
+                    a,
+                    b,
+                    pairs,
+                    tolerances,
+                    aliases=aliases,
+                    keepout_layers=keepout_layers,
+                    across=across,
+                    shift=shift,
                 )
             )
     return EquivalenceReport(

@@ -35,6 +35,7 @@ leaves them out."""
 Edge = tuple[Point, Point | None]
 """A vertex of a ring and the mid of the arc that starts at it (``None`` for a straight edge)."""
 Key = tuple[object, ...]
+ORIGIN = Point(0, 0)
 """What an item is matched by: texts and integers, compared with the length tolerance on the integers."""
 
 
@@ -225,6 +226,34 @@ def _compare_set(
 # --- items -----------------------------------------------------------------------------------------
 
 
+def _moved(key: object, shift: Point) -> object:
+    """``key`` with every point moved by minus ``shift``: side ``b`` in the frame of side ``a``."""
+    if isinstance(key, Point):
+        return Point(key.x - shift.x, key.y - shift.y)
+    if isinstance(key, tuple):
+        items: tuple[object, ...] = key  # pyright: ignore[reportUnknownVariableType]
+        return tuple(_moved(item, shift) for item in items)
+    return key
+
+
+def _key(found: object) -> Key:
+    assert isinstance(found, tuple)
+    items: Key = found  # pyright: ignore[reportUnknownVariableType]
+    return items
+
+
+def _shape_moved(
+    shapes: Sequence[Shape], shift: Point, only: Callable[[Shape], bool] | None = None
+) -> list[Shape]:
+    """``shapes`` with their keys moved by minus ``shift`` (those ``only`` accepts, when it is given)."""
+    if shift == ORIGIN:
+        return list(shapes)
+    return [
+        replace(shape, key=_key(_moved(shape.key, shift))) if only is None or only(shape) else shape
+        for shape in shapes
+    ]
+
+
 def _outline(outline: Outline | None) -> list[Shape]:
     if outline is None:
         return []
@@ -363,12 +392,19 @@ def _graphics(graphics: Sequence[Graphic], prefix: str) -> list[Shape]:
 
 
 def _board_graphics(
-    a: Sequence[Graphic], b: Sequence[Graphic], tolerances: Tolerances, compare: Compare
+    a: Sequence[Graphic],
+    b: Sequence[Graphic],
+    tolerances: Tolerances,
+    compare: Compare,
+    shift: Point = ORIGIN,
 ) -> tuple[list[Difference], int]:
     """The board graphics matched as items; then the ``Edge.Cuts`` drawings left on each side, chained into
     closed rings (``pairing.edge_rings``), matched as rings by their normalised edges (change c0421). A
-    ring left over is one ``graphic-missing``; a drawing of no closed ring stays an item."""
-    shapes_a, shapes_b = _graphics(a, "board"), _graphics(b, "board")
+    ring left over is one ``graphic-missing``; a drawing of no closed ring stays an item. The ``Edge.Cuts``
+    drawings and rings of side ``b`` are moved by minus ``shift`` (change c0441): the board shape compares
+    in the frame of side ``a``."""
+    shapes_a = _graphics(a, "board")
+    shapes_b = _shape_moved(_graphics(b, "board"), shift, lambda s: s.key[0] == pairing.EDGE_LAYER)
     pairs, only_a, only_b = match(shapes_a, shapes_b, tolerances)
     found: list[Difference] = []
     for one, other in pairs:
@@ -390,6 +426,7 @@ def _board_graphics(
 
     rings_a, rest_a = rings(left_a)
     rings_b, rest_b = rings(left_b)
+    rings_b = _shape_moved(rings_b, shift)
     ring_pairs, ring_a, ring_b = match(rings_a, rings_b, tolerances)
     found += [Difference(LEVEL, "graphic-missing", s.where, "graphic", s.where, "") for s in ring_a]
     found += [Difference(LEVEL, "graphic-missing", s.where, "graphic", "", s.where) for s in ring_b]
@@ -515,11 +552,15 @@ def level_geometry(
     aliases: Mapping[str, str] | None = None,
     keepout_layers: tuple[Collection[str], Collection[str]] = ((), ()),
     across: bool = False,
+    shift: Point = ORIGIN,
 ) -> LevelResult:
     """Level 7 over the boards of ``a`` and ``b`` and the footprint pairs of level 3. ``aliases`` maps side
     ``b``'s name of a layer paired by user name to side ``a``'s; ``keepout_layers`` names each side's
     layers whose drawings are keep-outs, compared with rule areas, and ``across`` marks sides of two backends
-    (``_field_pose``; change c0421)."""
+    (``_field_pose``; change c0421). ``shift`` is the translation level 4 removed from side ``b`` (change
+    c0441): the board shape of side ``b`` (its outline, cut-outs, slots and ``Edge.Cuts`` drawings) is moved
+    back by it, so a board written in another frame compares its shape exactly; every other item keeps its
+    place."""
     assert a.board is not None and b.board is not None
     names = aliases or {}
     board_a, board_b = a.board, _renamed(b.board, names)
@@ -547,12 +588,12 @@ def level_geometry(
     keepouts_b = _keepouts(board_b.keepouts, "board") + _drawn_keepouts(drawn_b, _copper(board_b), "board")
     board_items: tuple[tuple[str, tuple[list[Difference], int]], ...] = (
         ("outline", _compare_set("outline-missing", "ring", _outline(board_a.outline),
-                                 _outline(board_b.outline), tolerances)),
+                                 _shape_moved(_outline(board_b.outline), shift), tolerances)),
         ("zones", _compare_set("zone-missing", "zone", _zones(a, board_a), _zones(b, board_b), tolerances,
                                zone_field)),
         ("keepouts", _compare_set("keepout-missing", "keepout", keepouts_a, keepouts_b, tolerances,
                                   keepout_field)),
-        ("graphics", _board_graphics(graphics_a, graphics_b, tolerances, graphic_field)),
+        ("graphics", _board_graphics(graphics_a, graphics_b, tolerances, graphic_field, shift)),
         ("texts", _text_pairs("text-field", _texts(board_a.texts, "board"), _texts(board_b.texts, "board"),
                               tolerances)),
         ("holes", _compare_set("hole-missing", "hole", _holes(board_a), _holes(board_b), tolerances)),

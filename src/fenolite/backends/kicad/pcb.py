@@ -3093,9 +3093,10 @@ class _Writer:
             net = self.nets.node(entity.net_id, pad=True)
             items = emit_pad(entity, net, angle=pad_angle_to_board(entity.rotation, rotation))
             # a board pad read or embedded keeps its shape children in its slots, from the footprint's file;
-            # a created pad writes them, its corner ratio only beside a chamfer (change c0277)
-            for name in SHAPE_HEADS.values():
-                if not created or (name == "corner_ratio" and entity.chamfer_ratio is None):
+            # a created pad writes them (change c0277), its corner ratio too (change c0441: a pad converted
+            # from Altium read back without it had no ratio, and the Altium write left it out)
+            if not created:
+                for name in SHAPE_HEADS.values():
                     items.pop(name, None)
         elif isinstance(entity, (Track, Arc)):
             items = _emit_track(entity, self.nets)

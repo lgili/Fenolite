@@ -174,19 +174,44 @@ def _six(value: Decimal) -> str:
     return str(value.quantize(Decimal("0.000001")))
 
 
-def _outline(vertices: Sequence[tuple[int, int]]) -> list[Field]:
+OutlineArc = tuple[int, int, int, int, int]
+"""An arc vertex of an outline (change c0441): centre X and Y and radius in binary units in the Altium
+frame, and the start and end angles in microdegrees, the counter-clockwise sweep from the start angle to
+the end angle (``pcb-document.md``, "Board outline arcs")."""
+
+
+def _outline(
+    vertices: Sequence[tuple[int, int]], arcs: Mapping[int, OutlineArc] | None = None
+) -> list[Field]:
+    """The eight keys per vertex, the first vertex repeated last as a line vertex. ``arcs`` maps the index
+    of a vertex to its arc, which runs from that vertex to the next."""
     zero = angle_text(0)
+    arcs = arcs or {}
     fields: list[Field] = []
     for index, (x, y) in enumerate((*vertices, vertices[0])):
+        arc = arcs.get(index) if index < len(vertices) else None
+        if arc is None:
+            fields += [
+                (f"KIND{index}", "0"),
+                (f"VX{index}", rec.mil_text(x)),
+                (f"VY{index}", rec.mil_text(y)),
+                (f"CX{index}", "0mil"),
+                (f"CY{index}", "0mil"),
+                (f"SA{index}", zero),
+                (f"EA{index}", zero),
+                (f"R{index}", "0mil"),
+            ]
+            continue
+        cx, cy, radius, start, end = arc
         fields += [
-            (f"KIND{index}", "0"),
+            (f"KIND{index}", "1"),
             (f"VX{index}", rec.mil_text(x)),
             (f"VY{index}", rec.mil_text(y)),
-            (f"CX{index}", "0mil"),
-            (f"CY{index}", "0mil"),
-            (f"SA{index}", zero),
-            (f"EA{index}", zero),
-            (f"R{index}", "0mil"),
+            (f"CX{index}", rec.mil_text(cx)),
+            (f"CY{index}", rec.mil_text(cy)),
+            (f"SA{index}", angle_text(start)),
+            (f"EA{index}", angle_text(end)),
+            (f"R{index}", rec.mil_text(radius)),
         ]
     return fields
 
@@ -312,13 +337,14 @@ def board_records(
     unique_id: str,
     used_layers: Collection[int] = (),
     stack: StackSpec | None = None,
+    arcs: Mapping[int, OutlineArc] | None = None,
 ) -> list[list[Field]]:
     """The ``Board6`` record as its 27 lines, in Altium's order. ``filename`` is the document's file name
     (no folder); ``vertices`` is the outline in binary units in the Altium frame, without the closing
-    vertex; ``origin`` is ``ORIGINX``/``ORIGINY`` in binary units; ``unique_id`` is the board's eight-letter
-    id; ``used_layers`` are the numbered layers (1 … 74) that primitives lie on; ``stack`` is the copper
-    stack (``None``: the two-layer stack of c0035, whose bytes it keeps). ``ValueError`` for fewer than
-    three vertices."""
+    vertex, and ``arcs`` its arc vertices by index (change c0441); ``origin`` is ``ORIGINX``/``ORIGINY``
+    in binary units; ``unique_id`` is the board's eight-letter id; ``used_layers`` are the numbered layers
+    (1 … 74) that primitives lie on; ``stack`` is the copper stack (``None``: the two-layer stack of c0035,
+    whose bytes it keeps). ``ValueError`` for fewer than three vertices."""
     if len(vertices) < 3:
         raise ValueError("a board outline needs at least three points")
     origin_x, origin_y = rec.mil_text(origin[0]), rec.mil_text(origin[1])
@@ -349,7 +375,7 @@ def board_records(
         ("DESIGNATORDISPLAYMODE", "0"),
         *common_fields("TOP"),
         *_POLYGON_HEAD,
-        *_outline(vertices),
+        *_outline(vertices, arcs),
         *_POLYGON_TAIL,
         *_SHEET,
         *plane_net_fields(stack),
@@ -459,10 +485,11 @@ def board_fields(
     unique_id: str,
     used_layers: Collection[int] = (),
     stack: StackSpec | None = None,
+    arcs: Mapping[int, OutlineArc] | None = None,
 ) -> list[Field]:
     """Every field of ``board_records`` in order, the lines joined."""
     lines = board_records(
-        filename, vertices, origin, unique_id=unique_id, used_layers=used_layers, stack=stack
+        filename, vertices, origin, unique_id=unique_id, used_layers=used_layers, stack=stack, arcs=arcs
     )
     return [item for line in lines for item in line]
 
@@ -476,10 +503,11 @@ def board_text(
     used_layers: Collection[int] = (),
     stack: StackSpec | None = None,
     layer_names: Mapping[int, str] | None = None,
+    arcs: Mapping[int, OutlineArc] | None = None,
 ) -> str:
     """The text of the ``Board6`` record: each line as ``|KEY=VALUE`` fields, the lines joined by one CR."""
     lines = board_records(
-        filename, vertices, origin, unique_id=unique_id, used_layers=used_layers, stack=stack
+        filename, vertices, origin, unique_id=unique_id, used_layers=used_layers, stack=stack, arcs=arcs
     )
     if layer_names:
         names = {f"Mechanical {layer - 56}": name for layer, name in layer_names.items() if 57 <= layer <= 72}
@@ -489,6 +517,7 @@ def board_text(
 
 __all__ = [
     "KIND",
+    "OutlineArc",
     "SPLIT_PLANE",
     "Dielectric",
     "StackSpec",

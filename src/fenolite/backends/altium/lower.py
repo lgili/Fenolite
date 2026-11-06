@@ -56,6 +56,7 @@ from fenolite.model.board import (
     Keepout,
     Layer,
     Outline,
+    OutlineArc,
     Pad,
     Stackup,
     Text,
@@ -681,49 +682,50 @@ def _built_stack(board: Board, options: LowerOptions) -> tuple[tuple[str, ...], 
 
 # --- outline --------------------------------------------------------------------------------------------
 
-OUTLINE_ARC = "an arc of the outline is written as two straight edges"
+
+Ring = tuple[tuple[Point, ...], frozenset[int]]
+"""An outline ring and the indices of its points that start an arc through the next point (change c0441)."""
 
 
-def _ring_of(graphics: Sequence[Graphic], account: _Account) -> tuple[Point, ...]:
+def _ring_of(graphics: Sequence[Graphic], account: _Account) -> Ring:
     """One closed ring from the graphics of the outline: a rectangle or a polygon alone, else lines and
-    arcs chained by their end points (an arc gives its start, middle and end). Empty when none closes."""
+    arcs chained by their end points (an arc gives its start, middle and end, and its start is an arc
+    start of the ring, change c0441). Empty when none closes."""
     segments: list[tuple[Point, Point, tuple[Point, ...], Graphic]] = []
     for graphic in graphics:
         points = graphic.points
         if graphic.kind == "rect" and len(points) == 2:
             s, e = points
-            return (s, Point(e.x, s.y), e, Point(s.x, e.y))
+            return (s, Point(e.x, s.y), e, Point(s.x, e.y)), frozenset()
         if graphic.kind == "polygon" and len(_open(points)) >= 3:
-            return _open(points)
+            return _open(points), frozenset()
         if graphic.kind == "line" and len(points) == 2 and points[0] != points[1]:
             segments.append((points[0], points[1], (), graphic))
         elif graphic.kind == "arc" and len(points) == 3:
             segments.append((points[0], points[2], (points[1],), graphic))
     if not segments:
-        return ()
+        return (), frozenset()
     first = segments[0]
     ring: list[Point] = [first[0], *first[2]]
     used = {0}
-    arcs = [first[3]] if first[2] else []
+    starts: set[int] = {0} if first[2] else set()
     current = first[1]
     while current != ring[0]:
-        for index, (a, b, mids, graphic) in enumerate(segments):
+        for index, (a, b, mids, _graphic) in enumerate(segments):
             if index in used or current not in (a, b):
                 continue
             used.add(index)
+            if mids:
+                starts.add(len(ring))
             ring += [current, *(mids if current == a else reversed(mids))]
             current = b if current == a else a
-            if mids:
-                arcs.append(graphic)
             break
         else:
-            return ()
-    for graphic in arcs:
-        account.skip("outline", graphic.id, OUTLINE_ARC)
+            return (), frozenset()
     for index, segment in enumerate(segments):
         if index not in used:
             account.skip("outline", segment[3].id, "an edge outside the first ring of the outline")
-    return tuple(ring) if len(ring) >= 3 else ()
+    return (tuple(ring), frozenset(starts)) if len(ring) >= 3 else ((), frozenset())
 
 
 def _extent(board: Board) -> tuple[Point, ...]:
@@ -810,47 +812,50 @@ def _cutouts(outline: Outline | None, account: _Account) -> tuple[tuple[Point, .
     return tuple(rings)
 
 
-def _edge_ring(board: Board, edges: Outline, account: _Account) -> tuple[Point, ...]:
-    """The board ring of ``edges`` (change c0170): its vertices with the mid of each arc between its ends,
-    so an arc is written as two straight edges, as ``_ring_of`` writes it, and counted so under ``outline``
-    by the id of the edge graphic whose mid it is (else ``<board id>:edge:<k>``). Empty when the ring does
-    not close."""
-    ring = tuple(edges.points)
-    mids = {arc.edge: arc.mid for arc in edges.arcs if arc.ring == 0}
-    by_mid = {
-        g.points[1]: g.id
-        for g in board.graphics
-        if g.layer == EDGE_LAYER and g.kind == "arc" and len(g.points) == 3
-    }
-    points: list[Point] = []
-    for k, point in enumerate(ring):
-        points.append(point)
+def _arc_ring(points: Sequence[Point], arcs: Sequence[OutlineArc]) -> Ring:
+    """Ring 0 of an outline with the mid of each of its arcs between the arc's ends, and the indices of the
+    arc starts (change c0441): the board record writes each as an arc vertex, and a polygon user of the
+    outline sees two straight edges."""
+    mids = {arc.edge: arc.mid for arc in arcs if arc.ring == 0}
+    out: list[Point] = []
+    starts: set[int] = set()
+    for k, point in enumerate(points):
+        out.append(point)
         mid = mids.get(k)
         if mid is not None:
-            points.append(mid)
-            account.skip("outline", by_mid.get(mid, f"{board.id}:edge:{k}"), OUTLINE_ARC)
-    return tuple(points) if len(points) >= 3 else ()
+            starts.add(len(out) - 1)
+            out.append(mid)
+    return (tuple(out), frozenset(starts)) if len(out) >= 3 else ((), frozenset())
 
 
-def _outline(board: Board, account: _Account, edges: Outline | None = None) -> tuple[Point, ...]:
+def _edge_ring(board: Board, edges: Outline, account: _Account) -> Ring:
+    """The board ring of ``edges`` (change c0170): its vertices with the mid of each arc between its ends,
+    each arc written as an arc vertex (change c0441; before, as two straight edges). Empty when the ring
+    does not close."""
+    del board, account
+    return _arc_ring(tuple(edges.points), edges.arcs)
+
+
+def _outline(board: Board, account: _Account, edges: Outline | None = None) -> Ring:
     """The outline of the document: ``Board.outline``, else the board ring of ``edges`` (the edges of a
     read board as an outline, change c0170), else the ring of the ``Edge.Cuts`` graphics, else the box of
     the board's items (reported)."""
     if board.outline is not None and len(_open(board.outline.points)) >= 3:
-        return _open(board.outline.points)  # its cut-outs and slots are ``_cutouts`` (change c0168)
+        # its cut-outs and slots are ``_cutouts`` (change c0168); its arcs are arc vertices (c0441)
+        return _arc_ring(_open(board.outline.points), board.outline.arcs)
     if board.outline is None and edges is not None:
-        ring = _edge_ring(board, edges, account)
-        if ring:
-            return ring  # its inner rings are ``_cutouts`` (change c0170)
-    ring = _ring_of([g for g in board.graphics if g.layer == EDGE_LAYER], account)
-    if ring:
-        return ring
+        found = _edge_ring(board, edges, account)
+        if found[0]:
+            return found  # its inner rings are ``_cutouts`` (change c0170)
+    found = _ring_of([g for g in board.graphics if g.layer == EDGE_LAYER], account)
+    if found[0]:
+        return found
     box = _extent(board)
     if box:
         account.skip(
             "outline", board.id, "the board holds no closed outline; the box of its items is written"
         )
-    return box
+    return box, frozenset()
 
 
 # --- footprints -----------------------------------------------------------------------------------------
@@ -1718,6 +1723,7 @@ def from_design(
     options: LowerOptions | None = None,
     corner_ratios: Mapping[str, Decimal] | None = None,
     rewrite: bool = False,
+    full_drill: bool = False,
     bodies: str = "off",
     edges: Outline | None = None,
 ) -> AltiumInputs:
@@ -1731,6 +1737,9 @@ def from_design(
     document and that the write gives the document back: a via whose drill equals its diameter, which a
     saved document can hold and a build refuses, is then written as it was read. It is not inferred from
     the design, and ``ValueError`` refuses it for a board that was not read from an Altium document.
+    ``full_drill`` (change c0441) writes such a via without the rest of a rewrite: a conversion sets it,
+    since the via it converts may come from a saved Altium document (``H-A-PCBX-VIA-FULL``); a build never
+    does.
 
     ``bodies`` (change c0121) is ``off`` (the default) or ``extruded``; another value raises ``ValueError``.
     With ``extruded`` the extruded component bodies of the footprint instances that have an outline and a
@@ -1764,20 +1773,25 @@ def from_design(
         raise ValueError("rewrite=True is for the reading of an Altium document, not for a build")
     spec: pcbdoc.PcbDocSpec | None = None
     if board is not None:
+        arc_starts: frozenset[int] = frozenset()
         if options is not None and board.outline is not None:
             outline = tuple(board.outline.points)
         else:
-            if edges is not None and (board.outline is not None or not _edge_ring(board, edges, _Account())):
+            if edges is not None and (
+                board.outline is not None or not _edge_ring(board, edges, _Account())[0]
+            ):
                 edges = None  # a model outline, or edges whose board ring does not close: as before c0170
-            outline = _outline(board, account, edges)
+            outline, arc_starts = _outline(board, account, edges)
         if len(outline) >= 3:
             spec = _document(
                 design,
                 board,
                 outline,
+                arc_starts,
                 corner_ratios or {},
                 account,
                 rewrite=rewrite,
+                full_drill=full_drill or rewrite,
                 bodies=body_mode,
                 options=options,
                 edges=edges,
@@ -1837,10 +1851,12 @@ def _document(
     design: Design,
     board: Board,
     outline: tuple[Point, ...],
+    outline_arcs: frozenset[int],
     ratios: Mapping[str, Decimal],
     account: _Account,
     *,
     rewrite: bool = False,
+    full_drill: bool = False,
     bodies: pcbdoc.BodyMode = "off",
     options: LowerOptions | None = None,
     edges: Outline | None = None,
@@ -1857,7 +1873,12 @@ def _document(
     else:
         layers, stack, planes = _stack(board, nets, account)
     read = BACKEND in board.native_ids
-    frame = pcbdoc.Frame.document() if read else pcbdoc.Frame.of(outline)
+    if read:
+        frame = pcbdoc.Frame.document()
+    elif options is None:  # a conversion: the board moves by whole units, so its shape is kept (c0441)
+        frame = pcbdoc.Frame.on_units(outline)
+    else:
+        frame = pcbdoc.Frame.of(outline)
     origin: Point | None = None
     if read:
         origin = Point(0, 0)
@@ -1895,7 +1916,7 @@ def _document(
         copper_ids=dict(zip(layers, rec.copper_stack(layers, tuple(planes)), strict=True)),
     )
     tracks, arcs, vias, zones, arc_records = _copper(
-        board, layers, planes, net_names, frame, account, full_drill=rewrite
+        board, layers, planes, net_names, frame, account, full_drill=full_drill
     )
     texts_, graphics, keepouts, holes = _items(
         board, layers, frame, arc_records, account, layer_ids, planes=planes, net_names=net_names
@@ -1918,6 +1939,7 @@ def _document(
         outline,
         tuple(components),
         names,
+        outline_arcs=outline_arcs,
         copper_layers=layers,
         stack=stack,
         tracks=tuple(tracks),
@@ -1937,7 +1959,7 @@ def _document(
         free_pads=tuple(free_pads),
         layer_ids=layer_ids,
         arc_records=MappingProxyType(arc_records),
-        allow_full_drill=rewrite,
+        allow_full_drill=full_drill,
         bodies=tuple(placed_bodies),
         connect_styles=_connect_styles(board) if read else (),
         kept_rules=_kept_rules(board) if read else (),
@@ -1951,6 +1973,7 @@ def write_design(
     allow_lossy: bool = False,
     corner_ratios: Mapping[str, Decimal] | None = None,
     rewrite: bool = False,
+    full_drill: bool = False,
     bodies: str = "off",
     derive_library: bool = False,
     schematic: Design | None = None,
@@ -1959,23 +1982,29 @@ def write_design(
     edges: Outline | None = None,
     pour: PourMode | None = None,
 ) -> ProjectWrite:
-    """The files of an Altium project written from ``design`` alone: ``<name>.PcbDoc`` when the design
-    holds a board with an outline or an item, and ``<name>.SchDoc`` with its libraries and
-    ``<name>.PrjPcb`` when the schematic writer takes the circuit (otherwise one ``altium.not-lowered``
-    with ``where`` ``schematic`` says why). Without ``allow_lossy``, ``LossyWriteError`` when an item of
-    ``LOSS_KINDS`` would be left out. Two calls on equal designs give equal bytes. ``rewrite`` is that of
-    ``from_design``: the write of the reading of an Altium document. ``bodies`` is that of ``from_design``
-    too: ``extruded`` writes the extruded component bodies (change c0121), and so is ``edges`` (change
-    c0170): the edge of a read board as an outline. ``pour`` is the pour mode of the PCB document (change
-    c0215): ``None`` is ``computed``, which writes the outline with one ``altium.pour-unavailable`` warning
-    without the ``geo`` extra; an explicit ``computed`` raises ``BackendUnavailable`` then; a rewrite
-    (``rewrite``) pours every polygon again."""
+    """The files of an Altium project written from ``design`` alone: ``<name>.PcbDoc`` when the design holds a
+    board with an outline or an item, and ``<name>.SchDoc`` with its libraries and ``<name>.PrjPcb`` when the
+    schematic writer takes the circuit (otherwise one ``altium.not-lowered`` with ``where`` ``schematic`` says
+    why). Without ``allow_lossy``, ``LossyWriteError`` when an item of ``LOSS_KINDS`` would be left out. Two
+    calls on equal designs give equal bytes. ``rewrite`` is that of ``from_design``: the write of the reading
+    of an Altium document; so is ``full_drill``. ``bodies`` is that of ``from_design`` too: ``extruded``
+    writes the extruded component bodies (change c0121), and so is ``edges`` (change c0170): the edge of a
+    read board as an outline. ``pour`` is the pour mode of the PCB document (change c0215): ``None`` is
+    ``computed``, which writes the outline with one ``altium.pour-unavailable`` warning without the ``geo``
+    extra; an explicit ``computed`` raises ``BackendUnavailable`` then; a rewrite (``rewrite``) pours every
+    polygon again."""
     refuse_bom_only(design)
     if schematic is not None:
         refuse_bom_only(schematic)
     issues: list[Issue] = []
     inputs = from_design(
-        design, issues=issues, corner_ratios=corner_ratios, rewrite=rewrite, bodies=bodies, edges=edges
+        design,
+        issues=issues,
+        corner_ratios=corner_ratios,
+        rewrite=rewrite,
+        full_drill=full_drill,
+        bodies=bodies,
+        edges=edges,
     )
     if schematic is not None:
         inputs = dataclasses.replace(inputs, schematic=schematic_design(schematic, inputs.name))
@@ -2392,7 +2421,10 @@ def moved(board: Board, dx: int, dy: int) -> Board:
     outline = board.outline
     if outline is not None:
         outline = dataclasses.replace(
-            outline, points=ring(outline.points), cutouts=tuple(ring(cut) for cut in outline.cutouts)
+            outline,
+            points=ring(outline.points),
+            cutouts=tuple(ring(cut) for cut in outline.cutouts),
+            arcs=tuple(dataclasses.replace(arc, mid=at(arc.mid)) for arc in outline.arcs),  # c0441
         )
     return dataclasses.replace(
         board,

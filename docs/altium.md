@@ -465,7 +465,7 @@ a hole part is not written: a free pad has none.
   written cut-out ring with the read one within 1 µm ("The scope of RT-A2" below).
 - **A KiCad board converted** (change c0170). `fenolite convert --to altium` takes the edges of a read
   KiCad board with `edge_outline` and gives them to the write (`lower.write_design(…, edges=…)`): the board
-  ring is the document's outline as before (an arc as two straight edges, counted under `outline`), and
+  ring is the document's outline (an arc as one arc vertex since change c0441; before, two straight edges), and
   every inner ring is a cut-out region through the same lowering, or a loss with the gate's reason, counted
   under `cutout` (`docs/conversion.md`). A footprint pad with a slotted (oval) drill is written with the
   slot fields in the library and the document: hole size the drill, slot length the padstack's
@@ -1608,7 +1608,7 @@ of a model, what RT-A3 compares of it, and what is left out and counted in `unwr
 | body | with `bodies="extruded"` (c0121): an extruded body with an outline and a height above its standoff, with the stand-in values of its two identity keys; never by default | with `bodies="extruded"`: `kind`, `height`, `standoff`, `outline` (as a ring), `layer` (as the writer's rule gives it) and `name`, within 2 nm; else not compared | `body`: every body without the request; with it, a body that names a 3D model, has no outline or no height above its standoff, or whose footprint is not written |
 | rule | the rules that `rulemap.lower` writes exactly (c0084) | not compared | `rule` |
 | stack | the copper layers in order, planes with their net, the stack-up values when they fit | not compared | `plane`: a plane without a net of the document is written as a signal layer; `stackup`: default values are written |
-| outline | `Board.outline`, else the ring of the `Edge.Cuts` graphics | not compared | `outline`: an arc of the outline is two straight edges; a cut-out; no closed ring |
+| outline | `Board.outline`, else the ring of the `Edge.Cuts` graphics; an arc as one arc vertex (c0441) | not compared | `outline`: a cut-out; no closed ring |
 | schematic | generated from the circuit: generic symbols, one sheet | the circuit, when a project is read | `schematic`: the writer refuses the circuit, and only the PCB document is written; `module`: every module, because the schematic is one sheet; `channel`: the channel of a repeated sheet (the bag keys `sheet_symbol` and `channel_index`); `pin-pad-map`: the pin-to-pad map of a component that has no footprint model in the generated schematic (the map of every other component is written as records of its footprint model, change c0123); `pin-pads`: a component whose bag holds a map record that the model cannot say (the key `pin_pads`) |
 
 Keys of `unwritten` that start with `record:` count what the import maps to no model entity, by the

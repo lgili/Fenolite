@@ -12,6 +12,7 @@ edges are four rings of ``Edge.Cuts`` graphics: the board and three inner rings,
 from __future__ import annotations
 
 import dataclasses
+import math
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -151,9 +152,10 @@ def test_altium_overlap_without_a_union_is_lost(monkeypatch: pytest.MonkeyPatch)
     assert [(r.reason, r.ids) for r in row.reasons] == [(cutouts.NO_UNION, ("cutout/1+cutout/2",))]
 
 
-def test_altium_board_ring_arcs_as_today(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The board ring of the edges is written as before: an arc as two straight edges, counted under
-    ``outline`` by the id of its graphic; no edge is "outside the first ring" any more."""
+def test_altium_board_ring_keeps_its_arc(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The board ring of the edges keeps its arc (change c0441): the document's outline holds the arc as
+    one arc vertex through the same three points, and nothing is counted under ``outline``. Before, the
+    arc was written as two straight edges through its mid."""
     monkeypatch.setattr(pcbdoc, "CUTOUT_REGIONS", False)
     arc = Graphic(
         id=derived_id("gfx", "test", "arc"),
@@ -166,11 +168,15 @@ def test_altium_board_ring_arcs_as_today(monkeypatch: pytest.MonkeyPatch) -> Non
     read_as(monkeypatch, design)
     conversion = convert_project("slots.kicad_pcb", to="altium")
     row = conversion.report.row("outline")
-    assert row is not None and [(r.reason, r.ids) for r in row.reasons] == [(lower.OUTLINE_ARC, (arc.id,))]
+    assert row is None or row.lost == 0
     cutout = conversion.report.row("cutout")
     assert cutout is not None and (cutout.source, cutout.lost) == (1, 1)
     outline = read_pcbdoc(conversion.files[conversion.read_back]).board.outline
-    assert len({(round(v.x), round(v.y)) for v in outline}) == 5  # four corners and the arc's mid
+    corners = {(round(v.x), round(v.y)) for v in outline}
+    assert len(corners) == 4  # four corners; the arc's mid is no vertex
+    arcs = [v for v in outline if v.kind != 0]
+    assert len(arcs) == 1 and round(arcs[0].radius * 254 / 100 / MM) == 50  # 2.54 nm units
+    assert arcs[0].end_angle - arcs[0].start_angle == pytest.approx(2 * math.degrees(math.atan2(30, 40)))
 
 
 # --- Altium to KiCad -----------------------------------------------------------------------------------
