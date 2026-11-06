@@ -623,7 +623,10 @@ Everything below is a Fenolite choice built on the facts above; `pcb.WRITE_EVIDE
   `net` node inside opaque content: a number is resolved through the source table to the stored name of
   its net (`pcb.stored_net_name`, `{slash}` kept; c0163) and a name by itself;
   `(net 0)`, `(net 0 "")` and `(net "")` become `(net 0)` for target 9 and are removed for target 10.
-  A 9 → 9 write renumbers nets, so equality is judged on the model.
+  A 9 → 9 write renumbers nets, so equality is judged on the model. A target-10 graphic's `(net "…")`
+  slot therefore names its net in the stored spelling (`A1{slash}GND`), while the reader names the net
+  `A1/GND` and keeps the spelling in its bag: `fpitems.with_graphic_nets` and the importer's
+  `graphic_net` look a slot up by either spelling (c0425).
 - **Rows no longer written.** For target 10, nodes of every inventory row with `until_major = 9` are
   removed after the net conversion (the net table, zone `net_name`, `filled_areas_thickness` and the
   plot rows `hpglpen*` and `plotinvisibletext`), with one `kicad.board.obsolete-dropped` info per row id.

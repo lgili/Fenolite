@@ -357,9 +357,12 @@ NO_NET = ""
 """What ``graphic_net`` gives for a graphic without a net."""
 
 
-def graphic_net(graphic: Graphic, numbers: Mapping[int, str]) -> str | None:
+def graphic_net(
+    graphic: Graphic, numbers: Mapping[int, str], spellings: Mapping[str, str] | None = None
+) -> str | None:
     """The name of the net of a copper graphic from its slots (change c0277): ``(net 1)`` of a KiCad 9 board,
-    named through ``numbers`` (the source net table), or ``(net "GND")`` of a KiCad 10 one; ``NO_NET``
+    named through ``numbers`` (the source net table), or ``(net "GND")`` of a KiCad 10 one, whose stored
+    spelling (``A1{slash}GND``) ``spellings`` turns into the net's name (change c0425); ``NO_NET``
     for a graphic without a net, and ``None`` when a slot holds something ``design.line()`` and the other
     graphic calls cannot say (a lock, a net that names no net, an unknown child)."""
     found = NO_NET
@@ -376,7 +379,7 @@ def graphic_net(graphic: Graphic, numbers: Mapping[int, str]) -> str | None:
             return None
         atom = child.atoms()[0]
         if atom.kind == AtomKind.STRING:
-            found = atom.value
+            found = (spellings or {}).get(atom.value, atom.value)
         elif atom.value.isdigit():
             found = numbers.get(int(atom.value), "") if int(atom.value) else NO_NET
             if not found and int(atom.value):

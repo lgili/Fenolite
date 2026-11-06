@@ -373,18 +373,26 @@ def _netted(
 def with_graphic_nets(design: Design) -> Design:
     """``design`` whose graphics on a copper layer without a ``net_id`` take the id of the net their KiCad
     slot names (``graphic_net_name``), so that a writer of copper sees the net: the board's graphics (change
-    c0412) and those of its footprints (change c0454). A graphic whose slot names no net of the circuit is
-    left as it is."""
+    c0412) and those of its footprints (change c0454). A slot names a net by its model name or by the
+    spelling the board stores (``{slash}`` for a slash, change c0425). A graphic whose slot names no net of
+    the circuit is left as it is."""
     board = design.board
     if board is None:
         return design
+    from fenolite.backends.kicad.pcb import STORED_KEY  # pcb imports this module when it projects
+
     numbers: dict[int, str] = {}
+    ids = {net.name: net.id for net in design.circuit.nets}
     for net in design.circuit.nets:
-        net_bag = net.ext.get(BACKEND)
-        number = dict(net_bag.payload).get("number", "") if net_bag is not None else ""
+        payload = dict(net_bag.payload) if (net_bag := net.ext.get(BACKEND)) is not None else {}
+        number = payload.get("number", "")
         if number.isdigit():
             numbers[int(number)] = net.name
-    ids = {net.name: net.id for net in design.circuit.nets}
+        # the slot of a KiCad 10 graphic names a net in its stored spelling, ``{slash}`` for a slash, which
+        # the reader keeps in the net's bag (change c0425)
+        stored = payload.get(STORED_KEY)
+        if stored:
+            ids.setdefault(stored, net.id)
     graphics = _netted(board.graphics, numbers, ids)
     footprints: list[FootprintInstance] = []
     moved = False

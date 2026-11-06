@@ -176,6 +176,19 @@ def _xy(point: Point) -> Tup:
     return Tup((length(point.x - ORIGIN.x), length(point.y - ORIGIN.y)))
 
 
+def net_spellings(design: Design) -> dict[str, str]:
+    """The stored spelling of each net whose board file spells it otherwise (``{slash}`` for a slash), as
+    the KiCad reader keeps it in the net's ``kicad`` bag, and the net's name (change c0425): the ``(net …)``
+    slot of a KiCad 10 graphic names the net so."""
+    found: dict[str, str] = {}
+    for net in design.circuit.nets:
+        bag = net.ext.get("kicad")
+        stored = dict(bag.payload).get("stored", "") if bag is not None else ""
+        if stored and stored != net.name:
+            found.setdefault(stored, net.name)
+    return found
+
+
 def net_numbers(design: Design) -> dict[int, str]:
     """Each number of the source's net table and the name of its net, as the KiCad reader keeps them in the
     nets' ``kicad`` bags (a KiCad 9 board numbers its nets; change c0277)."""
@@ -1174,6 +1187,7 @@ def _drawings(
     numbers: Mapping[int, str] | None = None,
     *,
     physical_edges: bool = False,
+    spellings: Mapping[str, str] | None = None,
 ) -> list[list[str]]:
     from fenolite.dsl.items import BOARD_LAYER_KINDS
 
@@ -1199,7 +1213,7 @@ def _drawings(
             ledger.add("drawing-layer", f"{graphic.kind} on {graphic.layer}")
             continue
         # a copper graphic takes its net (change c0277); a slot design.line() cannot say leaves it out
-        net = graphic_net(graphic, numbers or {})
+        net = graphic_net(graphic, numbers or {}, spellings)
         if net is not None and net and (kind != "copper" or net not in (net_vars or {})):
             net = None
         slot = (graphic.layer, graphic.kind)
@@ -1617,8 +1631,9 @@ def emit(source: Source, options: Options) -> Emission:
     used_nets |= {table.net for table in kept_tables if table.net != NO_NET}
     used_nets |= {names[z.net_id] for z in board.zones if z.net_id in names}
     numbers = net_numbers(design)
+    spellings = net_spellings(design)
     copper_layers = {layer.name for layer in board.layers if layer.kind == "copper"}
-    graphic_nets = (graphic_net(g, numbers) for g in board.graphics if g.layer in copper_layers)
+    graphic_nets = (graphic_net(g, numbers, spellings) for g in board.graphics if g.layer in copper_layers)
     used_nets |= {found for found in graphic_nets if found}  # a net only a copper graphic names too (c0427)
     net_vars: dict[str, str] = {}
     net_lines: list[list[str]] = []
@@ -1810,7 +1825,7 @@ def emit(source: Source, options: Options) -> Emission:
     zone_lines = _zones(board, names, net_vars, layers, ledger, grouped, writer)
     area_lines = _areas(board, layers, ledger, grouped)
     drawing_lines = _drawings(
-        board, ledger, grouped, net_vars, numbers, physical_edges=_physical_edges(design)
+        board, ledger, grouped, net_vars, numbers, physical_edges=_physical_edges(design), spellings=spellings
     )
     binary: dict[str, bytes] = {}
     drawing_lines += _images(board, ledger, binary, grouped)

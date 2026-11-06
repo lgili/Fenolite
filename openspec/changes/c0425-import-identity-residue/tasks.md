@@ -25,3 +25,13 @@
 - [x] 4.1 CHANGELOG, `docs/equivalence.md`; light checks and focused tests.
 - [ ] 4.2 The next combined sweep confirms the private cases (L1 `ref-ambiguous`, L2 `net`, the
   `build.unknown-pin` case) are gone (coordinator).
+
+## 5. Copper on a net with a slash
+
+- [x] 5.1 The private sweep at 332b79837 refused one board that passed at 5ab9d645 (138 L5 `copper-no-net`,
+  1 `import.unequal`) and a second (24): copies × regions per copy of free copper regions on the nets of
+  embedded board array copies, `B<k>/<net>`. A target-10 graphic's slot names the net `B1{slash}GND`, and
+  `with_graphic_nets` looked it up by the model name `B1/GND` only. It and the importer's `graphic_net`
+  now take the stored spelling too. Proof:
+  `uv run pytest tests/unit/convert/test_slash_net_copper_c0425.py -q -n 0` (on 332b79837 the array case
+  gives 6 `convert.unexplained` and the import exits 5).

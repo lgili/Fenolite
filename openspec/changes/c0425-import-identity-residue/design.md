@@ -31,3 +31,17 @@ each such designator once, or not at all when its footprint was lost with an emb
 `derive_from_model` named the second variant of `S` as `S_2` without looking at the board's other names.
 A pre-pass collects the source names of the nickname, and a variant takes the first `S_k`, `k >= len+1`,
 that no source name and no earlier variant holds.
+
+## 5. Copper on a net with a slash
+
+A KiCad 10 board references a net by name, in the spelling it stores: `{slash}` for a slash
+(`pcb.stored_net_name`). The reader names the net with the slash and keeps the stored spelling in the net's
+`kicad` bag (`stored`). Tracks, vias and zones are resolved through the reader's net table, but a board
+graphic keeps its `(net …)` slot opaque (c0277), and `fpitems.with_graphic_nets` matched the slot against
+the model names only. A netted copper graphic on a net named `A1/GND` therefore read back without a net:
+level 5 saw a `copper-no-net` piece, and a conversion refused the board. The copies of an Altium embedded
+board array name their nets `B<k>/<net>`, so every copy of a netted free region did so (the private sweep:
+6 copies × 23 regions). The importer's `graphic_net` read the same slot as a net of its own and declared
+it. Both now accept the stored spelling: `with_graphic_nets` maps it to the net's id, and `graphic_net`
+takes the map `net_spellings(design)` from stored spelling to name. Tracks and zones on such nets were
+already right (the authored board holds one of each).
