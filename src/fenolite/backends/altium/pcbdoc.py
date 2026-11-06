@@ -41,6 +41,8 @@ import fenolite.backends.altium.rulemap as rulemap
 from fenolite.backends.altium.ascii import Field, text_problem
 from fenolite.backends.altium.cfb import Entry, Storage, write_compound
 from fenolite.backends.altium.docboard import (
+    LEGACY_ISLANDS_NM2,
+    LEGACY_NECK_NM,
     OutlineArc,
     StackSpec,
     angle_text,
@@ -86,6 +88,7 @@ from fenolite.model.board import (
     Via,
     ViaProtection,
     Zone,
+    ZoneSettings,
 )
 
 NET_TIE_KIND = "4"
@@ -1598,6 +1601,7 @@ def polygon_records(
     for index, (zone, layer, outline) in enumerate(polygon_order(zones, copper)):
         generated = f"{zone.net_id or NO_NET_NAME}_L{copper.position(layer) + 1:02d}_P{index:03d}".upper()
         net = copper.net(zone.id, zone.net_id)
+        islands, neck = _thresholds(zone.settings)
         fields = polygon_fields(
             rec.layer_text(copper.layers[layer]),
             [_units(copper.frame(point)) for point in outline],
@@ -1606,11 +1610,25 @@ def polygon_records(
             net=None if net == rec.NO_INDEX else net,
             auto_name=not zone.name,
             remove_dead=zone.settings.island_removal != "never",
+            islands=islands,
+            neck=neck,
             optimal_void_rotation=optimal_void_rotation,
             pour_over=_pour_over(zone),
         )
         out.append(rec.property_block(fields))
     return out
+
+
+def _thresholds(settings: ZoneSettings) -> tuple[int | None, int]:
+    """The island area and neck width of a zone's pour (change c0446). A zone with the default island mode
+    and minimum width keeps the values c0035 wrote and the kit verified (2500 mil², 5 mil). Any other zone
+    gets its own: Altium removes a piece below the area whatever it connects, so only a zone that removes
+    islands below an area gets one, and the neck width is its minimum width."""
+    default = ZoneSettings()
+    if (settings.island_removal, settings.min_thickness) == (default.island_removal, default.min_thickness):
+        return LEGACY_ISLANDS_NM2, LEGACY_NECK_NM
+    area = settings.min_island_area if settings.island_removal == "below_area" else None
+    return area, settings.min_thickness
 
 
 def split_plane_records(spec: PcbDocSpec, copper: _Copper) -> list[bytes]:

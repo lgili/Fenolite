@@ -314,8 +314,11 @@ track and via flags above). Altium Designer's own view of a written lock is step
 - **Polygons.** One record per zone layer, solid, in the key order of the first row of "Polygon pour"
   without `OBEYPOLYGONCUTOUT`: `POUROVER=TRUE`, `REMOVEDEAD=TRUE`, `GRIDSIZE=20mil`, `TRACKWIDTH=8mil`,
   `HATCHSTYLE=Solid`, `USEOCTAGONS=FALSE`, `MINPRIMLENGTH=3mil`, line vertices, `SHELVED=FALSE`,
-  `RESTORELAYER=UNKNOWN`, an empty `RESTORENET`, `REMOVEISLANDSBYAREA=TRUE`, `REMOVENECKS=TRUE`,
-  `AREATHRESHOLD=250000000000.000000`, `ARCRESOLUTION=0.5mil`, `NECKWIDTHTHRESHOLD=5mil`,
+  `RESTORELAYER=UNKNOWN`, an empty `RESTORENET`, `REMOVEISLANDSBYAREA`, `REMOVENECKS=TRUE`,
+  `AREATHRESHOLD`, `ARCRESOLUTION=0.5mil`, `NECKWIDTHTHRESHOLD` (change c0446: a zone with the default
+  settings gets `TRUE`, `250000000000.000000` and `5mil`; any other zone `TRUE` with its area in square file
+  units, six decimals, only when it removes islands below an area, else `FALSE`, and its minimum width as mil
+  text),
   `POUROVERSTYLE` from the zone's `pour_over` pair (the style it was read with), else `1`, with
   `POUROVER=TRUE` for `1` only, `IGNOREVIOLATIONS=FALSE`, `OPTIMALVOIDROTATION=TRUE` (`FALSE` with the pour
   mode `computed`). The name is the zone's name, or
@@ -325,7 +328,12 @@ track and via flags above). Altium Designer's own view of a written lock is step
   contract of change c0085); with `computed` the regions are the pour that Fenolite computes for Altium's
   rules (`pcb-pour.md`), and a polygon it refuses keeps its outline.
   A zone whose islands are never removed has `REMOVEDEAD=FALSE`. Clearance and thermal reliefs are not in
-  the record: Altium takes them from its rules.
+  the record: Altium takes them from its rules. Altium removes a piece below `AREATHRESHOLD` whatever it
+  connects (`pcb-pour.md`, I12) while a KiCad zone removes isolated islands only, so a zone that removes no
+  island by area gets `REMOVEISLANDSBYAREA=FALSE`, unless it has the default settings (INFERRED mapping,
+  change c0446). The reader is the inverse: `REMOVEDEAD=FALSE` gives `never` (its area removal is dropped),
+  `REMOVEISLANDSBYAREA=TRUE` gives `below_area` with the area, otherwise `always`; `REMOVENECKS=TRUE` gives
+  the minimum width; Altium's own 2500 mil² with 5 mil gives the default settings.
 - **Stack.** The numbered keys link the copper ids in order. Each linked layer but the bottom carries the
   dielectric below it. The physical lists (`V9_STACK_LAYER<i>` and the head of `LAYER_V8_<i>`) hold 13
   entries with the overlays, as the nine-entry list of c0035 has them; the cache list keeps the order of

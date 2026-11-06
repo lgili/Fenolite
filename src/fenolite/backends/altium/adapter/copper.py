@@ -50,6 +50,7 @@ from fenolite.backends.altium.read.pcbprims import (
     via_pad_removed,
 )
 from fenolite.backends.altium.read.pcbstack import OutlineVertex
+from fenolite.backends.altium.read.proptext import parse_length
 from fenolite.core.coords import Point, Size
 from fenolite.geometry.bands import arc_band, segment_band
 from fenolite.geometry.errors import GeometryError
@@ -68,6 +69,7 @@ from fenolite.model.board import (
     ViaType,
     Zone,
     ZoneFill,
+    ZoneSettings,
 )
 
 POLYGON_TYPE = "polygon"
@@ -1144,6 +1146,47 @@ def _outline_points(vertices: Sequence[OutlineVertex], exact: Exact, field: str)
     return tuple(points)
 
 
+SQUARE_NM_PER_UNIT = Fraction(127, 50) ** 2
+"""Square nanometres per square file unit, the unit of ``AREATHRESHOLD`` (``pcb-pour.md``, I12)."""
+ALTIUM_DEFAULT_ISLANDS_NM2 = 1_612_900_000_000
+"""2500 mil², Altium's own ``AREATHRESHOLD`` (63 of the saved polygons, ``pcb-pour.md`` I12)."""
+ALTIUM_DEFAULT_NECK_NM = 127_000
+"""5 mil, Altium's own ``NECKWIDTHTHRESHOLD``."""
+
+
+def zone_settings(record: PolygonRecord) -> ZoneSettings:
+    """The island and neck settings of a polygon pour (change c0446), every other setting at its default.
+    ``REMOVEDEAD=FALSE`` gives ``never``; else ``REMOVEISLANDSBYAREA=TRUE`` with a numeric
+    ``AREATHRESHOLD`` gives ``below_area`` with the area in square nanometres (rounded half to even); else
+    ``always``. ``REMOVENECKS=TRUE`` with a positive ``NECKWIDTHTHRESHOLD`` gives ``min_thickness``. A key
+    that is absent or unreadable leaves its setting at the default. Altium's own thresholds (2500 mil² and
+    5 mil, dead copper removed) are the default settings, the pair the writer gives a default zone."""
+    get = record.record.get
+    default = ZoneSettings()
+    island_removal, area = default.island_removal, default.min_island_area
+    if (get("REMOVEDEAD") or "").upper() == "FALSE":
+        island_removal = "never"
+    elif (get("REMOVEISLANDSBYAREA") or "").upper() == "TRUE":
+        try:
+            threshold = Fraction(get("AREATHRESHOLD") or "")
+        except (ValueError, ZeroDivisionError):
+            threshold = None
+        if threshold is not None and threshold > 0:
+            island_removal, area = "below_area", round(threshold * SQUARE_NM_PER_UNIT)
+    thickness = default.min_thickness
+    if (get("REMOVENECKS") or "").upper() == "TRUE":
+        neck = parse_length(get("NECKWIDTHTHRESHOLD") or "")
+        if neck is not None and neck > 0:
+            thickness = neck
+    if (island_removal, area, thickness) == (
+        "below_area",
+        ALTIUM_DEFAULT_ISLANDS_NM2,
+        ALTIUM_DEFAULT_NECK_NM,
+    ):
+        return default
+    return ZoneSettings(island_removal=island_removal, min_island_area=area, min_thickness=thickness)
+
+
 def _bad_vertex_text(record: PolygonRecord) -> bool:
     """Whether a vertex coordinate of the polygon is not a length text."""
     for k in range(len(record.vertices)):
@@ -1231,6 +1274,7 @@ def zones(doc: PcbDocument, ctx: Context) -> tuple[list[Zone], set[int]]:
                 priority=highest - (record.pour_index or 0),
                 fills=tuple(fills),
                 filled=bool(fills),
+                settings=zone_settings(record),
             )
         )
         ctx.census.map("polygons")

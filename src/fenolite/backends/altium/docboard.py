@@ -19,7 +19,8 @@ the physical lists, the layer sets and ``PLANE<k>NETNAME`` follow it (``pcb-copp
 from __future__ import annotations
 
 from collections.abc import Collection, Mapping, Sequence
-from decimal import Decimal
+from decimal import ROUND_HALF_EVEN, Decimal
+from fractions import Fraction
 
 import fenolite.backends.altium.pcbrecords as rec
 from fenolite.backends.altium.ascii import Field
@@ -229,7 +230,27 @@ _POUR_HEAD: tuple[Field, ...] = (
 )
 """The keys of a solid polygon pour before its vertices (``pcb-copper.md``, "Polygon pour")."""
 _POUR_TAIL: tuple[Field, ...] = (*_POLYGON_TAIL[:8], ("POUROVERSTYLE", "1"))
-"""The keys after the vertices that a pour shares with the board outline, up to ``POUROVERSTYLE``."""
+"""The keys after the vertices that a pour shares with the board outline, up to ``POUROVERSTYLE``; a pour
+sets ``REMOVEISLANDSBYAREA``, ``AREATHRESHOLD`` and ``NECKWIDTHTHRESHOLD`` from its zone (change c0446)."""
+SQUARE_NM_PER_UNIT = Fraction(127, 50) ** 2
+"""Square nanometres per square file unit (0.0001 mil squared): ``AREATHRESHOLD``'s unit (``pcb-pour.md``,
+I12)."""
+DEFAULT_AREA_THRESHOLD = "250000000000.000000"
+"""The ``AREATHRESHOLD`` of a pour that removes no island by area: Altium's own value, 2500 mil²."""
+LEGACY_ISLANDS_NM2 = 1_612_900_000_000
+"""2500 mil² in square nanometres: the island area of a pour whose zone has the default settings, the bytes
+that c0035 wrote and the kit verified (change c0446)."""
+LEGACY_NECK_NM = 127_000
+"""5 mil: the neck width of a pour whose zone has the default settings (change c0446)."""
+
+
+def area_threshold_text(area_nm2: int) -> str:
+    """An area in square nanometres as ``AREATHRESHOLD`` text: square file units with six decimals, rounded
+    half to even (``100_000_000_000`` → ``15500031000.062000``, 0.1 mm², which Altium saves as
+    ``15500031000.062008``; change c0446)."""
+    units = Fraction(area_nm2) / SQUARE_NM_PER_UNIT
+    value = Decimal(units.numerator) / Decimal(units.denominator)
+    return str(value.quantize(Decimal("0.000001"), rounding=ROUND_HALF_EVEN))
 
 
 def name_codes(text: str) -> str:
@@ -248,6 +269,8 @@ def polygon_fields(
     remove_dead: bool = True,
     optimal_void_rotation: bool = True,
     pour_over: str = "1",
+    islands: int | None = LEGACY_ISLANDS_NM2,
+    neck: int = LEGACY_NECK_NM,
 ) -> list[Field]:
     """The fields of one unpoured, solid polygon pour of ``Polygons6`` (``pcb-copper.md``, "Polygon pour"):
     the key set of the board outline with a net, a name and a pour index. ``layer_text`` is the ``LAYER``
@@ -256,22 +279,30 @@ def polygon_fields(
     ``remove_dead`` off writes ``REMOVEDEAD=FALSE``: the pour keeps its islands (change c0085).
     ``optimal_void_rotation`` off writes ``OPTIMALVOIDROTATION=FALSE``, the form of a computed pour (change
     c0215, input I15). ``pour_over`` is ``POUROVERSTYLE`` (``0``, ``1`` or ``2``, input I8), with
-    ``POUROVER=TRUE`` for ``1`` only, as the saved documents pair them. ``ValueError`` for fewer than three
-    vertices or another ``pour_over``."""
+    ``POUROVER=TRUE`` for ``1`` only, as the saved documents pair them. ``islands`` is the area in square
+    nanometres below which a piece is removed (``REMOVEISLANDSBYAREA=TRUE`` with its ``AREATHRESHOLD``;
+    ``None``: ``FALSE``) and ``neck`` the neck width in nanometres (``NECKWIDTHTHRESHOLD``; change c0446).
+    ``ValueError`` for fewer than three vertices, another ``pour_over``, or an area or width that is not
+    positive."""
     if len(vertices) < 3:
         raise ValueError("a polygon needs at least three points")
     if pour_over not in ("0", "1", "2"):
         raise ValueError(f"POUROVERSTYLE is 0, 1 or 2, not {pour_over!r}")
+    if (islands is not None and islands <= 0) or neck <= 0:
+        raise ValueError("an island area and a neck width are positive")
     fixed = {
         "REMOVEDEAD": "TRUE" if remove_dead else "FALSE",
         "POUROVER": "TRUE" if pour_over == "1" else "FALSE",
+        "REMOVEISLANDSBYAREA": "FALSE" if islands is None else "TRUE",
+        "AREATHRESHOLD": DEFAULT_AREA_THRESHOLD if islands is None else area_threshold_text(islands),
+        "NECKWIDTHTHRESHOLD": rec.mil_text(rec.to_units(neck)),
     }
     head = [(key, fixed.get(key, value)) for key, value in _POUR_HEAD]
     fields: list[Field] = [
         *common_fields(layer_text),
         *head,
         *_outline(vertices),
-        *_POUR_TAIL[:-1],
+        *((key, fixed.get(key, value)) for key, value in _POUR_TAIL[:-1]),
         ("POUROVERSTYLE", pour_over),
         ("NAME", name_codes(name)),
         ("POURINDEX", str(pour_index)),
@@ -532,5 +563,6 @@ __all__ = [
     "format_line",
     "name_codes",
     "polygon_fields",
+    "area_threshold_text",
     "split_plane_fields",
 ]
