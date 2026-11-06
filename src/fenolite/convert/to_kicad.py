@@ -35,7 +35,7 @@ from fenolite.backends.kicad.mod import prepare_authored_definition, read_footpr
 from fenolite.backends.kicad.outline import edge_outline
 from fenolite.backends.kicad.triad import write_triad
 from fenolite.backends.kicad.versions import TARGET_MAJORS
-from fenolite.convert import strokefonts
+from fenolite.convert import altium_frame, strokefonts
 from fenolite.convert.arrays import ArrayItem, Copies, copies
 from fenolite.convert.direction import Direction, Options, Written
 from fenolite.convert.models import Placed, place_models
@@ -621,6 +621,9 @@ def write_altium(source: SourceProject, options: Options) -> Written:
     fonts = strokefonts.found(source.design.board)
     if fonts:  # change c0460, S-2253: each stroke text's font name and flags, for the way back
         board_items[strokefonts.PROPERTY] = strokefonts.carrier_text(fonts)
+    frame = altium_frame.found(source.design.board, design.board)
+    if frame is not None:  # change c0467: the source's origin and the edge's corner, for the way back
+        board_items[altium_frame.PROPERTY] = altium_frame.carrier_text(frame).encode("utf-8")
     if carried:  # change c0434: every rule record travels in the board, for the way back
         from fenolite.convert import rulecarrier
 

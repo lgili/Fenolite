@@ -115,7 +115,7 @@ The closed table `adapter.EXT_KEYS`. A value is text of the record or a decimal 
 | `altium_name` | layer | the name the board record gives the layer |
 | `plane_net` | layer | the net of an internal plane |
 | `plane_cuts` | layer | the number of free primitives on the layer of an internal plane that the import left out: they cut the plane and are no copper |
-| `origin` | board | `ORIGINX,ORIGINY` as written |
+| `origin` | board | `ORIGINX,ORIGINY` as written. A conversion to KiCad carries it in the frame of the design, with the edge's corner, as `Fenolite.Altium.Frame`; the Altium writer writes the board back at its coordinates with that origin (change c0467) |
 | `polygon_connect` | board | one pair per Polygon Connect Style record (rule kind 20), in record order: its keys from `RULEKIND` on, as written, `KEY=VALUE` joined by `\|`. A rewrite with a computed pour writes the records back when every one maps (change c0215; `pcb-pour.md`, "Polygon Connect Style records"); it enters no id |
 | `kept_rule` | board | one pair per rule record that the Altium writer cannot rebuild from the neutral rules, in record order: its kind number, then its keys from `RULEKIND` on, `KEY=VALUE` joined by `\|` (`rule-file.md`, "Kept rule records"); the writer writes it back as it is (change c0424) |
 | `stack_mode` | pad | the stack mode when it is not 0 |

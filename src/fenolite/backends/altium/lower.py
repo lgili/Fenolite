@@ -702,6 +702,12 @@ PLANE_PULLBACK = 508_000
 """20 mil, ``libboard.PULLBACK``: the pull-back of a plane that carries none (change c0466)."""
 
 
+FRAME_ANCHORED = (
+    "the carried frame would put the board at a negative document coordinate; it is anchored at its corner"
+)
+"""The reason of the ``outline`` change of a carried frame the writer does not keep (change c0467)."""
+
+
 @dataclass(frozen=True, slots=True)
 class CarriedPlane:
     """An internal plane a conversion carried through KiCad (change c0466, ``convert.altium_planes``): its
@@ -2140,6 +2146,7 @@ def from_design(
     models: Mapping[str, Sequence[pcbdoc.FootprintModel]] | None = None,
     polygon_arcs: Mapping[str, ArcPolygon] | None = None,
     planes: Mapping[str, CarriedPlane] | None = None,
+    frame_origin: Point | None = None,
 ) -> AltiumInputs:
     """The inputs of the PCB and schematic writers from ``design`` alone, or with ``options`` those of a
     build (change c0126, ``LowerOptions``). ``corner_ratios`` maps a pad id
@@ -2213,6 +2220,7 @@ def from_design(
                 models=models,
                 polygon_arcs=polygon_arcs,
                 carried_planes=planes,
+                frame_origin=frame_origin,
             )
     schematic = schematic_design(design, name, account)
     modelled = {component.id: component.lib_footprint_ref for component in schematic.circuit.components}
@@ -2281,6 +2289,7 @@ def _document(
     models: Mapping[str, Sequence[pcbdoc.FootprintModel]] | None = None,
     polygon_arcs: Mapping[str, ArcPolygon] | None = None,
     carried_planes: Mapping[str, CarriedPlane] | None = None,
+    frame_origin: Point | None = None,
 ) -> pcbdoc.PcbDocSpec:
     net_names: dict[str, str] = {}
     for net in design.circuit.nets:
@@ -2304,8 +2313,14 @@ def _document(
         )
         stack = dataclasses.replace(stack, pullbacks=pullbacks)
     read = BACKEND in board.native_ids
-    if read:
-        frame = pcbdoc.Frame.document()
+    document = pcbdoc.Frame.document()
+    if read or options is not None:  # change c0467: a carried frame is a conversion's, of a KiCad board
+        frame_origin = None
+    if frame_origin is not None and not all(document(p).x >= 0 and document(p).y >= 0 for p in outline):
+        account.change("outline", board.id, FRAME_ANCHORED)
+        frame_origin = None
+    if read or frame_origin is not None:
+        frame = document
     elif options is None and all(_on_units(p.x) and _on_units(p.y) for p in outline):
         # a conversion of a board whose outline lies on whole document units, as one that came from a PCB
         # document does: the board moves by whole units, so its shape is kept (c0441). Any other board is
@@ -2313,7 +2328,7 @@ def _document(
         frame = pcbdoc.Frame.on_units(outline)
     else:
         frame = pcbdoc.Frame.of(outline)
-    origin: Point | None = None
+    origin: Point | None = frame_origin if not read else None
     if read:
         origin = Point(0, 0)
         texts = pairs_of(board).get("origin", "").split(",")
@@ -2451,6 +2466,7 @@ def write_design(
     storages: Mapping[str, tuple[bytes, bytes]] | None = None,
     polygon_arcs: Mapping[str, ArcPolygon] | None = None,
     planes: Mapping[str, CarriedPlane] | None = None,
+    frame_origin: Point | None = None,
 ) -> ProjectWrite:
     """The files of an Altium project written from ``design`` alone: ``<name>.PcbDoc`` when the design holds a
     board with an outline or an item, and ``<name>.SchDoc`` with its libraries and ``<name>.PrjPcb`` when the
@@ -2475,7 +2491,11 @@ def write_design(
     polygon record, which a conversion carried through KiCad (change c0463, task 1.3): written back while
     the zone's outline is still their ring, else the outline's chords as a ``changed`` zone. ``planes`` maps
     a copper layer to the internal plane a conversion carried through KiCad (change c0466,
-    ``CarriedPlane``): its splits, pull-back and name."""
+    ``CarriedPlane``): its splits, pull-back and name. ``frame_origin`` is the origin a conversion carried
+    through KiCad (change c0467, ``convert.altium_frame``), in the document's frame: a board that was not
+    read from a PCB document is then written where its coordinates are, Y negated, with that origin; when
+    that would put a point of the outline at a negative coordinate, it is anchored at its corner and one
+    ``outline`` change says so (``FRAME_ANCHORED``)."""
     refuse_bom_only(design)
     if schematic is not None:
         refuse_bom_only(schematic)
@@ -2491,6 +2511,7 @@ def write_design(
         models=models,
         polygon_arcs=polygon_arcs,
         planes=planes,
+        frame_origin=frame_origin,
     )
     if source_rules and inputs.pcb is not None:  # the source's own rule records (change c0434)
         inputs = dataclasses.replace(

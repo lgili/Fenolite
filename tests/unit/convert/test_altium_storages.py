@@ -86,6 +86,7 @@ def test_kicad_board_holds_the_carried_storages(tmp_path: Path) -> None:
         "Fenolite.Altium.UnionNames",
         "Fenolite.Altium.Classes6.Kept",
         "Fenolite.Altium.Board6.Settings",  # change c0464, not counted as a storage
+        "Fenolite.Altium.Frame",  # change c0467: the document's origin
     }
     # one write of every carried property (``with_carried``): right after ``setup``, in name order
     lines = [line.lstrip() for line in text.splitlines()]

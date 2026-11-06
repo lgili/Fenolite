@@ -234,7 +234,12 @@ Designer from inputs authored for Fenolite (Part Q of `docs/evidence/altium-pcb.
 - Frame: a point is placed as KiCad places it (`Transform.placement(at, θ, mirror=bottom)`), then Y is
   negated and the result shifted so that the outline's lowest X and highest Y (in KiCad's Y-down frame)
   land on (1000 mil, 1000 mil), which is also `ORIGINX`/`ORIGINY` and `GR0_OX`/`GR0_OY`. On the bottom
-  side every layer takes its flip partner.
+  side every layer takes its flip partner. A KiCad board that a conversion of an Altium document made
+  carries the source's origin and the edge's corner in the board property `Fenolite.Altium.Frame` (change
+  c0467): it is written at its KiCad coordinates, Y negated, with `ORIGINX`/`ORIGINY` at the carried
+  origin moved with the edge's corner, unless a point of the outline would lie at a negative coordinate
+  (then as above, and one `outline` change). Six of the seven public rows hold their origin away from the
+  outline's corner (S-2260).
 - Nets are written in name order with the 15 keys of the table (`VISIBLE=TRUE`, `COLOR=7709086`);
   components in component-path order with the 25 keys of the table. `SOURCEUNIQUEID` is `\` followed by
   the schematic `UNIQUEID`, `SOURCEHIERARCHICALPATH` is empty, `NAMEON=TRUE`, `COMMENTON=FALSE`,

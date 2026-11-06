@@ -38,6 +38,7 @@ from fenolite.convert.models import (
 )
 from fenolite.convert.report import SOURCE_RULE_LOST, ConversionReport, census
 from fenolite.convert.sources import ALTIUM, KICAD, SourceProject
+from fenolite.core.coords import Point
 from fenolite.core.errors import FormatError
 from fenolite.core.evidence import Evidence, Level
 from fenolite.model.design import Design
@@ -346,6 +347,22 @@ def _carried_fonts(source: SourceProject, design: Design) -> Design:
     return dataclasses.replace(design, board=strokefonts.restored(design.board, fonts)) if fonts else design
 
 
+def _carried_origin(source: SourceProject, design: Design) -> Point | None:
+    """The document origin a conversion to KiCad carried (change c0467, ``altium_frame``), moved with the
+    board's edge, in the document's frame; ``None`` for a board that does not read or carries none."""
+    from fenolite.backends.kicad.boardcarrier import carried as board_carried
+    from fenolite.convert import altium_frame
+
+    if design.board is None or source.path.suffix != ".kicad_pcb":
+        return None
+    try:
+        found = board_carried(source.path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, FormatError):
+        return None
+    carried = altium_frame.read_carrier(found.get(altium_frame.PROPERTY))
+    return altium_frame.restored(design.board, carried) if carried is not None else None
+
+
 def _stored_models(source: SourceProject) -> tuple[dict[HeightKey, tuple[int, int]], CarriedIds]:
     """The stored heights and the source identities of the embedded models a conversion to KiCad placed
     (change c0449, task 4.3; ``models.read_heights`` and ``models.read_ids`` of the board properties
@@ -385,6 +402,7 @@ def write(source: SourceProject, options: Options) -> Written:
     kept_storages, storage_losses = _carried_storages(source, design)  # changes c0450 and c0461
     design, planes, plane_losses = _carried_planes(source, design)  # change c0466
     design = _carried_fonts(source, design)  # change c0460, S-2253
+    frame_origin = _carried_origin(source, design)  # change c0467
     try:
         written = lower.write_design(
             design,
@@ -405,6 +423,7 @@ def write(source: SourceProject, options: Options) -> Written:
             storages=kept_storages,  # change c0450
             polygon_arcs=_carried_arcs(source, design),  # change c0463, task 1.3
             planes=planes,  # change c0466
+            frame_origin=frame_origin,  # change c0467
         )
     except CompoundTooLarge as error:
         raise TargetLimitError(
