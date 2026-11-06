@@ -86,7 +86,7 @@ def test_kit_sample_builds_its_hatches() -> None:
         styles = {p.name: p.record.get("HATCHSTYLE") for p in document.polygons}
         assert {name: style for name, style in styles.items() if style != "Solid"} == hatches
         assert len(styles) == 10
-    record = pourrecord.document_record_bytes(built.files["computed/pour-hatched.PcbDoc"], "computed.PcbDoc")
+    record = pourrecord.document_record(built.files["computed/pour-hatched.PcbDoc"], "computed.PcbDoc")
     poured = {p["name"]: p["regions"] for p in record["polygons"]}  # type: ignore[union-attr]
     assert poured["P0"] == 1 and all(poured[name] == 0 for name in hatches)
 
@@ -116,8 +116,8 @@ def test_a_row_record_holds_no_geometry() -> None:
     """Without ``detail`` a polygon's entry holds counts, an area and hashes, never a coordinate list; with
     it, the poured tracks and arcs are listed."""
     data = _hatched().write().data
-    plain = pourrecord.document_record_bytes(data, "a.PcbDoc")
-    detail = pourrecord.document_record_bytes(data, "a.PcbDoc", detail=True)
+    plain = pourrecord.document_record(data, "a.PcbDoc")
+    detail = pourrecord.document_record(data, "a.PcbDoc", detail=True)
     for entry in plain["polygons"]:  # type: ignore[union-attr]
         assert not any(isinstance(value, list) for value in entry.values())
     assert all("track_list" in entry and "arc_list" in entry for entry in detail["polygons"])  # type: ignore[union-attr]

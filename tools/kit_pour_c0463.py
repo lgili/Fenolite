@@ -19,7 +19,7 @@ After the run, ``record`` reads the boards Altium saved, ``DIR/pour-hatched/repo
 ``tests/data/altium/kit/pour-hatched.json`` and ``tests/data/altium/kit/repour.json``
 (``backends.altium.pourrecord``). The sample's record lists its poured tracks; a row's record holds
 aggregates and hashes only, never a stretch of the row's geometry. No document Altium saved enters the
-repository.
+repository. The tool reads the files and writes the JSON; ``pourrecord`` only reads bytes.
 """
 
 from __future__ import annotations
@@ -32,6 +32,7 @@ import shutil
 import sys
 import tomllib
 import urllib.parse
+from collections.abc import Mapping
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -135,12 +136,29 @@ def _messages(saved: Path) -> dict[str, object]:
     return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {}
 
 
-def record(saved: Path, tool: str, date: str, out: Path) -> None:
-    from fenolite.backends.altium.pourrecord import document_record, record_text
+def record_text(
+    step: str, tool: str, date: str, documents: Mapping[str, Mapping[str, object]], **fields: object
+) -> str:
+    """The JSON text of a record file: the schema, the step (``K6.12``, ``repour``), the tool as
+    ``AD <major>.<minor>``, the date of the run, ``fields`` (the source of each document) and
+    ``documents`` by key (a sample's name or a corpus id), sorted."""
+    from fenolite.backends.altium.pourrecord import SCHEMA
 
+    root = {"schema": SCHEMA, "step": step, "tool": tool, "date": date, **fields}
+    root["documents"] = dict(documents)
+    return json.dumps(root, sort_keys=True, indent=1) + "\n"
+
+
+def _document(path: Path, *, detail: bool = False) -> dict[str, object]:
+    from fenolite.backends.altium.pourrecord import document_record
+
+    return document_record(path.read_bytes(), path.name, detail=detail)
+
+
+def record(saved: Path, tool: str, date: str, out: Path) -> None:
     messages = _messages(saved)
     reference = saved / "pour-hatched" / "reference" / "pour-hatched.PcbDoc"
-    hatched = document_record(saved / "pour-hatched" / SAVED, detail=True)
+    hatched = _document(saved / "pour-hatched" / SAVED, detail=True)
     hatched["source_sha256"] = _sha(reference)
     hatched["messages"] = messages.get("pour-hatched", {})
     out.mkdir(parents=True, exist_ok=True)
@@ -153,7 +171,7 @@ def record(saved: Path, tool: str, date: str, out: Path) -> None:
         if not (folder / SAVED).is_file():
             continue
         sources = [p for p in folder.glob("*.PcbDoc") if p.name != SAVED]
-        entry = document_record(folder / SAVED)
+        entry = _document(folder / SAVED)
         entry["file"] = SAVED
         entry["source_sha256"] = _sha(sources[0]) if len(sources) == 1 else ""
         entry["messages"] = messages.get(row, {})

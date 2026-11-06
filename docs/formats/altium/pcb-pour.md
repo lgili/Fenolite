@@ -105,7 +105,8 @@ the boards Altium saved into `tests/data/altium/kit/pour-hatched.json` and `test
 
 - its `LAYER`, `HATCHSTYLE`, `GRIDSIZE`, `TRACKWIDTH`, `POURINDEX` and `SHELVED` as saved;
 - its regions: their count, holes, vertices, area in nm² and the SHA-256 of their rings (each ring from its
-  least vertex, counter-clockwise), which a test given the saved board checks;
+  least vertex, counter-clockwise; the regions sorted, one per line, outline then sorted holes, `x,y` in nm
+  with `;` between vertices and `|` between rings, as ASCII), which a test given the saved board checks;
 - the tracks and arcs that name it: their counts, the exact directions of the tracks (`dx:dy`) and widths.
 
 The record of the sample also lists every poured track and arc in file units, from which the hatch is built

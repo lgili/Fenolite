@@ -11,15 +11,14 @@ holds aggregates and hashes only: it never copies a stretch of third-party geome
 of 2026-11-06). The rings' hash lets a test that is given the saved document (its folder named by an
 environment variable) check that it is the one the record was made from.
 
-Stdlib and the Altium reader only; nothing is written here.
+Pure: it takes a document's bytes and returns plain data. Reading the files and writing the JSON are the
+tool's (``tools/kit_pour_c0463.py``), since this package does no file access.
 """
 
 from __future__ import annotations
 
 import hashlib
-import json
-from collections.abc import Iterable, Mapping, Sequence
-from pathlib import Path
+from collections.abc import Iterable, Sequence
 
 from fenolite.backends.altium.adapter.copper import region_points
 from fenolite.backends.altium.read.pcb import PcbDocument, read_pcbdoc
@@ -50,6 +49,19 @@ def _canonical(ring: Sequence[Point]) -> tuple[tuple[int, int], ...]:
     return tuple(points[start:] + points[:start])
 
 
+def _ring_text(ring: Sequence[tuple[int, int]]) -> str:
+    return ";".join(f"{x},{y}" for x, y in ring)
+
+
+def _rings_digest(
+    rings: Sequence[tuple[tuple[tuple[int, int], ...], tuple[tuple[tuple[int, int], ...], ...]]],
+) -> str:
+    """The SHA-256 of the rings as ASCII text: the regions sorted, one per line, each its outline then its
+    sorted holes, ``|`` between rings, ``;`` between vertices and ``x,y`` in nanometres."""
+    lines = ["|".join(_ring_text(ring) for ring in (outer, *holes)) for outer, holes in sorted(rings)]
+    return hashlib.sha256("\n".join(lines).encode("ascii")).hexdigest()
+
+
 def _regions(regions: Iterable[RegionRecord]) -> dict[str, object]:
     rings: list[tuple[tuple[tuple[int, int], ...], tuple[tuple[tuple[int, int], ...], ...]]] = []
     vertices = holes = area = 0
@@ -63,13 +75,12 @@ def _regions(regions: Iterable[RegionRecord]) -> dict[str, object]:
         holes += len(inner)
         area += _area(outer) - sum(_area(hole) for hole in inner)
         rings.append((_canonical(outer), tuple(sorted(_canonical(hole) for hole in inner))))
-    digest = hashlib.sha256(json.dumps(sorted(rings), separators=(",", ":")).encode("ascii")).hexdigest()
     return {
         "regions": len(rings),
         "holes": holes,
         "vertices": vertices,
         "area_nm2": area,
-        "rings_sha256": digest,
+        "rings_sha256": _rings_digest(rings),
     }
 
 
@@ -139,13 +150,9 @@ def polygon_summaries(document: PcbDocument, *, detail: bool = False) -> list[di
     return out
 
 
-def document_record(path: Path, *, detail: bool = False) -> dict[str, object]:
-    """The record of the saved document at ``path``: its file name, SHA-256 and size, and its polygons."""
-    return document_record_bytes(path.read_bytes(), path.name, detail=detail)
-
-
-def document_record_bytes(data: bytes, name: str, *, detail: bool = False) -> dict[str, object]:
-    """``document_record`` of the bytes ``data`` of a document named ``name``."""
+def document_record(data: bytes, name: str, *, detail: bool = False) -> dict[str, object]:
+    """The record of the saved document ``data`` named ``name``: its name, SHA-256 and size, and its
+    polygons."""
     document = read_pcbdoc(data, file=name)
     return {
         "file": name,
@@ -155,15 +162,4 @@ def document_record_bytes(data: bytes, name: str, *, detail: bool = False) -> di
     }
 
 
-def record_text(
-    step: str, tool: str, date: str, documents: Mapping[str, Mapping[str, object]], **fields: object
-) -> str:
-    """The JSON text of a record file: the schema, the step (``K6.12``, ``repour``), the tool as
-    ``AD <major>.<minor>``, the date of the run, ``fields`` (the source of each document) and
-    ``documents`` by key (a sample's name or a corpus id), sorted."""
-    root = {"schema": SCHEMA, "step": step, "tool": tool, "date": date, **fields}
-    root["documents"] = dict(documents)
-    return json.dumps(root, sort_keys=True, indent=1) + "\n"
-
-
-__all__ = ["SCHEMA", "document_record", "document_record_bytes", "polygon_summaries", "record_text"]
+__all__ = ["SCHEMA", "document_record", "polygon_summaries"]
