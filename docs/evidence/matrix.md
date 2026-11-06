@@ -378,7 +378,7 @@ a claim), `see` (its code runs only inside the operations of the named modules o
 | `edit.ops` | see `edit.session` |
 | `edit.records` | see `edit.session` |
 | `edit.schematic` | `EVIDENCE` INFERRED: `H-A-EDIT-KIT`, `H-A-EDIT-SCH` |
-| `edit.session` | `EVIDENCE` INFERRED: `H-A-EDIT-ADD`, `H-A-EDIT-CLONE`, `H-A-EDIT-DELETE`, `H-A-EDIT-FLIP`, `H-A-EDIT-IDS`, `H-A-EDIT-KIT`, `H-A-EDIT-LAYER`, `H-A-EDIT-MOVE`, `H-A-EDIT-PROPERTY`, `H-A-EDIT-ROTATE`, `H-A-EDIT-RULE` |
+| `edit.session` | `EVIDENCE` INFERRED: `H-A-EDIT-ADD`, `H-A-EDIT-CLONE`, `H-A-EDIT-CREATE`, `H-A-EDIT-DELETE`, `H-A-EDIT-FLIP`, `H-A-EDIT-IDS`, `H-A-EDIT-KIT`, `H-A-EDIT-LAYER`, `H-A-EDIT-MOVE`, `H-A-EDIT-PROPERTY`, `H-A-EDIT-ROTATE`, `H-A-EDIT-RULE`, `H-A-EDIT-SHAPE` |
 | `edit.state` | see `edit.session` |
 | `fills` | `EVIDENCE` INFERRED: `H-A-CONV-FILL` |
 | `frame` | `EVIDENCE` INFERRED: `H-A-IMP-FRAME`, `H-A-IMP-PADSTACK` |
