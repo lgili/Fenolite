@@ -38,8 +38,10 @@ IMPORTER: dict[str, set[tuple[str, str]]] = {
 }
 """Per demo board, the differences ``(kind, where)`` that KiCad's importer makes and no loss explains."""
 
-FREE_PAD_COUNTS = {"01": 14, "04": 1, "07": 2, "12": 9, "13": 9, "16": 3, "17": 24}
-"""c0166 measured importer wrappers: one blank-reference footprint per free pad.
+FREE_PAD_COUNTS: dict[str, int] = {}
+"""c0166 measured importer wrappers: one blank-reference footprint per free pad. Since change c0433 a pad
+without a number stays in its component, so no board has such a wrapper (it held 01: 14, 04: 1, 07: 2,
+12: 9, 13: 9, 16: 3, 17: 24).
 
 These counts match the separately recorded conversion ledger, not a general
 exemption for blank references. The original numbered-component checks remain.
