@@ -10,6 +10,6 @@
 - [x] 3.3 `create`: `add_arc`, `add_fill`, `add_region`, `add_polygon` (`test_shapes.py -k add`).
 - [x] 4.1 Rows `H-A-EDIT-SHAPE` and `H-A-EDIT-CREATE`, case J23, gates; phase B writes `shapes`, `create`
   and `set_outline` (`test_part_j.py -k phase_b`, `test_altium_verification_docs.py -k part_j`).
-- [ ] 4.2 Altium Designer opens the written documents of 3.1 to 3.3 and a fill created on a document it saved
+- [x] 4.2 Altium Designer opens the written documents of 3.1 to 3.3 and a fill created on a document it saved
   with one, with no message, and saves them (agent run through the maintainer's VM; S-2111 onward).
 - [x] 5.1 `CHANGELOG.md`; light checks; the touched test files alone.

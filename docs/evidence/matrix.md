@@ -342,6 +342,7 @@ a claim), `see` (its code runs only inside the operations of the named modules o
 
 | module | declaration |
 |---|---|
+| `adapter.arcring` | none:  |
 | `adapter.board` | see `import_evidence` |
 | `adapter.bodies` | see `import_evidence` |
 | `adapter.channels` | see `import_evidence` |
@@ -399,6 +400,7 @@ a claim), `see` (its code runs only inside the operations of the named modules o
 | `pcbrecords` | `EVIDENCE` INFERRED: `H-A-PCB-DOC-BOTTOM`, `H-A-PCB-DOC-LINK`, `H-A-PCB-DOC-NETS`, `H-A-PCB-DOC-OPEN`, `H-A-PCB-DOC-VIEWER`, `H-A-PCB-ECO`, `H-A-PCB-GRAPHICS`, `H-A-PCB-KICAD-DOC`, `H-A-PCB-KICAD-LIB`, `H-A-PCB-LIB-NAME`, `H-A-PCB-LIB-OPEN`, `H-A-PCB-PAD`, `H-A-PCB-PRJ`<br>`VIA_TENTING_EVIDENCE` INFERRED: `H-A-PCB-CU-VIATENT` |
 | `pour` | `EVIDENCE` INFERRED: `H-A-POUR-OPEN`, `H-A-POUR-REGION`, `H-A-POUR-CLEARANCE`, `H-A-POUR-CONNECT`, `H-A-POUR-RELIEF`, `H-A-POUR-OVER`, `H-A-POUR-ORDER`, `H-A-POUR-NECK`, `H-A-POUR-STEPS`, `H-A-POUR-ISLAND`, `H-A-POUR-DEAD`, `H-A-POUR-ARC`, `H-A-POUR-VOIDROT`, `H-A-POUR-KEEPOUT`, `H-A-POUR-EDGE`, `H-A-POUR-VIAPAD` |
 | `pourcompare` | none: it compares two readings of one board and states nothing of a file format or a tool |
+| `pourrecord` | none:  |
 | `prjpcb` | see `project` |
 | `project` | `BUILD_EVIDENCE` INFERRED: `H-A-ECO-NETCLASS`, `H-A-ECO-PRJ-KEYS`, `H-A-ECO-ROOMS`, `H-A-ECO-SUPPLY`, `H-A-PRJ-KEEP`, `H-A-PRJ-OPEN`, `H-A-SCH-ECO`, `H-A-SCH-LINEEND`, `H-A-SCH-LINK`, `H-A-SCH-NC-ERC`, `H-A-SCH-NC-RECORD`, `H-A-SCH-NC-VIEWER`, `H-A-SCH-NETS`, `H-A-SCH-OPEN`, `H-A-SCH-RELINK`, `H-A-SCH-UID`, `H-A-SCH-UPDATE`, `H-A-SCHX-BUS`, `H-A-SCHX-DIR`, `H-A-SCHX-ECO`, `H-A-SCHX-GRAPHICS`, `H-A-SCHX-PINMAP`, `H-A-SCHX-PINMAP-FORM`, `H-A-SCHX-READBACK`, `H-A-SCHX-TEXT`, `H-A-SCHX-TREE`<br>`EVIDENCE` INFERRED: `H-A-DWF-PARAMS`, `H-A-CONV-SCHEMATIC`, `H-A-ECO-NETCLASS`, `H-A-ECO-PRJ-KEYS`, `H-A-ECO-ROOMS`, `H-A-ECO-SUPPLY`, `H-A-PRJ-OPEN`, `H-A-SCH-LINEEND`, `H-A-SCH-LINK`, `H-A-SCH-NETS`, `H-A-SCH-OPEN`, `H-A-SCH-UID`, `H-A-SCHX-BUS`, `H-A-SCHX-DIR`, `H-A-SCHX-ECO`, `H-A-SCHX-GRAPHICS`, `H-A-SCHX-READBACK`, `H-A-SCHX-TEXT`, `H-A-SCHX-TREE` |
 | `read.annotation` | `EVIDENCE` INFERRED: `H-A-IMP-RPT-ANNOT-2` |

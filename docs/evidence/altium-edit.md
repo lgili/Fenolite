@@ -385,6 +385,34 @@ passes on 24.5. J25 and J29–J31 are not executed, and J33 was not run as writt
 because this was an agent run. `H-A-EDIT-KIT` and the `H-A-INTEG-*` rows keep their levels, and every
 operation's gate stays off. Task 4.2 stays open for the maintainer's decision.
 
+### 2026-11-06, actual `AD 24.5.2.23`, c0452 shapes and creation (source S-2111)
+
+A Claude agent ran the documents of c0452 on the coordinator's word, in the Altium Designer installed in the
+maintainer's Parallels Windows VM (24.5.2.23). This is not the maintainer's own review. The edit session of
+c0452 wrote each document from `J01-resave.PcbDoc` of S-1577: `shapes`, `create` and `set_outline` with the
+changes of phase B, then `arc-moved` and `arc-deleted` from `create`. The kit board holds no fill, so the agent
+placed one free fill on the Top Layer in Altium and saved it as the template. The session then wrote
+`fill-added`, `fill-moved` and `fill-deleted` from that template. Each document was opened, its polygons
+repoured, saved as `<name>-saved`, closed, opened again and read again. No dialog showed at any opening,
+repour, save or close, and the Messages panel got no message. For every document, the geometry at the second
+opening equals the geometry at the first.
+
+| file | expected | observed in Altium | result |
+|---|---|---|---|
+| `shapes` | the Mechanical 13 region at (31, 24)–(37, 28) mm; `VIN` at (3, 22)–(9, 28) mm | as expected | pass |
+| `create` | a free arc on Top Overlay, centre (30, 20) mm, radius 2 mm, 0° to 90°, 0.2 mm wide; a Mechanical 13 region (20, 20)–(24, 23) mm; polygon `AUX` on the Top Layer, net `MID`, (30, 4)–(38, 10) mm, pour index 2 | as expected; the repour gives `AUX` no region | pass |
+| `set_outline` | `VIN` at (2, 21)–(10, 28) mm | as expected; the repour gives `VIN` one region | pass |
+| `arc-moved` | the arc's centre at (31, 21) mm | as expected | pass |
+| `arc-deleted` | no free arc | as expected | pass |
+| `fill-added` | the template's fill and a new fill (2, 2)–(4, 3) mm on the Top Layer, no net | as expected | pass |
+| `fill-moved` | the template's fill at (35, 2)–(37, 4) mm | as expected | pass |
+| `fill-deleted` | no fill | as expected | pass |
+
+`AUX` encloses no pad of `MID`, and its record holds `REMOVEDEAD=TRUE`, so a repour gives it no copper
+(`pcb-pour.md`, I13). Fenolite reads each saved document strictly, with the same free arcs, fills, free
+regions and polygons as the written one. No level is raised, because this was an agent run. `H-A-EDIT-SHAPE`
+and `H-A-EDIT-CREATE` stay `INFERRED`, and the gates `move`, `delete`, `set_outline` and `create` stay off.
+
 ## Approved pending-native scope — 2026-11-03
 
 The maintainer explicitly authorized the pending Altium validations on the
