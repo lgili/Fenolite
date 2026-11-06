@@ -69,7 +69,7 @@ report, and an agent must waive each one by hand.
 
 ## Impact
 
-- `src/fenolite/model/rules.py`, `schemas/fenolite.model.v0/rules.json` and `docs/design-model.md`.
+- `src/fenolite/model/rules.py`, `schemas/fenolite.model.v1/rules.json` and `docs/design-model.md`.
 - `src/fenolite/checks/allowances.py` (new): the governing `short` rule of a pair, and the stub of a
   dangling item. It reuses `checks.padpath.CopperGraph`.
 - `src/fenolite/checks/copper.py`, `src/fenolite/checks/drc.py` and `src/fenolite/checks/codes.py`.

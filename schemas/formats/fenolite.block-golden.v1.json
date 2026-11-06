@@ -1794,6 +1794,8 @@
             "silk_clearance",
             "creepage",
             "no_tracks",
+            "short",
+            "antenna",
             "diff_pair_gap",
             "diff_pair_uncoupled",
             "skew",

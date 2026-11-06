@@ -895,7 +895,7 @@ SHA-256 under `native/`.
 
 ## Rule kinds (c0107)
 
-`model.rules.RuleKind` holds eighteen kinds. The thirteenth, `no_tracks`, was added by change c0107: tracks
+`model.rules.RuleKind` holds twenty kinds. The thirteenth, `no_tracks`, was added by change c0107: tracks
 and arcs of the items that `selector_a` selects are not allowed on the copper layers of `layers`. It takes
 no limit and no `selector_b`, and it follows the twelve kinds of before, so the first twelve keep their
 order; the five pair and length kinds of change c0104 ("Differential pairs") follow it.
@@ -905,6 +905,20 @@ what it was (`tests/data/model/v0.2.1/twelve_kinds.rules.json` loads and seriali
 the historical schema was `"0"`; see [version history](#model-schema-versions).
 Releases 0.2.x and 0.3.x cannot read a model document that holds a `no_tracks` rule: their `RuleKind` lacks
 the value.
+
+### Allowances: `short` and `antenna` (c0465)
+
+Change c0465 adds two kinds after `no_tracks`, so the pair and length kinds stay last. The coordinator approved
+the widened `RuleKind` on 2026-11-06 under the maintainer's delegation (`model0-approved.json`). The change
+rides model version 1.1 of change c0462.
+
+| kind | sides | limits | meaning |
+|---|---|---|---|
+| `short` | `selector_a`, `selector_b` (required) | none | `severity` is the severity of a short between an item of each side: `ignore` allows it |
+| `antenna` | `selector_a` only | `max` ≥ 0, alone | an open-ended stub of the selected copper passes when it is at most `max` long |
+
+`Rule` raises `ValueError` for a rule of either kind that breaks these limits. A `rules.json` without them is,
+byte for byte, what it was. A release before this change cannot read a document that holds one.
 ## Net ties, waivers and check severities
 
 Three keys of change c0114. Each is omitted at its default, so a design that uses none of them writes the

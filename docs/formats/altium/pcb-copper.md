@@ -227,6 +227,8 @@ limits of its row.
 | `silk_clearance` | — | — | — | — | — | no-counterpart |
 | `creepage` | — | — | — | — | — | no-counterpart |
 | `no_tracks` | — | — | — | — | — | no-counterpart |
+| `short` | — | — | — | — | — | value-unsupported |
+| `antenna` | — | — | — | — | — | value-unsupported |
 | `diff_pair_gap` | — | — | — | — | — | no-counterpart |
 | `diff_pair_uncoupled` | — | — | — | — | — | no-counterpart |
 | `skew` | — | — | — | — | — | no-counterpart |
@@ -237,6 +239,11 @@ The row of `no_tracks` (change c0107): Altium's Routing Layers rule says which s
 routing, with one switch per layer, and is the nearest counterpart in meaning (S-0660, `INFERRED`). Its
 record (kind number, constraint keys) is in no public file read under the sources register, so the row
 cannot be `exact`: a `no_tracks` rule is reported with `altium.not-lowered` and no record is written.
+
+The rows of `short` and `antenna` (change c0465): their records are ShortCircuit (kind number 15, key
+`ALLOWED`) and NetAntennae (kind number 56, key `NETANTENNAETOLERANCE`), S-2243. Until the reader maps them
+(c0465 task 5.1) the writer does not write them, and a rule of either kind is reported with
+`altium.not-lowered`.
 
 ## Locked flag of a free primitive
 

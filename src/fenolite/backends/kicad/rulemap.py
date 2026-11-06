@@ -51,6 +51,8 @@ KIND_MAP: Mapping[RuleKind, str] = MappingProxyType(
         "silk_clearance": "silk_clearance",
         "creepage": "creepage",
         "no_tracks": "disallow",
+        "short": "",
+        "antenna": "",
         "diff_pair_gap": "diff_pair_gap",
         "diff_pair_uncoupled": "diff_pair_uncoupled",
         "skew": "skew",
@@ -60,7 +62,8 @@ KIND_MAP: Mapping[RuleKind, str] = MappingProxyType(
 )
 """Model kind → written constraint type; ``via_drill`` adds the conjunct ``A.Type == 'Via'``,
 ``no_tracks`` is written ``disallow track`` (``DISALLOW_ITEM``), and ``diff_pair_skew`` adds the list of
-``KIND_FLAGS`` after its limits."""
+``KIND_FLAGS`` after its limits. ``short`` and ``antenna`` (change c0465) have no constraint type of their own
+(S-2242): the empty text, which no rule read back holds."""
 DISALLOW_ITEM = "track"
 """The one item type of a ``disallow`` constraint that is modelled (rules.md, "Track layer rules";
 ``H-K-DRU-NOTRACKS``). Every other ``disallow`` rule stays opaque."""
@@ -83,6 +86,8 @@ LIMITS: Mapping[RuleKind, frozenset[str]] = MappingProxyType(
         "silk_clearance": frozenset({"min"}),
         "creepage": frozenset({"min"}),
         "no_tracks": frozenset(),
+        "short": frozenset(),
+        "antenna": frozenset({"max"}),
         "diff_pair_gap": frozenset({"min", "opt", "max"}),
         "diff_pair_uncoupled": frozenset({"max"}),
         "skew": frozenset({"opt", "max"}),
@@ -94,7 +99,7 @@ LIMITS: Mapping[RuleKind, frozenset[str]] = MappingProxyType(
 ``no_tracks`` takes no limit at all (``NO_LIMIT_KINDS``). For the five pair and length kinds KiCad's DRC
 checks ``min`` and ``max`` and never ``opt``, which is written for its interactive tools
 (``H-K-DRU-PAIR``)."""
-NO_LIMIT_KINDS: frozenset[RuleKind] = frozenset({"no_tracks"})
+NO_LIMIT_KINDS: frozenset[RuleKind] = frozenset({"no_tracks", "short"})
 """The kinds whose rule holds no limit; every other kind needs one."""
 LAYER_KINDS: frozenset[RuleKind] = frozenset({"no_tracks"})
 """The kinds whose rule needs at least one layer (one rule is written per layer)."""
@@ -129,6 +134,8 @@ KIND_SELECTORS: Mapping[RuleKind, KindGrammar] = MappingProxyType(
         "silk_clearance": KindGrammar(frozenset()),
         "creepage": KindGrammar(frozenset({"net", "netclass"}), side_b=True),
         "no_tracks": KindGrammar(frozenset({"net", "netclass"}), layers=True),
+        "short": KindGrammar(frozenset({"net", "netclass"}), side_b=True),
+        "antenna": KindGrammar(frozenset({"net", "netclass"})),
         "diff_pair_gap": KindGrammar(_PAIR_LEAVES, layers=True),
         "diff_pair_uncoupled": KindGrammar(_PAIR_LEAVES),
         "skew": KindGrammar(_PAIR_LEAVES),
@@ -140,7 +147,8 @@ KIND_SELECTORS: Mapping[RuleKind, KindGrammar] = MappingProxyType(
 so its ``ref`` is written ``A.Reference == '…'`` (``H-K-DRU-COURTYARD``); a silkscreen rule is board-wide,
 because KiCad also applies it between a footprint's silkscreen and its own neighbours' courtyards. ``area``
 (``S.intersectsArea('…')``, ``H-K-AREA-COND``) is a leaf of the first nine kinds only. The pair and length
-kinds read nets, not pads or item types, and only the pair gap was measured with a layer clause."""
+kinds read nets, not pads or item types, and only the pair gap was measured with a layer clause. The
+allowance kinds of change c0465 select nets: ``short`` a pair of sides, ``antenna`` one."""
 REFERENCE_KINDS: frozenset[RuleKind] = frozenset({"courtyard_clearance"})
 """The kinds whose ``ref`` leaf is the footprint itself (``Reference``), not a member of it."""
 ITEM_TYPES: Mapping[str, str] = MappingProxyType(
@@ -197,6 +205,8 @@ KIND_SUPPORT: Mapping[RuleKind, frozenset[int]] = MappingProxyType(
         "silk_clearance": _BOTH,
         "creepage": _ONLY_10,
         "no_tracks": _BOTH,
+        "short": frozenset(),
+        "antenna": frozenset(),
         "diff_pair_gap": _BOTH,
         "diff_pair_uncoupled": _BOTH,
         "skew": _BOTH,
@@ -210,8 +220,10 @@ KIND_SUPPORT: Mapping[RuleKind, frozenset[int]] = MappingProxyType(
 for 10 only. ``no_tracks`` (change c0107) follows its own probe ``dru-kind-no_tracks`` (``H-K-DRU-NOTRACKS``),
 recorded ``present`` on 10.0.6 and, on 2026-10-08, on 9.0.9, so it holds both majors. The five pair and
 length kinds hold the majors whose ``dru-kind-<kind>`` probe is recorded ``present`` (``H-K-DRU-PAIR``):
-10.0.6 and, since 2026-10-08, 9.0.9. A modelled rule of a kind outside its entry gives
-``rules.kind-unchecked``."""
+10.0.6 and, since 2026-10-08, 9.0.9. KiCad has no rule for a short between two nets or for the length of a
+dangling track (S-2242), so ``short`` and ``antenna`` (change c0465) hold no major: their defaults and a
+board-wide allowance are written by ``lower_rules`` as design D6 of c0465 says. A modelled rule of a kind
+outside its entry gives ``rules.kind-unchecked``."""
 KIND_UNCHECKED_CODE = "rules.kind-unchecked"
 RULE_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
     {

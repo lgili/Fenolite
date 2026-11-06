@@ -220,7 +220,11 @@ def test_clearance_with_a_maximum() -> None:
     assert [i.code for i in error.issues] == ["rules.unsupported-limit"] and "clr" in error.issues[0].message
 
 
-@pytest.mark.parametrize("kind", sorted(set(rulemap.KIND_MAP) - rulemap.NO_LIMIT_KINDS))
+@pytest.mark.parametrize(
+    # ``antenna`` (change c0465) writes no constraint of its own: test_rule_allowances_c0465.py
+    "kind",
+    sorted(k for k in set(rulemap.KIND_MAP) - rulemap.NO_LIMIT_KINDS if rulemap.KIND_MAP[k]),
+)
 def test_each_kind_lowers(kind: str) -> None:
     limit = "min" if "min" in rulemap.LIMITS[kind] else "max"  # type: ignore[index]
     text = lowered(rule(kind, **{"min": None, limit: 100_000})).text
@@ -391,8 +395,9 @@ def test_no_tracks_kinds_and_one_rule_per_layer() -> None:
 
     from fenolite.model.rules import RuleKind
 
-    # eighteen kinds since change c0104, whose five follow ``no_tracks``, the thirteenth
-    assert len(get_args(RuleKind)) == 18 and get_args(RuleKind)[12] == "no_tracks"
+    # eighteen kinds since change c0104, whose five follow ``no_tracks``, the thirteenth; twenty since
+    # change c0465, whose ``short`` and ``antenna`` come between them
+    assert len(get_args(RuleKind)) == 20 and get_args(RuleKind)[12] == "no_tracks"
     made = rule(
         "no_tracks", Selector("netclass", "SIG"), name="sig-outer", min=None, layers=("In1.Cu", "In2.Cu")
     )

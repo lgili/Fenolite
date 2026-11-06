@@ -166,6 +166,18 @@ TABLE: tuple[RuleRow, ...] = (
         "counterpart; its record (kind number, constraint keys) is in no public file read under the "
         "sources register",
     ),
+    RuleRow(
+        "short",
+        "value-unsupported",
+        note="the ShortCircuit record (kind number 15, key ALLOWED, S-2243) is not written yet: change c0465 "
+        "writes it once the reader maps it",
+    ),
+    RuleRow(
+        "antenna",
+        "value-unsupported",
+        note="the NetAntennae record (kind number 56, key NETANTENNAETOLERANCE, S-2243) is not written yet: "
+        "change c0465 writes it once the reader maps it",
+    ),
     *(
         RuleRow(
             kind,

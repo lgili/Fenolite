@@ -7591,6 +7591,7 @@
       "src/fenolite/library/proposals/convert.py",
       "src/fenolite/library/proposals/schema.py",
       "src/fenolite/library/rules.py",
+      "src/fenolite/model/rules.py",
       "src/fenolite/pick/grammar/schema.py",
       "src/fenolite/pick/rows.py",
       "src/fenolite/placement/legality.py",
@@ -9493,7 +9494,8 @@
       "src/fenolite/backends/specctra/dsn.py",
       "src/fenolite/dsl/convert.py",
       "src/fenolite/dsl/design.py",
-      "src/fenolite/importer/emit/design.py"
+      "src/fenolite/importer/emit/design.py",
+      "src/fenolite/model/rules.py"
     ],
     "option": [
       "src/fenolite/backends/kicad/wks.py",
@@ -12459,6 +12461,7 @@
       "src/fenolite/dsl/convert.py",
       "src/fenolite/importer/emit/design.py",
       "src/fenolite/lens/build.py",
+      "src/fenolite/model/rules.py",
       "src/fenolite/routing/octilinear.py",
       "src/fenolite/tidy/straighten.py"
     ],
@@ -28210,7 +28213,7 @@
         },
         {
           "name": "kind",
-          "type": "Literal['clearance', 'track_width', 'via_diameter', 'via_drill', 'hole_size', 'edge_clearance', 'hole_to_hole', 'hole_clearance', 'annular_width', 'courtyard_clearance', 'silk_clearance', 'creepage', 'no_tracks', 'diff_pair_gap', 'diff_pair_uncoupled', 'skew', 'diff_pair_skew', 'length']",
+          "type": "Literal['clearance', 'track_width', 'via_diameter', 'via_drill', 'hole_size', 'edge_clearance', 'hole_to_hole', 'hole_clearance', 'annular_width', 'courtyard_clearance', 'silk_clearance', 'creepage', 'no_tracks', 'short', 'antenna', 'diff_pair_gap', 'diff_pair_uncoupled', 'skew', 'diff_pair_skew', 'length']",
           "default": {
             "kind": "required"
           },

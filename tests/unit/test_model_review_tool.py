@@ -105,7 +105,8 @@ def test_actual_approved_model0_shapes_are_preserved_by_migration_candidate():
     # default (the design model's additive rule: a document written before it loads unchanged), e.g. c0411
     # FootprintInstance.keepouts and c0419 SymbolDef.fields
     # A field's type changes only with its own approval, and only by widening a Literal: every approved value
-    # stays, so a document written before it loads unchanged (c0462: Selector.op gains zone, hole, pad_type).
+    # stays, so a document written before it loads unchanged (c0462: Selector.op gains zone, hole, pad_type;
+    # c0465: RuleKind gains short and antenna).
     for c in approved["classes"]:
         assert c["decision"] == "keep"
         found = shapes.pop(c["class"])["fields"]

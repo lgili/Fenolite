@@ -19,7 +19,7 @@ Rules for every task:
 
 ## 2. Model
 
-- [ ] 2.1 `short` and `antenna` in `RuleKind`, with their limits checked in `Rule`. Get the model review's
+- [x] 2.1 `short` and `antenna` in `RuleKind`, with their limits checked in `Rule`. Get the model review's
   approval, then regenerate the schemas and update `docs/design-model.md`. Proof:
   `uv run pytest tests/unit/model/test_rule_allowances_c0465.py -q -n 0`, `uv run python tools/model_review.py --check`,
   `uv run python tools/gen_schemas.py --check`.

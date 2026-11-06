@@ -541,12 +541,17 @@ def _rules(draw: st.DrawFn) -> Rule:
         else draw(_LENGTHS)
         for name in ("min", "opt", "max")
     }
+    selector_b = draw(st.one_of(st.none(), _SIDES))
+    if kind == "short":  # change c0465: two sides and no limit, which Rule checks
+        limits, selector_b = dict.fromkeys(limits), selector_b or draw(_SIDES)
+    elif kind == "antenna":  # max alone, 0 or more
+        limits, selector_b = {"max": draw(st.integers(min_value=0, max_value=20 * MM))}, None
     return Rule(
         id=f"rul_{draw(st.integers(min_value=0, max_value=10**9))}",
         name=draw(st.sampled_from(["a", "b", "c", "d"])),
         kind=kind,
         selector_a=draw(_SIDES),
-        selector_b=draw(st.one_of(st.none(), _SIDES)),
+        selector_b=selector_b,
         layers=draw(st.sampled_from([(), (), (), ("F.Cu",)])),
         severity=draw(st.sampled_from(["error", "error", "error", "warning"])),
         priority=draw(st.integers(min_value=0, max_value=3)),
@@ -603,11 +608,12 @@ def test_pair_and_length_rules_are_named_not_written() -> None:
 
 
 def test_pair_rows_name_no_kind_number_and_no_key() -> None:
-    """The five rows come after ``no_tracks`` in the model's order, each ``no-counterpart`` with a note that
-    says the record is in no recorded public source; none names an Altium kind, a number or a key."""
+    """The five rows come after ``no_tracks`` (and, since change c0465, ``short`` and ``antenna``) in the
+    model's order, each ``no-counterpart`` with a note that says the record is in no recorded public source;
+    none names an Altium kind, a number or a key."""
     rows = TABLE[-5:]
     assert tuple(row.neutral for row in rows) == PAIR_KINDS == get_args(RuleKind)[-5:]
-    assert TABLE[-6].neutral == "no_tracks"
+    assert tuple(row.neutral for row in TABLE[-8:-5]) == ("no_tracks", "short", "antenna")
     for row in rows:
         assert (row.status, row.altium, row.number, row.limits, row.fields) == (
             "no-counterpart",

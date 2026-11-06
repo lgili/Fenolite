@@ -37,6 +37,8 @@ RuleKind = Literal[
     "silk_clearance",
     "creepage",
     "no_tracks",
+    "short",
+    "antenna",
     "diff_pair_gap",
     "diff_pair_uncoupled",
     "skew",
@@ -44,11 +46,14 @@ RuleKind = Literal[
     "length",
 ]
 """The first six kinds are those of v0.1; the next six were added by change c0071, and ``no_tracks`` (no
-track or arc of the selected items on the rule's layers; it takes no limit) by change c0107. The last five,
-the pair and length kinds, were added by change c0104 (``skew`` compares every net a rule selects with the
-longest of them, ``diff_pair_skew`` the two nets of each pair it selects). Which sides, selector ops and
-layer clause a kind takes, and for which targets it is written, is the backend's to say
-(``backends.kicad.rulemap.KIND_SELECTORS`` and ``KIND_SUPPORT``)."""
+track or arc of the selected items on the rule's layers; it takes no limit) by change c0107. ``short`` and
+``antenna`` were added by change c0465: ``short`` is binary and takes no limit, its ``severity`` being that of
+a short between an item of each side (``ignore`` allows it); ``antenna`` is unary, and its ``max`` is the
+longest open-ended stub of the selected items that passes. The last five, the pair and length kinds, were
+added by change c0104 (``skew`` compares every net a rule selects with the longest of them,
+``diff_pair_skew`` the two nets of each pair it selects). Which sides, selector ops and layer clause a kind
+takes, and for which targets it is written, is the backend's to say (``backends.kicad.rulemap.KIND_SELECTORS``
+and ``KIND_SUPPORT``)."""
 RuleSeverity = Literal["error", "warning", "ignore"]
 SelectorOp = Literal[
     "all", "net", "netclass", "ref", "layer", "item_kind", "area", "diff_pair", "zone", "hole", "pad_type",
@@ -211,6 +216,24 @@ class Rule(Entity):
     max: Nm | None = None
     severity: RuleSeverity = "error"
     priority: int = 0
+
+    def __post_init__(self) -> None:
+        # change c0465: the limits of the two allowance kinds; the other kinds are checked where they are
+        # declared (``dsl.design.rule``) and lowered
+        if self.kind == "short":
+            if self.selector_b is None:
+                raise ValueError(f"short rule {self.name!r} needs a second side (selector_b)")
+            if (self.min, self.opt, self.max) != (None, None, None):
+                raise ValueError(
+                    f"short rule {self.name!r} takes no limit; its severity says what a short is"
+                )
+        elif self.kind == "antenna":
+            if self.selector_b is not None:
+                raise ValueError(f"antenna rule {self.name!r} is unary and takes no second side")
+            if self.min is not None or self.opt is not None:
+                raise ValueError(f"antenna rule {self.name!r} takes max alone")
+            if not isinstance(self.max, int) or isinstance(self.max, bool) or self.max < 0:
+                raise ValueError(f"antenna rule {self.name!r} needs a max of 0 nm or more")
 
 
 PlacementSeverity = Literal["error", "warning"]

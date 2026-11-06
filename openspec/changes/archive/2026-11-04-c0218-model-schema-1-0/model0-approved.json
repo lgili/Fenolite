@@ -9372,7 +9372,9 @@
         },
         {
           "name": "kind",
-          "type": "Literal['clearance', 'track_width', 'via_diameter', 'via_drill', 'hole_size', 'edge_clearance', 'hole_to_hole', 'hole_clearance', 'annular_width', 'courtyard_clearance', 'silk_clearance', 'creepage', 'no_tracks', 'diff_pair_gap', 'diff_pair_uncoupled', 'skew', 'diff_pair_skew', 'length']",
+          "type": "Literal['clearance', 'track_width', 'via_diameter', 'via_drill', 'hole_size', 'edge_clearance', 'hole_to_hole', 'hole_clearance', 'annular_width', 'courtyard_clearance', 'silk_clearance', 'creepage', 'no_tracks', 'short', 'antenna', 'diff_pair_gap', 'diff_pair_uncoupled', 'skew', 'diff_pair_skew', 'length']",
+          "widened_from": "Literal['clearance', 'track_width', 'via_diameter', 'via_drill', 'hole_size', 'edge_clearance', 'hole_to_hole', 'hole_clearance', 'annular_width', 'courtyard_clearance', 'silk_clearance', 'creepage', 'no_tracks', 'diff_pair_gap', 'diff_pair_uncoupled', 'skew', 'diff_pair_skew', 'length']",
+          "approved": "approved 2026-11-06, c0465, coordinator under maintainer delegation: RuleKind widened by short and antenna; every approved value kept; input-compatible",
           "default": {
             "kind": "required"
           }
