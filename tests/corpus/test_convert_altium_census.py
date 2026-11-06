@@ -114,12 +114,12 @@ def test_baseline_layers(item) -> None:
 
 
 CONVERTED_LOSSES = {
-    "altium-third-party-pcbdoc-01": {"rule": 1},
-    "altium-third-party-pcbdoc-02": {"rule": 1, "text": 1},
-    "altium-third-party-pcbdoc-03": {"rule": 2, "schematic": 16},
-    "altium-third-party-pcbdoc-04": {"rule": 1},
-    "altium-third-party-pcbdoc-05": {"rule": 1},
-    "altium-third-party-pcbdoc-06": {"rule": 1},
+    "altium-third-party-pcbdoc-01": {},
+    "altium-third-party-pcbdoc-02": {"text": 1},
+    "altium-third-party-pcbdoc-03": {"schematic": 1},
+    "altium-third-party-pcbdoc-04": {},
+    "altium-third-party-pcbdoc-05": {},
+    "altium-third-party-pcbdoc-06": {},
     "altium-third-party-pcbdoc-07": {},
     "altium-third-party-pcbdoc-08": {"text": 298, "graphic": 1000},
 }
@@ -146,6 +146,9 @@ Change c0423 (2026-11-05) places every embedded model, on either side and for an
 other body as a generated STEP model: no row has a ``body`` or ``model`` loss. Of the bodies of rows ``-01``
 to ``-08``, 245, 42, 45, 3, 23, 27, 6 and 81 are carried by their embedded models and 2, 0, 5, 30, 0, 0, 18
 and 1217 are generated; none falls back to the prism over its outline.
+
+Change c0424 (2026-11-05) gives every rule record a fate: each is mapped, kept as written for an Altium
+write-back, or a declared format limit of KiCad, so no row has a ``rule`` loss.
 
 Change c0422 (2026-11-05): a footprint's own texts are written as ``fp_text user`` children (c0409 reported
 them lost); ``FOOTPRINT_TEXTS`` holds the counts, each written and none lost."""

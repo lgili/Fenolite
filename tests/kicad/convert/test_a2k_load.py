@@ -175,7 +175,7 @@ def test_net_tie_footprint_copper_is_no_short_in_kicad_drc(tmp_path) -> None:
     """change c0420, N1: a converted footprint with net-tie groups is written with ``net_tie_pad_groups``
     after ``attr``; a copper line of the footprint joining its two pads of different nets then adds no
     violation to KiCad's DRC, and the same footprint without the groups adds clearance and solder mask
-    bridge violations (10.0.6, 2026-11-05)."""
+    bridge violations (10.0.6, 2026-11-05; 9.0.9 reports the copper bridge as ``shorting_items``)."""
     import dataclasses
     from collections import Counter
 
@@ -225,5 +225,6 @@ def test_net_tie_footprint_copper_is_no_short_in_kicad_drc(tmp_path) -> None:
     group = ((one.number, two.number),)
     baseline, tied, untied = drc(group, bridged=False), drc(group), drc(())
     assert tied == baseline
-    assert untied["clearance"] > baseline["clearance"]
+    copper = ("clearance", "shorting_items")  # 10.0.6 reports the bridge as clearance, 9.0.9 as shorting
+    assert sum(untied[k] for k in copper) > sum(baseline[k] for k in copper)
     assert untied["solder_mask_bridge"] > baseline["solder_mask_bridge"]
