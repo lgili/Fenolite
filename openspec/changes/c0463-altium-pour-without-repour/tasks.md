@@ -51,7 +51,11 @@ Rules for every task:
   `tools/kit_pour_c0463.py prepare|record` (`tests/unit/backends/altium/test_pourrecord_c0463.py`).
   Run (2026-11-06, AD 24.5.2.23, S-2223): `tests/data/altium/kit/pour-hatched.json`, declared; 0 dialogs
   and 0 messages; the hatched polygons pour tracks and arcs, no region. Proof passed.
-- [ ] 3.2 Hatched pour. Proof: `uv run pytest tests/corpus/test_altium_pour_hatched_c0463.py -q -n 0`.
+- [x] 3.2 Hatched pour. Proof: `uv run pytest tests/corpus/test_altium_pour_hatched_c0463.py -q -n 0`.
+  Done (2026-11-06): `backends/altium/hatch.py` and `pour._hatched` pour the model S-2223 shows
+  (`pcb-pour.md`, "Hatched pour"); the writer writes a hatch as tracks of its polygon, the self-check and
+  `pourcompare.pour_pieces` read tracks and arcs back. P1 to P7 meet M1 to M4 against Altium's tracks and
+  arcs (M1 at most 0.002 of the allowance). Proof passed (9 tests).
 - [ ] 3.3 `unshaped-copper` and `unshaped-pad` shaped through the writer's text and pad geometry (c0460).
   `threshold` and `pour-over` read every documented value. Proof:
   `uv run pytest tests/unit/backends/altium/test_pour_inputs.py tests/unit/backends/altium/test_pour_refusal.py -q -n 0`.

@@ -96,7 +96,7 @@ before the change, and their saved regions.
 
 ## Records of Altium's repour
 
-Change c0463, tasks 3.1 and 4.1. Two runs of Altium Designer 26 give the pour that Altium makes, with no
+Change c0463, tasks 3.1 and 4.1. Two runs of Altium Designer 24.5 give the pour that Altium makes, with no
 saved pour to trust: step K6.12 of the kit repours the sample `pour-hatched` (S-2223), and the step
 `repour` repours the eight public rows of the pour census as published (S-2224).
 `tools/kit_pour_c0463.py prepare` writes the folder of the run outside the repository, and `record` reads
@@ -117,6 +117,35 @@ saved board, and the dialogs and message counts the run typed.
 The writer writes a zone whose `altium` pairs hold `hatch_style`, `grid_size` and `track_width` (nm) as a
 hatched polygon: `HATCHSTYLE`, `GRIDSIZE` and `TRACKWIDTH` (`docboard.polygon_fields`). A zone read with
 `hatch_style` alone keeps the solid pour's keys: the import does not keep the grid or the track width yet.
+
+## Hatched pour
+
+Change c0463, task 3.2: the seven hatched polygons of the sample `pour-hatched` as Altium Designer 24.5
+repoured them (S-2223), read from the record's tracks and arcs. Lengths in mil of the file; w is
+`TRACKWIDTH` (10), G is `GRIDSIZE` (50), h = w/2.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| A hatched polygon pours no region. Its tracks and arcs hold the polygon's position in `Polygons6` and no net in their prefix, sub-polygon 1, and the 49-byte form; the tracks of width w hold the flags `0C 00` (one of P7's holds `0E 00`), the relief conductors and the arcs `0E 00` | S-2223 | ALTIUM-VERIFIED(kit) | H-A-POUR-HATCH |
+| The grid lines lie at whole multiples of G from the document's origin, measured along each family's normal: `x = kG` and `y = kG` for `90Degree`, `y = kG` for `Horizontal`, `x = kG` for `Vertical`, `(x ± y)/√2 = kG` for `45Degree`. P5 and P6, whose corners lie 13 and 29 mil off the grid, show lines at the multiples and not at their corners | S-2223 | ALTIUM-VERIFIED(kit) | H-A-POUR-HATCH |
+| A track of width w runs along every edge of the outline, centred on it, so the copper reaches h beyond the outline; a grid line on an edge is written twice | S-2223 | ALTIUM-VERIFIED(kit) | H-A-POUR-HATCH |
+| Around a pad of another net a full arc of width w is centred at the pad's radius plus the clearance plus h (the round pad `PX` of radius 60: an arc of radius 73 with the clearance 8), so the copper edge lies at the clearance; the grid lines end on the arc's centre line (at x = 2100 the line stops 73 mil from the pad's centre, at x = 2050 at √(73² − 50²)) | S-2223 | ALTIUM-VERIFIED(kit) | H-A-POUR-HATCH |
+| Around the pad of the polygon's net (radius 20) a full arc of width w is centred at the pad's radius plus the air gap of the relief (19.685) plus h, and four conductors of the relief width (19.685) run from the inner edge of that ring (radius 39.685) to the pad's centre along 0°, 90°, 180° and 270°; the grid lines end on the arc's centre line | S-2223 | ALTIUM-VERIFIED(kit) | H-A-POUR-HATCH |
+
+So a hatch is the solid pour of the polygon computed with every clearance, air gap and the board's
+clearance grown by h and the outline kept: its area A. The copper is A grown by h less A shrunk by h (the
+edge tracks), the grid lines inside A stroked by h, and the relief conductors from each pad's centre to
+the edge of its air gap. The edge tracks keep every distance a solid pour keeps.
+
+Fenolite pours a hatch so (`pour._hatched`, `hatch.grid_segments`): every edge of A is one track, so a void
+around a round pad is a chain of tracks along A's chords, not an arc. The written document holds the
+tracks only (`pcbdoc._pour_tracks`, no net, the polygon's position, sub-polygon 1, the 36-byte form and the
+flags `0C 00`); the copper check reads them back (`pour.poured_tracks`) and `pourcompare.pour_pieces`
+strokes them. Against S-2223 each of the seven hatched polygons meets M1 to M4, with an XOR area of at most
+0.002 of the M1 allowance (`tests/corpus/test_altium_pour_hatched_c0463.py`). The neck removal is not
+applied to a hatch, and the removal of islands and dead copper takes a piece with its tracks: no record
+shows either on a hatch. A style of `None` (an outline without copper), an unknown style, or a width that
+is not below the grid refuses `hatched`.
 
 ## Fenolite's choices
 

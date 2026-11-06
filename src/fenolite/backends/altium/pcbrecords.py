@@ -438,13 +438,17 @@ def track_record(
     component: int = NO_INDEX,
     locked: bool = False,
     keepout: tuple[int, int] | None = None,
+    polygon: int = NO_INDEX,
 ) -> bytes:
     """A track (type 4): one subrecord of 36 bytes; points and width in binary units. ``locked`` writes the
     locked flag when ``track`` is in ``LOCK_WRITTEN``. ``keepout``, ``(long layer id, restriction byte)``,
-    writes a keep-out track (change c0450) in the 49-byte form (``keepout_tail``)."""
+    writes a keep-out track (change c0450) in the 49-byte form (``keepout_tail``). ``polygon`` writes a track
+    of a hatched pour (change c0463): the polygon's position in ``Polygons6`` and the sub-polygon number 1,
+    as every hatch track of S-2223 holds them."""
     held = lock_written("track", locked)
-    head = prefix(layer, net=net, component=component, locked=held)
-    body = _flagged(head, keepout) + struct.pack("<5iHB", *a, *b, width, 0, 0)
+    head = prefix(layer, net=net, component=component, locked=held, polygon=polygon)
+    sub = 1 if polygon != NO_INDEX else 0
+    body = _flagged(head, keepout) + struct.pack("<5iHB", *a, *b, width, sub, 0)
     assert len(body) == TRACK_SIZE
     return bytes((TRACK,)) + subrecord(body + keepout_tail(keepout))
 

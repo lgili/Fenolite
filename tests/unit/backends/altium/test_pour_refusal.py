@@ -97,11 +97,22 @@ def _with_record(reading: PourReading, index: int, **values: str) -> PourReading
 
 
 def test_hatched_and_shelved_polygons() -> None:
-    """Input I1: a hatched polygon and a shelved one are refused, and the later polygon that overlaps the
-    first one depends on it."""
+    """Input I1: a hatch Fenolite does not pour (``None``, an unknown style, a width that fills the grid)
+    and a shelved polygon are refused, and the later polygon that overlaps the first one depends on it; a
+    hatch it reads is poured as tracks (change c0463, task 3.2)."""
     reading = _board().base()
-    hatched = pour_reading(_with_record(reading, 0, HATCHSTYLE="45Degree"))
-    assert [p.reason for p in hatched.polygons] == ["hatched", "depends-on-refused", "", ""]
+    for values in (
+        {"HATCHSTYLE": "None"},
+        {"HATCHSTYLE": "Diagonal"},
+        {"HATCHSTYLE": "45Degree", "GRIDSIZE": "8mil", "TRACKWIDTH": "8mil"},
+    ):
+        hatched = pour_reading(_with_record(reading, 0, **values))
+        assert [p.reason for p in hatched.polygons] == ["hatched", "depends-on-refused", "", ""], values
+    poured = pour_reading(
+        _with_record(reading, 0, HATCHSTYLE="45Degree", GRIDSIZE="20mil", TRACKWIDTH="8mil")
+    )
+    assert [p.reason for p in poured.polygons] == ["", "", "", ""]
+    assert poured.polygons[0].tracks and not any(p.tracks for p in poured.polygons[1:])
     shelved = pour_reading(_with_record(reading, 3, SHELVED="TRUE"))
     assert [p.reason for p in shelved.polygons] == ["", "", "", "shelved"]
 

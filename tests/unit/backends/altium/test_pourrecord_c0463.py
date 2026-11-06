@@ -75,7 +75,7 @@ def test_writer_refuses_a_hatch_it_cannot_write() -> None:
 
 def test_kit_sample_builds_its_hatches() -> None:
     """The sample ``pour-hatched`` builds both documents with the hatch of each probe, and Fenolite's pour
-    pours the solid sentinel P0 while the hatched polygons stay unpoured (``hatched`` waits for task 3.2)."""
+    pours the solid sentinel P0 as a region and each hatched polygon as tracks only (task 3.2)."""
     from fenolite.cli._kit import build_sample
 
     built = build_sample(SAMPLE)
@@ -87,8 +87,9 @@ def test_kit_sample_builds_its_hatches() -> None:
         assert {name: style for name, style in styles.items() if style != "Solid"} == hatches
         assert len(styles) == 10
     record = pourrecord.document_record(built.files["computed/pour-hatched.PcbDoc"], "computed.PcbDoc")
-    poured = {p["name"]: p["regions"] for p in record["polygons"]}  # type: ignore[union-attr]
-    assert poured["P0"] == 1 and all(poured[name] == 0 for name in hatches)
+    poured = {p["name"]: (p["regions"], p["tracks"]) for p in record["polygons"]}  # type: ignore[union-attr]
+    assert poured["P0"] == (1, 0)
+    assert all(poured[name][0] == 0 and poured[name][1] > 0 for name in hatches)
 
 
 def test_rings_hash_does_not_depend_on_the_first_vertex_or_the_winding() -> None:

@@ -2460,9 +2460,11 @@ def _write(
     *,
     computed: bool = False,
     pour_records: Sequence[tuple[bytes, bytes]] = (),
+    pour_tracks: Sequence[bytes] = (),
 ) -> bytes:
-    """The bytes of ``spec``: with ``computed`` the polygon records and rules of a computed pour and the
-    regions ``pour_records`` (plain and shape-based twins) after every other region."""
+    """The bytes of ``spec``: with ``computed`` the polygon records and rules of a computed pour, the regions
+    ``pour_records`` (plain and shape-based twins) after every other region and the tracks of hatched
+    pours ``pour_tracks`` after every other track."""
     from fenolite.backends.altium.project import unique_id  # project imports this module
 
     frame = spec.frame if spec.frame is not None else Frame.of(spec.outline)
@@ -2567,6 +2569,7 @@ def _write(
         stack = dataclasses.replace(stack, drill_pairs=pairs)
     free = free_records(spec, copper)
     tracks += free.tracks
+    tracks += pour_tracks
     arcs += free.arcs
     pads += free.pads
     filled["Regions6"] = [*regions, *free.regions, *(plain for plain, _ in pour_records)]
@@ -2939,7 +2942,7 @@ def _pour_regions(document: PcbDocument, pours: PourResult) -> list[tuple[bytes,
 
     out: list[tuple[bytes, bytes]] = []
     for pour in pours.polygons:
-        if not pour.poured:
+        if not pour.poured or pour.tracks:  # a hatch is written as tracks (``_pour_tracks``)
             continue
         record = document.polygons[pour.index]
         layer = layer_of_text(record.layer)
@@ -2959,6 +2962,38 @@ def _pour_regions(document: PcbDocument, pours: PourResult) -> list[tuple[bytes,
             )
             out.append((plain, shape))
     return out
+
+
+def _pour_tracks(document: PcbDocument, pours: PourResult) -> list[bytes]:
+    """The track records of every hatched polygon of ``pours`` (change c0463; ``pcb-pour.md``, "Hatched
+    pour"), polygon by polygon in record order: no net, the polygon's position, ends and width in binary
+    units of the file's frame. A track whose ends round to one point is left out."""
+    from fenolite.backends.altium.adapter.copper import layer_of_text
+
+    out: list[bytes] = []
+    for pour in pours.polygons:
+        if not pour.poured or not pour.tracks:
+            continue
+        layer = layer_of_text(document.polygons[pour.index].layer)
+        if layer is None:  # pragma: no cover - the import maps only polygons on known layers
+            continue
+        for a, b, width in pour.tracks:
+            start = (rec.to_units(a.x), rec.to_units(-a.y))
+            end = (rec.to_units(b.x), rec.to_units(-b.y))
+            if start != end:
+                out.append(rec.track_record(layer, start, end, rec.to_units(width), polygon=pour.index))
+    return out
+
+
+def _write_poured(spec: PcbDocSpec, filename: str, document: PcbDocument, pours: PourResult) -> bytes:
+    """``_write`` of a computed pour with the copper of ``pours``: regions, and tracks of hatched pours."""
+    return _write(
+        spec,
+        filename,
+        computed=True,
+        pour_records=_pour_regions(document, pours),
+        pour_tracks=_pour_tracks(document, pours),
+    )
 
 
 def write_pcbdoc_result(
@@ -2992,16 +3027,14 @@ def write_pcbdoc_result(
     while True:
         rounds += 1
         result = pour_reading(reading, backend=backend, refuse=refused)
-        data = _write(spec, filename, computed=True, pour_records=_pour_regions(reading.document, result))
+        data = _write_poured(spec, filename, reading.document, result)
         failed = check_pour(read_pour(data, file=filename), result)
         if not failed or rounds >= POUR_ROUNDS:
             for index in failed:
                 refused[index] = "copper-check"
             if failed:
                 result = pour_reading(reading, backend=backend, refuse=refused)
-                data = _write(
-                    spec, filename, computed=True, pour_records=_pour_regions(reading.document, result)
-                )
+                data = _write_poured(spec, filename, reading.document, result)
             break
         refused.update((index, "copper-check") for index in failed)
     summary = PourSummary(

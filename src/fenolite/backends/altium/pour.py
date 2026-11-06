@@ -38,8 +38,9 @@ from fenolite.backends.altium.connectstyle import (
     governing_connection,
     read_connect_styles,
 )
+from fenolite.backends.altium.hatch import HATCH_NORMALS, first_part, grid_segments
 from fenolite.backends.altium.read.pcb import PcbDocument, read_pcbdoc
-from fenolite.backends.altium.read.pcbprims import RegionRecord
+from fenolite.backends.altium.read.pcbprims import ArcRecord, RegionRecord, TrackRecord
 from fenolite.backends.altium.read.proptext import parse_length
 from fenolite.backends.base import BoardPad, EdgeRing
 from fenolite.core.coords import Point
@@ -86,7 +87,8 @@ INPUTS: Mapping[str, str] = {
 """The inputs a pour uses, each a row of ``pcb-pour.md``, "Pour inputs" (a unit test compares the two)."""
 
 REASONS: Mapping[str, str] = {
-    "hatched": "the polygon is not solid (HATCHSTYLE)",
+    "hatched": "the polygon's hatch is not one Fenolite pours (HATCHSTYLE None or unknown, or its GRIDSIZE "
+    "and TRACKWIDTH not two lengths with the width below the grid)",
     "shelved": "the polygon is shelved",
     "outline-arc": "an arc of the polygon's outline has no radius or does not join its two vertices",
     "outline": "the polygon's outline is not a simple ring of three points or more",
@@ -133,6 +135,7 @@ HYPOTHESES: tuple[str, ...] = (
     "H-A-POUR-KEEPOUT",
     "H-A-POUR-EDGE",
     "H-A-POUR-VIAPAD",
+    "H-A-POUR-HATCH",
 )
 EVIDENCE: Final = Evidence(Level.INFERRED, hypotheses=HYPOTHESES)
 """Every computed pour is ``INFERRED`` until a K6 round of the kit settles its rows (Decision 10)."""
@@ -195,11 +198,16 @@ def read_pour(data: bytes, *, file: str = "pour.PcbDoc") -> PourReading:
     return PourReading(document, design, frame.board_pads(design), frame.board_edges(design))
 
 
+PourTrack = tuple[Point, Point, Nm]
+"""A track of a hatched pour: its two ends in the frame of the import and its width."""
+
+
 @dataclass(frozen=True, slots=True)
 class PolygonPour:
     """The pour of the polygon at position ``index`` of ``Polygons6``: its layer and net, its pieces in the
     frame of the import (normal form, sorted), its ``ARCRESOLUTION`` in nanometres, and the reason it is
-    refused (empty when it is poured; a refused polygon has no piece)."""
+    refused (empty when it is poured; a refused polygon has no piece). A hatched polygon (change c0463) also
+    has its ``tracks``, which the document holds instead of regions; its pieces are their copper."""
 
     index: int
     layer: str
@@ -208,6 +216,7 @@ class PolygonPour:
     arc_resolution: Nm
     reason: str = ""
     zone_id: str = ""
+    tracks: tuple[PourTrack, ...] = ()
 
     @property
     def poured(self) -> bool:
@@ -249,6 +258,8 @@ class PourPolygon:
     name: str = ""
     outline: tuple[Point, ...] = ()
     """The ring the polygon pours: the zone's outline, or the record's outline with its arcs as chords."""
+    hatch: tuple[str, Nm, Nm] | None = None
+    """``(HATCHSTYLE, GRIDSIZE, TRACKWIDTH)`` of a hatched polygon, the lengths in nanometres (c0463)."""
 
     @property
     def tol(self) -> int:
@@ -278,8 +289,10 @@ def polygons_of(reading: PourReading) -> list[PourPolygon]:
         outline = once(zone.outline)
         if not outline and arc is not None and arc > 0:  # the import keeps no outline with an arc vertex
             outline = record_outline(polygon.vertices, arc)
-        if (get("HATCHSTYLE") or "Solid") != "Solid":
-            reason = "hatched"
+        read = _hatch(get("HATCHSTYLE") or "Solid", get("GRIDSIZE"), get("TRACKWIDTH"))
+        hatch = None if isinstance(read, str) else read
+        if isinstance(read, str):
+            reason = read
         elif (get("SHELVED") or "FALSE").upper() == "TRUE":
             reason = "shelved"
         elif not outline:
@@ -314,9 +327,23 @@ def polygons_of(reading: PourReading) -> list[PourPolygon]:
                 reason=reason,
                 name=polygon.name,
                 outline=outline,
+                hatch=hatch,
             )
         )
     return sorted(found, key=lambda p: p.index)
+
+
+def _hatch(style: str, grid: str | None, width: str | None) -> tuple[str, Nm, Nm] | str | None:
+    """The hatch of a polygon record (``H-A-POUR-HATCH``): ``None`` when it is solid, the reason
+    ``hatched`` when Fenolite does not pour it (``None`` style: an outline only; an unknown style; no grid
+    or width; a width that fills the grid)."""
+    if style == "Solid":
+        return None
+    pitch = parse_length(grid or "")
+    track = parse_length(width or "")
+    if style not in HATCH_NORMALS or pitch is None or track is None or not 2 <= track < pitch:
+        return "hatched"
+    return (style, pitch, track)
 
 
 # --- objects on a layer -------------------------------------------------------------------------------------
@@ -1122,10 +1149,11 @@ def pour_reading(
         if not reason:
             reason = _depends(polygon, state, context)
         pieces: tuple[Polygon, ...] = ()
+        tracks: tuple[PourTrack, ...] = ()
         if not reason:
-            pieces, reason = _pour(polygon, state, context)
+            pieces, tracks, reason = _pour(polygon, state, context)
         if reason:
-            pieces = ()
+            pieces, tracks = (), ()
             if reason not in EXACT:  # no copper in Altium either: nothing of a neighbour depends on it
                 state.refused.append(polygon)
         else:
@@ -1138,6 +1166,7 @@ def pour_reading(
             polygon.arc_resolution,
             reason,
             polygon.zone.id,
+            tracks,
         )
     return PourResult(tuple(out[index] for index in sorted(out)))
 
@@ -1202,28 +1231,34 @@ def _polygon_cutouts(reading: PourReading) -> Mapping[str, tuple[tuple[BBox, Pol
     return {name: tuple(items) for name, items in found.items()}
 
 
-def _pour(polygon: PourPolygon, state: _Layer, context: _Context) -> tuple[tuple[Polygon, ...], str]:
-    """The pieces of one polygon, or the reason it is refused (I1 to I21, in the order of I11)."""
+def _pour(
+    polygon: PourPolygon, state: _Layer, context: _Context
+) -> tuple[tuple[Polygon, ...], tuple[PourTrack, ...], str]:
+    """The pieces of one polygon and, when it is hatched, its tracks, or the reason it is refused (I1 to
+    I21, in the order of I11). A hatch's tracks are centred on the edges of the area a solid pour would
+    fill with every clearance, air gap and the board's clearance grown by half the track width ``h``
+    (``H-A-POUR-HATCH``, S-2223), so the hatch's copper keeps the same distances as a solid pour's."""
     geometry, objects, rules = context.geometry, context.objects, context.rules
     layer, net, tol = polygon.layer, polygon.net, polygon.tol
+    h = polygon.hatch[2] // 2 if polygon.hatch is not None else 0
     me = rule_subject(layer, "zone", net, objects.netclass.get(net, DEFAULT_CLASS), zone=polygon.name)
-    reach = polygon.box.inflate(context.reach + polygon.neck)
+    reach = polygon.box.inflate(context.reach + polygon.neck + h)  # a hatch's copper reaches h beyond
     for box, _what in objects.unshaped.get(layer, []):
         if box.intersects(reach):
-            return (), "unshaped-pad" if _what == "pad" else "unshaped-copper"
+            return (), (), "unshaped-pad" if _what == "pad" else "unshaped-copper"
     try:
         area_now = geometry.meet((Polygon(polygon.outline),), context.board)
     except GeometryError:
-        return (), "outline"
+        return (), (), "outline"
     cut = [ring for box, ring in context.cutouts.get(layer, ()) if box.intersects(reach)]
     if cut:  # no polygon pours its copper in a polygon cut-out (pcb-records.md, "Regions and keep-outs")
         try:
             area_now = geometry.minus(area_now, geometry.union(cut))
         except GeometryError:
-            return (), "polygon-cutout"
+            return (), (), "polygon-cutout"
     edge = rules.edge(me)
-    if edge > 0:
-        inner = geometry.offset(context.board, -(edge + tol + 1), tol)
+    if edge + h > 0:
+        inner = geometry.offset(context.board, -(edge + h + tol + 1), tol)
         area_now = geometry.meet(area_now, inner)
     voids: list[Polygon] = []
     joins: list[tuple[PourObject, Connection]] = []
@@ -1236,7 +1271,7 @@ def _pour(polygon: PourPolygon, state: _Layer, context: _Context) -> tuple[tuple
         if own and item.kind in ("via", "pad") and item.connect is not None:
             found = governing_connection(context.styles, subject, me, item.connect, polygon.name)
             if isinstance(found, str):
-                return (), found
+                return (), (), found
             joins.append((item, found))
             same.append(item)
             continue
@@ -1246,8 +1281,8 @@ def _pour(polygon: PourPolygon, state: _Layer, context: _Context) -> tuple[tuple
                 continue
         value = rules.clearance(me, subject, polygons=(polygon.name,))
         if isinstance(value, str):
-            return (), value
-        voids.extend(geometry.grow(item.shape, value, tol))
+            return (), (), value
+        voids.extend(geometry.grow(item.shape, value + h, tol))
     for other, pieces in state.poured:
         if not pieces or not other.box.intersects(reach):
             continue
@@ -1258,35 +1293,110 @@ def _pour(polygon: PourPolygon, state: _Layer, context: _Context) -> tuple[tuple
         )
         value = rules.clearance(me, them, polygons=(polygon.name, other.name))
         if isinstance(value, str):
-            return (), value
-        voids.extend(geometry.offset(pieces, value + tol + 1, tol))
+            return (), (), value
+        voids.extend(geometry.offset(pieces, value + h + tol + 1, tol))
     forbidden = geometry.union(voids)
     gaps = [
         g
         for item, join in joins
         if join.style in ("relief", "none")
-        for g in geometry.grow(item.shape, join.air_gap, tol)
+        for g in geometry.grow(item.shape, join.air_gap + h, tol)
     ]
     copper = geometry.minus(area_now, geometry.union([*forbidden, *gaps]))
-    if polygon.neck > 0 and copper:
+    tracks: tuple[PourTrack, ...] = ()
+    if polygon.hatch is not None:
+        copper, tracks = _hatched(polygon.hatch, copper, joins, forbidden, area_now, geometry, tol)
+    elif polygon.neck > 0 and copper:
         # the result is cut back to the copper it was made from: the chords of Clipper's offsets would grow
         # it by their sag, and no void may lose its clearance
         copper = geometry.open(copper, polygon.neck, tol)
-    conductors = _conductors(joins, copper, forbidden, area_now, geometry, tol)
-    if conductors:
-        copper = geometry.union([*copper, *conductors])
+    if polygon.hatch is None:
+        conductors = _conductors(joins, copper, forbidden, area_now, geometry, tol)
+        if conductors:
+            copper = geometry.union([*copper, *conductors])
     pieces = list(copper)
     if polygon.islands is not None:
         pieces = [piece for piece in pieces if area(piece) >= polygon.islands]
     if polygon.remove_dead:
         if net is None:
-            return (), ""
+            return (), (), ""
         touch = [g for item in same for g in geometry.grow(item.shape, TOUCH_NM, tol)]
         for other, others in state.poured:
             if other.net == net and polygon.pour_over != "none":
                 touch.extend(others)
         pieces = [piece for piece in pieces if geometry.meet((piece,), touch)]
-    return tuple(pieces), ""
+    if tracks and len(pieces) < len(copper):  # a removed piece takes its tracks with it
+        tracks = tuple(t for t in tracks if _on(pieces, t))
+    return tuple(pieces), tracks, ""
+
+
+def _on(pieces: Sequence[Polygon], track: PourTrack) -> bool:
+    """Whether the middle of ``track`` lies on ``pieces``."""
+    from fenolite.geometry.polygon import Location
+
+    a, b, _ = track
+    middle = Point((a.x + b.x) // 2, (a.y + b.y) // 2)
+    return any(piece.locate(middle) != Location.OUTSIDE for piece in pieces)
+
+
+def _hatched(
+    hatch: tuple[str, Nm, Nm],
+    area: Sequence[Polygon],
+    joins: Sequence[tuple[PourObject, Connection]],
+    forbidden: Sequence[Polygon],
+    area_now: Sequence[Polygon],
+    geometry: _Geometry,
+    tol: int,
+) -> tuple[tuple[Polygon, ...], tuple[PourTrack, ...]]:
+    """The copper and the tracks of a hatch (``H-A-POUR-HATCH``; S-2223) over ``area``, the solid pour's
+    area with every distance grown by half the width ``h``: a track of the width along every edge of
+    ``area`` (round ends, so their copper is ``area`` grown by ``h`` less ``area`` shrunk by ``h``), the
+    parts of the grid lines inside ``area`` (``hatch.grid_segments``), and for each relief a conductor of
+    its width from the pad's centre to the edge of its air gap, along each direction of ``_conductors``. A
+    conductor that would come within a clearance of another net (``forbidden`` shrunk by ``h``), leave the
+    polygon or reach no copper is left out. The neck removal does not apply (no record shows it)."""
+    style, grid, width = hatch
+    h = width // 2
+    area = _without_debris(area, tol)
+    if not area:
+        return (), ()
+    tracks: list[PourTrack] = []
+    for piece in area:
+        for ring in piece.rings():
+            for a, b in zip(ring, (*ring[1:], ring[0]), strict=True):
+                tracks.append((a, b, width))
+    lines = grid_segments(area, style, grid)
+    tracks.extend((a, b, width) for a, b in lines)
+    copper: list[Polygon] = [
+        *geometry.minus(geometry.offset(area, h, tol), geometry.offset(area, -h, tol)),
+    ]
+    if lines:
+        copper.extend(geometry.backend.stroke([(a, b) for a, b in lines], h, tol=max(tol // 8, 10)))
+    band = geometry.union(copper)
+    clear: tuple[Polygon, ...] | None = None
+    for item, join in joins:
+        if join.style != "relief" or item.center is None:
+            continue
+        if clear is None:
+            clear = geometry.offset(forbidden, -h, tol) if forbidden else ()
+        core, shape_width, _ = item.shape
+        radius = max(max(abs(p.x - item.center.x), abs(p.y - item.center.y)) for p in core) * 2 + shape_width
+        length = radius + join.air_gap + join.conductor_width
+        step = 360_000_000 // join.conductors
+        turn = item.rotation if item.kind == "pad" else 0
+        gap = geometry.meet(geometry.grow(item.shape, join.air_gap, tol), area_now)
+        half = max(join.conductor_width // 2, 1)
+        for k in range(join.conductors):
+            tip = rotate_point(Point(length, 0), join.angle + turn + k * step)
+            part = first_part(gap, item.center, Point(item.center.x + tip.x, item.center.y + tip.y))
+            if part is None:
+                continue
+            spoke = geometry.backend.stroke([part], half, tol=max(tol // 8, 10))
+            if geometry.meet(spoke, clear) or not geometry.meet(spoke, band):
+                continue
+            tracks.append((part[0], part[1], join.conductor_width))
+            copper.extend(spoke)
+    return geometry.union(copper), tuple(tracks)
 
 
 def _conductors(
@@ -1319,6 +1429,34 @@ def _conductors(
     return found
 
 
+def poured_tracks(
+    document: PcbDocument, index: int, tol: int = 50
+) -> tuple[tuple[tuple[Point, ...], Nm], ...]:
+    """The tracks and arcs of ``document`` that carry the polygon index ``index``, the copper of a hatched
+    pour (S-2223), each as its centre line in the frame of the import and its width: a track as its two
+    ends, an arc as a chain of points on it with every chord within ``tol`` of the arc."""
+    from fenolite.backends.altium.adapter.units import angle, arc_points, circle_points, pcb_length, pcb_point
+    from fenolite.geometry.shapes import Circle
+
+    found: list[tuple[tuple[Point, ...], Nm]] = []
+    for track in document.tracks:
+        if isinstance(track, TrackRecord) and track.prefix.polygon == index:
+            a, b = pcb_point(track.x1, track.y1), pcb_point(track.x2, track.y2)
+            found.append(((a, b), pcb_length(track.width)))
+    for arc in document.arcs:
+        if not isinstance(arc, ArcRecord) or arc.prefix.polygon != index or arc.radius <= 0:
+            continue
+        start, end = angle(arc.start_angle)[0], angle(arc.end_angle)[0]
+        if (end - start) % 360_000_000 == 0:
+            centre, _ = circle_points(arc.cx, arc.cy, arc.radius)
+            ring = Circle.from_radius(centre, pcb_length(arc.radius)).polygonize(tol)
+            found.append(((*ring, ring[0]), pcb_length(arc.width)))
+            continue
+        first, middle, last = arc_points(arc.cx, arc.cy, arc.radius, start, end)
+        found.append((GeoArc(first, middle, last).polygonize(tol), pcb_length(arc.width)))
+    return tuple(found)
+
+
 def _clean(points: Sequence[Point]) -> tuple[Point, ...]:
     out: list[Point] = []
     for point in points:
@@ -1333,7 +1471,8 @@ def check_pour(reading: PourReading, result: PourResult) -> tuple[int, ...]:
     """The self-check of a computed pour (capability altium-pour, "Refusal of a pour"): the indices of the
     poured polygons of ``result`` whose copper, as ``reading`` (the written document read back) holds it,
     touches an object of another net or comes nearer to it than the governing clearance, judged with the
-    exact predicates of the copper check (``geometry.thick``) on the fills of the import."""
+    exact predicates of the copper check (``geometry.thick``) on the fills of the import, and on the tracks
+    and arcs of a hatched polygon (``poured_tracks``), which the import does not read as fills."""
     from fenolite.geometry.thick import Thick, thick_closer_than
 
     polygons = {p.index: p for p in polygons_of(reading)}
@@ -1354,6 +1493,13 @@ def check_pour(reading: PourReading, result: PourResult) -> tuple[int, ...]:
             except (GeometryError, ValueError):
                 continue
             fills.setdefault(polygon.layer, []).append((pour.index, pour.net, shape, BBox.of_points(ring)))
+        for core, width in poured_tracks(reading.document, pour.index) if polygon.hatch is not None else ():
+            try:
+                shape = Thick(core, width, filled=False)
+            except (GeometryError, ValueError):
+                continue
+            box = BBox.of_points(core).inflate((width + 1) // 2)
+            fills.setdefault(polygon.layer, []).append((pour.index, pour.net, shape, box))
     failed: set[int] = set()
     for layer, found in fills.items():
         for index, net, shape, box in found:
@@ -1408,6 +1554,8 @@ __all__ = [
     "DISC_STEPS",
     "disc",
     "polygons_of",
+    "poured_tracks",
+    "PourTrack",
     "rule_subject",
     "pour_reading",
     "read_pour",
