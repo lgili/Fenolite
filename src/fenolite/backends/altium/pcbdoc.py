@@ -935,6 +935,11 @@ def text_problem_of(text: Text, *, footprint: bool = False) -> str | None:
 
 
 def _wide_entry(index: int, text: str) -> bytes:
+    """One ``WideStrings6`` entry, or no bytes for an empty text: kicad-cli 10.0.6 refuses a table that
+    holds an entry of the NUL alone ("WideStrings6 stream is not fully parsed"), and a reader takes the
+    record's own short text, empty too, when the index names no entry (change c0451)."""
+    if not text:
+        return b""
     data = text.encode("utf-16-le") + b"\0\0"
     return struct.pack("<2I", index, len(data)) + data
 
@@ -2270,7 +2275,7 @@ def _write(
         _storage("Tracks6", tracks),
         _storage("Arcs6", arcs),
         _storage("Texts6", texts),
-        _storage("WideStrings6", wide),
+        _storage("WideStrings6", [entry for entry in wide if entry]),  # no entry for an empty text
         _storage(UNIQUE_STORAGE, unique),
     ]
     entries += _option_storages(filename)

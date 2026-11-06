@@ -1115,13 +1115,23 @@ def _polygon_cutouts(reading: PourReading) -> Mapping[str, tuple[tuple[BBox, Pol
     for region in reading.document.regions:
         if not isinstance(region, RegionRecord) or region.properties.get("KIND") != "1":
             continue
-        points = [pcb_point(round(v.x), round(v.y)) for v in region.outline]
+        points: list[Point] = []
+        for v in region.outline:  # a record may repeat a vertex: the ring keeps it once
+            point = pcb_point(round(v.x), round(v.y))
+            if not points or point != points[-1]:
+                points.append(point)
+        while len(points) > 1 and points[-1] == points[0]:
+            points.pop()
         if len(points) < 3:
+            continue
+        try:
+            ring = Polygon(tuple(points))
+        except GeometryError:  # a cut-out with no area cuts nothing
             continue
         names = copper if region.prefix.layer == MULTI else [layer_names.get(region.prefix.layer)]
         for name in names:
             if name is not None:
-                found.setdefault(name, []).append((BBox.of_points(points), Polygon(tuple(points))))
+                found.setdefault(name, []).append((BBox.of_points(points), ring))
     return {name: tuple(items) for name, items in found.items()}
 
 

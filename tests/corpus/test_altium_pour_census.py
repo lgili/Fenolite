@@ -142,9 +142,9 @@ def test_pour_time(item: CorpusItem) -> None:
 
 
 POUR_CENSUS: dict[str, tuple[int, dict[str, int], dict[str, tuple[str, ...]]]] = {
-    "altium-third-party-pcbdoc-01": (5, {"depends-on-refused": 3, "polygon-cutout": 2}, {}),
+    "altium-third-party-pcbdoc-01": (5, {"connect-scope": 2, "depends-on-refused": 3}, {}),
     "altium-third-party-pcbdoc-02": (
-        12, {"depends-on-refused": 3, "outline": 1, "outline-arc": 2, "polygon-cutout": 6}, {},
+        12, {"depends-on-refused": 3, "outline": 1, "outline-arc": 2, "rule-unmapped": 6}, {},
     ),
     "altium-third-party-pcbdoc-03": (1, {}, {"B.Cu GND_L02_P000": ("M2", "M3", "M4")}),
     "altium-third-party-pcbdoc-04": (9, {"depends-on-refused": 5, "rule-scope": 4}, {}),
@@ -152,15 +152,14 @@ POUR_CENSUS: dict[str, tuple[int, dict[str, int], dict[str, tuple[str, ...]]]] =
         2, {}, {"B.Cu GND_BOTTOM": ("M2",), "F.Cu GND_TOP": ("M2", "M3", "M4")},
     ),
     "altium-third-party-pcbdoc-06": (
-        10, {"connect-scope": 1, "depends-on-refused": 6, "polygon-cutout": 3}, {},
+        10, {"connect-scope": 1, "depends-on-refused": 6, "rule-unmapped": 3}, {},
     ),
     "altium-third-party-pcbdoc-07": (
         9, {"depends-on-refused": 1, "outline": 1, "outline-arc": 4, "rule-scope": 3}, {},
     ),
     "altium-third-party-pcbdoc-08": (
         33,
-        {"connect-scope": 2, "depends-on-refused": 14, "outline-arc": 6, "polygon-cutout": 2,
-         "rule-scope": 9},
+        {"connect-scope": 2, "depends-on-refused": 14, "outline-arc": 6, "rule-scope": 11},
         {},
     ),
 }  # fmt: skip
@@ -168,7 +167,9 @@ POUR_CENSUS: dict[str, tuple[int, dict[str, int], dict[str, tuple[str, ...]]]] =
 layer and name) against the regions the document holds (``docs/evidence/altium-pour.md``, census of
 2026-10-26). M1 passes on every compared polygon. On 2026-11-04 (change c0377) one polygon of ``-08`` is
 no longer refused for a rule scope, since the RF clearance rules now read; an earlier refused polygon of its
-layer lies within its reach, so it is refused as ``depends-on-refused``."""
+layer lies within its reach, so it is refused as ``depends-on-refused``. Since lote-26 a polygon cut-out is
+taken out of the area instead of refusing the polygon (``polygon-cutout``), so those polygons go on to the
+next criteria and are refused for a connect scope, an unmapped rule or a rule scope."""
 
 
 @pytest.mark.parametrize("item", DOCUMENTS, ids=lambda item: item.id)
