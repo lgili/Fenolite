@@ -7,8 +7,8 @@
 | S-2220 | The maintainer's report of their own board on `cac/lote-28` and `cac/lote-29`, relayed by the coordinating session on 2026-11-06. Counts and codes only: 28 polygons written unpoured by flow B, all 28 filled by Repour All, and Altium DRC after Repour. | why, and the private acceptance |
 | S-2221 | The saved polygons and regions of the public rows (corpus, MIT and other declared licences). For outlines with arc vertices: how the polygon record stores the arc, and how the regions Altium saved approximate it. | D1 |
 | S-2222 | The same rows: the outlines that are not simple rings, and the regions Altium saved for them. | D2 |
-| S-2223 | Kit sample `pour-hatched`: authored hatched polygons (90°, 45°, horizontal, vertical) poured by Altium Designer 26 and saved. | D3 |
-| S-2224 | Kit step `repour`: each converted public row opened in Altium Designer 26, Repour All run, the document saved, its regions read back. | D5 |
+| S-2223 | Kit sample `pour-hatched`: authored hatched polygons (90°, 45°, horizontal, vertical) poured by Altium Designer 24.5.2.23 and saved. | D3 |
+| S-2224 | Kit step `repour`: each public row, as published, opened in Altium Designer 24.5.2.23, Repour All run, the document saved, its regions read back. | D5 |
 | S-2225 to S-2229 | reserved for the tasks' records | |
 
 Each fact is recorded in `docs/formats/altium/pcb-pour.md` with its evidence label.

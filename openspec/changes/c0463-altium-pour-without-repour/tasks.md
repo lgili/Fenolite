@@ -80,7 +80,7 @@ Rules for every task:
 
 ## 5. Graduation
 
-- [ ] 5.1 K6 round of `pour`, `pour4` and `pour-hatched` on Altium Designer 26. Proof: the kit report,
+- [ ] 5.1 K6 round of `pour`, `pour4` and `pour-hatched` on Altium Designer 24.5. Proof: the kit report,
   recorded as S-2225.
 - [ ] 5.2 The maintainer's board, flow B: 28 of 28 polygons poured, and Altium DRC with no Repour equal
   per rule to the DRC after Repour. The coordinator records the counts as S-2226. Proof: that record.

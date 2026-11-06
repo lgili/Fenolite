@@ -4,7 +4,7 @@
 S-2224).
 
     uv run python tools/kit_pour_c0463.py prepare --out DIR
-    uv run python tools/kit_pour_c0463.py record --saved DIR --tool "AD 26.5" --date 2026-11-07
+    uv run python tools/kit_pour_c0463.py record --saved DIR --tool "AD 24.5" --date 2026-11-06
 
 ``prepare`` writes, outside the repository:
 
@@ -46,7 +46,7 @@ MESSAGES = "messages.json"
 
 STEPS = """# c0463: Altium's hatched pour (K6.12, S-2223) and the Repour oracle (S-2224)
 
-Altium Designer 26 on the shared VM. Work on a copy of this folder. Open each document as a free document
+Altium Designer 24.5 on the shared VM. Work on a copy of this folder. Open each document as a free document
 (File » Open, no project). When Altium offers to repour on opening, answer **No**. Save only with
 File » Save As under the name given, in the document's own folder. Never save a document of this folder
 in place. Close each document after its save; close no document you did not open.
