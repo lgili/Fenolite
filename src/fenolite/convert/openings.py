@@ -98,6 +98,73 @@ def rule_expansion(records: Iterable[Mapping[str, str]], kind: str) -> RuleExpan
     return RuleExpansion(None, scoped=bool(rows))
 
 
+@dataclass(frozen=True, slots=True)
+class ViaRule:
+    """The solder-mask rule that governs the vias (change c0445): ``value`` and ``from_hole``
+    (``SOLDERMASKFROMHOLE``: the expansion is measured from the edge of the hole) of the first enabled
+    ``SolderMaskExpansion`` record, by priority, of scope ``IsVia`` or ``All`` (``None`` without one), and
+    whether an enabled record of another scope that may select vias comes before it (``scoped``)."""
+
+    value: Nm | None = None
+    from_hole: bool = False
+    scoped: bool = False
+
+
+VIA_MODE_RULE, VIA_MODE_MANUAL = 1, 2
+"""The solder-mask cache states of a via record at 66 (``pcb-copper.md``, "Via"): its expansion from the
+rules, and its own expansion (a tented side, change c0166). State 0 is read as the rules."""
+VIA_SCOPES = ("All", "IsVia")
+
+
+def _selects_no_via(selector: Selector) -> bool:
+    if selector.op == "item_kind":
+        return selector.value != "via"
+    if selector.op == "and":
+        return any(_selects_no_via(item) for item in selector.items)
+    if selector.op == "or":
+        return all(_selects_no_via(item) for item in selector.items)
+    return False
+
+
+def via_rule(records: Iterable[Mapping[str, str]]) -> ViaRule:
+    """The ``ViaRule`` of the rule records (``RULEKIND``, ``ENABLED``, ``PRIORITY``, ``SCOPE1EXPRESSION``,
+    ``EXPANSION``, ``SOLDERMASKFROMHOLE``). A record whose scope selects no via (``IsPad``) is left out."""
+    from fenolite.backends.altium.read.scope import parse_scope
+
+    rows: list[tuple[int, Mapping[str, str]]] = []
+    for record in records:
+        if record.get("RULEKIND") != MASK_RULE or record.get("ENABLED", "TRUE").upper() != "TRUE":
+            continue
+        selector = parse_scope(record.get("SCOPE1EXPRESSION", ""))
+        if not isinstance(selector, str) and _selects_no_via(selector):
+            continue
+        try:
+            priority = int(record.get("PRIORITY", "0"))
+        except ValueError:
+            priority = 0
+        rows.append((priority, record))
+    rows.sort(key=lambda row: row[0])
+    for index, (_, record) in enumerate(rows):
+        if record.get("SCOPE1EXPRESSION", "").strip() in VIA_SCOPES:
+            found = text_length(record.get("EXPANSION"))
+            return ViaRule(
+                None if found is None else found[0],
+                record.get("SOLDERMASKFROMHOLE", "FALSE").upper() == "TRUE",
+                scoped=index > 0,
+            )
+    return ViaRule(None, scoped=bool(rows))
+
+
+def via_margin(diameter: Nm, drill: Nm, state: int, expansion: Nm, rule: ViaRule) -> Nm | None:
+    """The growth of a via's mask opening beyond its copper (change c0445): its own ``expansion`` in the
+    manual state, else the rule's, measured from the hole when the rule says so; ``None`` without a rule."""
+    if state == VIA_MODE_MANUAL:
+        return expansion
+    if rule.value is None:
+        return None
+    return (drill - diameter) // 2 + rule.value if rule.from_hole else rule.value
+
+
 def _pairs(pad: Pad) -> dict[str, str]:
     bag = pad.ext.get("altium")
     return dict(bag.payload) if bag is not None else {}
@@ -157,7 +224,10 @@ __all__ = [
     "PASTE_RULE",
     "RuleExpansion",
     "RuleExpansions",
+    "ViaRule",
     "open_pad",
     "rule_expansion",
     "source_pairs",
+    "via_margin",
+    "via_rule",
 ]

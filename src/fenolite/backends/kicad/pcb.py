@@ -3251,7 +3251,8 @@ class _Writer:
         if not slots:
             stack = board.stackup.layers if board.stackup is not None else ()
             thickness = sum(layer.thickness for layer in stack) or DEFAULT_THICKNESS
-            setup: list[Node | Atom] = [node("pad_to_mask_clearance", Atom.integer(0))]
+            margin = Atom.integer(0) if not board.mask_margin else Atom.from_nm(board.mask_margin)  # c0445
+            setup: list[Node | Atom] = [node("pad_to_mask_clearance", margin)]
             if board.stackup is not None and self.stack_writable():
                 setup.insert(0, stacklib.stackup_node(board.stackup, board.layers))
             if board.via_protection is not None and not self.protection_too_new(

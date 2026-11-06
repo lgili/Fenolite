@@ -580,6 +580,12 @@ via, for `capping` and `filling`), `False` that it is not.
   (`tests/data/model/v0.2.1/blink_2layer.board.json`), and the historical schema was `"0"`; see [version history](#model-schema-versions). The other
   direction does not hold. Fenolite 0.2.x and 0.3.0 cannot read a `board.json` that carries `protection` or
   `via_protection`: their reader of the canonical form is strict.
+- `Board.mask_margin` (change c0445) is the board's solder-mask margin: how far the mask opening of an
+  untented via, and of a pad without a margin of its own, extends beyond its copper. It may be negative.
+  `None` means the backend's own default. The KiCad writer writes it as `pad_to_mask_clearance`; a write of
+  a model to Altium gives it to every via as its own expansion. A conversion from Altium sets it; a KiCad
+  board read from a file leaves it `None` and keeps its `setup` in its slots. It is the last field of
+  `Board` and additive: `canonical` omits `None`.
 
 ## Differential pairs
 

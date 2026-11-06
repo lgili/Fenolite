@@ -593,6 +593,10 @@ class PcbDocSpec:
     via_protection: ViaProtection | None = None
     """The board's default via protection (change c0112): a tenting side that a via of ``vias`` leaves at
     ``None`` takes its flag from here, and from nothing (a clear flag) when this states none either."""
+    via_mask: int | None = None
+    """The solder-mask expansion of every via in nanometres (change c0445), written as the via's own value
+    (manual mode) in place of 4 mil from the rules: ``Board.mask_margin`` of a written model, the opening
+    KiCad gives an untented via. ``None``, the value of every build, writes 4 mil from the rules."""
     allow_full_drill: bool = False
     """``True`` writes a via whose drill equals its diameter (change c0128): a document that Altium saved
     can hold one (``pcb-copper.md``, "Via"), and the rewrite of a document that was read gives it back.
@@ -1183,6 +1187,7 @@ def via_records(
     *,
     allow_full_drill: bool = False,
     default: ViaProtection | None = None,
+    mask: int | None = None,
 ) -> list[bytes]:
     """The vias of the board (``pcb-copper.md``, "Via"), sorted by net name, position, diameter and entity
     id: a through via with the start layer 1 and the end layer 32, a blind or buried via (change c0085)
@@ -1190,8 +1195,10 @@ def via_records(
     refuses, whose drill is not below its diameter, or on an unknown net. ``allow_full_drill``
     (``PcbDocSpec.allow_full_drill``, change c0128) accepts a drill equal to the diameter. Each tenting
     flag is that of ``via_tenting(via, default)`` (change c0112; ``default`` is
-    ``PcbDocSpec.via_protection``); every other value of the protection writes nothing."""
+    ``PcbDocSpec.via_protection``); every other value of the protection writes nothing. ``mask``
+    (``PcbDocSpec.via_mask``, change c0445) is the solder-mask expansion of every via, in nanometres."""
     names = list(copper.layers)
+    expansion = None if mask is None else rec.to_units(mask)
     out: list[bytes] = []
     ordered = sorted(vias, key=lambda v: (v.net_id or "", _xy(v.position), v.diameter, v.id))
     for via in ordered:
@@ -1216,6 +1223,7 @@ def via_records(
                 locked=via.locked,
                 tented_top=top,
                 tented_bottom=bottom,
+                mask=expansion,
             )
         )
     return out
@@ -2152,7 +2160,11 @@ def _write(
     arcs += routed_arcs(spec.arcs, copper, spec.arc_records)
     filled: dict[str, list[bytes]] = {name: [] for name in COPPER_STORAGES}
     filled["Vias6"] = via_records(
-        spec.vias, copper, allow_full_drill=spec.allow_full_drill, default=spec.via_protection
+        spec.vias,
+        copper,
+        allow_full_drill=spec.allow_full_drill,
+        default=spec.via_protection,
+        mask=spec.via_mask,
     )
     pairs = drill_pairs(spec.vias, copper)
     if pairs:

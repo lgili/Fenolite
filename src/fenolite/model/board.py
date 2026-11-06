@@ -832,6 +832,10 @@ class Board(Entity):
 
     This does not promise that every target algorithm uses the bound (change c0340).
     """
+    mask_margin: Nm | None = None
+    """The board's solder-mask margin (change c0445): the growth of the mask opening of an untented via, and
+    of a pad without a margin of its own, beyond its copper; it may be negative. ``None`` is the backend's
+    own default. A conversion sets it; a KiCad board read from a file keeps its setup in its slots."""
 
     def __post_init__(self) -> None:
         if self.max_curve_error is not None:

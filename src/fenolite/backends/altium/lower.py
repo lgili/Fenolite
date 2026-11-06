@@ -2155,6 +2155,7 @@ def _document(
         arcs=tuple(arcs),
         vias=tuple(vias),
         via_protection=board.via_protection,  # the default of the tenting flags (c0112)
+        via_mask=board.mask_margin if options is None else None,  # the vias' mask of a model (c0445)
         zones=tuple(zones),
         net_classes=classes,
         class_kinds=class_kinds,

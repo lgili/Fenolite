@@ -16,7 +16,9 @@ document's outline and every inner ring a cut-out region, counted under ``cutout
 from __future__ import annotations
 
 import dataclasses
+import re
 from collections.abc import Mapping
+from decimal import Decimal
 
 from fenolite.backends.altium import lower
 from fenolite.backends.altium.cfb import CompoundTooLarge
@@ -162,12 +164,36 @@ def _source_rule_losses(
     return found
 
 
+_MASK_MARGIN = re.compile(r"\(pad_to_mask_clearance\s+(-?[0-9]+(?:\.[0-9]+)?)\s*\)")
+
+
+def board_mask_margin(text: str) -> int:
+    """The board's ``(setup (pad_to_mask_clearance M))`` in nanometres, the opening of an untented via
+    beyond its copper in KiCad (``board.md``, ``H-K-VIAPROT-MASK``; change c0445); 0, KiCad's value, when
+    absent."""
+    found = _MASK_MARGIN.search(text)
+    return 0 if found is None else int(Decimal(found.group(1)) * 1_000_000)
+
+
+def with_mask_margin(design: Design, source: SourceProject) -> Design:
+    """``design`` whose board holds the source board's mask margin (change c0445), so the Altium writer
+    opens each untented via as KiCad does; a board that holds one already keeps it."""
+    board = design.board
+    if board is None or board.mask_margin is not None:
+        return design
+    try:
+        margin = board_mask_margin(source.path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError):
+        return design
+    return dataclasses.replace(design, board=dataclasses.replace(board, mask_margin=margin))
+
+
 def write(source: SourceProject, options: Options) -> Written:
     """The Altium project of a KiCad source, with its report. Its copper graphics take the net their KiCad
     slot names (``fpitems.with_graphic_nets``), as a build's do: without it a netted copper shape is written
     with no net and shorts the copper it touches (changes c0439, c0441)."""
     projected = fpitems.with_footprint_items(_named(source.design, options.name)).design
-    design = pads.project(fpitems.with_graphic_nets(projected))
+    design = with_mask_margin(pads.project(fpitems.with_graphic_nets(projected)), source)
     carried = _carried(source, design)  # change c0434: the source's own rule records
     design = carried.design
     sch, symbols, changed_comments = schematic.inputs(source, design)

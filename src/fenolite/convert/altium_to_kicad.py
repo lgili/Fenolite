@@ -6,8 +6,8 @@ from __future__ import annotations
 
 import dataclasses
 import re
-from collections import defaultdict
-from collections.abc import Mapping
+from collections import Counter, defaultdict
+from collections.abc import Mapping, Sequence
 from pathlib import Path, PurePosixPath
 from typing import Any, cast
 
@@ -17,8 +17,9 @@ from fenolite.convert.sources import SourceProject
 from fenolite.core.errors import Issue
 from fenolite.core.ids import derived_id
 from fenolite.core.libnames import FREE_PAD_PREFIX, library_name
+from fenolite.core.units import Nm
 from fenolite.model.base import ExtBag
-from fenolite.model.board import FootprintInstance, Layer, Pad
+from fenolite.model.board import Board, FootprintInstance, Layer, Pad
 from fenolite.model.circuit import Component, Net, PinRef
 from fenolite.model.design import Design
 from fenolite.model.library import FootprintDef, ModelPlacement, SymbolDef
@@ -520,19 +521,109 @@ def board_document(source: SourceProject, design: Design) -> Path | None:
     return found[0] if len(found) == 1 else None
 
 
-def rule_records(source: SourceProject, design: Design) -> tuple[dict[str, str], ...]:
-    """The rule records of the source's PCB document as key-value maps; none when it cannot be read."""
+def _pcb_document(source: SourceProject, design: Design) -> Any:
+    """The source's PCB document as read; ``None`` when it cannot be read."""
     from fenolite.backends.altium.read.pcb import read_pcbdoc
     from fenolite.core.errors import FenoliteError
 
     path = board_document(source, design)
     if path is None:
-        return ()
+        return None
     try:
-        document = read_pcbdoc(path.read_bytes(), file=path.name)
+        return read_pcbdoc(path.read_bytes(), file=path.name)
     except (OSError, FenoliteError):
+        return None
+
+
+def rule_records(source: SourceProject, design: Design) -> tuple[dict[str, str], ...]:
+    """The rule records of the source's PCB document as key-value maps; none when it cannot be read."""
+    document = _pcb_document(source, design)
+    if document is None:
         return ()
     return tuple({key: value or "" for key, value in record.fields} for record in document.rules)
+
+
+VIA_MASK_CHANGED = (
+    "KiCad opens every untented via by the board's one mask margin; this via's opening differs from the "
+    "most frequent one, which the board takes (change c0445)"
+)
+VIA_RULE_SCOPED = (
+    "the via takes its mask from the rules and a SolderMaskExpansion rule of another scope may govern it; "
+    "the rule of scope IsVia or All was applied (change c0445)"
+)
+VIA_MASK_STATE, VIA_MASK_EXPANSION = 66, 54
+"""The offsets of a via record's solder-mask cache state and top expansion (``pcb-copper.md``, "Via")."""
+
+
+def via_margins(
+    source: SourceProject, records: Sequence[Mapping[str, str]]
+) -> tuple[dict[str, Nm], tuple[str, ...]]:
+    """Via id → the growth of its mask opening beyond its copper (change c0445), for each via of the source
+    that is untented on a side and whose record or rule gives one (``openings.via_margin``), and the ids of
+    those that take the rule while a rule of another scope comes first (``ViaRule.scoped``). A via is found
+    by the locator of its provenance in ``Vias6``."""
+    import struct
+
+    from fenolite.backends.altium.adapter.units import pcb_length
+    from fenolite.backends.altium.read.pcbprims import ViaRecord
+    from fenolite.convert import openings
+
+    board = source.design.board
+    document = _pcb_document(source, source.design)
+    if board is None or document is None:
+        return {}, ()
+    rule = openings.via_rule(records)
+    found: dict[str, Nm] = {}
+    scoped: list[str] = []
+    for via in board.vias:
+        if via.protection.tenting_front and via.protection.tenting_back:
+            continue
+        locator = via.provenance.locator if via.provenance is not None else ""
+        head, _, index = locator.partition("#")
+        if head != "Vias6/Data" or not index.isdigit() or int(index) >= len(document.vias):
+            continue
+        record = document.vias[int(index)]
+        if not isinstance(record, ViaRecord) or len(record.tail) <= VIA_MASK_STATE - 31:
+            continue
+        state = record.tail[VIA_MASK_STATE - 31]
+        units = struct.unpack_from("<i", record.tail, VIA_MASK_EXPANSION - 31)[0]
+        margin = openings.via_margin(via.diameter, via.drill, state, pcb_length(units), rule)
+        if margin is not None:
+            found[via.id] = margin
+            if rule.scoped and state != openings.VIA_MODE_MANUAL:
+                scoped.append(via.id)
+    return found, tuple(scoped)
+
+
+def _mode(margins: Mapping[str, Nm]) -> Nm:
+    counts = Counter(margins.values())
+    return min(counts, key=lambda value: (-counts[value], value))
+
+
+def board_mask(board: Board, margins: Mapping[str, Nm], ledger: Ledger, scoped: Sequence[str] = ()) -> Board:
+    """``board`` with the mask margin of its untented vias (change c0445): the most frequent of ``margins``
+    (the smallest of a tie); each via with another one, and each of ``scoped`` (``via_margins``), is counted
+    changed. With a margin other than 0, a pad without a margin of its own gets 0, so it keeps the opening
+    it had."""
+    if not margins:
+        return board
+    margin = _mode(margins)
+    for ident, value in sorted(margins.items()):
+        if value != margin:
+            ledger.change("via", ident, VIA_MASK_CHANGED)
+        elif ident in scoped:
+            ledger.change("via", ident, VIA_RULE_SCOPED)
+    if margin == 0:
+        return dataclasses.replace(board, mask_margin=margin)
+
+    def kept(pad: Pad) -> Pad:
+        masked = any(name.endswith(".Mask") for name in pad.layers)
+        return dataclasses.replace(pad, mask_margin=0) if masked and pad.mask_margin is None else pad
+
+    footprints = tuple(
+        dataclasses.replace(fp, pads=tuple(kept(pad) for pad in fp.pads)) for fp in board.footprints
+    )
+    return dataclasses.replace(board, footprints=footprints, mask_margin=margin)
 
 
 def prepare(source: SourceProject, name: str, target: int, ledger: Ledger) -> Design:
@@ -602,6 +693,8 @@ def prepare(source: SourceProject, name: str, target: int, ledger: Ledger) -> De
     for hole in board.holes:
         ledger.drop("hole", hole.id, "a standalone hole has no footprint")
     board = dataclasses.replace(board, footprints=tuple(footprints), holes=())
+    margins, scoped = via_margins(source, records)
+    board = board_mask(board, margins, ledger, scoped)  # change c0445: the vias' mask
     from fenolite.convert import altium_zones  # change c0409: the pour settings of the Altium rules
 
     board = altium_zones.connect_zones(

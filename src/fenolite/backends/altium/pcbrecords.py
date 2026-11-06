@@ -481,13 +481,16 @@ def via_record(
     locked: bool = False,
     tented_top: bool = False,
     tented_bottom: bool = False,
+    mask: int | None = None,
 ) -> bytes:
     """A via (type 3): one subrecord of 321 bytes, the form Altium saves, with the fixed values of
     ``pcb-copper.md`` ("Via") and zero in every other byte; position and sizes in binary units. ``start``
     and ``end`` are the ids of the two copper layers it spans (a through via: 1 and 32). ``locked`` writes
     the locked flag when ``via`` is in ``LOCK_WRITTEN``. ``tented_top`` and ``tented_bottom`` set bits 5
     and 6 of the first flags byte (``pcb-copper.md``, "Flags of a via"; ``H-A-PCB-CU-VIATENT``, change
-    c0112), beside the lock bit. A tented side selects manual mask cache state at byte 66."""
+    c0112), beside the lock bit. A tented side selects manual mask cache state at byte 66. ``mask`` (binary
+    units, may be negative; change c0445) is the via's own solder-mask expansion: it is written at 54 and
+    242 in place of 4 mil, with the manual cache state, so no rule overrides it."""
     for layer in (start, end):
         layer_text(layer)
     body = bytearray(VIA_SIZE)
@@ -496,12 +499,13 @@ def via_record(
     struct.pack_into("<4i2B", body, 13, x, y, diameter, hole, start, end)
     struct.pack_into("<ihi", body, 32, 10 * _MIL, 4, 10 * _MIL)  # air gap, conductors, conductor width
     struct.pack_into("<2i", body, 42, 20 * _MIL, 20 * _MIL)
-    struct.pack_into("<i", body, 54, 4 * _MIL)  # solder-mask expansion
-    if tented_top or tented_bottom:
-        body[66] = 2  # manual solder-mask cache: rules otherwise override tenting
+    expansion = 4 * _MIL if mask is None else mask
+    struct.pack_into("<i", body, 54, expansion)  # solder-mask expansion
+    if tented_top or tented_bottom or mask is not None:
+        body[66] = 2  # manual solder-mask cache: rules otherwise override tenting and the expansion
     struct.pack_into(f"<{_VIA_LAYERS}i", body, 75, *[diameter] * _VIA_LAYERS)
     struct.pack_into("<Hi", body, 203, 15, 259)
-    struct.pack_into("<i", body, 242, 4 * _MIL)  # back solder-mask expansion
+    struct.pack_into("<i", body, 242, expansion)  # back solder-mask expansion
     body[254] = 0x2A
     struct.pack_into("<2i", body, 291, 0x7FFFFFFF, 0x7FFFFFFF)  # hole tolerances
     struct.pack_into("<i", body, 304, 30)  # polygon-connect entry size; the count at 300 is 0
