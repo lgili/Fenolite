@@ -11924,6 +11924,12 @@
         "error"
       ]
     },
+    "check.allowance-unresolved": {
+      "experimental": false,
+      "severities": [
+        "info"
+      ]
+    },
     "check.cache-unreadable": {
       "experimental": false,
       "severities": [
@@ -12398,6 +12404,7 @@
       "experimental": false,
       "severities": [
         "error",
+        "warning",
         "info"
       ]
     },
