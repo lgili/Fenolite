@@ -20,5 +20,5 @@
 
 - [x] 4.1 Round trip of public row `-08`: keep-out fills before and after (S-2140); rows in
   `pcb-records.md` and `import.md`, and a CHANGELOG line; `uv run pytest tests/unit/test_format_facts.py`.
-- [ ] 4.2 altium-rounds-2 opens the round trip of row `-08` in Altium Designer: the 11 keep-out fills of
+- [x] 4.2 altium-rounds-2 opens the round trip of row `-08` in Altium Designer: the 11 keep-out fills of
   its components on the bottom layer with their restrictions, as in the source (kit request).

@@ -629,8 +629,9 @@ def _carried_storages(
     source: SourceProject, design: Design, ledger: Ledger, counts: dict[str, int]
 ) -> dict[str, bytes]:
     """The carried storages of the source's PCB document as ``boardcarrier.with_carried`` items, by property
-    name (change c0450, ``convert.altium_storages``); each index-bound storage that holds a record is
-    counted lost under ``altium-storage``. A document that cannot be read carries nothing."""
+    name (change c0450, ``convert.altium_storages``); each index-bound storage that holds a record, and each
+    frame-bound one that holds data (change c0459), is counted lost under ``altium-storage``. A document that
+    cannot be read carries nothing."""
     from fenolite.convert import altium_storages as storages
     from fenolite.convert.altium_to_kicad import board_document
     from fenolite.core.errors import FenoliteError
@@ -643,11 +644,13 @@ def _carried_storages(
         found = storages.found_in(path)
     except (OSError, FenoliteError):
         return {}
-    if not found.carried and not found.index_bound:
+    if not found.carried and not found.index_bound and not found.frame_bound:
         return {}
-    counts[storages.KIND] = len(found.carried) + len(found.index_bound)
+    counts[storages.KIND] = len(found.carried) + len(found.index_bound) + len(found.frame_bound)
     for name in found.index_bound:
         ledger.drop(storages.KIND, name, storages.INDEX_BOUND_REASON)
+    for name in found.frame_bound:  # change c0459: a copy would lie in the source's frame
+        ledger.drop(storages.KIND, name, storages.FRAME_BOUND[name])
     return storages.items(found)
 
 

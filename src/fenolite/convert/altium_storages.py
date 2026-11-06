@@ -16,7 +16,11 @@ super class (``SignalClasses.Kept``), the ``PINPAIR`` keys of ``Board6`` that de
 (``Board6.PinPairs``) and ``DifferentialPairs6``. A conversion back writes them as they were, but a
 differential pair whose nets the written document does not hold (``fitted``). Storages that name
 primitives by index (``PrimitiveGuids``, the saved violations) are not carried: the round trip renumbers the
-primitives. Each one that holds a record is counted lost.
+primitives. Each one that holds a record is counted lost. Neither is ``BoardRegions`` (change c0459): it
+holds the board's layer stack region in the source's frame with the id of the source's stack, which the round
+trip moves and writes again; a copy left Altium with a board region beside the board, so the polygons poured
+nothing. Nor is ``CustomMaskShapes``, which no public row fills, so whether it holds coordinates is not known.
+Each is counted lost when it holds data.
 """
 
 from __future__ import annotations
@@ -24,7 +28,7 @@ from __future__ import annotations
 import re
 import struct
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from fenolite.backends.kicad.boardcarrier import PREFIX
@@ -33,8 +37,24 @@ from fenolite.core.evidence import Evidence, Level
 EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-A-CONV-STORAGE",))
 """The claim of the carried storages: written back byte for byte, they open in Altium as in the source
 (``docs/hypotheses.md``; settled by the kit request of c0450 task 4.2)."""
-CARRIED: tuple[str, ...] = ("BoardRegions", "CustomMaskShapes", "EmbeddedFonts6", "UnionNames")
+CARRIED: tuple[str, ...] = ("EmbeddedFonts6", "UnionNames")
 """The storages copied whole."""
+FRAME_BOUND_REASON = (
+    "the storage holds the source's board regions in its frame and names its layer stack by id, which the "
+    "round trip moves and writes again; Altium makes it again"
+)
+UNKNOWN_FRAME_REASON = (
+    "the storage may hold geometry in the source's frame, which the round trip moves, and no public source "
+    "shows what it holds; it is not copied"
+)
+FRAME_BOUND: Mapping[str, str] = {
+    "BoardRegions": FRAME_BOUND_REASON,
+    "CustomMaskShapes": UNKNOWN_FRAME_REASON,
+}
+"""The storages that hold, or may hold, the source's geometry in its frame (change c0459), each with the
+reason it is counted lost: the round trip moves the origin and writes its own layer stack, so a copy of
+``BoardRegions`` placed the board region beside the board, and ``CustomMaskShapes`` holds data in no public
+row (S-2181), so a copy would carry bytes nobody checked."""
 CLASSES = "Classes6"
 KEPT_CLASSES = "Classes6.Kept"
 """The carrier of the classes of ``Classes6`` that are no net class and no super class (change c0461)."""
@@ -161,11 +181,12 @@ _PAIR_KEYS = ("NAME", "COLOR", "OVERRIDECOLORFORDRAW", "PINS")
 
 @dataclass(frozen=True, slots=True)
 class Found:
-    """The storages of a source document: those carried, by property name, and the index-bound ones that
-    hold a record, with their record counts."""
+    """The storages of a source document: those carried, by property name, the index-bound ones that hold a
+    record, with their record counts, and the frame-bound ones that hold data, with theirs (change c0459)."""
 
     carried: Mapping[str, Storage]
     index_bound: Mapping[str, int]
+    frame_bound: Mapping[str, int] = field(default_factory=lambda: {})
 
 
 def _count(header: bytes) -> int:
@@ -173,13 +194,14 @@ def _count(header: bytes) -> int:
 
 
 def found_in(path: Path) -> Found:
-    """The carried and the index-bound storages of the PCB document at ``path``."""
+    """The carried, the index-bound and the frame-bound storages of the PCB document at ``path``."""
     from fenolite.backends.altium.read.cfb import read_compound
 
     compound = read_compound(path)
     names = set(compound.storages())
     carried: dict[str, Storage] = {}
     bound: dict[str, int] = {}
+    framed: dict[str, int] = {}
 
     def streams(name: str) -> Storage | None:
         if f"{name}/Header" not in compound or f"{name}/Data" not in compound:
@@ -192,6 +214,8 @@ def found_in(path: Path) -> Found:
             continue
         if (name in CARRIED or name == DIFFERENTIAL_PAIRS) and storage.data:
             carried[PREFIX + name] = storage
+        elif name in FRAME_BOUND and storage.data:
+            framed[name] = max(_count(storage.header), 1)
         elif name in (CLASSES, SIGNAL_CLASSES):
             kept = (
                 kept_classes(storage.data)
@@ -208,7 +232,7 @@ def found_in(path: Path) -> Found:
                 carried[PREFIX + PIN_PAIRS] = Storage(struct.pack("<I", len(pairs)), pin_pair_text(pairs))
         elif _INDEX_BOUND.fullmatch(name) and _count(storage.header):
             bound[name] = _count(storage.header)
-    return Found(carried, bound)
+    return Found(carried, bound, framed)
 
 
 def items(found: Found) -> dict[str, bytes]:
@@ -289,6 +313,9 @@ def _writable(text: str) -> bool:
 
 __all__ = [
     "CARRIED",
+    "FRAME_BOUND",
+    "FRAME_BOUND_REASON",
+    "UNKNOWN_FRAME_REASON",
     "COMPONENT_CLASSES",
     "DIFFERENTIAL_PAIRS",
     "EVIDENCE",

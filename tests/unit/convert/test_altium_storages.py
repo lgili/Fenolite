@@ -18,7 +18,11 @@ from fenolite.convert.sources import read_source
 UNION = b"|UNIONINDEX=1|NAME=Fenolite union\x00"
 GROUP = b"|SELECTION=FALSE|NAME=Fenolite_Group|KIND=1|SUPERCLASS=FALSE|M0=R1\x00"
 GUID = b"|PRIMITIVEINDEX=0|GUID={00000000-0000-0000-0000-000000000000}\x00"
-"""An authored union name, an authored component class and an authored primitive GUID."""
+STACK = b"{00000000-0000-0000-0000-000000000001}"
+REGION = b"|NAME=Layer Stack Region 1|OBJECTKIND=BoardRegion|LAYERSTACKID=" + STACK + b"\x00"
+MASK = b"|NAME=Fenolite mask shape\x00"
+"""An authored union name, an authored component class, an authored primitive GUID, an authored board
+region (its vertices left out: the conversion never reads them) and an authored custom mask shape."""
 
 
 def _record(text: bytes) -> bytes:
@@ -27,7 +31,8 @@ def _record(text: bytes) -> bytes:
 
 def _document(tmp_path: Path) -> Path:
     """The two-layer board written as an Altium document, with an authored ``UnionNames`` storage, an
-    authored component class in ``Classes6`` and one ``PrimitiveGuids`` record."""
+    authored component class in ``Classes6``, one ``PrimitiveGuids`` record, one ``BoardRegions``
+    record and one ``CustomMaskShapes`` record."""
     design = two_layer()
     written = lower.write_design(design, allow_lossy=True).files[f"{design.header.name}.PcbDoc"]
     streams = open_compound(written).as_dict()
@@ -38,6 +43,10 @@ def _document(tmp_path: Path) -> Path:
     streams["Classes6/Data"] += _record(GROUP)
     streams["PrimitiveGuids/Header"] = struct.pack("<I", 1)
     streams["PrimitiveGuids/Data"] = _record(GUID)
+    streams["BoardRegions/Header"] = struct.pack("<I", 1)
+    streams["BoardRegions/Data"] = _record(REGION)
+    streams["CustomMaskShapes/Header"] = struct.pack("<I", 1)
+    streams["CustomMaskShapes/Data"] = _record(MASK)
     path = tmp_path / "altium" / f"{design.header.name}.PcbDoc"
     path.parent.mkdir(parents=True)
     path.write_bytes(write_compound(storage_from_paths(streams)))
@@ -58,6 +67,7 @@ def test_only_carried_storage_names_are_storages() -> None:
             "Fenolite.Altium.UnionNames": storages.packed(storage),
             "Fenolite.Altium.Rules6": b"rule records",
             "Fenolite.Altium.BoardRegions": b"\x00",
+            "Fenolite.Altium.CustomMaskShapes": b"\x00",
         }
     )
     assert found == {"UnionNames": storage}
@@ -65,7 +75,8 @@ def test_only_carried_storage_names_are_storages() -> None:
 
 def test_kicad_board_holds_the_carried_storages(tmp_path: Path) -> None:
     """The conversion to KiCad writes ``UnionNames`` and the component class as board properties and counts
-    the ``PrimitiveGuids`` storage lost under ``altium-storage``."""
+    the ``PrimitiveGuids`` storage (index-bound) and the ``BoardRegions`` and ``CustomMaskShapes`` storages
+    (frame-bound, change c0459) lost under ``altium-storage``."""
     conversion = convert_project(read_source(_document(tmp_path)), to="kicad", allow_lossy=True)
     text = conversion.files[conversion.read_back].decode()
     found = {
@@ -85,9 +96,13 @@ def test_kicad_board_holds_the_carried_storages(tmp_path: Path) -> None:
     names = [storages.fields(record)["NAME"] for record in storages.records(classes.data)]
     assert names == ["two_layer", "Fenolite_Group"]
     row = next(row for row in conversion.report.rows if row.kind == storages.KIND)
-    assert (row.source, row.written, row.lost) == (3, 2, 1)
-    (reason,) = row.reasons
-    assert reason.ids == ("PrimitiveGuids",) and reason.reason == storages.INDEX_BOUND_REASON
+    assert (row.source, row.written, row.lost) == (5, 2, 3)
+    reasons = {reason.reason: reason.ids for reason in row.reasons}
+    assert reasons == {
+        storages.INDEX_BOUND_REASON: ("PrimitiveGuids",),
+        storages.FRAME_BOUND_REASON: ("BoardRegions",),
+        storages.UNKNOWN_FRAME_REASON: ("CustomMaskShapes",),
+    }
 
 
 def test_a_union_name_survives_the_round_trip(tmp_path: Path) -> None:
@@ -109,3 +124,6 @@ def test_a_union_name_survives_the_round_trip(tmp_path: Path) -> None:
     assert names.count("two_layer") == 1  # the source's sheet class stands for the writer's (c0461)
     assert struct.unpack_from("<I", streams["Classes6/Header"])[0] == len(classes)
     assert "PrimitiveGuids/Data" not in streams
+    # change c0459: the source's board region and mask shape stay behind
+    assert REGION not in streams.get("BoardRegions/Data", b"")
+    assert MASK not in streams.get("CustomMaskShapes/Data", b"")

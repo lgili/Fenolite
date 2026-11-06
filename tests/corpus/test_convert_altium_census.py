@@ -113,14 +113,14 @@ def test_baseline_layers(item) -> None:
 
 
 CONVERTED_LOSSES = {
-    "altium-third-party-pcbdoc-01": {"altium-storage": 1, "plane": 8},
-    "altium-third-party-pcbdoc-02": {"plane": 5},
-    "altium-third-party-pcbdoc-03": {"altium-storage": 2, "schematic": 1},
-    "altium-third-party-pcbdoc-04": {},
-    "altium-third-party-pcbdoc-05": {"altium-storage": 1},
-    "altium-third-party-pcbdoc-06": {"altium-storage": 1},
-    "altium-third-party-pcbdoc-07": {"altium-storage": 2},
-    "altium-third-party-pcbdoc-08": {"altium-storage": 5},
+    "altium-third-party-pcbdoc-01": {"altium-storage": 2, "plane": 8},
+    "altium-third-party-pcbdoc-02": {"altium-storage": 1, "plane": 5},
+    "altium-third-party-pcbdoc-03": {"altium-storage": 3, "schematic": 1},
+    "altium-third-party-pcbdoc-04": {"altium-storage": 1},
+    "altium-third-party-pcbdoc-05": {"altium-storage": 2},
+    "altium-third-party-pcbdoc-06": {"altium-storage": 2},
+    "altium-third-party-pcbdoc-07": {"altium-storage": 3},
+    "altium-third-party-pcbdoc-08": {"altium-storage": 6},
 }
 """The losses per kind, measured on 2026-10-15; on 2026-10-16 (change c0170) the slots of the pads of
 ``-07`` (8) and ``-08`` (4) are kept: the import holds a slot's axis in the pad's own frame, and none is
@@ -142,6 +142,10 @@ Change c0450 (2026-11-06) counts each storage a conversion through KiCad does no
 
 Change c0461 (2026-11-06) counts each Split Plane polygon of an internal plane in the chain as a ``plane``
 loss: the conversion gives a plane no zone. Rows ``-01`` (8) and ``-02`` (5) hold planes in their chains.
+
+Change c0459 (2026-11-06) no longer carries ``BoardRegions``, which every row holds with one record (S-2181):
+one more ``altium-storage`` loss per row. ``CustomMaskShapes`` is not carried either, but no row holds data in
+it.
 
 Change c0407 (2026-11-05): the 12 lines and 8 arcs of the Keep-Out layer of ``-01`` are each the rule area of
 the band their width covers (they were ``graphic`` losses, open outlines that enclosed no area), and the three

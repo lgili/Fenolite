@@ -3,7 +3,8 @@
 ### Requirement: Altium storages through KiCad
 
 A conversion of an Altium design to KiCad SHALL write each carried storage of the source PCB document
-(`UnionNames`, `BoardRegions`, `EmbeddedFonts6`, `CustomMaskShapes` and the component classes of `Classes6`)
+(`UnionNames`, `EmbeddedFonts6` and the component classes of `Classes6`; `BoardRegions` and
+`CustomMaskShapes` are not carried, change c0459)
 as a board property `Fenolite.Altium.<storage>` whose value is the base64 text of the zlib-compressed bytes
 of its `Header` and `Data` streams. It SHALL count each of `PrimitiveGuids`, the `T*Violation` storages and
 `WaivedViolations` that holds a record as lost under `altium-storage`. It SHALL give each fill it converts a

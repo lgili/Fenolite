@@ -24,8 +24,8 @@ between the two legs, so whatever the second leg needs must travel in it.
   (type 6) of its layer, net and owner, in the 50-byte form of the public census (S-2091).
 - **Storages travel as board properties.** The conversion to KiCad copies each carried storage of the
   source document to a board-level `(property "Fenolite.Altium.<storage>" "<value>")`.
-  - The carried storages are `UnionNames`, `BoardRegions`, `EmbeddedFonts6` and `CustomMaskShapes`, plus
-    the component classes of `Classes6` as `Classes6.Component`.
+  - The carried storages are `UnionNames` and `EmbeddedFonts6` (`BoardRegions` and `CustomMaskShapes`
+    were carried here and are not since change c0459), plus the component classes of `Classes6` as `Classes6.Component`.
   - The value is the base64 text of the zlib-compressed bytes of the storage's `Header` and `Data` streams.
   - KiCad keeps such a property on a save (S-2092).
   - The conversion to Altium writes each carried storage back in place of an empty one. A component class
