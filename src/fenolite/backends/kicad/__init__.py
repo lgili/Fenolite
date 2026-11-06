@@ -44,6 +44,20 @@ from fenolite.backends.kicad.sym import read_symbol_library, resolve_extends
 from fenolite.backends.kicad.triad import write_triad
 from fenolite.backends.kicad.versions import LegacyEditRefusedError, LossyWriteError
 from fenolite.backends.kicad.wks import read_drawing_sheet, rebuild_drawing_sheet, write_drawing_sheet
+from fenolite.model import graphicnets  # noqa: E402
+from fenolite.model.design import Design  # noqa: E402
+
+
+def _graphic_nets(design: Design) -> Design:
+    """The KiCad hook of ``fenolite.model.graphicnets`` (change c0439): board graphics take the net their
+    KiCad slot names. ``fpitems`` is imported when the hook runs, not with the package."""
+    from fenolite.backends.kicad.fpitems import with_graphic_nets
+
+    return with_graphic_nets(design)
+
+
+graphicnets.register(_graphic_nets)
+
 
 __all__ = [
     "MAX_DEPTH",

@@ -135,7 +135,18 @@ def slot_text(form: tuple[int, int, int] | None) -> str:
 
 def copper_span(pad: Pad, board: Board) -> frozenset[str] | None:
     """The subset of ``top``, ``inner`` and ``bottom`` that the pad's layers reach, by the ordinals of the
-    board's copper layers; ``None`` (unknown) when the board declares one of the names not at all."""
+    board's copper layers; ``None`` (unknown) when the board declares one of the names not at all. A
+    non-plated pad no larger than its round hole holds no copper on any layer, so its span is empty whatever
+    layers it names (change c0433: KiCad names ``F&B.Cu`` for such a pad, an Altium multi-layer pad every
+    copper layer)."""
+    if (
+        pad.kind == "np_thru_hole"
+        and pad.drill is not None
+        and pad.size.w <= pad.drill
+        and pad.size.h <= pad.drill
+        and (pad.padstack is None or pad.padstack.hole_shape != "slot")
+    ):
+        return frozenset()
     declared = {layer.name: layer for layer in board.layers}
     ordinals = [layer.ordinal for layer in board.layers if layer.kind == "copper"]
     span: set[str] = set()

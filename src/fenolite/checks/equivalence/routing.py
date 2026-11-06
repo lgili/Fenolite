@@ -30,6 +30,7 @@ from fenolite.core.coords import Point, Size
 from fenolite.geometry import Arc as GeoArc
 from fenolite.geometry import GeometryError, Thick, Transform, touch_groups
 from fenolite.geometry import arc_length as _arc_length
+from fenolite.model import graphicnets
 from fenolite.model.board import Board, FootprintInstance, Pad
 from fenolite.model.design import Design
 
@@ -617,10 +618,9 @@ def stray_copper(design: Design) -> list[StrayPiece]:
     and its graphics on a copper layer without a net, footprints' own graphics left out. Such copper joins
     whatever it touches, so a side that holds more of it than the other may short nets that level 5 sees as
     equal: a polygon cut-out written as copper, a copper shape that lost its net. A graphic of a KiCad board
-    keeps its net in its KiCad slot, which ``fpitems.with_graphic_nets`` reads first."""
-    from fenolite.backends.kicad import fpitems
-
-    board = fpitems.with_graphic_nets(design).board
+    keeps its net in its KiCad slot, which the KiCad backend's hook of ``fenolite.model.graphicnets`` reads
+    first (no backend is imported here)."""
+    board = graphicnets.with_graphic_nets(design).board
     if board is None:
         return []
     spans = span_names(board)

@@ -126,6 +126,21 @@ def test_copper_span_reads_the_board_layers() -> None:
     assert norm.span_text(frozenset({"bottom", "top"})) == "top,bottom"
 
 
+def test_a_bare_non_plated_hole_holds_no_copper() -> None:
+    """Change c0433: a non-plated pad no larger than its hole has an empty span, whatever layers it names;
+    one with a ring keeps the span of its layers."""
+    board = _cases.design([("R1", "")], {"R1": []}).board
+    assert board is not None
+
+    def hole(layers: tuple[str, ...], width: int) -> Pad:
+        size = Size(width, width)
+        return _cases.pad("", layers=layers, kind="np_thru_hole", shape="circle", size=size, drill=800_000)
+
+    assert norm.copper_span(hole(("Top", "Bottom"), 800_000), board) == frozenset()
+    assert norm.copper_span(hole(("Top", "Mid", "Bottom"), 800_000), board) == frozenset()
+    assert norm.copper_span(hole(("Top", "Bottom"), 1_200_000), board) == {"top", "bottom"}
+
+
 def test_translation_is_the_lower_median() -> None:
     assert norm.translation([]) == Point(0, 0)
     pairs = [(Point(0, 0), Point(5, -3)), (Point(1, 1), Point(6, -2)), (Point(2, 2), Point(9, -1))]
