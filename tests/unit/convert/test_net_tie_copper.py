@@ -22,8 +22,8 @@ from fenolite.backends.altium.read.pcbprims import TrackRecord
 from fenolite.checks.equivalence.levels import compare_designs
 from fenolite.checks.equivalence.model import Tolerances
 from fenolite.convert import LossyConversionError
-from fenolite.core.coords import Point
-from fenolite.model.board import Board, FootprintInstance
+from fenolite.core.coords import Point, Size
+from fenolite.model.board import Board, FootprintInstance, PadPrimitive
 from fenolite.model.design import Design
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -133,6 +133,51 @@ def test_equivalent_sees_a_moved_tie_line(tmp_path: Path) -> None:
         compare_designs(plain_source, plain, level=3, tolerances=TOLERANCES, frame="relative").differences
         == ()
     )
+
+
+def _drawn_by_a_pad(tie: FootprintInstance, end: int) -> FootprintInstance:
+    """``tie`` with its F.Cu line held as KiCad's importer holds a copper region of a component: a pad
+    without a number or a net, a 1 nm anchor, the copper in a primitive. The pad sits on the line's left end
+    turned by 90 degrees, so the primitive runs from (0, 0) to (0, ``end``) in the pad's frame."""
+    (line,) = [g for g in tie.graphics if g.layer == "F.Cu"]
+    drawing = dataclasses.replace(
+        tie.pads[0],
+        id=f"{tie.pads[0].id}-drawing",
+        number="",
+        net_id=None,
+        shape="custom",
+        anchor_shape="circle",
+        size=Size(1, 1),
+        position=min(line.points, key=lambda p: p.x),
+        rotation=90_000_000,
+        layers=("F.Cu",),
+        primitives=(PadPrimitive("segment", (Point(0, 0), Point(0, end)), width=line.width),),
+    )
+    return dataclasses.replace(
+        tie, graphics=tuple(g for g in tie.graphics if g is not line), pads=(*tie.pads, drawing)
+    )
+
+
+def test_equivalent_reads_tie_copper_drawn_by_a_pad(tmp_path: Path) -> None:
+    """The copper of a net tie that KiCad's importer holds as an unnumbered pad
+    (``docs/formats/altium/pcb-read.md``) matches the line it came from; moved by 0.1 mm it is a
+    difference on both sides."""
+    path, result = _written(tmp_path)
+    source = result.conversion.design
+    read = AltiumBackend().read(path).design
+    (line,) = [g for g in _tie(read).graphics if g.layer == "F.Cu"]
+    length = abs(line.points[1].x - line.points[0].x)
+    drawn = _with_tie(read, _drawn_by_a_pad(_tie(read), length))
+    report = compare_designs(source, drawn, level=3, tolerances=TOLERANCES, frame="relative")
+    assert [d for d in report.differences if d.kind == "net-tie-copper"] == []
+    off = _with_tie(read, _drawn_by_a_pad(_tie(read), length + 100_000))
+    report = compare_designs(source, off, level=3, tolerances=TOLERANCES, frame="relative")
+    assert sorted(
+        (d.kind, bool(d.a), bool(d.b)) for d in report.differences if d.kind == "net-tie-copper"
+    ) == [
+        ("net-tie-copper", False, True),
+        ("net-tie-copper", True, False),
+    ]
 
 
 def test_unwritten_tie_copper_is_refused_then_explained(tmp_path: Path) -> None:

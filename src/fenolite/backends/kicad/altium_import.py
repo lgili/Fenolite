@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import cast
 
 from fenolite.backends.base import ReadResult
-from fenolite.backends.kicad import pcb
+from fenolite.backends.kicad import fpitems, pcb
 from fenolite.backends.kicad.cli import IMPORTED_BOARD, ImportRun, KicadCli, KicadCliError
 from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence
@@ -71,7 +71,12 @@ def messages(run: ImportRun) -> tuple[str, ...]:
 
 def import_design(cli: KicadCli, source: Path) -> ImportedDesign:
     """Convert ``source`` with ``cli`` and read the result. ``KicadCliVersionError`` below 10.0;
-    ``KicadCliError`` when the tool writes no board; a reader error when the board cannot be read."""
+    ``KicadCliError`` when the tool writes no board; a reader error when the board cannot be read.
+
+    The footprints carry their graphics and texts as projections (``fpitems.with_footprint_items``):
+    KiCad keeps the track of a Net Tie component as a copper line of its footprint, which the net-tie
+    copper comparison (change c0431) reads from ``footprint.graphics``
+    (``docs/formats/altium/pcb-read.md``, "What KiCad does not import")."""
     run = cli.import_board(source)
     if run.board is None:
         if run.run.outcome == "timeout":
@@ -82,6 +87,7 @@ def import_design(cli: KicadCli, source: Path) -> ImportedDesign:
         raise KicadCliError(f"kicad-cli pcb import {what}", run.run)
     found: list[Issue] = []
     design = pcb.read_board(run.board.decode("utf-8", "replace"), file=IMPORTED_BOARD, issues=found)
+    design = fpitems.with_footprint_items(design).design
     read = ReadResult(design, tuple(found), IMPORT_EVIDENCE)
     return ImportedDesign(read, messages(run), cli.version())
 

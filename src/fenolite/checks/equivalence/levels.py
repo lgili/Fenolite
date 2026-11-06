@@ -38,6 +38,7 @@ from fenolite.checks.equivalence.rules import level_rules
 from fenolite.checks.equivalence.shapes import level_geometry
 from fenolite.checks.equivalence.strict import compare_strict
 from fenolite.core.coords import Point
+from fenolite.geometry.transform import rotate_point
 from fenolite.model.board import Board, FootprintInstance, Pad
 from fenolite.model.circuit import Component
 from fenolite.model.design import Design
@@ -406,43 +407,79 @@ def _ends(points: Sequence[Point]) -> tuple[Point, ...]:
     return tuple(sorted(points, key=lambda p: (p.x, p.y)))
 
 
+_PRIMITIVE_GRAPHIC = {"poly": "polygon", "segment": "line", "circle": "circle", "arc": "arc"}
+"""The graphic kind whose copper a custom pad's primitive kind gives (change c0431)."""
+
+
+def _shape_pieces(role: str, kind: str, points: Sequence[Point], width: int, filled: bool) -> list[Piece]:
+    if kind == "rect" and len(points) == 2:
+        s, e = points
+        points = (s, Point(e.x, s.y), e, Point(s.x, e.y))
+    pieces: list[Piece] = []
+    if kind in ("rect", "polygon"):
+        if filled:
+            pieces.append((role, "region", 0, _ends(points)))
+            if width <= 0:
+                return pieces
+        for index, point in enumerate(points):
+            following = points[(index + 1) % len(points)]
+            if point != following:
+                pieces.append((role, "segment", width, _ends((point, following))))
+    elif kind == "line":
+        pieces.append((role, "segment", width, _ends(points)))
+    elif kind == "circle" and len(points) == 2:
+        centre, edge = points
+        radius = round(math.hypot(edge.x - centre.x, edge.y - centre.y))
+        pieces.append((role, "arc", width, (centre, Point(radius, 0))))
+    else:
+        ordered = (
+            points
+            if len(points) != 3 or (points[0].x, points[0].y) <= (points[2].x, points[2].y)
+            else tuple(points)[::-1]
+        )
+        pieces.append((role, "arc", width, tuple(ordered)))
+    return pieces
+
+
+def _is_copper_drawing(pad: Pad) -> bool:
+    """A pad that only draws copper: no number, no net, a custom shape. KiCad's importer turns a copper
+    region of an Altium component into such a pad, with a point anchor and the region as its primitive
+    (``docs/formats/altium/pcb-read.md``, "What KiCad does not import")."""
+    return pad.number == "" and pad.net_id is None and pad.shape == "custom"
+
+
+def _on_pad(pad: Pad, point: Point) -> Point:
+    turned = rotate_point(point, pad.rotation)
+    return Point(pad.position.x + turned.x, pad.position.y + turned.y)
+
+
 def copper_pieces(footprint: FootprintInstance, board: Board) -> list[Piece]:
     """The copper of ``footprint``'s graphics in its own frame (change c0431): a line, and each side of a
     rectangle or polygon outline, is a ``segment``; a filled rectangle or polygon is a ``region``; a circle
     is an ``arc`` of its centre and its radius; an arc is an ``arc`` of its three points. A graphic on a
-    layer that is not a copper layer of ``board`` is not copper."""
+    layer that is not a copper layer of ``board`` is not copper.
+
+    The primitives of a pad without a number and without a net (``_is_copper_drawing``) are copper of the
+    footprint too, placed by the pad's position and rotation, on each copper layer of the pad: they are how
+    KiCad's importer holds a copper region of a component. The anchor of such a pad is not counted (the
+    importer's anchor is a point, 1 nm wide); a numbered pad is compared at level 3, not here."""
     roles = _copper_roles(board)
     pieces: list[Piece] = []
     for graphic in footprint.graphics:
         role = roles.get(graphic.layer)
-        if role is None:
+        if role is not None:
+            pieces += _shape_pieces(role, graphic.kind, graphic.points, graphic.width, graphic.filled)
+    for pad in footprint.pads:
+        if not _is_copper_drawing(pad):
             continue
-        points = graphic.points
-        if graphic.kind == "rect" and len(points) == 2:
-            s, e = points
-            points = (s, Point(e.x, s.y), e, Point(s.x, e.y))
-        if graphic.kind in ("rect", "polygon"):
-            if graphic.filled:
-                pieces.append((role, "region", 0, _ends(points)))
-                if graphic.width <= 0:
-                    continue
-            for index, point in enumerate(points):
-                following = points[(index + 1) % len(points)]
-                if point != following:
-                    pieces.append((role, "segment", graphic.width, _ends((point, following))))
-        elif graphic.kind == "line":
-            pieces.append((role, "segment", graphic.width, _ends(points)))
-        elif graphic.kind == "circle" and len(points) == 2:
-            centre, edge = points
-            radius = round(math.hypot(edge.x - centre.x, edge.y - centre.y))
-            pieces.append((role, "arc", graphic.width, (centre, Point(radius, 0))))
-        else:
-            ordered = (
-                points
-                if len(points) != 3 or (points[0].x, points[0].y) <= (points[2].x, points[2].y)
-                else points[::-1]
-            )
-            pieces.append((role, "arc", graphic.width, tuple(ordered)))
+        for layer in pad.layers:
+            role = roles.get(layer)
+            if role is None:
+                continue
+            for primitive in pad.primitives:
+                points = tuple(_on_pad(pad, p) for p in primitive.points)
+                kind = _PRIMITIVE_GRAPHIC[primitive.kind]
+                pieces += _shape_pieces(role, kind, points, primitive.width, primitive.filled)
     return sorted(pieces, key=lambda p: (p[0], p[1], p[2], [(q.x, q.y) for q in p[3]]))
 
 

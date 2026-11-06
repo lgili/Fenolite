@@ -11,6 +11,11 @@
 - [x] 2.1 Add the level 3 kind `net-tie-copper`, compared for footprints that are a net tie on a side.
   Proof: `uv run pytest tests/unit/convert/test_net_tie_copper.py tests/unit/checks/equivalence/test_codes.py -q`.
 - [x] 2.2 A lost `footprint-copper` row explains it. Proof: `test_unwritten_tie_copper_is_refused_then_explained`.
+- [x] 2.3 KiCad's import keeps the tie copper in the footprint (S-2083): `altium_import.import_design` projects
+  footprint items, and the comparison counts the primitives of an unnumbered, netless custom pad.
+  Proof: `test_import_board.py`, `test_net_tie_copper.py`, and with kicad-cli 10.0.6
+  `tests/kicad/altium/test_rta3_oracle.py`, `tests/kicad/equivalence/test_triangle_corpus.py`,
+  `tests/kicad/convert/test_triangle.py`.
 
 ## 3. Docs and evidence
 
