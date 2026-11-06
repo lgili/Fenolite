@@ -51,7 +51,7 @@ TABLE = {
     "erc.lite.power-undriven": ("warning",),
     "erc.lite.floating-pin": ("warning",),
     "render.failed": ("warning",),
-    "copper.short": ("error", "info"),
+    "copper.short": ("error", "info", "warning"),
     "copper.clearance": ("error", "warning", "info"),
     "copper.zone-overlap": ("warning", "info"),
     "copper.keepout": ("error",),
@@ -84,6 +84,7 @@ TABLE = {
     "parity.oracle-differs": ("warning",),
     "parity.pad-without-pin": ("info",),
     "check.waiver-unmatched": ("warning",),
+    "check.allowance-unresolved": ("info",),
     "check.waiver-expired": ("warning",),  # c0274
     "check.exclusion-stale": ("warning",),
     "check.exclusion-unmatched": ("error",),

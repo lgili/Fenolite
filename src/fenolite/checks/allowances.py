@@ -12,12 +12,15 @@ on the design's own copper (``checks.padpath.CopperGraph``), without a tool. No 
 
 from __future__ import annotations
 
+import dataclasses
 from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import cast
 
-from fenolite.backends.base import BoardPad
-from fenolite.checks.clearance import ClearanceResolver, rule_precedence, selector_matches
+from fenolite.backends.base import BoardPad, DrcViolation
+from fenolite.checks.clearance import ClearanceResolver, CopperKind, rule_precedence, selector_matches
 from fenolite.checks.padpath import CopperGraph, Step
+from fenolite.core.errors import Issue, Severity
 from fenolite.geometry import Location, point_in_ring
 from fenolite.model.design import Design
 from fenolite.model.rules import Rule, RuleKind, RuleSubject
@@ -27,6 +30,14 @@ ALLOWED_SEVERITY = {"ignore": "info", "warning": "warning", "error": "error"}
 UNRESOLVED_CODE = "check.allowance-unresolved"
 """The info of a stage entry an allowance could have judged but whose item is not on the design."""
 _RUN = ("track", "arc")
+
+
+def allowance_rules(design: Design, allowances: Sequence[Rule] | None = None) -> tuple[Rule, ...]:
+    """``allowances``, or with ``None`` the rules of kinds ``short`` and ``antenna`` of ``design``."""
+    if allowances is not None:
+        return tuple(allowances)
+    rules = design.rules.rules if design.rules is not None else ()
+    return tuple(r for r in rules if r.kind in ("short", "antenna"))
 
 
 def _on_layers(rule: Rule, subject: RuleSubject) -> bool:
@@ -238,21 +249,165 @@ def stub(
     return "no-item"
 
 
-def stub_subject(design: Design, found: Stub) -> RuleSubject:
+def stubs(design: Design, item_ids: Sequence[str]) -> dict[str, Stub | str]:
+    """``stub`` of each of ``item_ids`` on one graph of ``design``."""
+    graph = CopperGraph(design)
+    return {item: stub(design, item, graph=graph) for item in dict.fromkeys(item_ids)}
+
+
+def stub_subject(design: Design, found: Stub, resolver: ClearanceResolver | None = None) -> RuleSubject:
     """The subject an ``antenna`` rule is matched against: the piece at the stub's open end (for a via that
     joins nothing, the via). Rule areas are not resolved here, so an ``area`` leaf matches no stub."""
-    return ClearanceResolver(design).subject(
-        "via" if not found.end_id else "track", found.net_id, ref=None, layer=found.layer
-    )
+    resolver = ClearanceResolver(design) if resolver is None else resolver
+    return resolver.subject("via" if not found.end_id else "track", found.net_id, ref=None, layer=found.layer)
+
+
+SHORT_TYPE = "shorting_items"
+DANGLING_TYPES = ("track_dangling", "via_dangling")
+"""The DRC entry types an allowance judges (KiCad's names; design D4 of change c0465)."""
+
+
+@dataclass(frozen=True, slots=True)
+class _Item:
+    kind: CopperKind
+    net_id: str | None
+    ref: str | None
+    layer: str | None
+    entity_id: str
+
+
+def _native_items(design: Design, oracle: str) -> dict[str, list[_Item]]:
+    """``native id → the copper items that carry it`` on the board of ``design``, for ``oracle``."""
+    board = design.board
+    found: dict[str, list[_Item]] = {}
+    if board is None:
+        return found
+
+    def add(native: str | None, item: _Item) -> None:
+        if native:
+            found.setdefault(native.lower(), []).append(item)
+
+    for track in board.tracks:
+        add(track.native_ids.get(oracle), _Item("track", track.net_id, None, track.layer, track.id))
+    for arc in board.arcs:
+        add(arc.native_ids.get(oracle), _Item("arc", arc.net_id, None, arc.layer, arc.id))
+    for via in board.vias:
+        add(via.native_ids.get(oracle), _Item("via", via.net_id, None, None, via.id))
+    for zone in board.zones:
+        add(zone.native_ids.get(oracle), _Item("zone", zone.net_id, None, None, zone.id))
+    refs = {c.id: c.ref for c in design.circuit.components}
+    for footprint in board.footprints:
+        ref = refs.get(footprint.component_id)
+        for pad in footprint.pads:
+            add(pad.native_ids.get(oracle), _Item("pad", pad.net_id, ref, None, pad.id))
+    return found
+
+
+def _with_severity(found: Issue, severity: str, suffix: str) -> Issue:
+    rank = {"info": 0, "warning": 1, "error": 2}
+    kept = found.severity if rank[found.severity] < rank[severity] else severity
+    return dataclasses.replace(found, severity=cast(Severity, kept), message=found.message + suffix)
+
+
+def judge_entries(
+    entries: Sequence[tuple[Issue, tuple[str, ...], DrcViolation]],
+    *,
+    design: Design | None,
+    oracle: str,
+    rules: Sequence[Rule],
+) -> tuple[list[tuple[Issue, tuple[str, ...], DrcViolation]], dict[str, int], list[Issue]]:
+    """The DRC ``entries`` judged against the ``short`` and ``antenna`` ``rules`` (design D4 of change c0465),
+    the count per code of the entries an allowance accepted, and one info ``check.allowance-unresolved`` per
+    entry whose items do not resolve on ``design`` to one copper item each.
+
+    A ``shorting_items`` entry whose governing ``short`` rule has severity ``ignore`` takes severity ``info``
+    and ends with `` (allowed by rule <name>)``; ``warning`` lowers an error to a warning. A
+    ``track_dangling`` or ``via_dangling`` entry whose stub is at most the governing ``antenna`` rule's
+    ``max`` takes ``info`` and ends with `` (stub <length> within <max> of rule <name>)``. Entries of other
+    types, and every entry when no rule of the kind is given, are returned unchanged."""
+    shorts = [r for r in rules if r.kind == "short"]
+    antennae = [r for r in rules if r.kind == "antenna"]
+    if design is None or (not shorts and not antennae):
+        return list(entries), {}, []
+    natives = _native_items(design, oracle)
+    resolver = ClearanceResolver(design)
+    allowed: dict[str, int] = {}
+    unresolved: list[Issue] = []
+
+    def resolved(violation: DrcViolation) -> list[_Item] | None:
+        items: list[_Item] = []
+        for entry in violation.items:
+            found = natives.get(entry.uuid.lower(), [])
+            if len(found) != 1:
+                return None
+            items.append(found[0])
+        return items
+
+    def unresolved_issue(made: Issue, why: str) -> None:
+        unresolved.append(
+            Issue(
+                UNRESOLVED_CODE,
+                "info",
+                f"{made.code} at {made.where or 'no item'}: {why}; no allowance was applied",
+                where=made.code,
+            )
+        )
+
+    targets = [
+        items[0].entity_id
+        for _, _, violation in entries
+        if antennae
+        and violation.type in DANGLING_TYPES
+        and (items := resolved(violation)) is not None
+        and len(items) == 1
+    ]
+    measured = stubs(design, targets) if targets else {}
+    judged: list[tuple[Issue, tuple[str, ...], DrcViolation]] = []
+    for made, names, violation in entries:
+        if violation.type == SHORT_TYPE and shorts:
+            items = resolved(violation)
+            if items is None or len(items) != 2:
+                unresolved_issue(made, "its items are not two copper items of the design")
+                judged.append((made, names, violation))
+                continue
+            layer = next((item.layer for item in items if item.layer is not None), None)
+            a, b = (
+                resolver.subject(item.kind, item.net_id, ref=item.ref, layer=layer or "") for item in items
+            )
+            rule = governing(shorts, "short", a, b)
+            if rule is not None and rule.severity != "error":
+                made = _with_severity(made, ALLOWED_SEVERITY[rule.severity], allowed_suffix(rule))
+                if rule.severity == "ignore":
+                    allowed[made.code] = allowed.get(made.code, 0) + 1
+        elif violation.type in DANGLING_TYPES and antennae:
+            items = resolved(violation)
+            found = measured.get(items[0].entity_id) if items is not None and len(items) == 1 else None
+            if not isinstance(found, Stub):
+                unresolved_issue(
+                    made, "its item has no stub on the design" if items else "its item is not on the design"
+                )
+                judged.append((made, names, violation))
+                continue
+            rule = governing(antennae, "antenna", stub_subject(design, found, resolver))
+            if rule is not None and rule.max is not None and found.length <= rule.max:
+                made = _with_severity(made, "info", stub_suffix(found.length, rule))
+                allowed[made.code] = allowed.get(made.code, 0) + 1
+        judged.append((made, names, violation))
+    return judged, dict(sorted(allowed.items())), unresolved
 
 
 __all__ = [
     "ALLOWED_SEVERITY",
+    "DANGLING_TYPES",
+    "SHORT_TYPE",
     "UNRESOLVED_CODE",
     "Stub",
+    "allowance_rules",
     "allowed_suffix",
     "governing",
+    "judge_entries",
     "stub",
     "stub_subject",
+    "stubs",
     "stub_suffix",
 ]

@@ -31,6 +31,7 @@ from fenolite.backends.base import (
     ProjectSet,
     StoredExclusion,
 )
+from fenolite.checks.allowances import allowance_rules, judge_entries
 from fenolite.checks.codes import issue, oracle_code
 from fenolite.checks.drc_json import (
     finding_entries,
@@ -45,6 +46,7 @@ from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence
 from fenolite.model.design import Design
 from fenolite.model.findings import Waiver
+from fenolite.model.rules import Rule
 
 STALE = "check.exclusion-stale"
 
@@ -264,6 +266,7 @@ def drc_stage(
     design: Design | None = None,
     waivers: Sequence[Waiver] = (),
     exclusions: Sequence[StoredExclusion] = (),
+    allowances: Sequence[Rule] = (),
 ) -> StageResult:
     """One DRC run of ``project``: the copy skips, the rules verdict, the counts and the findings, located
     through ``design`` (the board model that ``run_checks`` read, or ``None`` when that read was refused).
@@ -271,7 +274,12 @@ def drc_stage(
     ``waivers`` are the design's waivers and ``exclusions`` the exclusions the project's own files store
     (change c0114): a finding that a ``<oracle>.drc.*`` waiver accepts is kept as ``info``, a judged waiver
     that matched nothing gives ``check.waiver-unmatched``, and a stored exclusion that the tool no longer
-    applies gives ``check.exclusion-stale``. Neither changes the evidence."""
+    applies gives ``check.exclusion-stale``. Neither changes the evidence.
+
+    ``allowances`` are the model's ``short`` and ``antenna`` rules (change c0465), judged with those of
+    ``design`` before the waivers (``checks.allowances.judge_entries``): an entry they accept stays listed as
+    ``info``, ``summary["allowed"]`` counts them per code (absent when none was), and an entry whose items do
+    not resolve gives ``check.allowance-unresolved``."""
     outcome = oracle.drc(project)
     issues: list[Issue] = [
         issue("check.copy-skipped", f"{s.name} was not copied for the DRC run ({s.reason})", where=s.name)
@@ -310,8 +318,13 @@ def drc_stage(
     own = drc_waivers(waivers, oracle.name)
     if outcome.report is not None:
         entries = finding_entries(outcome.report, oracle=oracle.name, design=design)
+        rules = (*allowances, *(allowance_rules(design) if design is not None else ()))
+        entries, allowed, unresolved = judge_entries(entries, design=design, oracle=oracle.name, rules=rules)
+        if allowed:
+            summary["allowed"] = allowed
         marked, counts = apply_waivers(own, (Candidate(made, names) for made, names, _ in entries))
         issues += marked
+        issues += unresolved
         if own:
             unrepeatable = {type_code(oracle.name, name) for name in UNREPEATABLE_TYPES}
             verdict, stale = judge(own, counts, unrepeatable=unrepeatable)

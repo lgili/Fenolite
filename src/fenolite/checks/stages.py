@@ -38,6 +38,7 @@ from fenolite.core.evidence import Evidence
 from fenolite.core.progress import NULL_PROGRESS, Progress
 from fenolite.model.design import Design
 from fenolite.model.findings import Waiver
+from fenolite.model.rules import Rule
 
 if TYPE_CHECKING:
     from fenolite.checks.drawn import DrawnInput
@@ -260,6 +261,7 @@ def run_checks(
     plotter: Plotter | None = None,
     fill_oracle: FillOracle | None = None,
     waivers: Sequence[Waiver] = (),
+    allowances: Sequence[Rule] = (),
     progress: Progress = NULL_PROGRESS,
     roles_judge: RolesJudge | None = None,
     drawn: DrawnInput | None = None,
@@ -268,7 +270,8 @@ def run_checks(
     """Run the selected stages in ``STAGE_ORDER`` on ``project`` (``model`` is the ``.fenolite/`` model of a
     built project); ``validator.validate`` runs at most once. ``waivers`` are the design's waivers
     (``checks.waivers``): they reach the copper stage, the DRC stage and, for ``circuit.*`` codes, the stage
-    ``circuit.rules`` (change c0274), and no other stage. Each stage
+    ``circuit.rules`` (change c0274), and no other stage. ``allowances`` are the model's rules of kinds
+    ``short`` and ``antenna`` (change c0465), which reach the copper and DRC stages. Each stage
     that runs is one unit of ``progress``, named by the stage. ``roles_judge`` judges the stage
     ``roles.rules`` (``checks.roles``). ``drawn`` is the drawn netlist of a built project with a drawn
     schematic, which the stage ``schematic.drawn`` judges (``checks.drawn``); without it the stage is
@@ -342,6 +345,7 @@ def run_checks(
             frame=observed if isinstance(validator, BoardFrame) else None,
             evidence=validation.read.evidence,
             waivers=waivers,
+            allowances=allowances,
         )
 
     def length() -> StageResult:
@@ -400,7 +404,15 @@ def run_checks(
             raise ValueError("drc.kicad is selected but no oracle was given")
         design = validation.read.design if validation is not None else None
         stored = validator.stored_exclusions(project) if isinstance(validator, ExclusionSource) else ()
-        return drc_stage(oracle, project, built=built, design=design, waivers=waivers, exclusions=stored)
+        return drc_stage(
+            oracle,
+            project,
+            built=built,
+            design=design,
+            waivers=waivers,
+            exclusions=stored,
+            allowances=allowances,
+        )
 
     done: dict[str, StageResult] = {}
 

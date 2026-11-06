@@ -5,11 +5,19 @@ authored benches; the DRC stage's use of them (verification-loop, "Allowances in
 
 from __future__ import annotations
 
-from _coppercheck import Copper, disc_entry, mm
+import dataclasses
 
+from _coppercheck import Copper, disc_entry, mm
+from fakes import FakeOracle, outcome, project, report
+
+from fenolite.backends.base import DrcItem, DrcViolation
 from fenolite.checks.allowances import Stub, governing, stub, stub_subject, stub_suffix
+from fenolite.checks.drc import drc_stage
 from fenolite.checks.padpath import CopperGraph
+from fenolite.checks.stages import StageResult
 from fenolite.core.coords import Point
+from fenolite.model.design import Design
+from fenolite.model.findings import Waiver
 from fenolite.model.rules import Rule, RuleSubject, Selector
 
 
@@ -167,3 +175,127 @@ def test_the_governing_antenna_rule() -> None:
     narrow = _rule("sig_stub", "antenna", Selector("net", "SIG"), max=mm(1), priority=1)
     assert governing((narrow, wide), "antenna", _subject("SIG")) is narrow
     assert governing((narrow, wide), "antenna", _subject("VIN")) is wide
+
+
+# -- the DRC stage (verification-loop, "Allowances in the DRC stage")
+
+
+def _native(design: Design) -> Design:
+    """``design`` whose tracks and vias carry their own id as the fake oracle's native id."""
+    board = design.board
+    assert board is not None
+    tracks = tuple(dataclasses.replace(t, native_ids={"fake": t.id}) for t in board.tracks)
+    vias = tuple(dataclasses.replace(v, native_ids={"fake": v.id}) for v in board.vias)
+    return dataclasses.replace(design, board=dataclasses.replace(board, tracks=tracks, vias=vias))
+
+
+def _entry(kind: str, *uids: str, severity: str = "error") -> DrcViolation:
+    return DrcViolation(kind, kind, severity, tuple(DrcItem(uid, "item", Point(0, 0)) for uid in uids))
+
+
+def _stage(design: Design, *entries: DrcViolation, allowances: tuple[Rule, ...] = ()) -> StageResult:
+    oracle = FakeOracle(outcome("fired", drc=report(*entries)))
+    return drc_stage(oracle, project(), built=True, design=design, allowances=allowances)
+
+
+def _stubs_bench() -> tuple[Design, str, str]:
+    bench = Copper()
+    bench.pad("U1", "1", "SIG", disc_entry(0, 0, mm(1)))
+    bench.pad("U1", "2", "SIG", disc_entry(0, mm(5), mm(1)))
+    short = bench.track("SIG", _p(0, 0), _p(1, 0))
+    long = bench.track("SIG", _p(0, 5), _p(2, 5))
+    return _native(bench.build()), short.id, long.id
+
+
+SIG_STUB = _rule("SIG_STUB", "antenna", Selector("net", "SIG"), max=mm(1.5))
+
+
+def test_a_stub_within_the_tolerance() -> None:
+    design, short, long = _stubs_bench()
+    entries = (
+        _entry("track_dangling", short, severity="warning"),
+        _entry("track_dangling", long, severity="warning"),
+    )
+    result = _stage(design, *entries, allowances=(SIG_STUB,))
+    issues = [i for i in result.issues if i.code == "fake.drc.track-dangling"]
+    suffix = " (stub 1mm within 1.5mm of rule SIG_STUB)"
+    assert sorted((i.severity, i.message.endswith(suffix)) for i in issues) == [
+        ("info", True),
+        ("warning", False),
+    ]
+    assert not any(i.message.endswith(")") for i in issues if i.severity == "warning")  # 2 mm: kept as it was
+    assert result.summary["allowed"] == {"fake.drc.track-dangling": 1}
+
+
+def test_the_model_rules_and_the_design_rules_both_count() -> None:
+    design, short, _ = _stubs_bench()
+    assert design.rules is not None
+    with_rule = dataclasses.replace(design, rules=dataclasses.replace(design.rules, rules=(SIG_STUB,)))
+    result = _stage(with_rule, _entry("track_dangling", short, severity="warning"))
+    assert result.summary["allowed"] == {"fake.drc.track-dangling": 1} and result.status == "ok"
+
+
+def _shorts_bench() -> tuple[Design, dict[str, tuple[str, str]]]:
+    bench = Copper()
+    agnd = bench.track("AGND", _p(0, 0), _p(2, 0))
+    dgnd = bench.track("DGND", _p(1, -1), _p(1, 1))
+    vin = bench.track("VIN", _p(5, 0), _p(7, 0))
+    dgnd2 = bench.track("DGND", _p(6, -1), _p(6, 1))
+    return _native(bench.build()), {"AGND-DGND": (agnd.id, dgnd.id), "VIN-DGND": (vin.id, dgnd2.id)}
+
+
+GND_JOIN = _rule("GND_JOIN", "short", Selector("net", "AGND"), Selector("net", "DGND"), severity="ignore")
+
+
+def test_a_short_entry_between_allowed_nets() -> None:
+    design, pairs = _shorts_bench()
+    entries = (
+        _entry("shorting_items", *pairs["AGND-DGND"]),
+        _entry("shorting_items", *pairs["VIN-DGND"]),
+        _entry("shorting_items", pairs["VIN-DGND"][0], "deadbeef-0000-4000-8000-000000000000"),
+    )
+    result = _stage(design, *entries, allowances=(GND_JOIN,))
+    shorts = [i for i in result.issues if i.code == "fake.drc.shorting-items"]
+    allowed = [i for i in shorts if i.message.endswith(" (allowed by rule GND_JOIN)")]
+    assert [i.severity for i in allowed] == ["info"] and sorted(i.severity for i in shorts) == [
+        "error",
+        "error",
+        "info",
+    ]
+    (unresolved,) = [i for i in result.issues if i.code == "check.allowance-unresolved"]
+    assert (unresolved.severity, unresolved.where) == ("info", "fake.drc.shorting-items")
+    assert result.summary["allowed"] == {"fake.drc.shorting-items": 1} and result.status == "errors"
+
+
+def test_a_stage_whose_every_error_was_allowed_is_ok() -> None:
+    design, pairs = _shorts_bench()
+    result = _stage(design, _entry("shorting_items", *pairs["AGND-DGND"]), allowances=(GND_JOIN,))
+    assert result.status == "ok" and [i.severity for i in result.issues] == ["info"]
+
+
+def test_without_allowances_nothing_changes() -> None:
+    design, pairs = _shorts_bench()
+    entries = (
+        _entry("shorting_items", *pairs["AGND-DGND"]),
+        _entry("shorting_items", "deadbeef-0000-4000-8000-000000000000", pairs["VIN-DGND"][1]),
+        _entry("track_dangling", pairs["VIN-DGND"][0], severity="warning"),
+    )
+    plain = _stage(design, *entries)
+    bare = drc_stage(FakeOracle(outcome("fired", drc=report(*entries))), project(), built=True, design=design)
+    assert plain == bare and "allowed" not in plain.summary
+    assert [i.code for i in plain.issues if i.code.startswith("check.")] == []
+    assert [i.severity for i in plain.issues] == ["error", "error", "warning"]
+
+
+def test_a_waiver_still_matches_an_allowed_entry() -> None:
+    design, pairs = _shorts_bench()
+    entry = _entry("shorting_items", *pairs["AGND-DGND"])
+    (found,) = _stage(design, entry).issues
+    names = tuple(found.where.split(", "))
+    waiver = Waiver("joined", "fake.drc.shorting-items", names, reason="example: joined on purpose")
+    oracle = FakeOracle(outcome("fired", drc=report(entry)))
+    result = drc_stage(
+        oracle, project(), built=True, design=design, waivers=(waiver,), allowances=(GND_JOIN,)
+    )
+    assert result.summary["allowed"] == {"fake.drc.shorting-items": 1}
+    assert result.status == "ok"

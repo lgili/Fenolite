@@ -3,6 +3,8 @@
 ### Requirement: Allowances in the DRC stage
 `drc_stage` SHALL judge the entries of a DRC report against the design's `short` and `antenna` rules (change
 c0465), before waivers ("Waivers in the check"). No code is shared with `checks.waivers`.
+- The rules MUST be those of the `.fenolite/` model of a built project, as for waivers, with those of the
+  board read: a KiCad file holds none.
 - A `shorting_items` entry MUST resolve its two items by uuid, through the native ids `item_locations` reads,
   to their design items, and MUST be judged as `copper-check` "Allowed shorts" judges a `copper.short`.
 - A `track_dangling` or `via_dangling` entry MUST resolve its item and measure its stub with
@@ -34,4 +36,4 @@ c0465), before waivers ("Waivers in the check"). No code is shared with `checks.
 #### Scenario: The stub stops at other copper
 - **WHEN** the same test measures the stub of a track that runs 1 mm from its open end to a junction of
   three tracks, of a track ending in a via that joins nothing else, and of a track open at both ends
-- **THEN** the stubs are 1 mm, the run to the via's other side, and the whole track
+- **THEN** the stubs are 1 mm, the run from the via to the first other copper, and the whole track

@@ -63,6 +63,11 @@ unchanged. The stage then gives the info `check.allowance-unresolved`.
 
 There is one helper, `checks.allowances`, and no code is shared with `checks.waivers`.
 
+- **Where the rules come from.** A KiCad file holds no `short` or `antenna` rule (D6), so `check` takes them
+  from the `.fenolite/` model of a built project, as it takes its waivers (`run_checks(allowances=)`), with
+  those of the board read. The copper guards of `build` take the design's own, as they take its waivers: a
+  short the design allows does not refuse the build.
+
 - **Copper stage.** A `copper.short` governed by an `ignore` rule takes severity `info`, and its message
   ends with ` (allowed by rule <name>)`. A `warning` rule gives severity `warning`.
 - **DRC stage.**

@@ -1498,6 +1498,11 @@ meaning = "A waiver of the design script (design.waive) matched no finding of th
 fix = "Remove the waiver from the script, or name its items as the 'where' of the finding prints them, then build again."
 see = "check"
 
+["check.allowance-unresolved"]
+meaning = "A DRC entry that a short or antenna rule could judge (shorting_items, track_dangling, via_dangling) names an item that is on no design item, on several, or whose stub Fenolite does not find. The entry keeps its severity: no allowance was applied to it."
+fix = "Build again so the board and the .fenolite/ model agree, then run check again. If the entry stays, judge it by hand or waive it with design.waive."
+see = "check"
+
 ["check.waiver-expired"]
 meaning = "A circuit waiver of the design script (design.waive with a digest) names a finding whose row has another digest now: the value or the limit judged changed since the waiver (a rating, a pick or a value kept from a CAD edit), so the finding stands again. 'where' is the waiver's name; the message names both digests."
 fix = "Judge the finding again. To accept it as it is now, copy the digest its hint ends with into the waiver and build again."

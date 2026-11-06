@@ -60,6 +60,7 @@ from fenolite.core.progress import NULL_PROGRESS, Progress
 from fenolite.model.design import Design
 from fenolite.model.findings import Waiver
 from fenolite.model.library import DeviceDef
+from fenolite.model.rules import Rule
 
 HELP = (
     "check a KiCad project (model, KiCad ERC and DRC findings, pad nets, round trips) or an Altium "
@@ -214,6 +215,15 @@ def _waivers(model: Design | None, cache_error: str) -> tuple[Waiver, ...]:
     return () if model is None or cache_error else model.findings.waivers
 
 
+def _allowances(model: Design | None, cache_error: str) -> tuple[Rule, ...]:
+    """The rules of kinds ``short`` and ``antenna`` of the ``.fenolite/`` model of a built project (change
+    c0465): a KiCad file does not hold them. None for a native project or when ``.fenolite/`` cannot be
+    loaded."""
+    if model is None or cache_error or model.rules is None:
+        return ()
+    return tuple(r for r in model.rules.rules if r.kind in ("short", "antenna"))
+
+
 def _run_documents(
     args: argparse.Namespace, path: Path, backend: DocumentValidator, documents: DocumentSet
 ) -> Result:
@@ -232,6 +242,7 @@ def _run_documents(
         validator=backend,
         cache_error=cache_error,
         waivers=_waivers(model, cache_error),
+        allowances=_allowances(model, cache_error),
         roles_judge=roles_judge,
         circuit_inputs=circuit_inputs(documents.root, issues=device_issues),
     )
@@ -341,7 +352,8 @@ def run_stages(
                         oracle=oracle, cache_error=cache_error,
                         plotter=oracle if "render" in stages else None,
                         fill_oracle=oracle if "zone.fill" in stages else None,
-                        waivers=_waivers(model, cache_error), progress=progress,
+                        waivers=_waivers(model, cache_error), allowances=_allowances(model, cache_error),
+                        progress=progress,
                         roles_judge=roles_judge, drawn=drawn,
                         circuit_inputs=circuit_inputs(root, issues=device_issues))  # fmt: skip
     if device_issues:

@@ -75,7 +75,7 @@ ISSUE_CODES: Mapping[str, tuple[Severity, ...]] = MappingProxyType(
         "erc.lite.power-undriven": ("warning",),
         "erc.lite.floating-pin": ("warning",),
         "render.failed": ("warning",),
-        "copper.short": ("error", "info"),
+        "copper.short": ("error", "info", "warning"),
         "copper.clearance": ("error", "warning", "info"),
         "copper.zone-overlap": ("warning", "info"),
         "copper.keepout": ("error",),
@@ -108,6 +108,7 @@ ISSUE_CODES: Mapping[str, tuple[Severity, ...]] = MappingProxyType(
         "parity.oracle-differs": ("warning",),
         "parity.pad-without-pin": ("info",),
         "check.waiver-unmatched": ("warning",),
+        "check.allowance-unresolved": ("info",),
         "check.waiver-expired": ("warning",),  # change c0274: a circuit waiver whose digest changed
         "check.exclusion-stale": ("warning",),
         "check.exclusion-unmatched": ("error",),

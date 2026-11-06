@@ -25,6 +25,7 @@ from dataclasses import dataclass, field
 from typing import cast
 
 from fenolite.backends.base import BoardFrame, BoardPad, DesignRules, DesignRulesSource, EdgeRing, ProjectSet
+from fenolite.checks.allowances import ALLOWED_SEVERITY, allowance_rules, allowed_suffix, governing
 from fenolite.checks.clearance import (
     Clearance,
     ClearanceExplanation,
@@ -63,7 +64,7 @@ from fenolite.model.board import Board, Graphic, Keepout, Zone, placed_keepout
 from fenolite.model.board import rule_areas as all_rule_areas
 from fenolite.model.design import Design
 from fenolite.model.findings import Waiver
-from fenolite.model.rules import PAD_TYPE_OF, RuleSubject
+from fenolite.model.rules import PAD_TYPE_OF, Rule, RuleSubject
 
 ARC_TOL_NM = 1_000
 """Compatibility tolerance for polygonised topology; clearance decisions use exact arc cores."""
@@ -1020,8 +1021,13 @@ class _Judge:
         resolver: ClearanceResolver,
         areas: _Areas,
         tolerance: Nm = 0,
+        shorts: Sequence[Rule] = (),
     ) -> None:
         self.tolerance = tolerance
+        self.shorts = tuple(shorts)
+        """The rules of kind ``short`` (change c0465): the governing one sets the severity of a short."""
+        self.allowed = 0
+        """The shorts a ``short`` rule of severity ``ignore`` allowed."""
         self.items = items
         self.layers = layers
         self.resolver = resolver
@@ -1093,9 +1099,15 @@ class _Judge:
                 message = (
                     f"copper of {refs[0].net} and {refs[1].net} touches on {layer} at {_point(at)}{note}"
                 )
+                severity: Severity = "error"
+                rule = governing(self.shorts, "short", self.subject(a, layer), self.subject(b, layer))
+                if rule is not None and rule.severity != "error":
+                    severity = cast(Severity, ALLOWED_SEVERITY[rule.severity])
+                    message += allowed_suffix(rule)
+                    self.allowed += severity == "info"
                 return CopperFinding(
                     "copper.short",
-                    "error",
+                    severity,
                     layer,
                     at,
                     refs,
@@ -1167,12 +1179,14 @@ def _run(
     edge_floor_over_rules: bool = False,
     tolerance: Nm = 0,
     min_hole_clearance: Nm | None = None,
+    allowances: Sequence[Rule] | None = None,
 ) -> CopperReport:
     if type(arc_tol) is not int or arc_tol < 1:
         raise ValueError(f"arc_tol is an int of at least 1 nm, got {arc_tol!r}")
     if type(tolerance) is not int or tolerance < 0:
         raise ValueError(f"tolerance is a non-negative int of nm, got {tolerance!r}")
     board = design.board
+    shorts = tuple(r for r in allowance_rules(design, allowances) if r.kind == "short")
     resolver = ClearanceResolver(
         design,
         min_clearance=min_clearance,
@@ -1195,6 +1209,7 @@ def _run(
     rule_areas = 0
     hole_count = 0
     hole_judged = 0
+    allowed = 0
     if board is not None:
         items = _Items(design, pads, arc_tol)
         used = {layer for item in items.items for layer in item.shapes}
@@ -1206,11 +1221,12 @@ def _run(
         )
         areas = _Areas(board, items)
         rule_areas = areas.named
-        judge = _Judge(items, layers, resolver, areas, tolerance)
+        judge = _Judge(items, layers, resolver, areas, tolerance, shorts)
         for (a, b), shapes in sorted(pairs.items()):
             found = judge.pair(a, b, shapes)
             if found is not None:
                 findings.append(found)
+        allowed = judge.allowed
         findings += areas.findings(layers)
         findings += _zone_overlaps(board, items)
         board_edges = _Edges(edges, arc_tol, items.unsupported) if edges is not None else None
@@ -1286,6 +1302,8 @@ def _run(
         unsupported=dict(sorted(unsupported.items())),
         **counts,
     )
+    if allowed:  # left out when none was, so a design without allowances gives the bytes it gave
+        summary["allowed"] = {"copper.short": allowed}
     issues = (*(f.to_issue() for f in findings), *sorted(others, key=_sort_key))
     with_areas = board is not None and bool(all_rule_areas(board))
     evidence = Evidence.combine(EVIDENCE, *((AREA_EVIDENCE,) if with_areas else ()), *inputs)
@@ -1315,6 +1333,7 @@ def check_copper(
     edge_floor_over_rules: bool = False,
     tolerance: Nm = 0,
     min_hole_clearance: Nm | None = None,
+    allowances: Sequence[Rule] | None = None,
 ) -> CopperReport:
     """The shorts, clearance violations, zone overlaps and edge clearance violations of the copper of
     ``design.board``.
@@ -1332,6 +1351,10 @@ def check_copper(
     ``min_hole_clearance`` (``DesignRules.min_hole_clearance``; change c0403) is the board minimum of the
     clearance between a drilled hole and the copper of another item (``ClearanceResolver.hole``); with
     neither it nor a ``hole_clearance`` rule no hole is judged against copper.
+    ``allowances`` are the rules of kinds ``short`` and ``antenna`` (change c0465); ``None`` takes those of
+    ``design.rules``. A short whose governing ``short`` rule has severity ``ignore`` stays listed as ``info``
+    and ends with `` (allowed by rule <name>)``; ``warning`` makes it a warning; ``summary["allowed"]``
+    counts the allowed ones, and is absent when none was.
     ``inputs`` are the evidence of what the caller read. Nothing is read, run or written.
     """
     return _run(
@@ -1347,6 +1370,7 @@ def check_copper(
         edge_floor_over_rules=edge_floor_over_rules,
         tolerance=tolerance,
         min_hole_clearance=min_hole_clearance,
+        allowances=allowances,
     )
 
 
@@ -1449,6 +1473,7 @@ def copper_stage(
     frame: BoardFrame | None,
     evidence: Evidence,
     waivers: Sequence[Waiver] = (),
+    allowances: Sequence[Rule] = (),
 ) -> StageResult:
     """The ``copper.clearance`` stage: ``check_copper`` on the board model that ``run_checks`` read
     (``design``; ``None`` when that read was refused), with the rules of the project's own files from
@@ -1457,7 +1482,11 @@ def copper_stage(
 
     ``waivers`` are the design's waivers (change c0114): a finding that a ``copper.*`` waiver accepts is
     kept as ``info``, a copper waiver that matched nothing gives ``check.waiver-unmatched``, and
-    ``summary.waivers`` says which matched. Waivers change no evidence."""
+    ``summary.waivers`` says which matched. Waivers change no evidence.
+
+    ``allowances`` are the ``short`` and ``antenna`` rules of the ``.fenolite/`` model of a built project
+    (change c0465), which a KiCad file does not hold; they are judged with those of the board read, before
+    the waivers (``check_copper``)."""
     if design is None:
         return skipped(STAGE, "read-refused")
     rules = rules_source.design_rules(design, project) if rules_source is not None else None
@@ -1477,6 +1506,7 @@ def copper_stage(
         edge_floor_over_rules=rules.edge_floor_over_rules if rules is not None else False,
         tolerance=rules.clearance_tolerance if rules is not None else 0,
         min_hole_clearance=rules.min_hole_clearance if rules is not None else None,
+        allowances=(*allowance_rules(checked), *allowances),
     )
     summary: dict[str, object] = {**report.summary, "rules": rules_summary(rules)}
     own = copper_waivers(waivers)

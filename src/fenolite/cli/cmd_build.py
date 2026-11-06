@@ -84,6 +84,7 @@ from fenolite.catalog import (
 )
 from fenolite.catalog.devices import check_device, device_digest, edited_issue, is_edited
 from fenolite.checks import placement as placement_rules
+from fenolite.checks.allowances import allowance_rules
 from fenolite.checks.circuit import circuit_issues
 from fenolite.checks.copper import (
     LOWERING_CODES,
@@ -200,6 +201,7 @@ from fenolite.model.drawn_connect import issue as drawn_issue
 from fenolite.model.findings import Waiver
 from fenolite.model.library import DeviceDef, flatten_symbol
 from fenolite.model.presentation import DrawingSheet
+from fenolite.model.rules import Rule
 from fenolite.model.schematic import SchematicSheet
 from fenolite.placement import legality
 from fenolite.placement.codes import RELATIVE_EVIDENCE
@@ -522,10 +524,18 @@ def guard_waivers(
 
 
 def copper_guard(
-    files: Mapping[str, bytes], *, name: str, mode: str, target: int, waivers: Sequence[Waiver] = ()
+    files: Mapping[str, bytes],
+    *,
+    name: str,
+    mode: str,
+    target: int,
+    waivers: Sequence[Waiver] = (),
+    allowances: Sequence[Rule] | None = None,
 ) -> tuple[tuple[Issue, ...], dict[str, object]]:
     """The copper issues of the triad ``files`` that a build is about to write, and ``result.copper_check``.
     ``waivers`` are the design's waivers: they are applied before the mode (``guard_waivers``).
+    ``allowances`` are the design's ``short`` and ``antenna`` rules (change c0465), which the planned files
+    do not hold; a short one of them allows is ``info`` and does not refuse the build.
 
     The planned board text is read back with ``read_board``, the planned project and rules texts are
     applied with ``design_rules_from_texts`` for ``target`` (the build's KiCad major), the pads come from the
@@ -567,6 +577,7 @@ def copper_guard(
         edge_floor_over_rules=rules.edge_floor_over_rules,
         tolerance=rules.clearance_tolerance,
         min_hole_clearance=rules.min_hole_clearance,
+        allowances=allowances,
     )
     judged, waived = guard_waivers(report, waivers)
     found = [*judged, *track_width_findings(rules.design), *rules_issues(rules), *edge_issues]
@@ -598,7 +609,12 @@ CLEARANCE_NOTE = " (reported, not refused: the Altium copper guard refuses short
 
 
 def altium_copper_guard(
-    files: Mapping[str, bytes], *, name: str, mode: str, waivers: Sequence[Waiver] = ()
+    files: Mapping[str, bytes],
+    *,
+    name: str,
+    mode: str,
+    waivers: Sequence[Waiver] = (),
+    allowances: Sequence[Rule] | None = None,
 ) -> tuple[tuple[Issue, ...], dict[str, object]]:
     """The copper issues of the PCB document ``<name>.PcbDoc`` of ``files`` that an Altium build is about
     to write, and ``result.copper_check`` (capability altium-build, "Copper guard in an Altium build").
@@ -610,7 +626,9 @@ def altium_copper_guard(
     with ``CLEARANCE_NOTE``. With ``mode == "warn"`` the short is a warning too, with ``WARN_NOTE``. Nothing
     is read from disk and nothing is written; a build without a PCB document is not judged (``ran`` false).
     ``waivers`` are the design's waivers, applied before the mode as on the KiCad target
-    (``guard_waivers``): a waived short is ``info`` and does not refuse the build."""
+    (``guard_waivers``): a waived short is ``info`` and does not refuse the build. ``allowances`` are the
+    design's ``short`` and ``antenna`` rules (change c0465): a short one of them allows does not refuse it
+    either. ``None`` takes those the document holds."""
     if mode not in COPPER_CHECK_MODES:
         raise ValueError(f"unknown copper-check mode {mode!r}; use one of {', '.join(COPPER_CHECK_MODES)}")
     document = f"{name}.PcbDoc"
@@ -633,6 +651,7 @@ def altium_copper_guard(
         min_edge_clearance=rules.min_edge_clearance,
         edge_floor_over_rules=rules.edge_floor_over_rules,
         min_hole_clearance=rules.min_hole_clearance,
+        allowances=allowances,
     )
     unpoured = sum(1 for zone in rules.design.board.zones if not zone.fills) if rules.design.board else 0
     judged, waived = guard_waivers(report, waivers)
@@ -1801,6 +1820,7 @@ def _built(
             mode=mode,
             target=ctx.kicad_target,
             waivers=built.design.findings.waivers,
+            allowances=allowance_rules(built.design),
         )
         if any(issue.severity == "error" for issue in copper_issues):
             files = {}  # refused: a build with an error issue plans no write
@@ -2434,7 +2454,7 @@ def _run_altium(
     copper_check: dict[str, object] = {"mode": mode, "ran": False}
     if files:
         copper_issues, copper_check = altium_copper_guard(
-            files, name=name, mode=mode, waivers=model.findings.waivers
+            files, name=name, mode=mode, waivers=model.findings.waivers, allowances=allowance_rules(model)
         )
         if any(found.severity == "error" for found in copper_issues):
             files = {}  # refused: a build with an error issue plans no write

@@ -31,9 +31,9 @@ Rules for every task:
 
 - [x] 3.1 `checks/allowances.py`: the governing `short` rule of a pair, and `stub(design, item)` on
   `CopperGraph`. Proof: `uv run pytest tests/unit/checks/test_drc_allowances_c0465.py -k stub -q -n 0`.
-- [ ] 3.2 The copper stage: allowed shorts, `summary["allowed"]`. Proof:
+- [x] 3.2 The copper stage: allowed shorts, `summary["allowed"]`. Proof:
   `uv run pytest tests/unit/checks/test_copper_allowances_c0465.py tests/unit/checks/test_copper.py -q -n 0`.
-- [ ] 3.3 The DRC stage: `shorting_items`, `track_dangling` and `via_dangling` entries, and
+- [x] 3.3 The DRC stage: `shorting_items`, `track_dangling` and `via_dangling` entries, and
   `check.allowance-unresolved`, which goes in `ISSUE_CODES`, `docs/cli-contract.md` and `explain`. Proof:
   `uv run pytest tests/unit/checks/test_drc_allowances_c0465.py tests/unit/checks/test_waivers.py -q -n 0`.
 
