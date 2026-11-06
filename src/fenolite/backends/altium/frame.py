@@ -298,6 +298,16 @@ def _edge_pieces(design: Design) -> list[Segment | GeoArc]:
         ring = graphic.kind == "polygon" and len(points) >= 3
         ends = (*points, points[0]) if ring else tuple(points)
         pieces += [Segment(a, b) for a, b in zip(ends, ends[1:], strict=False)]
+    for footprint in board.footprints:
+        # a board cut-out of a component is a closed outline of its footprint's Edge.Cuts (change c0443),
+        # placed as a pad's position is
+        place = Transform.placement(footprint.position, footprint.rotation)
+        for graphic in footprint.graphics:
+            if graphic.layer not in layers or graphic.kind != "polygon" or len(graphic.points) < 3:
+                continue
+            placed = tuple(place.apply(point) for point in graphic.points)
+            ends = (*placed, placed[0])
+            pieces += [Segment(a, b) for a, b in zip(ends, ends[1:], strict=False)]
     return [piece for piece in pieces if piece.start != piece.end]
 
 

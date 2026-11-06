@@ -1014,9 +1014,26 @@ def footprint_items(
         if len(points) < 3:
             _bad(ctx, "regions", "a region needs at least three vertices", locator)
             continue
+        local = tuple(frame.apply(point) for point in points)
+        if is_board_cutout(item):
+            # a board cut-out of a component is an edge of the board in its footprint (change c0443)
+            graphics.append(
+                _graphic(
+                    ctx,
+                    "polygon",
+                    EDGE,
+                    local,
+                    width=0,
+                    filled=False,
+                    locator=locator,
+                    pairs=[],
+                    section=section,
+                )  # fmt: skip
+            )
+            ctx.census.map("regions")
+            continue
         if _region_keepout(ctx, item, points, locator, section, keepouts, frame, owned=True):
             continue  # a polygon cut-out or a keep-out region of a component on copper (c0407, c0411)
-        local = tuple(frame.apply(point) for point in points)
         # A region of four vertices that is a rectangle square to the footprint is the filled ``rect`` that
         # a fill of the same corners gives: the writer writes a filled rectangle as a region, and the two
         # are one shape in the model.
@@ -1265,8 +1282,9 @@ def _fill_points(item: FillRecord, exact: Exact) -> tuple[GraphicKind, tuple[Poi
 
 
 def is_board_cutout(item: RegionRecord) -> bool:
-    """Whether a free region is a board cut-out: ``KIND=0`` (or no ``KIND``) with ``ISBOARDCUTOUT=TRUE``
-    (``pcb-records.md``, "Board cut-outs"; change c0168). ``KIND=1``, a polygon cut-out, is not one."""
+    """Whether a region is a board cut-out: ``KIND=0`` (or no ``KIND``) with ``ISBOARDCUTOUT=TRUE``
+    (``pcb-records.md``, "Board cut-outs"; change c0168), free or owned by a component (change c0443).
+    ``KIND=1``, a polygon cut-out, is not one."""
     keys = {key.upper(): value for key, value in item.properties.fields}
     return keys.get("ISBOARDCUTOUT", "").upper() == "TRUE" and keys.get("KIND", "0") == "0"
 

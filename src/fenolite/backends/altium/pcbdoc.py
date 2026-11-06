@@ -331,6 +331,9 @@ class ComponentGraphic:
     graphic: Graphic
     layer: int
     arc: rec.ArcGeometry | None = None
+    cutout: bool = False
+    """Whether the graphic, a closed outline of ``Edge.Cuts``, is a board cut-out of the component (change
+    c0443): one region of ``pcbrecords.cutout_region`` with the component's index."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -1015,7 +1018,18 @@ def place_component(
             else:
                 ring = _ring(where)
             corners = [_units(point) for point in ring]
-            if graphic.filled:
+            if item.cutout:
+                for shape_based, into in ((False, placed.regions), (True, placed.shapes)):
+                    into.append(
+                        rec.region_record(
+                            rec.BOARD_CUTOUT_LAYER,
+                            corners,
+                            shape_based=shape_based,
+                            component=index,
+                            board_cutout=True,
+                        )  # fmt: skip
+                    )
+            elif graphic.filled:
                 placed.regions.append(rec.region_record(item.layer, corners, component=index))
                 placed.shapes.append(
                     rec.region_record(item.layer, corners, shape_based=True, component=index)

@@ -440,8 +440,8 @@ def test_verify_a_dropped_ring_is_a_difference(monkeypatch: pytest.MonkeyPatch, 
     monkeypatch.setattr(pcbdoc, "CUTOUT_REGIONS", True)
     original = lower._cutouts  # pyright: ignore[reportPrivateUsage]
 
-    def dropping(outline: object, account: object) -> tuple[tuple[Point, ...], ...]:
-        return original(outline, account)[1:]  # type: ignore[arg-type]
+    def dropping(outline: object, account: object, *owned: object) -> tuple[tuple[Point, ...], ...]:
+        return original(outline, account, *owned)[1:]  # type: ignore[arg-type]
 
     monkeypatch.setattr(lower, "_cutouts", dropping)
     read_as(monkeypatch, _fixture())

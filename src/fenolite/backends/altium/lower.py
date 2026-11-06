@@ -783,15 +783,59 @@ CUTOUT_POLYGONISED = "arcs polygonised"
 ``cutouts.CUTOUT_TOL`` of them."""
 
 
-def _cutouts(outline: Outline | None, account: _Account) -> tuple[tuple[Point, ...], ...]:
+CUTOUT_MATCH = 10
+"""How far, in nanometres, a vertex of a board cut-out ring may lie from the placed vertex of a footprint's
+cut-out to be that cut-out (change c0443): placing a footprint rounds each vertex."""
+
+
+def footprint_cutout_rings(board: Board) -> tuple[tuple[Point, ...], ...]:
+    """The board-frame rings of the footprints' cut-outs that ``_footprint_items`` writes as cut-outs of
+    their components (change c0443): each closed ``Edge.Cuts`` outline of a footprint, placed as the
+    document places the instance's own graphics, without a mirror."""
+    rings: list[tuple[Point, ...]] = []
+    for fp in board.footprints:
+        place = Transform.placement(fp.position, fp.rotation)
+        for graphic in fp.graphics:
+            if graphic.layer != EDGE_LAYER or footprint_cutout_problem(graphic) is not None:
+                continue
+            points = graphic.points
+            if graphic.kind == "rect":
+                (a, b) = points
+                points = (a, Point(b.x, a.y), b, Point(a.x, b.y))
+            rings.append(tuple(place.apply(p) for p in _ring_points(points)))
+    return tuple(rings)
+
+
+def _same_ring(ring: Sequence[Point], other: Sequence[Point]) -> bool:
+    """Whether two rings hold the same vertices within ``CUTOUT_MATCH``, in any order and direction."""
+    one, two = _ring_points(tuple(ring)), _ring_points(tuple(other))
+    if len(one) != len(two):
+        return False
+    near = CUTOUT_MATCH
+    return all(any(abs(a.x - b.x) <= near and abs(a.y - b.y) <= near for b in two) for a in one) and all(
+        any(abs(a.x - b.x) <= near and abs(a.y - b.y) <= near for b in one) for a in two
+    )
+
+
+def _cutouts(
+    outline: Outline | None, account: _Account, owned: Sequence[tuple[Point, ...]] = ()
+) -> tuple[tuple[Point, ...], ...]:
     """The board cut-out regions of the document (change c0168): every item of ``cutouts.cutout_items``
     when ``pcbdoc.CUTOUT_REGIONS`` is true and it can be written, polygonised; every other item is
     counted under ``cutout`` by its reason (``cutouts.unwritten_reason``), its id the ``where`` of the
     build's report. A
     written item is counted changed with ``CUTOUT_MERGED`` when it unites a group, with
-    ``CUTOUT_POLYGONISED`` when its ring holds an arc, and written otherwise (change c0170)."""
+    ``CUTOUT_POLYGONISED`` when its ring holds an arc, and written otherwise (change c0170). An item of one
+    ring that is one of ``owned`` (``footprint_cutout_rings``) is the cut-out of a component, written with
+    the component and counted as its graphic: it is neither written here nor counted (change c0443)."""
     rings: list[tuple[Point, ...]] = []
     for item in cutout_items(outline):
+        if (
+            len(item.names) == 1
+            and not any(item.ring.mids)
+            and any(_same_ring(item.ring.points, ring) for ring in owned)
+        ):
+            continue
         reason = unwritten_reason(item, gate=pcbdoc.CUTOUT_REGIONS)
         if reason is not None:
             account.skip("cutout", item.where, reason)
@@ -1094,6 +1138,24 @@ def _count_strokes(areas: Sequence[Keepout], strokes: Collection[Graphic], accou
     account.wrote("keep-out", count)
 
 
+def footprint_cutout_problem(graphic: Graphic) -> str | None:
+    """Why a graphic of a footprint on ``Edge.Cuts`` is no board cut-out of its component (change c0443), or
+    ``None``: a cut-out is a closed outline, a polygon of three vertices or more or a rectangle with an area,
+    which the document writes as one region with ``ISBOARDCUTOUT=TRUE`` (``pcb-records.md``, "Board
+    cut-outs"). A line, an arc or a circle of a footprint's edge is not written."""
+    if graphic.kind == "polygon" and len(_ring_points(graphic.points)) >= 3:
+        return None
+    if graphic.kind == "rect" and len(graphic.points) == 2:
+        (a, b) = graphic.points
+        if a.x != b.x and a.y != b.y:
+            return None
+    return f"a {graphic.kind} of a footprint's Edge.Cuts is no closed outline: no board cut-out is written"
+
+
+def _ring_points(points: Sequence[Point]) -> tuple[Point, ...]:
+    return tuple(points[:-1]) if len(points) > 1 and points[0] == points[-1] else tuple(points)
+
+
 def _footprint_items(
     fp: FootprintInstance,
     layers: Mapping[str, int],
@@ -1126,6 +1188,14 @@ def _footprint_items(
     arcs: dict[str, rec.ArcGeometry] = {}
     items: list[pcbdoc.ComponentGraphic] = []
     for graphic in fp.graphics:
+        if graphic.layer == EDGE_LAYER:
+            problem = footprint_cutout_problem(graphic)
+            if problem is None:
+                items.append(pcbdoc.ComponentGraphic(graphic, rec.BOARD_CUTOUT_LAYER, cutout=True))
+                account.wrote("footprint-graphic")
+            else:
+                account.skip("footprint-graphic", graphic.id, problem)
+            continue
         kept = None
         if graphic.kind == "arc":
             kept = kept_arc(graphic, tuple(to_board.apply(p) for p in graphic.points), frame)
@@ -1989,7 +2059,9 @@ def _document(
     texts_, graphics, keepouts, holes = _items(
         board, layers, frame, arc_records, account, layer_ids, planes=planes, net_names=net_names
     )
-    cutouts = _cutouts(board.outline if board.outline is not None else edges, account)
+    cutouts = _cutouts(
+        board.outline if board.outline is not None else edges, account, footprint_cutout_rings(board)
+    )
     lowered = rulemap.lower(design.rules.rules if design.rules is not None else ())
     codes = sorted(design.rules.severities) if design.rules is not None else []
     for code in codes:
