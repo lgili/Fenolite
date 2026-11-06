@@ -14,6 +14,14 @@ step. In Altium, with the row's PcbDoc open and focused and its ``.scopes.txt`` 
 ``FenoliteScopeOracle`` writes ``<PcbDoc file name>.counts.txt`` beside the document. ``record`` reads the
 ``.counts.txt`` files of ``--results`` into the oracle JSON.
 
+The first run, on Altium 24.5.2.23 (2026-11-06), selected nothing through ``PCB:RunQuery`` from the script
+(every count 0, ``IsPad`` and ``IsVia`` included), so the step also runs by hand: apply scope ``<n>`` in the
+PCB Filter panel with Select on, write ``<n>`` alone into ``<PcbDoc file name>.current.txt`` beside the
+document, then File » Run Script » ``FenoliteCountSelection``. That procedure runs no process: it counts the
+current selection as ``FenoliteScopeOracle`` does, writes ``<PcbDoc file name>.counts-<n>.txt`` and clears
+the selection. ``record`` reads a row's ``.counts-<n>.txt`` files when it has any (a scope that holds ``|``
+and has none is ``skipped``), else its ``.counts.txt``.
+
 For each scope the script clears every selection itself (``Selected``), runs the server process
 ``PCB:RunQuery`` with ``Expr``, ``Select`` and ``Apply``, and counts the selected objects of each kind: a
 ``board`` line per kind the board iterator returns, and a ``child`` line per kind of the children of each
@@ -49,6 +57,9 @@ PROCEDURE = "FenoliteScopeOracle"
 SCRIPT = "scope_oracle.pas"
 SCOPES = ".scopes.txt"
 COUNTS = ".counts.txt"
+COUNT_PROCEDURE = "FenoliteCountSelection"
+CURRENT = ".current.txt"
+"""Beside the document: the key ``<n>`` of the scope applied by hand, read by ``COUNT_PROCEDURE``."""
 SCHEMA = "fenolite.altium-scope-oracle.v1"
 
 KINDS: Mapping[str, str] = MappingProxyType(
@@ -322,6 +333,33 @@ Begin
     CloseFile(OutFile);
   End;
 End;
+
+Procedure {COUNT_PROCEDURE};
+Var Board, InFile, OutFile, Key;
+Begin
+  Board := PCBServer.GetCurrentPCBBoard;
+  If Board = Nil Then Exit;
+  AssignFile(InFile, Board.FileName + '{CURRENT}');
+  Reset(InFile);
+  Try
+    Readln(InFile, Key);
+  Finally
+    CloseFile(InFile);
+  End;
+  Key := Trim(Key);
+  If Key = '' Then Exit;
+  AssignFile(OutFile, Board.FileName + '.counts-' + Key + '.txt');
+  Rewrite(OutFile);
+  Try
+{chr(10).join(f"    CountKind(Board, {kind}, Key, OutFile);" for kind in KINDS)}
+    CountChildren(Board, Key, OutFile, False);
+    Writeln(OutFile, Key + ' done');
+  Finally
+    CloseFile(OutFile);
+  End;
+  ClearAll(Board);
+  CountChildren(Board, Key, OutFile, True);
+End;
 """
 
 
@@ -334,7 +372,7 @@ KEYWORDS = frozenset(
 
 def called_names(text: str) -> set[str]:
     """The names of ``text`` that are not its own procedures, variables or parameters, nor a keyword."""
-    own = {"KindName", "ClearAll", "CountKind", "CountChildren", PROCEDURE}
+    own = {"KindName", "ClearAll", "CountKind", "CountChildren", PROCEDURE, COUNT_PROCEDURE}
     own |= set("Id Board Iterator Item Children Child Kind Key OutFile Count Parent Clear".split())
     own |= {"InFile", "Line", "Space", "Expr"}
     body = re.sub(r"'[^']*'", "", re.sub(r"\{[^}]*\}", "", text))
@@ -375,6 +413,27 @@ def parse_counts(text: str, scopes: Sequence[str]) -> list[dict[str, object]]:
     return [entries[n] for n in range(1, len(scopes) + 1)]
 
 
+def per_scope_counts(results: Path, name: str, scopes: Sequence[str]) -> str | None:
+    """The ``.counts-<n>.txt`` files of the document ``name`` in ``results`` joined, with a ``skipped`` line
+    for each scope that holds ``|`` and has no file; ``None`` when the document has no such file.
+    ``ValueError`` on a file whose lines are not all of its own scope."""
+    files = {n: results / f"{name}.counts-{n}.txt" for n in range(1, len(scopes) + 1)}
+    if not any(path.is_file() for path in files.values()):
+        return None
+    lines: list[str] = []
+    for n, path in files.items():
+        if not path.is_file():
+            if "|" in scopes[n - 1]:
+                lines.append(f"{n} skipped")
+            continue
+        own = [line.strip() for line in path.read_text("utf-8").splitlines() if line.strip()]
+        stray = [line for line in own if not line.startswith(f"{n} ")]
+        if stray:
+            raise ValueError(f"{path.name}: line {stray[0]!r} is not of scope {n}")
+        lines += own
+    return "\n".join(lines) + "\n"
+
+
 def plan(out: Path, cache: Path) -> int:
     out.mkdir(parents=True, exist_ok=True)
     (out / SCRIPT).write_text(script_text(), encoding="utf-8", newline="\r\n")
@@ -391,10 +450,13 @@ def record(results: Path, out: Path, cache: Path, altium: str) -> int:
         if hashlib.sha256(path.read_bytes()).hexdigest() != sha:
             raise SystemExit(f"{ident}: the cached file is not the manifest's")
         scopes = mapped_scopes(path.read_bytes(), path.name)
-        counts = results / f"{path.name}{COUNTS}"
-        if not counts.is_file():
-            raise SystemExit(f"{ident}: {counts.name} is missing from {results}")
-        rows.append({"row": ident, "sha256": sha, "scopes": parse_counts(counts.read_text("utf-8"), scopes)})
+        text = per_scope_counts(results, path.name, scopes)
+        if text is None:
+            counts = results / f"{path.name}{COUNTS}"
+            if not counts.is_file():
+                raise SystemExit(f"{ident}: {counts.name} is missing from {results}")
+            text = counts.read_text("utf-8")
+        rows.append({"row": ident, "sha256": sha, "scopes": parse_counts(text, scopes)})
     oracle = {"schema": SCHEMA, "source": "S-2214", "altium": altium, "rows": rows}
     out.write_text(json.dumps(oracle, indent=1, sort_keys=True) + "\n", encoding="utf-8")
     print(f"wrote {out}")

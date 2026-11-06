@@ -67,3 +67,32 @@ def test_counts_read_back() -> None:
 def test_bad_counts(text: str, words: str) -> None:
     with pytest.raises(ValueError, match=words):
         tool.parse_counts(text, ["IsVia", "IsPad"])
+
+
+def test_the_count_procedure_runs_no_process() -> None:
+    """``FenoliteCountSelection`` counts the selection a PCB Filter step made by hand: it reads the key from
+    ``.current.txt``, writes ``.counts-<n>.txt`` and starts no process."""
+    text = tool.script_text()
+    body = text[text.index(f"Procedure {tool.COUNT_PROCEDURE};") :]
+    assert "RunProcess" not in body and tool.CURRENT in body and "'.counts-' + Key + '.txt'" in body
+    assert body.index("Writeln(OutFile, Key + ' done')") < body.index("ClearAll(Board)")
+
+
+def test_per_scope_counts(tmp_path: Path) -> None:
+    scopes = ["IsVia", "IsPad || IsVia", "InNet('A')"]
+    assert tool.per_scope_counts(tmp_path, "b.PcbDoc", scopes) is None
+    (tmp_path / "b.PcbDoc.counts-1.txt").write_text("1 board via 8\r\n1 done\r\n", encoding="utf-8")
+    (tmp_path / "b.PcbDoc.counts-3.txt").write_text("3 board track 2\n3 done\n", encoding="utf-8")
+    text = tool.per_scope_counts(tmp_path, "b.PcbDoc", scopes)
+    assert text == "1 board via 8\n1 done\n2 skipped\n3 board track 2\n3 done\n"
+    assert [entry["state"] for entry in tool.parse_counts(text, scopes)] == ["done", "skipped", "done"]
+    (tmp_path / "b.PcbDoc.counts-3.txt").write_text("1 board track 2\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="not of scope 3"):
+        tool.per_scope_counts(tmp_path, "b.PcbDoc", scopes)
+
+
+def test_a_scope_not_counted_by_hand_is_missing(tmp_path: Path) -> None:
+    (tmp_path / "b.PcbDoc.counts-1.txt").write_text("1 done\n", encoding="utf-8")
+    text = tool.per_scope_counts(tmp_path, "b.PcbDoc", ["IsVia", "IsPad"])
+    with pytest.raises(ValueError, match=r"scopes \[2\]"):
+        tool.parse_counts(text, ["IsVia", "IsPad"])
