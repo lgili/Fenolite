@@ -48,15 +48,17 @@
     on 2026-10-14. The repeat does not expand in 24.5: "Missing child-sheet in two_ch.SchDoc in Symbol
     Repeat(CH,1,2)", and all twelve naming pairs flatten to `J1` and `U1`. The same happens through the UI with
     one project open. This is recorded as an observation scoped to that version; the 26.5 pass stands, and the
-    writer and the levels are unchanged (coordinator's decision). Still open: R3 and R4 need the channels, so
-    they wait for AD 26; R5 keeps its failure.
+    writer and the levels are unchanged (coordinator's decision). Still open: R3 and R4 need the channels; since
+    2026-11-06 the maintainer accepts AD 24.5 in place of AD 26, so they run in 24.5.2.23 and record what that
+    version does with the channels; R5 keeps its failure.
 - [ ] 2.6 (from c0166 3.4) Execute remaining OutJob, template/custom-border, hierarchy-mode and rule-export requests. Proof: the report and focused documentation/provenance tests.
   - Blocker on 2026-11-05: The OutJob, template/custom-border, hierarchy-mode and rule-export requests were not run in any agent round (S-1570 to S-1589).
   - 2026-11-05 (S-1611, AD 24.5.2.23 Trial, agent run): OutJob steps O1, O3, O5, O6 and O7, hierarchy modes (R1)
     and the rule export (R2) were run; reports under Part O of `docs/evidence/altium-schematic.md` and "Reports" of
     `docs/evidence/altium-project-read.md`; levels unchanged. Still open: the template appearance request (a native
     template's logo, fonts and colours, and an imported custom border), which has no step list in the repository and
-    needs a judgement of drawn appearance; O8 and O-S1 (O-S1 needs the AD 26 minor version).
+    needs a judgement of drawn appearance; O8 and O-S1 (O-S1 needs the minor version: since 2026-11-06 the
+    maintainer accepts AD 24.5 in place of AD 26, so 24.5.2.23 answers it).
 
 ## 3. Board kits: slots, panels, repour (c0168, c0173, c0215)
 
