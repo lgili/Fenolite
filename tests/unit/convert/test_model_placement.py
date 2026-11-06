@@ -224,3 +224,24 @@ def test_a_turn_about_z_alone_keeps_c0223s_integers() -> None:
     assert placement(model, fp, "m.step").rotation == (0, 0, 45_000_001)
     bottom = dataclasses.replace(fp, side="bottom")
     assert placement(model, bottom, "m.step").rotation == (0, 0, 105_000_001)
+
+
+def test_an_embedded_model_keeps_its_own_name(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Change c0449, task 4.3: the extracted file is named after the model (``led_<sha12>.step``), not after
+    the footprint, whose name may be another part's (row ``-04``: U1's footprint is named after another
+    part, and its own model came back under that name)."""
+    import hashlib
+
+    from fenolite.convert.models import model_stem
+
+    conversion, chosen = _convert(monkeypatch)
+    pattern = chosen.lib_ref.rsplit(":", 1)[-1]
+    path = _model(conversion.files[f"blink.pretty/{pattern}.kicad_mod"].decode()).atoms()[0].value
+    assert path == f"${{KIPRJMOD}}/blink.3dshapes/led_{hashlib.sha256(STEP).hexdigest()[:12]}.step"
+    assert [model_stem(n) for n in ("Belago1.1 v3.step", "ssfv10r_2stlf.stp", "A.STEP", "part", "")] == [
+        "Belago1.1 v3",
+        "ssfv10r_2stlf",
+        "A",
+        "part",
+        "",
+    ]

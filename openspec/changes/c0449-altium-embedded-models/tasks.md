@@ -32,3 +32,8 @@
   `docs/formats/step/part21.md` ("Box of a model"), `sources.md` (S-2080 to S-2082), `H-G-STEP-BOX`,
   CHANGELOG.
 - [ ] 4.3 Altium opens a round trip with its models (altium-rounds-2).
+  Kit run on NG6011 (2026-11-06): U1 seemed to get the LM3644 model. The bytes were U1's own TPS63050
+  model; the KiCad file was named after U1's footprint, `LM3644YFFR`. Fixed: an embedded model's file is
+  named by its record `NAME` (`convert.models.model_stem`), pinned by
+  `tests/unit/convert/test_model_placement.py::test_an_embedded_model_keeps_its_own_name` and, on row
+  `-04`, `tests/corpus/test_altium_bodies.py::test_embedded_models_keep_their_names`. NG6011 to re-run.

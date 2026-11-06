@@ -650,3 +650,26 @@ def test_body_models_placement(tmp_path_factory: pytest.TempPathFactory) -> None
                 total[body["render"]] += 1
                 total["unmeshed"] += body["fit"] == "the model could not be meshed"
     assert total == PLACED
+
+
+def test_embedded_models_keep_their_names() -> None:
+    """Change c0449, task 4.3 (row ``-04``): each embedded model is written to KiCad under its own record
+    name, whatever its footprint is called. U1's footprint carries another part's name; its model file used
+    to carry that name too, so the right model seemed to be the wrong one."""
+    import hashlib
+
+    from fenolite.api import convert
+    from fenolite.backends.altium.models3d import body_models
+    from fenolite.convert.models import model_file, model_stem
+
+    (item,) = [i for i in DOCUMENTS if i.id.endswith("-04")]
+    path = require(item)
+    found = body_models(path, issues=[])
+    written = [
+        name.rsplit("/", 1)[-1] for name in convert(path, to="kicad", allow_lossy=True).conversion.files
+    ]
+    for model in found:
+        digest = hashlib.sha256(model.data).hexdigest()[:12]
+        expected = model_file("x", model_stem(model.name), model.data).rsplit("/", 1)[-1]
+        assert {n for n in written if n.endswith(f"_{digest}.step")} == {expected}
+    assert any(model_stem(m.name).startswith("IC_Texas_Instruments_TPS63050") for m in found)

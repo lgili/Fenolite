@@ -77,10 +77,23 @@ class Placed:
 
 
 def model_file(library: str, footprint: str, data: bytes) -> str:
-    """``<library>.3dshapes/<footprint>_<sha12>.step``: the folder beside the library, the footprint's name
-    with characters outside ``[A-Za-z0-9_.-]`` replaced by ``_``, and the first 12 hex digits of the
-    SHA-256 of the model's bytes."""
+    """``<library>.3dshapes/<footprint>_<sha12>.step``: the folder beside the library, ``footprint`` (the
+    footprint's name, or an embedded model's own name, ``model_stem``) with characters outside
+    ``[A-Za-z0-9_.-]`` replaced by ``_``, and the first 12 hex digits of the SHA-256 of the model's bytes."""
     return f"{library}{FOLDER_SUFFIX}/{_stem(footprint)}_{hashlib.sha256(data).hexdigest()[:12]}.step"
+
+
+def model_stem(name: str) -> str:
+    """The name an extracted embedded model is filed under: the record's ``NAME`` without its STEP
+    extension (``Belago1.1 v3.step`` → ``Belago1.1 v3``); empty when the record names none. A footprint
+    whose name is that of another part keeps its model's own name, so the file does not seem to hold the
+    other part's model (change c0449, task 4.3)."""
+    stem = name.strip()
+    lower = stem.lower()
+    for suffix in (".step", ".stp"):
+        if lower.endswith(suffix):
+            return stem[: -len(suffix)].strip()
+    return stem
 
 
 def _stem(footprint: str) -> str:
@@ -235,7 +248,7 @@ def place_models(
                     lost[body.id] = NO_DATA
                     shape = "model"
                 else:
-                    path = model_file(library, name, model.data)
+                    path = model_file(library, model_stem(model.name) or name, model.data)
                     files[path] = model.data
                     found.append(placement(model, frame, "${KIPRJMOD}/" + path))
                     changed[body.id] = PLACED

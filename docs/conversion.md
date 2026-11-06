@@ -429,8 +429,9 @@ the board, that part (or the first) keeps it and each other becomes `<ref>_<n>` 
 them and the schematic is a `schematic` loss.
 
 **3D models** (changes c0223 and c0423). The model that the PCB document embeds for a body
-(`models3d.body_models`) is written beside the derived library as `<name>.3dshapes/<footprint>_<sha12>.step`
-(`sha12`, the first 12 hex digits of the SHA-256 of the model's bytes) and named in the library footprint and
+(`models3d.body_models`) is written beside the derived library as `<name>.3dshapes/<model>_<sha12>.step`
+(`model`, the model's own record name without its `.step` or `.stp` extension, or the footprint's name when the record
+names none, change c0449; `sha12`, the first 12 hex digits of the SHA-256 of the model's bytes) and named in the library footprint and
 in the board's footprint with the offset and turns that give KiCad the source's pose, on either side and for
 any turn about X, Y and Z (`H-K-MODEL-POSE`, `H-A-BODY-MODEL-PLACE`). KiCad applies the turn about X first,
 then Y, then Z, and flips a bottom-side part by a half turn about X, as Altium does. A placed model is a
