@@ -30655,6 +30655,23 @@
         "src/fenolite/convert/altium_rules.py"
       ],
       "decision": "pending"
+    },
+    {
+      "backend": "altium",
+      "key": "stroke",
+      "declared_in": "src/fenolite/backends/altium/adapter/ids.py",
+      "readers": [
+        "src/fenolite/backends/altium/edit/connectivity.py",
+        "src/fenolite/backends/altium/lower.py",
+        "src/fenolite/backends/altium/pcbdoc.py",
+        "src/fenolite/backends/altium/pour.py",
+        "src/fenolite/backends/altium/pourcompare.py",
+        "src/fenolite/backends/kicad/textink.py",
+        "src/fenolite/cli/cmd_silk.py",
+        "src/fenolite/silk/board.py",
+        "src/fenolite/silk/extents.py"
+      ],
+      "decision": "pending"
     }
   ],
   "opaque_extensions": "Keep all unknown backend fragments and backend namespaces verbatim; they have no closed key vocabulary."

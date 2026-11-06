@@ -151,6 +151,7 @@ The closed table `adapter.EXT_KEYS`. A value is text of the record or a decimal 
 | `cell` | rule | the pair of item kinds of a rule that holds one cell of a Clearance record's object matrix, such as `via-via` (change c0130) |
 | `cells_not_lifted` | rule | on the rule of a Clearance record's generic value: the entries of its object matrix that no rule holds, as written and joined by `;` (an object kind the copper check holds no item of; change c0130) |
 | `kept_record` | rule | `1` on a rule given by a kept record (a Hole To Hole Clearance that allows stacked micro vias, a Routing Layers record): the Altium writer leaves the rule out and writes the record back (change c0424) |
+| `stroke` | keep-out | on each rule area of a keep-out track, arc or circle of a copper layer (second flag byte 2): the stroke as read, `<kind>/<x>/<y>/…/<width>/<r>`, its points in nanometres in the frame of the area and r its restriction byte. A conversion to KiCad names the area with the stroke's marker `Altium.KeepOut/flag<r>/<kind>/<numbers>` when the area is still the band of the stroke, so the Altium writer writes the stroke back (change c0450) |
 
 ## The copper check and the parity comparison
 

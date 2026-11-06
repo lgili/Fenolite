@@ -28,6 +28,7 @@ from types import MappingProxyType
 from typing import cast
 
 import fenolite.backends.altium.connectstyle as connectstyle
+import fenolite.backends.altium.fills as fills
 import fenolite.backends.altium.keepout_lines as keepout_lines
 import fenolite.backends.altium.pcbdoc as pcbdoc
 import fenolite.backends.altium.pcblib as pcblib
@@ -1123,27 +1124,50 @@ KEEPOUT_STROKE_IDS: Mapping[str, int] = MappingProxyType({keepout_lines.LAYER: k
 """The layer of the strokes that marked rule areas give back (change c0442): the Keep-Out layer."""
 
 
+def _stroke_layer(graphic: Graphic, flagged: int | None, copper_ids: Mapping[str, int]) -> int | None:
+    """The Altium id of the layer of a stroke that a marked rule area gives: the Keep-Out layer for a plain
+    stroke (change c0442), the signal layer of the area for a keep-out stroke (``flagged`` its restriction
+    byte, change c0450); ``None`` when the document has no such signal layer."""
+    if flagged is None:
+        return keepout_lines.LAYER_ID
+    layer = copper_ids.get(graphic.layer)
+    return layer if layer is not None and layer < rec.FIRST_PLANE else None
+
+
 def _keepout_strokes(
-    fp: FootprintInstance, frame: pcbdoc.Frame, account: _Account
+    fp: FootprintInstance,
+    frame: pcbdoc.Frame,
+    account: _Account,
+    copper_ids: Mapping[str, int] | None = None,
 ) -> tuple[tuple[pcbdoc.ComponentGraphic, ...], FootprintInstance]:
-    """The strokes that the marked rule areas of ``fp`` carry (``keepout_lines``, change c0442), as tracks
-    and arcs of the component on the Keep-Out layer without the keep-out flag, the form the source drew,
+    """The strokes that the marked rule areas of ``fp`` carry (``keepout_lines``), as tracks and arcs of the
+    component in the form the source drew: on the Keep-Out layer without the keep-out flag (change c0442),
+    or with the flag and the restriction byte on the area's signal layer of ``copper_ids`` (change c0450);
     and ``fp`` with its other rule areas. Each marked area is counted written under ``keep-out``; one whose
     stroke no record holds is counted lost there."""
     graphics, others, _ = keepout_lines.strokes(fp.keepouts)
     if not graphics:
         return (), fp
+    flags = keepout_lines.flags(fp.keepouts)
     to_board = Transform.placement(fp.position, fp.rotation)
     items: list[pcbdoc.ComponentGraphic] = []
     for graphic in graphics:
         kept = None
         if graphic.kind == "arc":
             kept = kept_arc(graphic, tuple(to_board.apply(p) for p in graphic.points), frame)
-        problem = pcbdoc.graphic_problem(graphic, arc_known=kept is not None, layers=KEEPOUT_STROKE_IDS)
-        if problem is None:
-            items.append(pcbdoc.ComponentGraphic(graphic, keepout_lines.LAYER_ID, kept))
+        flagged = flags.get(graphic.id)
+        layer = _stroke_layer(graphic, flagged, copper_ids or {})
+        if layer is None:
+            problem: str | None = (
+                f"the layer {graphic.layer} of a keep-out stroke is no signal layer of the document"
+            )
         else:
-            _refuse_stroke(fp.keepouts, graphic, problem, account)
+            ids = KEEPOUT_STROKE_IDS if flagged is None else {graphic.layer: layer}
+            problem = pcbdoc.graphic_problem(graphic, arc_known=kept is not None, layers=ids)
+        if problem is None and layer is not None:
+            items.append(pcbdoc.ComponentGraphic(graphic, layer, kept, keepout=flagged))
+        else:
+            _refuse_stroke(fp.keepouts, graphic, problem or "", account)
     stroked = [area for area in fp.keepouts if area not in others]
     _count_strokes(stroked, [item.graphic for item in items], account)
     return tuple(items), dataclasses.replace(fp, keepouts=others)
@@ -1247,7 +1271,9 @@ def _footprint_items(
                 reason = net_tie_copper_problem(fp, graphic, copper_ids or {}, arc_known=kept is not None)
             if reason is None:
                 layer = (copper_ids or {})[graphic.layer]
-                items.append(pcbdoc.ComponentGraphic(graphic, layer, kept, net=net))
+                items.append(
+                    pcbdoc.ComponentGraphic(graphic, layer, kept, net=net, fill=fills.is_fill(graphic))
+                )
                 account.wrote("footprint-copper")
             else:
                 account.skip("footprint-copper", graphic.id, reason)
@@ -1268,9 +1294,8 @@ def _footprint_items(
             continue
         problem = pcbdoc.graphic_problem(graphic, arc_known=kept is not None, layers=layers)
         if problem is None:
-            items.append(
-                pcbdoc.ComponentGraphic(graphic, pcbdoc.board_layer(graphic.layer, layers) or 0, kept)
-            )
+            layer = pcbdoc.board_layer(graphic.layer, layers) or 0
+            items.append(pcbdoc.ComponentGraphic(graphic, layer, kept, fill=fills.is_fill(graphic)))
             account.wrote("footprint-graphic")
         else:
             account.skip("footprint-graphic", graphic.id, problem)
@@ -1459,7 +1484,7 @@ def _footprints(
             own = _footprint_items(fp, ids, copper, frame, account, copper_ids, net_names)
         areas = fp
         if frame is not None:
-            strokes, areas = _keepout_strokes(fp, frame, account)
+            strokes, areas = _keepout_strokes(fp, frame, account, copper_ids)
             own = dataclasses.replace(own, items=(*own.items, *strokes))
         defn = FootprintDef(
             id=fp.id,
@@ -1740,10 +1765,19 @@ def _items(
             account.skip("graphic", graphic.id, problem)
     keepouts: list[Keepout] = []
     strokes, areas, _ = keepout_lines.strokes(board.keepouts)
+    flags = keepout_lines.flags(board.keepouts)
     written: list[Graphic] = []
     for graphic in strokes:
         kept = kept_arc(graphic, graphic.points, frame) if graphic.kind == "arc" else None
-        problem = pcbdoc.graphic_problem(graphic, arc_known=kept is not None, layers=KEEPOUT_STROKE_IDS)
+        if graphic.id in flags:  # a keep-out stroke of a signal layer (change c0450)
+            problem = (
+                None
+                if graphic.layer in signal
+                else (f"the layer {graphic.layer} of a keep-out stroke is no signal layer of the document")
+            )
+            problem = problem or pcbdoc.graphic_problem(graphic, arc_known=kept is not None, copper=signal)
+        else:
+            problem = pcbdoc.graphic_problem(graphic, arc_known=kept is not None, layers=KEEPOUT_STROKE_IDS)
         if problem is None:
             graphics.append(graphic)
             written.append(graphic)
@@ -2203,6 +2237,7 @@ def _document(
     tracks, arcs, vias, zones, arc_records = _copper(
         board, layers, planes, net_names, frame, account, full_drill=full_drill
     )
+    stroke_flags = keepout_lines.flags(board.keepouts)
     texts_, graphics, keepouts, holes = _items(
         board, layers, frame, arc_records, account, layer_ids, planes=planes, net_names=net_names
     )
@@ -2251,6 +2286,10 @@ def _document(
         free_pads=tuple(free_pads),
         layer_ids={**layer_ids, **KEEPOUT_STROKE_IDS},
         arc_records=MappingProxyType(arc_records),
+        fill_ids=frozenset(g.id for g in graphics if fills.is_fill(g)),
+        keepout_strokes=MappingProxyType(
+            {g.id: byte for g in graphics if (byte := stroke_flags.get(g.id)) is not None}
+        ),
         allow_full_drill=full_drill,
         bodies=tuple(placed_bodies),
         connect_styles=_connect_styles(board) if read else (),
@@ -2276,6 +2315,7 @@ def write_design(
     source_rules: Sequence[tuple[int, tuple[tuple[str, str], ...]]] = (),
     parameters: Sequence[tuple[str, str]] = (),
     models: Mapping[str, Sequence[pcbdoc.FootprintModel]] | None = None,
+    storages: Mapping[str, tuple[bytes, bytes]] | None = None,
 ) -> ProjectWrite:
     """The files of an Altium project written from ``design`` alone: ``<name>.PcbDoc`` when the design holds a
     board with an outline or an item, and ``<name>.SchDoc`` with its libraries and ``<name>.PrjPcb`` when the
@@ -2294,7 +2334,9 @@ def write_design(
     variables of a converted KiCad project).
     ``models`` (change c0449) maps a footprint instance id to its 3D models, which the
     conversion found beside the source: each is written as a body that names an embedded model, or counted
-    under ``model`` with its reason."""
+    under ``model`` with its reason.
+    ``storages`` are the storages a conversion carried through KiCad (change c0450,
+    ``pcbdoc.PcbDocSpec.kept_storages``)."""
     refuse_bom_only(design)
     if schematic is not None:
         refuse_bom_only(schematic)
@@ -2312,6 +2354,10 @@ def write_design(
     if source_rules and inputs.pcb is not None:  # the source's own rule records (change c0434)
         inputs = dataclasses.replace(
             inputs, pcb=dataclasses.replace(inputs.pcb, source_rules=tuple(source_rules))
+        )
+    if storages and inputs.pcb is not None:
+        inputs = dataclasses.replace(
+            inputs, pcb=dataclasses.replace(inputs.pcb, kept_storages=dict(storages))
         )
     if schematic is not None:
         inputs = dataclasses.replace(inputs, schematic=schematic_design(schematic, inputs.name))

@@ -189,6 +189,27 @@ def with_mask_margin(design: Design, source: SourceProject) -> Design:
     return dataclasses.replace(design, board=dataclasses.replace(board, mask_margin=margin))
 
 
+def _carried_storages(design: Design) -> dict[str, tuple[bytes, bytes]]:
+    """The Altium storages a conversion to KiCad carried in the board's root ``(property …)`` items (change
+    c0450, ``convert.altium_storages``), by storage name: the ``Header`` and ``Data`` streams."""
+    from fenolite.backends.kicad import slots as slotlib
+    from fenolite.backends.kicad.sexpr import Node
+    from fenolite.backends.kicad.slots import Opaque
+    from fenolite.convert import altium_storages as storages
+
+    board = design.board
+    bag = board.ext.get("kicad") if board is not None else None
+    properties: list[tuple[str, str]] = []
+    for slot in slotlib.from_ext(bag) if bag is not None else ():
+        if not isinstance(slot, Opaque):
+            continue
+        child = slotlib.opaque_child(slot)
+        if isinstance(child, Node) and child.name == "property" and len(child.atoms()) == 2:
+            name, value = (atom.value for atom in child.atoms())
+            properties.append((name, value))
+    return {name: (s.header, s.data) for name, s in storages.from_properties(properties).items()}
+
+
 def write(source: SourceProject, options: Options) -> Written:
     """The Altium project of a KiCad source, with its report. Its copper graphics take the net their KiCad
     slot names (``fpitems.with_graphic_nets``), as a build's do: without it a netted copper shape is written
@@ -223,6 +244,7 @@ def write(source: SourceProject, options: Options) -> Written:
             source_rules=carried.records,
             parameters=altium_strings.project_parameter_pairs(design),
             models=models,
+            storages=_carried_storages(design),  # change c0450
         )
     except CompoundTooLarge as error:
         raise TargetLimitError(

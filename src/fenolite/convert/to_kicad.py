@@ -54,7 +54,14 @@ from fenolite.core.trig import FULL_TURN
 from fenolite.geometry.errors import BackendUnavailable, GeometryError
 from fenolite.geometry.rings import MERGE_TOL, CurvedRing, merge_groups, overlap_groups
 from fenolite.model import holes as model_holes
-from fenolite.model.board import FootprintAttribute, FootprintInstance, Hole, ModelRef, OutlineArc
+from fenolite.model.board import (
+    FootprintAttribute,
+    FootprintInstance,
+    Hole,
+    ModelRef,
+    OutlineArc,
+    VerbatimItem,
+)
 from fenolite.model.circuit import Component
 from fenolite.model.design import Design
 from fenolite.model.library import PPM, FootprintDef, ModelPlacement
@@ -537,6 +544,7 @@ def write_altium(source: SourceProject, options: Options) -> Written:
     name = options.name or source.name
     design = prepare(source, name, options.kicad_version, ledger)
     assert design.board is not None
+    design = _carried_storages(source, design, ledger, counts)  # change c0450
     # the holes join the prepared board as placed footprints, which ``prepare`` would derive and clean
     assert design.board is not None
     design, holes, plated = generated_holes(
@@ -608,6 +616,41 @@ def write_altium(source: SourceProject, options: Options) -> Written:
         tuple(issues),
         schematic=f"{name}.kicad_sch" if schematic else None,
     )
+
+
+def _carried_storages(
+    source: SourceProject, design: Design, ledger: Ledger, counts: dict[str, int]
+) -> Design:
+    """``design`` whose board holds a verbatim root ``(property …)`` per carried storage of the source's PCB
+    document (change c0450, ``convert.altium_storages``); each index-bound storage that holds a record is
+    counted lost under ``altium-storage``. A document that cannot be read carries nothing."""
+    from fenolite.convert import altium_storages as storages
+    from fenolite.convert.altium_to_kicad import board_document
+    from fenolite.core.errors import FenoliteError
+
+    board = design.board
+    path = board_document(source, source.design)
+    if board is None or path is None:
+        return design
+    try:
+        found = storages.found_in(path)
+    except (OSError, FenoliteError):
+        return design
+    if not found.carried and not found.index_bound:
+        return design
+    counts[storages.KIND] = len(found.carried) + len(found.index_bound)
+    for name in found.index_bound:
+        ledger.drop(storages.KIND, name, storages.INDEX_BOUND_REASON)
+    items = tuple(
+        VerbatimItem(
+            id=derived_id("vbt", "altium-storage", name),
+            key=name,
+            text=storages.property_text(name, storage),
+        )
+        for name, storage in found.carried.items()
+    )
+    board = dataclasses.replace(board, verbatim=(*board.verbatim, *items))
+    return dataclasses.replace(design, board=board)
 
 
 def _placed_models(source: SourceProject, design: Design, name: str, copied: Copies | None = None) -> Placed:

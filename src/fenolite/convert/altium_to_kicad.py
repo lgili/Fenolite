@@ -19,7 +19,7 @@ from fenolite.core.ids import derived_id
 from fenolite.core.libnames import FREE_PAD_PREFIX, library_name
 from fenolite.core.units import Nm
 from fenolite.model.base import ExtBag
-from fenolite.model.board import Board, FootprintInstance, Layer, Pad
+from fenolite.model.board import Board, FootprintInstance, Graphic, Keepout, Layer, Pad
 from fenolite.model.circuit import Component, Net, PinRef
 from fenolite.model.design import Design
 from fenolite.model.library import FootprintDef, ModelPlacement, SymbolDef
@@ -248,7 +248,6 @@ def keepouts(design: Design, ledger: Ledger, restrictions: Mapping[str, int] | N
     (``keepout_lines.marker``), so the Altium writer gives it back as that stroke (change c0442)."""
     from fenolite.backends.altium import keepout_lines
     from fenolite.geometry.errors import GeometryError
-    from fenolite.model.board import Keepout
 
     board = design.board
     assert board is not None
@@ -626,6 +625,74 @@ def board_mask(board: Board, margins: Mapping[str, Nm], ledger: Ledger, scoped: 
     return dataclasses.replace(board, footprints=footprints, mask_margin=margin)
 
 
+def _fill_ids(board: Board | None) -> frozenset[str]:
+    """The ids of the graphics of ``board``, a board's and a footprint's, read from an Altium fill."""
+    from fenolite.backends.altium import fills
+
+    if board is None:
+        return frozenset()
+    graphics = (*board.graphics, *(g for fp in board.footprints for g in fp.graphics))
+    return frozenset(g.id for g in graphics if fills.read_fill(g))
+
+
+def _marked_fills(board: Board, ids: frozenset[str]) -> Board:
+    """``board`` whose graphics of ``ids`` (``_fill_ids`` of the source, which ``_clean`` leaves without
+    provenance) carry the fill marker as their KiCad uuid (change c0450, ``backends.altium.fills``), so that
+    a conversion back writes them as fills."""
+    from fenolite.backends.altium import fills
+
+    def mark(graphic: Graphic) -> Graphic:
+        return fills.marked(graphic) if graphic.id in ids else graphic
+
+    footprints = tuple(
+        dataclasses.replace(fp, graphics=tuple(mark(g) for g in fp.graphics)) for fp in board.footprints
+    )
+    return dataclasses.replace(board, graphics=tuple(mark(g) for g in board.graphics), footprints=footprints)
+
+
+def stroke_names(board: Board | None) -> dict[str, str]:
+    """The marker name (``keepout_lines.marker``) of each rule area of ``board``, a board's or a footprint's,
+    that a keep-out stroke of copper gave, by area id: built from the stroke in the pair ``stroke`` of its
+    Altium bag (``adapter.copper.STROKE_KEY``), the first area of a stroke its first ring, and kept when the
+    area is that ring of the stroke's band (``keepout_lines.intact``; change c0450)."""
+    from fenolite.backends.altium import keepout_lines
+    from fenolite.backends.altium.adapter.copper import STROKE_KEY
+
+    if board is None:
+        return {}
+    names: dict[str, str] = {}
+    for areas in (board.keepouts, *(fp.keepouts for fp in board.footprints)):
+        seen: dict[str, int] = {}
+        for area in areas:
+            held = area.ext.get("altium")
+            value = next((v for k, v in held.payload if k == STROKE_KEY), None) if held is not None else None
+            if not value or not area.layers:
+                continue
+            found = keepout_lines.read_stroke(value, area.layers[0])
+            if found is None:
+                continue
+            part = seen.get(value, 0)
+            seen[value] = part + 1
+            name = keepout_lines.marker(found[0], part, restrictions=found[1])
+            if name is not None and keepout_lines.intact(area, name):
+                names[area.id] = name
+    return names
+
+
+def _named_strokes(board: Board, names: Mapping[str, str]) -> Board:
+    """``board`` whose rule areas of ``names`` (``stroke_names`` of the source, which ``_clean`` leaves
+    without a bag) carry their stroke's marker as their name and no other name (change c0450,
+    ``backends.altium.keepout_lines``): a conversion back writes each as its keep-out track or arc."""
+    if not names:
+        return board
+
+    def name(areas: tuple[Keepout, ...]) -> tuple[Keepout, ...]:
+        return tuple(dataclasses.replace(a, name=names[a.id]) if a.id in names else a for a in areas)
+
+    footprints = tuple(dataclasses.replace(fp, keepouts=name(fp.keepouts)) for fp in board.footprints)
+    return dataclasses.replace(board, keepouts=name(board.keepouts), footprints=footprints)
+
+
 def prepare(source: SourceProject, name: str, target: int, ledger: Ledger) -> Design:
     from fenolite.backends.kicad._fpmap import aligned_slot_pad
     from fenolite.convert import openings
@@ -655,6 +722,8 @@ def prepare(source: SourceProject, name: str, target: int, ledger: Ledger) -> De
     )
     board = design.board
     assert board is not None
+    board = _marked_fills(board, _fill_ids(source.design.board))
+    board = _named_strokes(board, stroke_names(source.design.board))
     refs = {component.id: component.ref for component in design.circuit.components}
     allocated: dict[str, str] = {}
     used: set[str] = set()

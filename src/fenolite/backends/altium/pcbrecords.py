@@ -62,6 +62,9 @@ VIA = 3
 REGION = 11
 BODY = 12
 TRACK_SIZE = 36
+FILL = 6
+FILL_SIZE = 50
+"""The fill subrecord in the long form of the public census (change c0450; ``pcb-records.md``, "Fills")."""
 ARC_SIZE = 47
 VIA_SIZE = 321
 """The via subrecord in the form Altium saves (``pcb-copper.md``, "Via")."""
@@ -434,15 +437,67 @@ def track_record(
     net: int = NO_INDEX,
     component: int = NO_INDEX,
     locked: bool = False,
+    keepout: tuple[int, int] | None = None,
 ) -> bytes:
     """A track (type 4): one subrecord of 36 bytes; points and width in binary units. ``locked`` writes the
-    locked flag when ``track`` is in ``LOCK_WRITTEN``."""
+    locked flag when ``track`` is in ``LOCK_WRITTEN``. ``keepout``, ``(long layer id, restriction byte)``,
+    writes a keep-out track (change c0450) in the 49-byte form (``keepout_tail``)."""
     held = lock_written("track", locked)
-    body = prefix(layer, net=net, component=component, locked=held) + struct.pack(
-        "<5iHB", *a, *b, width, 0, 0
-    )
+    head = prefix(layer, net=net, component=component, locked=held)
+    body = _flagged(head, keepout) + struct.pack("<5iHB", *a, *b, width, 0, 0)
     assert len(body) == TRACK_SIZE
-    return bytes((TRACK,)) + subrecord(body)
+    return bytes((TRACK,)) + subrecord(body + keepout_tail(keepout))
+
+
+KEEPOUT_TAIL = 13
+"""The bytes that the long form of a track (49 bytes) or an arc (60) adds to the short form
+(``keepout_tail``)."""
+
+
+def _flagged(head: bytes, keepout: tuple[int, int] | None) -> bytes:
+    """``head``, a prefix, with the keep-out flag as its second flag byte when ``keepout`` is given."""
+    if keepout is None:
+        return head
+    flagged = bytearray(head)
+    flagged[2] = KEEPOUT_FLAG
+    return bytes(flagged)
+
+
+def keepout_tail(keepout: tuple[int, int] | None) -> bytes:
+    """The 13 bytes after the short form of a keep-out track or arc (``pcb-records.md``, "Regions and
+    keep-outs"; S-0580, S-2093): five zero bytes, the long layer id (32-bit), the restriction byte (0 to 31)
+    and three zero bytes, as every keep-out arc of the public rows holds them; none without ``keepout``."""
+    if keepout is None:
+        return b""
+    long_layer, restrictions = keepout
+    if not 0 <= restrictions <= 0x1F:
+        raise ValueError(f"the keep-out restrictions {restrictions} are outside 0 … 31")
+    return bytes(5) + struct.pack("<IB", long_layer, restrictions) + bytes(3)
+
+
+def fill_record(
+    layer: int,
+    long_layer: int,
+    a: tuple[int, int],
+    b: tuple[int, int],
+    rotation: float,
+    *,
+    net: int = NO_INDEX,
+    component: int = NO_INDEX,
+) -> bytes:
+    """A fill (type 6; change c0450): one subrecord of 50 bytes, the form of 68 of the 70 fills of the public
+    rows (S-2091): the prefix, the corners ``a`` and ``b`` in binary units, the rotation about their centre
+    in degrees as a double at 29, five zero bytes, the long layer id ``long_layer`` at 42, the restriction
+    byte 0 (no keep-out) at 46 and three zero bytes."""
+    body = (
+        prefix(layer, net=net, component=component)
+        + struct.pack("<4id", *a, *b, rotation)
+        + bytes(5)
+        + struct.pack("<I", long_layer)
+        + bytes(4)
+    )
+    assert len(body) == FILL_SIZE
+    return bytes((FILL,)) + subrecord(body)
 
 
 def arc_record(
@@ -453,14 +508,17 @@ def arc_record(
     net: int = NO_INDEX,
     component: int = NO_INDEX,
     locked: bool = False,
+    keepout: tuple[int, int] | None = None,
 ) -> bytes:
     """An arc (type 1): one subrecord of 47 bytes. ``locked`` writes the locked flag when ``arc`` is in
-    ``LOCK_WRITTEN``."""
-    body = prefix(layer, net=net, component=component, locked=lock_written("arc", locked)) + struct.pack(
+    ``LOCK_WRITTEN``. ``keepout``, ``(long layer id, restriction byte)``, writes a keep-out arc (change
+    c0450) in the 60-byte form (``keepout_tail``)."""
+    head = prefix(layer, net=net, component=component, locked=lock_written("arc", locked))
+    body = _flagged(head, keepout) + struct.pack(
         "<3iddiH", arc.cx, arc.cy, arc.radius, arc.start, arc.end, width, 0
     )
     assert len(body) == ARC_SIZE
-    return bytes((ARC,)) + subrecord(body)
+    return bytes((ARC,)) + subrecord(body + keepout_tail(keepout))
 
 
 VIA_START, VIA_END = 1, 32
@@ -1261,7 +1319,11 @@ __all__ = [
     "BOARD_LAYER_MAP",
     "BOTTOM_LAYER",
     "BOTTOM_SIDE",
+    "FILL",
+    "FILL_SIZE",
     "KEEPOUT_FLAG",
+    "KEEPOUT_TAIL",
+    "fill_record",
     "KEEPOUT_LAYER",
     "MAX_COPPER",
     "MAX_PLANES",
@@ -1274,6 +1336,7 @@ __all__ = [
     "FULL_CIRCLE_UDEG",
     "cutout_region",
     "hole_record",
+    "keepout_tail",
     "layer_text",
     "region_record",
     "stack_problem",

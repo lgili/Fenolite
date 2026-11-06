@@ -34,6 +34,8 @@ import struct
 import zlib
 from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, field
+from decimal import ROUND_HALF_EVEN, Decimal, localcontext
+from decimal import Context as DecimalContext
 from fractions import Fraction
 from typing import Final, Literal
 
@@ -53,7 +55,7 @@ from fenolite.backends.altium.docboard import (
     polygon_fields,
     split_plane_fields,
 )
-from fenolite.backends.altium.libboard import guid
+from fenolite.backends.altium.libboard import guid, long_id
 from fenolite.backends.altium.pcblib import (
     BODY_IS_MODEL,
     BODY_NO_OUTLINE,
@@ -342,6 +344,12 @@ class ComponentGraphic:
     net: str | None = None
     """The name of the net of a copper graphic (change c0454): its records hold that net's index, as a pad's
     do; ``None`` writes them without a net (``0xFFFF``)."""
+    fill: bool = False
+    """Whether the graphic, a filled rectangle, is written as a fill record of the component (change c0450;
+    ``fill_geometry``) instead of a region."""
+    keepout: int | None = None
+    """The restriction byte of a keep-out stroke (change c0450; ``keepout_lines``): a line, an arc or a circle
+    written as a keep-out track or arc of the component, in the long form with that byte."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -683,6 +691,17 @@ class PcbDocSpec:
     written with instead of the ones derived from its three points (change c0127): the record that an
     imported arc was read from, when the caller found that it still says the entity's points. Empty: every
     arc is derived from its points, as a build writes it."""
+    kept_storages: Mapping[str, tuple[bytes, bytes]] = field(default_factory=lambda: {})
+    """Storages a conversion carried from an Altium document through KiCad (change c0450,
+    ``convert.altium_storages``), by name: their ``Header`` and ``Data`` streams, written as they were. The
+    name ``Classes6.Component`` holds component-class records that join ``Classes6``, but for a class whose
+    name a written class holds."""
+    fill_ids: frozenset[str] = frozenset()
+    """The ids of the filled graphics of ``graphics`` that are written as fill records, not regions (change
+    c0450): fills read from an Altium document, which a conversion marks (``lower.fill_ids``)."""
+    keepout_strokes: Mapping[str, int] = field(default_factory=lambda: {})
+    """The restriction byte of each graphic of ``graphics`` that is a keep-out stroke of copper, by id
+    (change c0450; ``keepout_lines.flags``): written as a keep-out track or arc of the long form."""
     via_protection: ViaProtection | None = None
     """The board's default via protection (change c0112): a tenting side that a via of ``vias`` leaves at
     ``None`` takes its flag from here, and from nothing (a clear flag) when this states none either."""
@@ -1039,6 +1058,48 @@ class _Placed:
     box: tuple[int, int, int, int]
     regions: list[bytes] = field(default_factory=lambda: [])
     shapes: list[bytes] = field(default_factory=lambda: [])
+    fills: list[bytes] = field(default_factory=lambda: [])
+
+
+FILL_MATCH = 4
+"""How far, in binary units (4 × 2.54 nm, about 10 nm), the sides and diagonals of a four-corner ring may
+differ and the ring still be a rectangle that a fill record holds (change c0450)."""
+
+
+def fill_geometry(
+    ring: Sequence[tuple[int, int]],
+) -> tuple[tuple[int, int], tuple[int, int], float] | None:
+    """The corners and the rotation of the fill record of a four-corner ring in binary units (change c0450),
+    or ``None`` when the ring is no rectangle within ``FILL_MATCH``. The corners lie about the ring's centre,
+    the first edge's length across and the second's down, and the rotation is the first edge's angle in
+    degrees, counter-clockwise in Altium's frame (``pcb-read.md``, "A fill (type 6)"). A rectangle is
+    symmetric about its centre, so the ring's winding does not change the shape."""
+    if len(ring) != 4:
+        return None
+    corners = list(ring)
+
+    def length(a: tuple[int, int], b: tuple[int, int]) -> Decimal:
+        with localcontext(DecimalContext(prec=40, rounding=ROUND_HALF_EVEN)):
+            return Decimal((b[0] - a[0]) ** 2 + (b[1] - a[1]) ** 2).sqrt()
+
+    c0, c1, c2, c3 = corners
+    width, height = length(c0, c1), length(c1, c2)
+    if min(width, height) <= 0:
+        return None
+    pairs = ((width, length(c2, c3)), (height, length(c3, c0)), (length(c0, c2), length(c1, c3)))
+    if any(abs(one - other) > FILL_MATCH for one, other in pairs):
+        return None
+    cx = Fraction(sum(x for x, _ in corners), 4)
+    cy = Fraction(sum(y for _, y in corners), 4)
+    # exact, as every angle the writer computes (no ``math`` in the Altium backend)
+    rotation = rec.angle_degrees(c1[0] - c0[0], c1[1] - c0[1])
+    nearest = round(rotation)
+    if abs(rotation - nearest) < 1e-9:
+        rotation = float(nearest % 360)
+    half_w, half_h = Fraction(width) / 2, Fraction(height) / 2
+    a = (round(cx - half_w), round(cy - half_h))
+    b = (round(cx + half_w), round(cy + half_h))
+    return a, b, rotation
 
 
 def _extend(box: list[int], x: int, y: int, reach: int = 0) -> None:
@@ -1132,6 +1193,8 @@ def place_component(
     for item in component.items:  # as the instance holds them: no mirror, no layer flip (change c0126)
         graphic = item.graphic
         net = nets.get(item.net, rec.NO_INDEX) if item.net is not None else rec.NO_INDEX
+        # a keep-out stroke of copper (change c0450): the long form with the flag and the restriction byte
+        flagged = (long_id(item.layer), item.keepout) if item.keepout is not None else None
         where = [frame(plain.apply(p)) for p in graphic.points]
         if graphic.kind in ("rect", "polygon"):
             if graphic.kind == "rect":
@@ -1151,6 +1214,11 @@ def place_component(
                             board_cutout=True,
                         )  # fmt: skip
                     )
+            elif graphic.filled and item.fill and (shape := fill_geometry(corners)) is not None:
+                a, b, turn = shape
+                placed.fills.append(
+                    rec.fill_record(item.layer, long_id(item.layer), a, b, turn, net=net, component=index)
+                )
             elif graphic.filled:
                 placed.regions.append(rec.region_record(item.layer, corners, component=index, net=net))
                 placed.shapes.append(
@@ -1166,17 +1234,18 @@ def place_component(
         elif graphic.kind == "line":
             a, b = (_units(point) for point in where)
             tracks.append(
-                rec.track_record(item.layer, a, b, rec.to_units(graphic.width), net=net, component=index)
-            )
-        elif graphic.kind == "circle":
-            geometry = rec.circle_geometry(where[0], where[1])
-            arcs.append(
-                rec.arc_record(item.layer, geometry, rec.to_units(graphic.width), net=net, component=index)
+                rec.track_record(
+                    item.layer, a, b, rec.to_units(graphic.width), net=net, component=index, keepout=flagged
+                )
             )
         else:
-            geometry = item.arc or rec.arc_from_points(*where)
+            if graphic.kind == "circle":
+                geometry = rec.circle_geometry(where[0], where[1])
+            else:
+                geometry = item.arc or rec.arc_from_points(*where)
+            width = rec.to_units(graphic.width)
             arcs.append(
-                rec.arc_record(item.layer, geometry, rec.to_units(graphic.width), net=net, component=index)
+                rec.arc_record(item.layer, geometry, width, net=net, component=index, keepout=flagged)
             )
     return placed
 
@@ -1468,6 +1537,7 @@ class _Free:
     regions: list[bytes] = field(default_factory=lambda: [])
     shapes: list[bytes] = field(default_factory=lambda: [])
     pads: list[bytes] = field(default_factory=lambda: [])
+    fills: list[bytes] = field(default_factory=lambda: [])
 
     def cutout(self, ring: Sequence[Point], frame: Frame) -> None:
         vertices = [_units(frame(point)) for point in ring]
@@ -1533,9 +1603,20 @@ def free_records(spec: PcbDocSpec, copper: _Copper) -> _Free:
                 ring = [s, Point(e.x, s.y), e, Point(s.x, e.y)]
             else:
                 ring = _ring(graphic.points)
+            shape = (
+                fill_geometry([_units(frame(point)) for point in ring])
+                if graphic.id in spec.fill_ids
+                else None
+            )
+            if shape is not None:  # a fill read from Altium stays a fill (change c0450)
+                a, b, turn = shape
+                out.fills.append(rec.fill_record(layer, long_id(layer), a, b, turn, net=net))
+                continue
             out.region(layer, ring, frame, net=net)
             continue
         width = rec.to_units(graphic.width)
+        byte = spec.keepout_strokes.get(graphic.id)
+        flagged = (long_id(layer), byte) if byte is not None else None  # a keep-out stroke (change c0450)
         if graphic.kind in ("polygon", "rect"):
             if graphic.kind == "rect":
                 s, e = graphic.points
@@ -1547,14 +1628,15 @@ def free_records(spec: PcbDocSpec, copper: _Copper) -> _Free:
                 out.tracks.append(rec.track_record(layer, a, b, width, net=net))
         elif graphic.kind == "line":
             a, b = (_units(frame(point)) for point in graphic.points)
-            out.tracks.append(rec.track_record(layer, a, b, width, net=net))
+            out.tracks.append(rec.track_record(layer, a, b, width, net=net, keepout=flagged))
         elif graphic.kind == "circle":
             centre, edge = (frame(point) for point in graphic.points)
-            out.arcs.append(rec.arc_record(layer, rec.circle_geometry(centre, edge), width, net=net))
+            geometry = rec.circle_geometry(centre, edge)
+            out.arcs.append(rec.arc_record(layer, geometry, width, net=net, keepout=flagged))
         else:
             start, mid, end = (frame(point) for point in graphic.points)
             geometry = kept or rec.arc_from_points(start, mid, end)
-            out.arcs.append(rec.arc_record(layer, geometry, width, net=net))
+            out.arcs.append(rec.arc_record(layer, geometry, width, net=net, keepout=flagged))
     names = list(copper.layers)
     for keepout in sorted(spec.keepouts, key=lambda k: ([_xy(p) for p in k.outline], k.layers, k.id)):
         problem = keepout_problem(keepout, names)
@@ -2212,6 +2294,7 @@ def _write(
     wide: list[bytes] = []
     regions: list[bytes] = []
     shapes: list[bytes] = []
+    fills: list[bytes] = []
     offsets = channel_offsets(spec.components)
     for index, component in enumerate(spec.components):
         components.append(_component_record(component, offsets[index], frame, filename))
@@ -2221,6 +2304,7 @@ def _write(
         arcs += placed.arcs
         regions += placed.regions
         shapes += placed.shapes
+        fills += placed.fills
         local = Transform.placement(component.at, component.rotation)
         x0, y0, x1, y1 = placed.box
         middle = (x0 + x1) // 2
@@ -2301,6 +2385,7 @@ def _write(
     pads += free.pads
     filled["Regions6"] = [*regions, *free.regions, *(plain for plain, _ in pour_records)]
     filled["ShapeBasedRegions6"] = [*shapes, *free.shapes, *(shape for _, shape in pour_records)]
+    filled["Fills6"] = [*fills, *free.fills]
     more_texts, more_wide = free_texts(spec, frame, len(texts))
     texts += more_texts
     wide += more_wide
@@ -2322,7 +2407,16 @@ def _write(
     used = sorted(
         {
             record_layer(record)
-            for record in (*pads, *tracks, *arcs, *texts, *filled["Vias6"], *regions, *free.regions)
+            for record in (
+                *pads,
+                *tracks,
+                *arcs,
+                *texts,
+                *filled["Vias6"],
+                *regions,
+                *free.regions,
+                *filled["Fills6"],
+            )
         }
         | poured
         | {body.layer for body in spec.bodies}
@@ -2367,11 +2461,48 @@ def _write(
         _storage(UNIQUE_STORAGE, unique),
     ]
     entries += _option_storages(filename)
+    kept = dict(spec.kept_storages)
+    classes = kept.pop(KEPT_CLASSES, None)
+    if classes is not None:
+        filled["Classes6"] += _kept_classes(filled["Classes6"], classes[1])
+    written = {name.casefold() for name in _TAIL_ORDER}
+    for name, (header, data) in sorted(kept.items()):
+        if name.casefold() not in written and text_problem(name) is None:
+            entries.append(Storage(name, (("Header", header), ("Data", data))))
     entries += [
         model_storage(spec) if name == MODELS_STORAGE else _storage(name, filled.get(name, []))
         for name in _TAIL_ORDER
     ]
     return write_compound(entries)
+
+
+KEPT_CLASSES = "Classes6.Component"
+"""The kept storage that holds component-class records (change c0450)."""
+
+
+def _class_name(record: bytes) -> str:
+    text = record[4:].rstrip(b"\x00").decode("latin-1")
+    for part in text.split("|"):
+        key, sep, value = part.partition("=")
+        if sep and key.strip().upper() == "NAME":
+            return value
+    return ""
+
+
+def _kept_classes(written: Sequence[bytes], data: bytes) -> list[bytes]:
+    """The length-prefixed records of ``data`` whose class name no record of ``written`` holds."""
+    names = {_class_name(record).casefold() for record in written}
+    found: list[bytes] = []
+    at = 0
+    while at + 4 <= len(data):
+        (length,) = struct.unpack_from("<I", data, at)
+        record = data[at : at + 4 + length]
+        at += 4 + length
+        name = _class_name(record)
+        if name and name.casefold() not in names:
+            names.add(name.casefold())
+            found.append(record)
+    return found
 
 
 # --- computed pours (change c0215) --------------------------------------------------------------------------

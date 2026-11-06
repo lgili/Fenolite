@@ -25,6 +25,7 @@ and keep-outs"). A primitive of a component is in the board's frame there, not i
 
 from __future__ import annotations
 
+import dataclasses
 import re
 from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
@@ -78,6 +79,9 @@ KEEPOUT_FLAG = 2
 EVERY_RESTRICTION = 0x1F
 """The restrictions of a keep-out that holds no value: KiCad takes 31, every restriction (``pcb-records.md``,
 "Regions and keep-outs"); the 36-byte track holds none."""
+STROKE_KEY = "stroke"
+"""The bag key of a keep-out stroke's rule area: the stroke as read, ``<kind>/<x>/<y>/…/<width>/<r>``, with
+its restriction byte r (change c0450; ``_marked_stroke``)."""
 RESTRICTION_KEYS = ("KEEPOUTRESTRICTIONS", "KEEPOUTRESTRIC")
 """The keys of a keep-out region's restrictions: Altium's own first, then the one KiCad's importer reads."""
 POLYGON_CUTOUT_KIND = "1"
@@ -181,10 +185,10 @@ def _keepout(
     section: str,
     into: list[Keepout] | None = None,
     frame: Transform | None = None,
-) -> None:
-    """One rule area in ``into`` (``ctx.keepouts`` by default); the bits of ``restrictions`` as the
-    writer's ``KEEPOUT_BITS``: 1 vias, 2 tracks, 4 poured copper, 8 and 16 together pads. ``frame`` maps
-    each point into a footprint's pad frame (change c0411)."""
+) -> Keepout:
+    """One rule area in ``into`` (``ctx.keepouts`` by default), which it returns; the bits of
+    ``restrictions`` as the writer's ``KEEPOUT_BITS``: 1 vias, 2 tracks, 4 poured copper, 8 and 16 together
+    pads. ``frame`` maps each point into a footprint's pad frame (change c0411)."""
     if frame is not None:
         outline = tuple(frame.apply(p) for p in outline)
     (ctx.keepouts if into is None else into).append(
@@ -199,6 +203,7 @@ def _keepout(
             no_pads=restrictions & 0x18 == 0x18,
         )
     )
+    return (ctx.keepouts if into is None else into)[-1]
 
 
 def _corners(kind: GraphicKind, points: Sequence[Point]) -> tuple[Point, ...]:
@@ -235,7 +240,11 @@ def _stroke_keepout(
 ) -> None:
     """A keep-out track (``line``), arc or circle on copper as the rule areas of the band its ``width``
     covers, one per stroke (two for a circle), with ``restrictions`` (``record_restrictions`` of its
-    record). A stroke that covers no area is bad geometry. ``into`` and ``frame`` as ``_keepout``."""
+    record). A stroke that covers no area is bad geometry. ``into`` and ``frame`` as ``_keepout``.
+
+    Each area keeps its stroke and restriction byte in the pair ``stroke`` of its bag (``_marked_stroke``):
+    a conversion to KiCad names the area after it, and the Altium writer gives it back as the stroke (change
+    c0450)."""
     try:
         if kind == "line":
             rings = [segment_band(points[0], points[1], width)]
@@ -246,9 +255,27 @@ def _stroke_keepout(
     except GeometryError as error:
         _bad(ctx, census, f"a keep-out {kind} covers no area ({error})", locator)
         return
-    for ring in rings:
-        _keepout(ctx, (layer,), ring, restrictions, locator, section, into, frame)
+    areas = [_keepout(ctx, (layer,), ring, restrictions, locator, section, into, frame) for ring in rings]
+    held = ctx.keepouts if into is None else into
+    held[len(held) - len(areas) :] = _marked_stroke(areas, kind, points, width, restrictions, frame)
     ctx.census.map(census)
+
+
+def _marked_stroke(
+    areas: Sequence[Keepout],
+    kind: GraphicKind,
+    points: Sequence[Point],
+    width: int,
+    restrictions: int,
+    frame: Transform | None,
+) -> list[Keepout]:
+    """``areas``, the rule areas of one keep-out stroke, each with the stroke in the pair ``stroke`` of its
+    bag: ``<kind>/<x>/<y>/…/<width>/<restrictions>``, its points in the frame of the areas (change c0450).
+    A conversion to KiCad names the areas after it (``convert.altium_to_kicad``)."""
+    placed = tuple(frame.apply(p) for p in points) if frame is not None else tuple(points)
+    numbers = [n for p in placed for n in (p.x, p.y)] + [width, restrictions]
+    value = kind + "".join(f"/{n}" for n in numbers)
+    return [dataclasses.replace(area, ext=bag([(STROKE_KEY, value)])) for area in areas]
 
 
 def _region_keepout(
