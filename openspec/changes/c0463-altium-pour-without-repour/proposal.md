@@ -40,6 +40,9 @@ unpoured on lote-28. Altium's Repour All fills all 28.
   - The written regions keep the outline's arcs as Altium saves them. The pour regions are chords, as
     Altium saves them (S-2221).
   - `outline-arc` stays a reason only for an arc the reader cannot read.
+  - A conversion or a rewrite never drops an arc polygon. KiCad and the model carry its outline
+    chorded by `ARCRESOLUTION`. The way back writes the source's arcs while the outline still matches
+    them, else the chords, reported `changed` (task 1.3, D1a).
 - **Outlines that are not simple rings.** Self-touching outlines and repeated vertices are made simple by
   the rule the saved pours of the corpus show (S-2222). A self-crossing outline still refuses `outline`,
   unless the corpus or a kit sample shows Altium's handling.

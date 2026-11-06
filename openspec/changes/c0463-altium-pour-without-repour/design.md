@@ -24,6 +24,27 @@ The pour then runs as for any ring.
 - The written regions are chords, which is how Altium saves them (S-2221).
 - An arc of zero radius or of a sweep the reader cannot place still refuses `outline-arc`.
 
+### D1a: arc polygons through a conversion (task 1.3)
+
+What happens before this change (checked on row -02 at 3debc42c3):
+
+- `convert --to kicad` and `import --to python` give an arc zone the outline of its polygon record,
+  flattened at KiCad's chord error of 5000 nm (`altium_to_kicad.zone_outlines`), and report it `changed`.
+  5000 nm is within `ARCRESOLUTION` for 0.5 mil but not for 0.0394 mil.
+- `convert --to altium` of that board writes the chords as line vertices: 114 vertices in place of 18, with
+  no reported difference.
+- A model zone with no outline that reaches the Altium writer directly is skipped (`lower.py`): RT-A3
+  (`model_roundtrip`) and an API write of an Altium reading. The polygon is then gone from the written
+  document.
+
+The change:
+
+- Everywhere the model gets an arc zone, its outline is the ring of `pour.record_outline`, chorded by the
+  polygon's own `ARCRESOLUTION`. No path drops it.
+- The source's arc vertices travel in a board property beside the zone, keyed by the polygon's `UNIQUEID`
+  (the c0450 carrier pattern). The way back writes them when the zone's outline still equals the chorded
+  ring of the carried vertices. Otherwise it writes the outline's chords and reports the zone `changed`.
+
 ## D2: outlines that are not simple
 
 The corpus's two `outline` refusals are inspected first (task 2.1). A ring that touches itself at a

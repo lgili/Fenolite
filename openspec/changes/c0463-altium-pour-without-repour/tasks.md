@@ -20,6 +20,11 @@ Rules for every task:
   `uv run pytest tests/unit/backends/altium/test_pour_outline_c0463.py -k arc -q -n 0`. The pour leaves the record as read.
   A build or conversion still cannot write an arc polygon: the model holds no outline for it, and
   `lower.py` skips the zone (reported to the coordinator).
+- [ ] 1.3 Arc polygons through a conversion (D1a): the model and KiCad carry the outline chorded by
+  `ARCRESOLUTION`; nothing drops an arc polygon; the way back writes the source's arc vertices while the
+  outline still matches them, else the chords as a reported `changed` zone. Repin the conversion census.
+  Proof: `uv run pytest tests/unit/convert/test_altium_zone_arcs_c0463.py -q -n 0`, then
+  `tests/corpus/test_convert_altium_census.py` (corpus job).
 
 ## 2. Outlines
 
