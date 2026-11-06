@@ -1288,6 +1288,7 @@ All notable changes to Fenolite are documented here. The format follows
 
 ### Fixed
 
+- Docs: source row S-2100 and the archived c0451 proposal and design name a generic special string (`.MY_TAG`) as their example.
 - **Coincident tracks in strict level 5** (c0401): tracks, arcs or vias with the same key now match first
   with an item whose width, net and lock are equal, so two coincident tracks of different widths written
   in another order are no longer reported as two `track-width` differences. A changed width is still

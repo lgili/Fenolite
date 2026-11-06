@@ -4,7 +4,7 @@
 
 Owner-board evidence (generic, S-2100) of what Altium → KiCad → Altium loses: empty footprint texts; a
 footprint's Value (comment) field on a mechanical layer or hidden; the components' footprint and symbol
-library names, renamed to the project's; special strings such as `.PCB_CODE` that name no project
+library names, renamed to the project's; special strings such as `.MY_TAG` that name no project
 parameter, written to KiCad as literal text. Measured on the public rows (S-2101, `origin/cac/lote-26`
 e55b7cd5e):
 
@@ -22,7 +22,7 @@ e55b7cd5e):
 - **Special strings.** A board text that names a project parameter is written to KiCad as `${NAME}`, but the
   KiCad → Altium conversion writes `${NAME}` as typed and no `[Parameter<n>]`: the blink sample with
   `REV_CODE` comes back with the text `${REV_CODE}` and no parameter. A special string that names no
-  parameter (`.PCB_CODE`) is written to KiCad as typed, so KiCad cannot resolve it from a variable.
+  parameter (`.MY_TAG`) is written to KiCad as typed, so KiCad cannot resolve it from a variable.
 
 ## What Changes
 

@@ -27,6 +27,6 @@ footprint library in KiCad's own link, but not the symbol, and changes every lib
 ## Special strings
 
 KiCad shows `${NAME}` as typed while the project does not define it, as Altium shows an unknown special
-string. Writing `.PCB_CODE` as `${PCB_CODE}` lets a KiCad user define it, and gives the way back one rule:
+string. Writing `.MY_TAG` as `${MY_TAG}` lets a KiCad user define it, and gives the way back one rule:
 `${NAME}` is `.NAME`. KiCad's predefined variables of a board go back to the predefined special strings of
 the same meaning (S-1870, S-1871), in the case the Altium documentation writes.
