@@ -23,8 +23,9 @@
 
 - [x] 3.1 The conversion to KiCad counts each Split Plane polygon of a plane in the chain lost under
   `plane`. Proof: `uv run pytest tests/unit/convert/test_altium_classes_c0461.py -n 0 -k plane`.
-- [ ] 3.2 `tests/corpus/test_convert_altium_census.py`: rows `-01` (8) and `-02` (5) gain `plane` losses
+- [x] 3.2 `tests/corpus/test_convert_altium_census.py`: rows `-01` (8) and `-02` (5) gain `plane` losses
   (CI: corpus job).
+  - 2026-11-06: both pins are in the census; it passes on lote-29 4b6bad6ca with FENOLITE_HEAVY=1.
 
 ## 4. Evidence and docs
 
