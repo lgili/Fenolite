@@ -975,6 +975,7 @@ All notable changes to Fenolite are documented here. The format follows
 
 ### Fixed
 
+- c0463 task 5.2: the pour reads Altium's default keep-out clearance whether its scope names the layer `Keep-Out Layer` or `KeepOutLayer`; on the maintainer's board in flow B every polygon then pours instead of every one being refused.
 - Docs: source row S-2100 and the archived c0451 proposal and design name a generic special string (`.MY_TAG`) as their example.
 - **Coincident tracks in strict level 5** (c0401): tracks, arcs or vias with the same key now match first
   with an item whose width, net and lock are equal, so two coincident tracks of different widths written

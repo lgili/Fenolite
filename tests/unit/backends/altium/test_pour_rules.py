@@ -197,12 +197,16 @@ def test_an_edge_matrix_whose_edges_differ_is_read_for_the_pour() -> None:
     assert not matrix_problem(judged, "11.811mil", edges=True)
 
 
-def test_the_default_keep_out_clearance_governs_only_keep_outs(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize("layer", ["Keep-Out Layer", "KeepOutLayer"])
+def test_the_default_keep_out_clearance_governs_only_keep_outs(
+    monkeypatch: pytest.MonkeyPatch, layer: str
+) -> None:
     """Altium's default keep-out clearance (a scope of keep-out and cut-out terms against ``All``) at
     priority 1 is refused by the import for its scope; the pour reads it as the clearance between a keep-out
-    and any object, so it refuses no other pair (task 5.2, flow B)."""
+    and any object, so it refuses no other pair (task 5.2, flow B). The layer is named with and without
+    spaces, as Altium writes it either way."""
     original = pcbdoc.rule_records
-    scope = "OnLayer('Keep-Out Layer') or IsKeepOut or IsBoardCutoutRegion"
+    scope = f"OnLayer('{layer}') or IsKeepOut or IsBoardCutoutRegion"
 
     def records(spec: pcbdoc.PcbDocSpec, filename: str) -> list[bytes]:
         keys = [

@@ -910,7 +910,8 @@ def _polygon_only(first: str | None, second: str | None) -> str | None:
 
 
 KEEPOUT_TERMS = re.compile(
-    r"\(*\s*(?:IsKeepOut|IsBoardCutoutRegion|OnLayer\(\s*'Keep[- ]?Out(?: Layer)?'\s*\))\s*\)*", re.IGNORECASE
+    r"\(*\s*(?:IsKeepOut|IsBoardCutoutRegion|OnLayer\(\s*'Keep[- ]?Out(?: ?Layer)?'\s*\))\s*\)*",
+    re.IGNORECASE,
 )
 """A term of Altium's keep-out scope: a keep-out object, a board cut-out, or the Keep-Out layer."""
 
