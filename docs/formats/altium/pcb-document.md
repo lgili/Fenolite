@@ -239,7 +239,8 @@ Designer from inputs authored for Fenolite (Part Q of `docs/evidence/altium-pcb.
   c0467): it is written at its KiCad coordinates, Y negated, with `ORIGINX`/`ORIGINY` at the carried
   origin moved with the edge's corner, unless a point of the outline would lie at a negative coordinate
   (then as above, and one `outline` change). Six of the seven public rows hold their origin away from the
-  outline's corner (S-2260).
+  outline's corner (S-2260). The outline's start vertex and direction are not carried: Altium Designer
+  reads the same shape, from another vertex and on row `-07` the other way round (S-2263).
 - Nets are written in name order with the 15 keys of the table (`VISIBLE=TRUE`, `COLOR=7709086`);
   components in component-path order with the 25 keys of the table. `SOURCEUNIQUEID` is `\` followed by
   the schematic `UNIQUEID`, `SOURCEHIERARCHICALPATH` is empty, `NAMEON=TRUE`, `COMMENTON=FALSE`,

@@ -25,5 +25,7 @@
 
 ## 4. Kit
 
-- [ ] 4.1 Altium opens the round trip of row `-04`: the outline box relative to the origin equals the
-  source's (S-2263).
+- [x] 4.1 Altium opens the round trip of row `-04`: the outline box relative to the origin equals the
+  source's (S-2263). Altium Designer 24.5.2.23 at bbe4c452b (altium-rounds-2): origin, outline box and
+  component X and Y equal on rows `-01`, `-04`, `-07` and `-08`. Recorded difference, equivalent geometry:
+  the outline's start vertex and direction (S-2263, `pcb-document.md`).
