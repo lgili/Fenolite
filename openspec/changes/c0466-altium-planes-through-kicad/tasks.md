@@ -38,3 +38,13 @@
   `uv run pytest tests/unit/convert/test_altium_planes_c0466.py -n 0 -k "copper_names or user_name"`.
 - [x] 5.2 Evidence: census of the copper names of the public rows (S-2254), their round trips (S-2255) and
   KiCad 10.0.6 on the named signal rows (S-2256); rows in `pcb-copper.md` and `board.md`; CHANGELOG.
+- [x] 5.3 Inner signal layer ids (VM at bbe4c452b: row `-07`'s Mid-Layer 2 and 4, ids 3 and 5, came back
+  as 2 and 3). `altium_planes` carries the ids by KiCad row (`signals`) when one is not its position's,
+  restores them as the layers' `layer_id`, and `pcbrecords.copper_stack` keeps a source's rising ids; a
+  board read from Altium keeps them on a direct write too. Proof:
+  `uv run pytest tests/unit/convert/test_altium_planes_c0466.py -n 0 -k "keep_their_ids or copper_names"`.
+- [x] 5.4 Flow A planes (VM at 60687e26d: row `-01`'s planes written as Mid-Layers). The build types the rows
+  of the script's carried planes `power` (`boardcarrier.plane_rows`), and the carrier holds the copper
+  rows' user names (`names`), which the way back gives a row that lost its own. Rows `-01` and `-07` come
+  back from flow A with the source's chain, names, plane nets and splits. Proof:
+  `uv run pytest tests/unit/convert/test_altium_planes_c0466.py -n 0 -k flow_a`.

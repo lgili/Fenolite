@@ -310,7 +310,10 @@ track and via flags above). Altium Designer's own view of a written lock is step
   plane. Since change c0085 the map is by position, for any stack: the first copper layer of the
   model is the top layer (1), the last the bottom layer (32), and the k-th inner copper layer is Mid-Layer k
   (id k + 1) as a signal layer, whatever its name and whatever the other inner layers are; the planes are
-  Internal Plane 1, 2, … (39, 40, …) from the top. Two model layers never share an Altium layer. A stack is
+  Internal Plane 1, 2, … (39, 40, …) from the top. Since change c0466 an inner signal layer that holds a
+  source's id keeps it when the ids of all inner signal layers rise within 2 … 31: a board read from Altium,
+  or one a conversion carried through KiCad (`Fenolite.Altium.Planes`, `signals`). Row `-07`'s Mid-Layer 2
+  and 4 (ids 3 and 5, S-2254) were written as 2 and 3 before. Two model layers never share an Altium layer. A stack is
   written with an even number of copper layers from 2 to 32 that holds at most 16 signal layers and 16 internal planes;
   any other count gives the stack of the two outer layers and `altium.not-lowered` with `where`
   `stackup`.
@@ -327,7 +330,12 @@ track and via flags above). Altium Designer's own view of a written lock is step
   row that a signal layer reaches takes the layer's Altium name as user name when the writer would write
   another (`Top Layer`, `Bottom Layer`, `Mid-Layer <k>` for `In<k>.Cu`), and the writer names a signal layer
   after its KiCad row's user name unless a record cannot hold it, it names another Altium layer or two
-  layers take it (S-2254, S-2255). The
+  layers take it (S-2254, S-2255). The carrier also holds each named row's user name (`names`) and, when one
+  is not its position's, each inner signal layer's Altium id (`signals`); the way back gives a row without a
+  user name the carried one, so a rename in KiCad is kept. Through flow A (`import --to python`, `build`,
+  `convert --to altium`) the script keeps the carrier, the KiCad build types the rows it names as planes
+  `power` again, and rows `-01` and `-07` come back with the source's chain, names, plane nets and splits;
+  they came back with Mid-Layers and Altium's names before. The
   plane's copper is still not in KiCad (change c0461), and the legacy `PLANE<k>PULLBACK` keys are not
   written (S-2251, S-2252).
 - **Tracks and arcs.** The short forms (36 and 47 bytes) with flags `0C 00`, or `08 00` for a locked

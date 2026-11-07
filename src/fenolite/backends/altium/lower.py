@@ -750,7 +750,7 @@ def _stack(
     if problem is not None:
         account.skip("stackup", board.id, f"{problem}; the stack of {names[0]} and {names[-1]} is written")
         names = (names[0], names[-1]) if len(names) > 1 else ("F.Cu", "B.Cu")
-    ids = rec.copper_stack(names, tuple(planes))
+    ids = rec.copper_stack(names, tuple(planes), _signal_ids(copper))
     plane_nets = tuple(planes[name] for name in names if name in planes)
     found = None
     if board.stackup is not None and problem is None:
@@ -761,6 +761,19 @@ def _stack(
         elif stack_unheld(board.stackup):
             account.skip("stackup", board.stackup.id, stack_unheld_reason(stack_unheld(board.stackup)))
     return names, found or StackSpec.default(ids, plane_nets), frozenset(planes)
+
+
+def _signal_ids(copper: Sequence[Layer]) -> dict[str, int]:
+    """The Altium ids of the copper layers that hold a signal layer's id (2 … 31) in their ``altium`` bag:
+    a board read from Altium, or one a conversion carried through KiCad (change c0466,
+    ``convert.altium_planes``)."""
+    found: dict[str, int] = {}
+    for layer in copper:
+        bag = layer.ext.get(BACKEND)
+        ident = dict(bag.payload).get("layer_id", "") if bag is not None else ""
+        if ident.isdecimal() and 2 <= int(ident) <= 31:
+            found[layer.name] = int(ident)
+    return found
 
 
 def _built_stack(board: Board, options: LowerOptions) -> tuple[tuple[str, ...], StackSpec, frozenset[str]]:
@@ -2312,7 +2325,7 @@ def _document(
         layers, stack, planes = _stack(
             board, nets, account, {n for n, p in carried_planes.items() if p.splits}
         )
-    plane_ids = dict(zip(layers, rec.copper_stack(layers, tuple(planes)), strict=True))
+    plane_ids = dict(zip(layers, stack.copper, strict=True))
     if options is None and carried_planes and planes:  # change c0466: the carried pull-backs
         order = [name for name in layers if name in planes]
         pullbacks = tuple(
@@ -2350,11 +2363,7 @@ def _document(
     layer_ids: Mapping[str, int] = MappingProxyType(
         {
             **(MECHANICAL_LAYERS if read else kicad_mechanical(board) if options is None else {}),
-            **(
-                dict(zip(layers, rec.copper_stack(layers, tuple(planes)), strict=True))
-                if options is None
-                else {}
-            ),
+            **(dict(zip(layers, stack.copper, strict=True)) if options is None else {}),
         }
     )
     components, free_pads = _footprints(
@@ -2369,7 +2378,7 @@ def _document(
         layer_ids=layer_ids,
         copper=layers,
         options=options,
-        copper_ids=dict(zip(layers, rec.copper_stack(layers, tuple(planes)), strict=True)),
+        copper_ids=dict(zip(layers, stack.copper, strict=True)),
         models=models,
     )
     matched: dict[str, ArcPolygon] = {}

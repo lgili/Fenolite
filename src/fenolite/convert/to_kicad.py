@@ -615,7 +615,10 @@ def write_altium(source: SourceProject, options: Options) -> Written:
 
         board_items[zonearcs.PROPERTY] = zonearcs.carrier_text(arcs).encode("utf-8")
     planes = _carried_planes(source, design)
-    if planes.planes:  # change c0466: each internal plane's net, pull-back and splits, for the way back
+    if (
+        planes.planes or planes.signals or planes.names
+    ):  # change c0466: each plane's net, pull-back and splits, and the
+        # inner signal layers' ids, for the way back
         from fenolite.convert import altium_planes
 
         board_items[altium_planes.PROPERTY] = altium_planes.carrier_text(planes).encode("utf-8")

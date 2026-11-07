@@ -20,12 +20,13 @@ import json
 from collections.abc import Mapping, Sequence
 from typing import Any, cast
 
+from fenolite.backends.kicad import boardcarrier
 from fenolite.core.coords import Point
 from fenolite.model.base import ExtBag
 from fenolite.model.board import Board, Layer
 from fenolite.model.design import Design
 
-PROPERTY = "Fenolite.Altium.Planes"
+PROPERTY = boardcarrier.PLANES
 """The board property that carries the planes (``boardcarrier``)."""
 SCHEMA = "fenolite.altium-planes.v0"
 MULTIPLE_NETS = "(Multiple Nets)"
@@ -62,10 +63,46 @@ class Plane:
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class Carried:
-    """The carried planes, in chain order, and the low corner of the board's edge when it has one."""
+    """The carried planes, in chain order, the low corner of the board's edge when it has one, and the
+    Altium ids of the inner signal layers by KiCad row when they are not the ids the writer would number
+    (``signal_ids``; a source's Mid-Layer 2 and 4 on ``In1.Cu`` and ``In2.Cu``)."""
 
     planes: tuple[Plane, ...]
     corner: Point | None = None
+    signals: tuple[tuple[str, int], ...] = ()
+    names: tuple[tuple[str, str], ...] = ()
+    """The Altium name of each copper row that the conversion named (``altium_to_kicad.copper_rows``), for a
+    board whose rows lost their user names on the way, as a build of an imported script does (flow A)."""
+
+
+def row_names(written: Board) -> tuple[tuple[str, str], ...]:
+    """The user name of each copper row of ``written`` that has one (``kicad`` bag ``user_name``), in stack
+    order."""
+    found: list[tuple[str, str]] = []
+    for layer in sorted((x for x in written.layers if x.kind == "copper"), key=lambda x: x.ordinal):
+        bag = layer.ext.get("kicad")
+        name = dict(bag.payload).get("user_name") if bag is not None else None
+        if name:
+            found.append((layer.name, name))
+    return tuple(found)
+
+
+def signal_ids(source: Board, written: Board) -> tuple[tuple[str, int], ...]:
+    """The KiCad rows of ``written`` paired in stack order with the copper layers of the imported
+    ``source`` and the Altium id of each inner signal layer (2 … 31), when one of them is not the id of its
+    position (Mid-Layer k is id k + 1, ``pcbrecords.copper_stack``); empty otherwise."""
+    copper = sorted((x for x in source.layers if x.kind == "copper"), key=lambda x: x.ordinal)
+    rows = sorted((x for x in written.layers if x.kind == "copper"), key=lambda x: x.ordinal)
+    if len(copper) != len(rows) or len(copper) < 3:
+        return ()
+    found: list[tuple[str, int]] = []
+    moved = False
+    for position, (layer, row) in enumerate(zip(copper[1:-1], rows[1:-1], strict=True), start=1):
+        ident = _pair(layer, "layer_id") or ""
+        if ident.isdecimal() and 2 <= int(ident) <= 31:
+            found.append((row.name, int(ident)))
+            moved = moved or int(ident) != position + 1
+    return tuple(found) if moved else ()
 
 
 def edge_corner(board: Board) -> Point | None:
@@ -113,10 +150,11 @@ def found(source: Design, target: Design, document: Any) -> Carried:
     board, written = source.board, target.board
     if board is None or written is None:
         return Carried(())
+    signals, named = signal_ids(board, written), row_names(written)
     copper = sorted((x for x in board.layers if plane_id(x) is not None), key=lambda x: x.ordinal)
     rows = plane_layers(target)
     if not copper or len(rows) != len(copper):
-        return Carried(())
+        return Carried((), edge_corner(written) if signals or named else None, signals, named)
     nets = {net.name for net in source.circuit.nets}
     names = [n.name for n in document.nets] if document is not None else []
     fields = dict(document.board.record.fields) if document is not None else {}
@@ -140,7 +178,7 @@ def found(source: Design, target: Design, document: Any) -> Carried:
         if net is None or not whole or (net not in nets and not (net == MULTIPLE_NETS and splits)):
             continue
         planes.append(Plane(row, net, pullback, tuple(splits)))
-    return Carried(tuple(planes), edge_corner(written))
+    return Carried(tuple(planes), edge_corner(written), signals, named)
 
 
 def _point(value: object) -> Point | None:
@@ -167,6 +205,10 @@ def carrier_text(carried: Carried) -> str:
             for plane in carried.planes
         ],
     }
+    if carried.signals:  # change c0466: absent from a carrier of planes alone, whose text stays as it was
+        root["signals"] = [[row, ident] for row, ident in carried.signals]
+    if carried.names:
+        root["names"] = [[row, name] for row, name in carried.names]
     return json.dumps(root, sort_keys=True, separators=(",", ":"))
 
 
@@ -202,7 +244,24 @@ def read_carrier(data: bytes | None) -> Carried:
         if raw and not splits:
             continue
         planes.append(Plane(layer, net, pullback, tuple(splits)))
-    return Carried(tuple(planes), _point(root.get("corner")))
+    raw_signals = root.get("signals")
+    signals: list[tuple[str, int]] = []
+    for item in cast("list[object]", raw_signals) if isinstance(raw_signals, list) else []:
+        pair = cast("list[object]", item) if isinstance(item, list) else []
+        if (
+            len(pair) == 2
+            and isinstance(pair[0], str)
+            and isinstance(pair[1], int)
+            and not isinstance(pair[1], bool)
+        ):
+            signals.append((pair[0], pair[1]))
+    raw_names = root.get("names")
+    named: list[tuple[str, str]] = []
+    for item in cast("list[object]", raw_names) if isinstance(raw_names, list) else []:
+        pair = cast("list[object]", item) if isinstance(item, list) else []
+        if len(pair) == 2 and isinstance(pair[0], str) and isinstance(pair[1], str) and pair[1]:
+            named.append((pair[0], pair[1]))
+    return Carried(tuple(planes), _point(root.get("corner")), tuple(signals), tuple(named))
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -223,8 +282,10 @@ def restored(design: Design, carried: Carried) -> Restored:
     from fenolite.backends.kicad.layers import plane_layers
 
     board = design.board
-    if board is None or not carried.planes:
+    if board is None or not (carried.planes or carried.signals or carried.names):
         return Restored(design, {})
+    ids = dict(carried.signals)
+    named = dict(carried.names)
     rows = set(plane_layers(design))
     nets = {net.name for net in design.circuit.nets}
     by_name = {layer.name: layer for layer in board.layers}
@@ -254,6 +315,15 @@ def restored(design: Design, carried: Carried) -> Restored:
             bag = layer.ext.get("altium", ExtBag())
             pairs = (*(p for p in bag.payload if p[0] != "plane_net"), ("plane_net", plane.net))
             layer = dataclasses.replace(layer, ext={**layer.ext, "altium": ExtBag(bag.min_version, pairs)})
+        elif layer.name in ids and layer.kind == "copper":  # change c0466: the signal layer's Altium id
+            bag = layer.ext.get("altium", ExtBag())
+            pairs = (*(p for p in bag.payload if p[0] != "layer_id"), ("layer_id", str(ids[layer.name])))
+            layer = dataclasses.replace(layer, ext={**layer.ext, "altium": ExtBag(bag.min_version, pairs)})
+        held = layer.ext.get("kicad", ExtBag())
+        if layer.name in named and layer.kind == "copper" and not dict(held.payload).get("user_name"):
+            # change c0466: the Altium name of a row that came back without its user name (flow A)
+            pairs = (*held.payload, ("user_name", named[layer.name]))
+            layer = dataclasses.replace(layer, ext={**layer.ext, "kicad": ExtBag(held.min_version, pairs)})
         layers.append(layer)
     board = dataclasses.replace(board, layers=tuple(layers))
     return Restored(dataclasses.replace(design, board=board), kept, tuple(lost))

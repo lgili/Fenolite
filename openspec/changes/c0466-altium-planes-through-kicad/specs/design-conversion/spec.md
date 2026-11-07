@@ -61,3 +61,30 @@ name.
 - **WHEN** it is converted to KiCad and the KiCad board back to Altium
 - **THEN** the KiCad rows `In1.Cu` and `In2.Cu` carry those user names, and the written document names its
   Mid-Layer 1 and 2 so
+
+### Requirement: Altium inner signal layer ids through KiCad
+
+A conversion of an Altium design to KiCad SHALL carry the Altium id of each inner signal layer by KiCad row
+when one of them is not the id of its position (Mid-Layer k is id k + 1). The Altium writer SHALL write an
+inner signal layer that holds a source's id with that id when the ids of all inner signal layers rise
+within 2 … 31, and SHALL number them by position otherwise.
+
+#### Scenario: Inner signal layers keep their ids
+
+- **GIVEN** the public row `altium-third-party-pcbdoc-07`, whose inner signal layers are Mid-Layer 2 and 4
+  (ids 3 and 5)
+- **WHEN** it is converted to KiCad and the KiCad board back to Altium
+- **THEN** the written copper chain is 1, 3, 5, 32 with the source's names
+
+### Requirement: Altium planes, copper names and ids through flow A
+
+The KiCad build SHALL type `power` each copper row that a board-level `Fenolite.Altium.Planes` property of
+the script names as a plane. A conversion back to Altium SHALL give a copper row without a user name the
+name that property carries for it.
+
+#### Scenario: Planes, names and ids survive flow A
+
+- **GIVEN** the public row `altium-third-party-pcbdoc-01`, with two split planes of `(Multiple Nets)` and
+  named copper layers
+- **WHEN** it is imported to Python, built and the build converted to Altium
+- **THEN** the written chain, its names, the plane nets and the Split Plane polygons are the source's

@@ -216,13 +216,17 @@ def stack_problem(count: int, planes: int) -> str | None:
     return None
 
 
-def copper_stack(names: Sequence[str], planes: Sequence[str] = ()) -> tuple[int, ...]:
+def copper_stack(
+    names: Sequence[str], planes: Sequence[str] = (), signals: Mapping[str, int] | None = None
+) -> tuple[int, ...]:
     """The Altium ids of a board's copper layers from top to bottom (``pcb-copper.md``, "Fenolite's
     choices", "Layers"). ``names`` are the model's copper layers in stack order, distinct; ``planes`` names
     the inner layers that are internal planes. The first layer is the top layer (1) and the last the
     bottom layer (32); the k-th inner layer is Mid-Layer k (id k + 1) as a signal layer, whatever the other
     inner layers are, and the planes are numbered from the top (39, 40, …). ``ValueError`` names a stack
-    that ``stack_problem`` refuses, a repeated layer or a plane that is not an inner layer."""
+    that ``stack_problem`` refuses, a repeated layer or a plane that is not an inner layer. ``signals`` gives
+    inner signal layers their ids (change c0466, a source's Mid-Layer 2 and 4 stay ids 3 and 5): used when
+    it gives every inner signal layer an id of 2 … 31, rising from the top."""
     layers = tuple(names)
     wanted = tuple(planes)
     if len(set(layers)) != len(layers):
@@ -233,6 +237,11 @@ def copper_stack(names: Sequence[str], planes: Sequence[str] = ()) -> tuple[int,
     problem = stack_problem(len(layers), len(wanted))
     if problem is not None:
         raise ValueError(problem)
+    given = [(signals or {}).get(name, 0) for name in inner if name not in wanted]
+    kept = all(2 <= ident <= 31 for ident in given) and all(
+        a < b for a, b in zip(given, given[1:], strict=False)
+    )
+    rising = iter(given)
     ids: list[int] = [TOP_LAYER]
     plane = FIRST_PLANE
     for position, name in enumerate(inner, start=1):
@@ -240,7 +249,8 @@ def copper_stack(names: Sequence[str], planes: Sequence[str] = ()) -> tuple[int,
             ids.append(plane)
             plane += 1
         else:
-            ids.append(position + 1)
+            ident = next(rising)
+            ids.append(ident if kept else position + 1)
     ids.append(BOTTOM_LAYER)
     return tuple(ids)
 

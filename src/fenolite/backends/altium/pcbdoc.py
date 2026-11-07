@@ -2421,10 +2421,14 @@ def document_stack(spec: PcbDocSpec) -> StackSpec:
         for name, layer in zip(spec.copper_layers, stack.copper, strict=False)
         if layer >= rec.FIRST_PLANE and name not in (spec.copper_layers[0], spec.copper_layers[-1])
     ]
-    # a stack of more than 16 copper layers holds planes; the ids are checked with them (change c0277)
+    # a stack of more than 16 copper layers holds planes; the ids are checked with them (change c0277), and
+    # the inner signal layers may keep a source's ids, rising from the top (change c0466)
+    signals = {
+        name: layer for name, layer in zip(spec.copper_layers, stack.copper, strict=False) if layer <= 31
+    }
     if (
         len(stack.copper) != len(spec.copper_layers)
-        or rec.copper_stack(spec.copper_layers, planes) != stack.copper
+        or rec.copper_stack(spec.copper_layers, planes, signals) != stack.copper
     ):
         raise ValueError(
             f"the stack {stack.copper!r} does not hold one id per copper layer of {spec.copper_layers!r}"

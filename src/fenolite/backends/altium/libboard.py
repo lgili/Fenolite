@@ -181,7 +181,7 @@ class StackSpec:
         if not valid_stack(self.copper):
             raise ValueError(
                 f"the copper layers {self.copper!r} are not a stack that is written: the top layer 1, "
-                "then each inner layer as Mid-Layer k (k + 1) at position k or as the next internal plane "
+                "then each inner layer as a Mid-Layer of rising id (2 to 31) or as the next internal plane "
                 "from 39, then the bottom layer 32, an even count with at most 16 signal layers"
             )
         for low, high in self.drill_pairs:
@@ -245,17 +245,21 @@ class StackSpec:
 
 
 def valid_stack(copper: tuple[int, ...]) -> bool:
-    """Whether ``copper`` is a stack ``pcbrecords.copper_stack`` gives: 1, the inner ids, 32."""
+    """Whether ``copper`` is a stack ``pcbrecords.copper_stack`` gives: 1, the inner ids, 32. The inner
+    signal layers rise within 2 … 31 (Mid-Layer k at position k, or the ids of a source, change c0466)."""
     if len(copper) < 2 or copper[0] != rec.TOP_LAYER or copper[-1] != rec.BOTTOM_LAYER:
         return False
     planes = [layer for layer in copper[1:-1] if layer >= rec.FIRST_PLANE]
     if rec.stack_problem(len(copper), len(planes)) is not None:
         return False
     plane = rec.FIRST_PLANE
-    for position, layer in enumerate(copper[1:-1], start=1):
+    signal = rec.TOP_LAYER
+    for layer in copper[1:-1]:
         if layer == plane:
             plane += 1
-        elif layer != position + 1:
+        elif signal < layer < rec.BOTTOM_LAYER:
+            signal = layer
+        else:
             return False
     return True
 

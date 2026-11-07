@@ -17,9 +17,11 @@ from __future__ import annotations
 
 import base64
 import binascii
+import json
 import re
 import zlib
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
+from typing import cast
 
 from fenolite.backends.kicad.sexpr import Atom, Node, parse
 from fenolite.core.errors import FormatError
@@ -135,4 +137,32 @@ def with_carried(text: str, items: Mapping[str, bytes]) -> str:
     return data.decode("utf-8")
 
 
-__all__ = ["EVIDENCE", "PREFIX", "carried", "pack", "unpack", "with_carried"]
+PLANES = "Fenolite.Altium.Planes"
+"""The property of the carried internal planes (``convert.altium_planes``, change c0466)."""
+
+
+def plane_rows(items: Sequence[str]) -> tuple[str, ...]:
+    """The KiCad rows that a ``Fenolite.Altium.Planes`` property among the board-level verbatim texts
+    ``items`` names as internal planes (``convert.altium_planes.carrier_text``: each plane's ``layer``), in
+    its order; empty when none does or it does not read. A build of a script that ``import --to python``
+    wrote from an Altium document types these rows ``power`` again, as the conversion to KiCad did, so the
+    conversion back finds its planes (change c0466, flow A)."""
+    for item in items:
+        if f'"{PLANES}"' not in item:
+            continue
+        data = carried(f"(kicad_pcb {item})").get(PLANES)
+        try:
+            root: object = json.loads(data.decode("utf-8")) if data else None
+        except (UnicodeDecodeError, ValueError):
+            return ()
+        planes = cast("dict[str, object]", root).get("planes") if isinstance(root, dict) else None
+        rows = [
+            cast("dict[str, object]", entry).get("layer")
+            for entry in (cast("list[object]", planes) if isinstance(planes, list) else [])
+            if isinstance(entry, dict)
+        ]
+        return tuple(row for row in rows if isinstance(row, str))
+    return ()
+
+
+__all__ = ["EVIDENCE", "PLANES", "PREFIX", "carried", "pack", "plane_rows", "unpack", "with_carried"]

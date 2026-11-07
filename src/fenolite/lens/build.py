@@ -24,6 +24,7 @@ from typing import Literal, Protocol, TypeGuard, cast
 
 from fenolite.backends import step as step_mod
 from fenolite.backends.kicad import (
+    boardcarrier,
     boarditems,
     dru,
     embed,
@@ -2053,11 +2054,19 @@ def build_design(
         unexported = vialib.not_exported(target_design)
         if unexported is not None:
             issues.append(unexported)
-    if planes and target_design.board is not None:
+    carried_planes = (
+        boardcarrier.plane_rows(
+            [item.text for item in target_design.board.verbatim if item.component_id is None]
+        )
+        if target_design.board is not None
+        else ()
+    )  # change c0466: the rows of the Altium planes a script carries (flow A)
+    if (planes or carried_planes) and target_design.board is not None:
         # after the merge: the table may be the existing board's, whose other types are kept
         held_copper = {layer.name for layer in target_design.board.layers if layer.kind == "copper"}
         typed = with_plane_types(
-            target_design.board.layers, tuple(name for name in planes if name in held_copper)
+            target_design.board.layers,
+            tuple(dict.fromkeys(name for name in (*(planes or {}), *carried_planes) if name in held_copper)),
         )
         if typed != target_design.board.layers:
             target_design = dataclasses.replace(

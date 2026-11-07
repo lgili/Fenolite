@@ -17,7 +17,7 @@ from _altium_board6 import at, bare_spec
 
 from fenolite.backends.altium import pcbdoc
 from fenolite.backends.altium import pcbrecords as rec
-from fenolite.backends.altium.libboard import MULTIPLE_NETS, StackSpec
+from fenolite.backends.altium.libboard import MULTIPLE_NETS, StackSpec, valid_stack
 from fenolite.backends.altium.read.pcb import PcbDocument, read_pcbdoc
 from fenolite.backends.kicad import boardcarrier
 from fenolite.convert import altium_planes, convert_project
@@ -228,10 +228,11 @@ SIGNAL_ROWS = {
         (3, "Internal Layer 2"),
         (32, "Bottom Layer"),
     ],
-    "altium-third-party-pcbdoc-07": [(1, "Layer 1"), (2, "Layer 2"), (3, "Layer 3"), (32, "Layer 4")],
+    "altium-third-party-pcbdoc-07": [(1, "Layer 1"), (3, "Layer 2"), (5, "Layer 3"), (32, "Layer 4")],
 }
-"""The written copper chain of each row (S-2254): its signal layers keep their names; the writer writes the
-k-th inner signal layer as Mid-Layer k, so row ``-07``'s inner layers 3 and 5 are written as 2 and 3."""
+"""The written copper chain of each row (S-2254): its signal layers keep their names and their ids; row
+``-07``'s inner layers are Mid-Layer 2 and 4 (ids 3 and 5), which the writer wrote as 2 and 3 before the
+conversion carried them (``Fenolite.Altium.Planes``, ``signals``)."""
 
 
 @pytest.mark.needs_corpus
@@ -245,8 +246,7 @@ def test_row_copper_names_survive_kicad(tmp_path: Path, row: str) -> None:
     source = require(item)
     text, written, _ = _round_trip(tmp_path, source)
     original = read_pcbdoc(source.read_bytes())
-    assert [name for _, name in _chain(written)] == [name for _, name in _chain(original)]
-    assert _chain(written) == SIGNAL_ROWS[row]
+    assert _chain(written) == _chain(original) == SIGNAL_ROWS[row]
     named = re.findall(r'\(\d+ "(?:F|B|In\d+)\.Cu" signal "([^"]*)"\)', text)
     assert named == [n for i, n in SIGNAL_ROWS[row] if i <= 32 and n not in ("Top Layer", "Bottom Layer")]
 
@@ -265,3 +265,60 @@ def test_a_kicad_rows_user_name_names_its_altium_layer(tmp_path: Path) -> None:
     back = convert_project(read_source(board), to="altium", allow_lossy=True)
     (written,) = [data for name, data in back.files.items() if name.endswith(".PcbDoc")]
     assert _chain(read_pcbdoc(written)) == [(1, "Component Side"), (32, "Bottom Layer")]
+
+
+def test_inner_signal_layers_keep_their_ids() -> None:
+    """Scenario "Inner signal layers keep their ids": ids given to the inner signal layers are kept when
+    they rise within 2 … 31; otherwise the k-th inner signal layer is Mid-Layer k."""
+    assert rec.copper_stack(LAYERS, (), {"In1.Cu": 3, "In2.Cu": 5}) == (1, 3, 5, 32)
+    assert valid_stack((1, 3, 5, 32)) and not valid_stack((1, 5, 3, 32))
+    assert rec.copper_stack(LAYERS, ("In2.Cu",), {"In1.Cu": 4}) == (1, 4, 39, 32)
+    for wrong in (
+        {"In1.Cu": 5, "In2.Cu": 3},
+        {"In1.Cu": 3},
+        {"In1.Cu": 1, "In2.Cu": 5},
+        {"In1.Cu": 3, "In2.Cu": 32},
+    ):
+        assert rec.copper_stack(LAYERS, (), wrong) == (1, 2, 3, 32)
+
+
+FLOW_A_ROWS = ("altium-third-party-pcbdoc-01", "altium-third-party-pcbdoc-07")
+"""The rows flow A is run on: ``-01``'s two split planes (the VM finding at 60687e26d: written as
+Mid-Layers) and ``-07``'s inner signal layers 3 and 5."""
+
+
+@pytest.mark.needs_corpus
+@pytest.mark.parametrize("row", FLOW_A_ROWS)
+def test_flow_a_keeps_planes_names_and_ids(tmp_path: Path, row: str) -> None:
+    """Scenario "Planes, names and ids survive flow A" (``import --to python``, ``build``, ``convert --to
+    altium``): the build types the rows the script's ``Fenolite.Altium.Planes`` names as planes ``power``
+    again, and the way back restores the copper names the build did not write, so the written chain, the
+    plane nets and the Split Plane polygons are the source's."""
+    from _corpus import manifest_items, require
+
+    from fenolite.api import run
+
+    stamp = "2026-11-07T00:00:00Z"
+
+    def go(*args: str) -> None:
+        planned = run(*args, "--dry-run", cwd=tmp_path, timestamp=stamp)
+        assert planned.exit_code == 0, planned.error
+        done = run(
+            *args, "--confirm", "--plan", str(planned.result["plan_id"]), cwd=tmp_path, timestamp=stamp
+        )
+        assert done.exit_code == 0, done.error
+
+    (item,) = [i for i in manifest_items("altium-pcbdoc") if i.id == row]
+    source = require(item)
+    go("import", str(source), "--to", "python", "--out", "py", "--licence", "CC0-1.0", "--copyright",
+       "2026 Fenolite contributors", "--allow-lossy")  # fmt: skip
+    go("build", str(tmp_path / "py" / "design.py"), "--out", "b")
+    (built,) = (tmp_path / "b").glob("*.kicad_pcb")
+    go("convert", str(built), "--to", "altium", "--out", "alt", "--allow-lossy")
+    (path,) = (tmp_path / "alt").glob("*.PcbDoc")
+    written, original = read_pcbdoc(path.read_bytes()), read_pcbdoc(source.read_bytes())
+    assert _chain(written) == _chain(original)
+    planes = [k - 38 for k, _ in _chain(original) if k >= 39]
+    fields, before = _fields(written), _fields(original)
+    assert [fields[f"PLANE{k}NETNAME"] for k in planes] == [before[f"PLANE{k}NETNAME"] for k in planes]
+    assert _splits(written) == _splits(original)
