@@ -105,6 +105,9 @@ Rules for every task:
   recorded as S-2225.
 - [ ] 5.2 The maintainer's board, flow B: 28 of 28 polygons poured, and Altium DRC with no Repour equal
   per rule to the DRC after Repour. The coordinator records the counts as S-2226. Proof: that record.
+  State at the cutoff (2026-11-07): S-2226 records flow B at `b97c3908a` (0 of 28, all from Altium's default
+  keep-out clearance) and, with that clearance read (`fd8b37443`), 28 of 28 poured in-process. The Altium DRC
+  with and without Repour was not run: deferred to v0.8 with task 5.1.
 - [ ] 5.3 Evidence `ALTIUM-VERIFIED(kit)`, the new message texts, CHANGELOG, `gen_evidence_matrix` and
   `gen_altium_graduation` checks, and `openspec validate --all --strict`. Proof:
   `uv run pytest tests/unit/backends/altium/test_pour_modes.py -q -n 0`, then each `--check`.
